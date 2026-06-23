@@ -59,6 +59,17 @@
           {
             "type": "command",
             "command": "scripts/hooks/log-stop.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/hooks/log-subagent.sh",
             "timeout": 20
           }
         ]

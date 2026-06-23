@@ -31,7 +31,7 @@ $KDIR/
 ├── skills/              # User/agent-created reusable procedures (category: skills)
 ├── templates/           # Entry templates installed at init (self-contained)
 ├── work/                # Per-feature plans/worklogs/state (<feature>/plan.md, .loop/)
-└── logs/                # Every prompt + full session transcripts (prompts.log, sessions/)
+└── logs/                # prompts.log + sessions/<id>/{main,full}.md + per-subagent transcripts
 ```
 
 Everything mutable lives here. The orchestrator package stays read-only during

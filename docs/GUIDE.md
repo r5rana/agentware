@@ -118,15 +118,25 @@ exist, run `scripts/agentware index validate` afterward. Never hand-edit
 
 ## The audit log (never lose a prompt or a session)
 
-Two hooks record everything to your dir, timestamped:
+Hooks record everything to your dir, timestamped:
 
 - `logs/prompts.log` — **every prompt you submit**, appended immediately, so you
   never lose something you typed.
-- `logs/sessions/<session-id>.jsonl` — the **complete** raw transcript of a
-  session (prompts, assistant replies, tool calls, results).
-- `logs/sessions/<session-id>.md` — a readable, timestamped render of the same.
+- `logs/sessions/<session-id>/` — one folder per session:
+  - `main.jsonl` — the **complete, lossless** transcript of the main agent
+    (prompts, assistant text, thinking, every tool call with file names, results).
+  - `main.md` — readable, timestamped render of the above.
+  - `subagents/<agent-id>.jsonl` + `.md` — the **full transcript of every
+    subagent** the session spawned (its own thinking + tool calls), one per agent.
+  - `full.md` — the main transcript with **every subagent appended at the end**,
+    so one file shows the entire session including all delegated work.
+- `logs/activity.log` — one line per turn / per subagent (quick index).
 
 Go back and read any session anytime. It's your data; nothing is hidden.
+
+> The lossless `.jsonl` files are the source of truth; the `.md` renders truncate
+> only individual very-long blocks for readability. (Very large tool outputs that
+> Claude Code spills to its own `tool-results/` cache are referenced, not copied.)
 
 ---
 

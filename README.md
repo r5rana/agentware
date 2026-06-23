@@ -189,10 +189,11 @@ repo: `cd /path/to/agentware && ./agentware.sh <feature>`.
 - **Deterministic knowledge.** `scripts/agentware` is the only writer of the index
   and learnings; agents find things via `query`/`audit`/`steering lint` — not by
   re-reading the whole base and burning tokens.
-- **Full audit trail in your space.** Every prompt you send is appended to
-  `<knowledge-dir>/logs/prompts.log`, and every session's complete transcript is
-  saved to `<knowledge-dir>/logs/sessions/<id>.{jsonl,md}` (timestamped), so you
-  can always go back and see exactly what was said and done.
+- **Full audit trail in your space.** Every prompt → `<knowledge-dir>/logs/prompts.log`.
+  Every session → `<knowledge-dir>/logs/sessions/<id>/`: the lossless main
+  transcript (prompts, text, thinking, tool calls with file names, results), the
+  full transcript of **every subagent it spawned**, and a `full.md` with all of
+  them appended — timestamped, so you can replay exactly what was said and done.
 
 ---
 

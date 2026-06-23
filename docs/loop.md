@@ -63,8 +63,8 @@ this repo. The deterministic toolkit (`scripts/agentware`) is the only writer of
 structured knowledge data.
 
 Work artifacts and logs are external too: each feature's plan/worklog/state lives
-in `<knowledge-dir>/work/<feature>/`, and `SessionStart`/`UserPromptSubmit`/`Stop`
-hooks record every prompt + full session transcript to `<knowledge-dir>/logs/`.
+in `<knowledge-dir>/work/<feature>/`, and hooks record every prompt plus the full
+transcript of each session AND every subagent it spawns to `<knowledge-dir>/logs/`.
 The orchestrator package stays read-only across projects.
 
 ## Multi-domain tasks
