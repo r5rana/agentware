@@ -16,7 +16,7 @@
 #                                 [--pre-prompt "extra"]
 #                                 [--main-prompt "extra"]
 #                                 [--post-prompt "extra"]
-#                                 [--dry-run] [--validate]
+#                                 [--dry-run] [--validate] [--no-stream]
 
 set -e
 
@@ -33,7 +33,7 @@ usage() {
   echo "                                     [--pre-prompt \"extra\"]"
   echo "                                     [--main-prompt \"extra\"]"
   echo "                                     [--post-prompt \"extra\"]"
-  echo "                                     [--dry-run] [--validate]"
+  echo "                                     [--dry-run] [--validate] [--no-stream]"
   echo ""
   echo "Flags:"
   echo "  --max-iterations N   Cap main-phase iterations (default 100)"
@@ -42,11 +42,13 @@ usage() {
   echo "  --skip-post          Skip the post (assessment) phase"
   echo "  --dry-run            Print the phase prompts + iteration plan; do NOT spawn the CLI"
   echo "  --validate           Run 'scripts/agentware audit' as a preflight gate"
+  echo "  --no-stream          Disable the live PostToolUse terminal auto-stream follower"
   echo ""
   echo "Env:"
   echo "  AGENTWARE_CLI              agent runtime binary (default: claude)"
   echo "  AGENTWARE_MODEL            model passed to each spawn (default: subagent's own)"
   echo "  AGENTWARE_KNOWLEDGE_DIR    override the external knowledge dir"
+  echo "  AGENTWARE_NO_STREAM        set to disable the live terminal auto-stream (= --no-stream)"
 }
 
 if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
@@ -94,12 +96,16 @@ else
 fi
 
 MAX_ITERATIONS=100
+# Bounded self-heal: how many times the main phase may re-engage the agent to
+# promote unpromoted '> LEARNED:' markers before failing loud (zero-knowledge-loss).
+MAX_PROMOTE_RETRIES=3
 STATE_DIR="$DOCS_DIR/.loop"
 AGENT="agentware-execution"
 SKIP_PRE=false
 SKIP_POST=false
 DRY_RUN=false
 VALIDATE=false
+NO_STREAM=false
 EXTRA_PRE_PROMPT=""
 EXTRA_MAIN_PROMPT=""
 EXTRA_POST_PROMPT=""
@@ -112,12 +118,16 @@ while [[ $# -gt 0 ]]; do
     --skip-post) SKIP_POST=true; shift ;;
     --dry-run) DRY_RUN=true; shift ;;
     --validate) VALIDATE=true; shift ;;
+    --no-stream) NO_STREAM=true; shift ;;
     --pre-prompt) EXTRA_PRE_PROMPT="$2"; shift 2 ;;
     --main-prompt) EXTRA_MAIN_PROMPT="$2"; shift 2 ;;
     --post-prompt) EXTRA_POST_PROMPT="$2"; shift 2 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
+
+# Env opt-out for the live terminal auto-stream (equivalent to --no-stream).
+[[ -n "${AGENTWARE_NO_STREAM:-}" ]] && NO_STREAM=true
 
 # ---- PREFLIGHT GATES ----
 
@@ -163,6 +173,29 @@ fi
 
 mkdir -p "$STATE_DIR"
 
+# ---- LIVE ACTION STREAM (PostToolUse → this terminal) ----
+# Per-run sink the PostToolUse hook (scripts/hooks/log-tool.sh) appends one human
+# line to per tool call. Exported as AGENTWARE_LIVE_LOG so every spawned
+# `claude -p` (pre, main, post) and its PostToolUse hook inherit it. A background
+# `tail -F` follower then echoes those lines into THIS terminal as the agent works
+# — so progress streams live instead of only landing at Stop-time. It is a VIEW,
+# never a gate: a missing/empty sink, a killed tail, --no-stream, or --dry-run
+# must never break the run. Truncate the sink at run start so a prior run's
+# actions don't replay; export BEFORE run_pre_hooks/the phase loops so all spawns
+# inherit it.
+LIVE_LOG="$STATE_DIR/live-stream.log"
+TAIL_PID=""
+export AGENTWARE_LIVE_LOG="$LIVE_LOG"
+: > "$LIVE_LOG" 2>/dev/null || true
+
+# Start the follower unless opted out (--no-stream / AGENTWARE_NO_STREAM) or this
+# is a --dry-run (no CLI is spawned, so nothing would ever write the sink).
+# `-n0` ignores pre-existing lines; `-F` retries/follows by name even though the
+# file may have no lines yet.
+if [[ "$NO_STREAM" != true ]] && [[ "$DRY_RUN" != true ]]; then
+  tail -n0 -F "$LIVE_LOG" 2>/dev/null & TAIL_PID=$!
+fi
+
 FEATURE_NAME=$(basename "$DOCS_DIR")
 FEATURE_UPPER=$(echo "$FEATURE_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
 
@@ -176,12 +209,17 @@ notify() {
 cleanup() {
   local iter
   iter=$(cat "$STATE_DIR/.iteration" 2>/dev/null || echo 0)
+  # Reap the live-stream follower (harmless if unset / already gone).
+  [[ -n "${TAIL_PID:-}" ]] && kill "$TAIL_PID" 2>/dev/null || true
   log "Stopped at iteration $iter"
   notify "stopped"
   exit 130
 }
 
 trap cleanup INT TERM
+# Separate trap slot for the normal-completion path: reap the follower on EXIT so
+# no orphan `tail -F` survives the run. Coexists with the INT/TERM trap above.
+trap '[[ -n "${TAIL_PID:-}" ]] && kill "$TAIL_PID" 2>/dev/null || true' EXIT
 
 log "Starting agentware loop for '$FEATURE_NAME'"
 log "Docs: $DOCS_DIR"
@@ -258,7 +296,13 @@ If a command hangs, it is likely waiting for input — kill and retry with --yes
 7. Append an entry to $DOCS_DIR/worklog.md with timestamp, task, what you did,
    verification results, blockers, next steps
 8. If the task involves knowledge-base changes, mutate it ONLY via scripts/agentware
-9. Output <promise>TASK_COMPLETE</promise> when the task is done
+9. PROMOTE BEFORE THE PROMISE (R-SI-03): run
+   \`scripts/agentware worklog scan --path $DOCS_DIR/worklog.md\`. If it reports any
+   unpromoted '> LEARNED:' markers, promote EACH now via
+   .claude/skills/self-improvement/SKILL.md (durable learnings via
+   \`scripts/agentware learn\`) and re-scan until 0. NEVER emit a <promise> while the
+   scan reports unpromoted markers.
+10. Output <promise>TASK_COMPLETE</promise> when the task is done AND step 9 is clean
 
 ## Methodology (single source of truth — do NOT restate it here)
 AGENTS.md is loaded as a resource. Follow it for everything beyond iteration
@@ -271,10 +315,37 @@ critical rules. When the knowledge base changes, mutate it only via scripts/agen
 - Use relative paths inside repo files
 - Per-iteration completion: output <promise>TASK_COMPLETE</promise> on a SINGLE line
   (advisory only — the loop decides completion from plan.md markers)
-- If ALL tasks in plan.md are ✅, do BOTH:
+- If ALL tasks in plan.md are ✅, FIRST confirm \`scripts/agentware worklog scan
+  --path $DOCS_DIR/worklog.md\` reports 0 unpromoted markers (promote any that
+  remain), THEN do BOTH:
   1. Write the file $STATE_DIR/.done (use the write tool) as the explicit
      feature-complete signal the loop checks
   2. Output <promise>${FEATURE_UPPER}_COMPLETE</promise> on a single line"
+
+# PROMOTE_PROMPT — used by the main-phase self-heal when all tasks are ✅ but the
+# worklog still has unpromoted '> LEARNED:' markers. Promotion ONLY; no feature work.
+PROMOTE_PROMPT="All implementation tasks for $FEATURE_NAME are complete, but the
+zero-knowledge-loss gate found unpromoted '> LEARNED:' markers in
+$DOCS_DIR/worklog.md. Your ONLY job this iteration is to promote them — do NOT
+implement features, edit plan.md tasks, or write $STATE_DIR/.done yet.
+
+## Steps
+1. Run \`scripts/agentware worklog scan --path $DOCS_DIR/worklog.md\` to list the
+   unpromoted markers.
+2. For EACH unpromoted '> LEARNED:' marker, follow
+   .claude/skills/self-improvement/SKILL.md: classify it (durable learning vs skill
+   candidate vs steering candidate). Promote durable learnings via
+   \`scripts/agentware learn --topic <T> --summary <S> --tags <A,B> --content <...>\`
+   (the ONLY writer of the knowledge index — never hand-edit index.json). Append the
+   promotion reference back into the worklog line per the skill so the scan sees it.
+3. Re-run \`scripts/agentware worklog scan --path $DOCS_DIR/worklog.md\` and confirm
+   it reports 0 unpromoted.
+4. Then run \`scripts/agentware index validate\` (must pass).
+
+## Critical
+- Promotion writes ONLY to the external knowledge dir via scripts/agentware (R-KB-01).
+- Do NOT emit any completion <promise> until \`worklog scan\` reports 0 unpromoted.
+- When the scan is clean, output <promise>TASK_COMPLETE</promise> on a single line."
 
 POST_PROMPT="You are assessing the completed implementation of $FEATURE_NAME.
 
@@ -319,6 +390,20 @@ open_markers() {
   local n
   n=$(grep -cE '^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)
   echo "${n:-0}"
+}
+
+# Returns 0 if every '> LEARNED:' marker in the worklog is promoted (zero knowledge
+# loss), non-zero if unpromoted markers remain. This REUSES the deterministic
+# `worklog scan` gate — it does NOT reimplement detection. No-op PASS when the
+# toolkit/worklog is absent or the workspace is not yet initialized (init state is
+# re-resolved live, since onboarding may have run during the main phase).
+learnings_promoted() {
+  [[ -x scripts/agentware ]] || return 0
+  local kdir
+  kdir="$(scripts/agentware config --knowledge-dir-only 2>/dev/null || true)"
+  [[ -n "$kdir" && -f "$kdir/.initialized" ]] || return 0
+  [[ -f "$DOCS_DIR/worklog.md" ]] || return 0
+  scripts/agentware worklog scan --path "$DOCS_DIR/worklog.md" >/dev/null 2>&1
 }
 
 # ---- TOOLKIT HOOKS (deterministic gates around the main phase) ----
@@ -464,17 +549,47 @@ if [[ "$(open_markers)" -eq 0 ]]; then
   exit 1
 fi
 
+# Self-heal state: normally spawn with MAIN_PROMPT; when completion is signalled
+# but learnings are unpromoted, switch to PROMOTE_PROMPT and count bounded retries.
+CURRENT_PROMPT="$MAIN_PROMPT"
+promote_retries=0
+
 for i in $(seq 1 "$MAX_ITERATIONS"); do
   echo "$i" > "$STATE_DIR/.iteration"
   log "--- main iteration $i/$MAX_ITERATIONS ($(open_markers) task(s) remaining) ---"
 
   MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
-  CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$MAIN_PROMPT" || true
+  CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$CURRENT_PROMPT" || true
 
+  # Completion is accepted ONLY when the feature signals done (.done or no open
+  # markers) AND every '> LEARNED:' marker has been promoted (zero knowledge loss).
   if [[ -f "$STATE_DIR/.done" ]] || [[ "$(open_markers)" -eq 0 ]]; then
-    log "✓ Main phase complete at iteration $i (open markers: $(open_markers))"
-    break
+    if learnings_promoted; then
+      log "✓ Main phase complete at iteration $i (open markers: $(open_markers); learnings promoted)"
+      break
+    fi
+
+    # Completion signalled but learnings unpromoted — deterministic, bounded self-heal.
+    promote_retries=$((promote_retries + 1))
+    unpromoted=$(scripts/agentware worklog scan --path "$DOCS_DIR/worklog.md" 2>&1 | grep -oE '[0-9]+ of [0-9]+ LEARNED' | head -1 || true)
+    log "⚠ Completion signalled but '> LEARNED:' markers are unpromoted (${unpromoted:-unpromoted markers remain}). Self-heal attempt $promote_retries/$MAX_PROMOTE_RETRIES — re-engaging to promote."
+    rm -f "$STATE_DIR/.done"
+    CURRENT_PROMPT="$PROMOTE_PROMPT"
+
+    if [[ $promote_retries -ge $MAX_PROMOTE_RETRIES ]]; then
+      echo "Error: AUTO-PROMOTE FAILED: '> LEARNED:' marker(s) still unpromoted after $MAX_PROMOTE_RETRIES self-heal attempt(s)."
+      echo "The feature is NOT complete (zero knowledge loss is enforced)."
+      echo "Promote each via: scripts/agentware learn --topic <T> --summary <S> --tags <A,B> --content <...>"
+      notify "auto-promote failed after $MAX_PROMOTE_RETRIES attempts"
+      exit 1
+    fi
+    sleep 2
+    continue
   fi
+
+  # Not complete yet — a fresh task is being executed; reset self-heal to normal.
+  CURRENT_PROMPT="$MAIN_PROMPT"
+  promote_retries=0
 
   if [[ $i -eq $MAX_ITERATIONS ]]; then
     log "⚠ Reached max iterations ($MAX_ITERATIONS) without completion"

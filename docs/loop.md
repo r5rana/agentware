@@ -67,6 +67,30 @@ in `<knowledge-dir>/work/<feature>/`, and hooks record every prompt plus the ful
 transcript of each session AND every subagent it spawns to `<knowledge-dir>/logs/`.
 The orchestrator package stays read-only across projects.
 
+## Watch a run live
+
+A `PostToolUse` hook (`scripts/hooks/log-tool.sh`) streams **one line per tool
+call** to a per-session live log as the agent works — so you can watch progress in
+real time instead of waiting for the turn to end. Two ways to view it:
+
+**1. Auto-stream in the `agentware.sh` terminal (default).** Every `./agentware.sh`
+run prints each tool action right in its own window as it happens (main phase
+included). Opt out with `--no-stream` or `AGENTWARE_NO_STREAM=1`.
+
+**2. Manual `tail -f` (headless / detached runs).** When the auto-stream terminal
+isn't attached (e.g. a backgrounded or remote run), follow a session's live log
+directly. Tail the newest session:
+
+```bash
+KDIR="$(scripts/aw-knowledge-dir)"
+sid="$(ls -t "$KDIR/logs/sessions" | head -1)"
+tail -f "$KDIR/logs/sessions/$sid/live.md"
+```
+
+`live.md` is the human-readable stream (`[ts] 🔧 <tool> <input summary> → ok|ERR`);
+`live.jsonl` next to it is the machine-readable equivalent. Both are a streaming
+**view** — the lossless per-turn snapshot still lands in `main.{jsonl,md}` at `Stop`.
+
 ## Multi-domain tasks
 
 - **Infrastructure**: any environment the user manages (containers, VMs, cloud,

@@ -20,12 +20,16 @@ portable.
 """
 
 import argparse
+import datetime
 import glob
 import json
+import math
 import os
 import re
 import shutil
+import subprocess
 import sys
+import time
 
 # --- Repo + knowledge-dir resolution ----------------------------------------
 # Repo root = the parent of the scripts/ dir that holds this file. Computed from
@@ -44,6 +48,7 @@ INDEX_REL = "index.json"
 LEARNINGS_REL = "learnings"
 FEATURES_REL = "FEATURES.md"
 SENTINEL_REL = ".initialized"
+LOGS_SESSIONS_REL = os.path.join("logs", "sessions")
 
 # Indexed knowledge categories scaffolded by `init` inside the knowledge dir.
 KNOWLEDGE_SUBDIRS = ("learnings", "projects", "configurations", "prompts",
@@ -200,6 +205,33 @@ def _today():
     return datetime.date.today().isoformat()
 
 
+def _is_valid_date(s):
+    """True iff `s` is a strict YYYY-MM-DD calendar date (stdlib only)."""
+    if not isinstance(s, str):
+        return False
+    import datetime
+    try:
+        datetime.date.fromisoformat(s)
+    except ValueError:
+        return False
+    # fromisoformat is lenient about some forms across versions; pin the shape.
+    return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", s))
+
+
+def entry_last_verified(entry):
+    """Effective freshness date for an entry.
+
+    Back-compat: entries without an explicit `last_verified` are treated as
+    `last_verified == created` (R-FAIL-08 freshness without a forced migration).
+    """
+    if not isinstance(entry, dict):
+        return None
+    lv = entry.get("last_verified")
+    if isinstance(lv, str) and lv:
+        return lv
+    return entry.get("created")
+
+
 def _entry_key(entry):
     return (entry.get("category") or "", entry.get("id") or "")
 
@@ -297,6 +329,13 @@ def validate_index(kdir, data):
         if etags is not None and not isinstance(etags, list):
             errors.append("entry '%s' tags is not a list" % label)
 
+        # Optional `last_verified` (freshness). Back-compat: absent is fine
+        # (treated as == created). When present it MUST be a YYYY-MM-DD date.
+        lv = entry.get("last_verified")
+        if lv is not None and not _is_valid_date(lv):
+            errors.append("entry '%s' last_verified is not YYYY-MM-DD: %r"
+                          % (label, lv))
+
     # Tag map bidirectional consistency: entry.tags -> tags map.
     for entry in entries:
         if not isinstance(entry, dict):
@@ -328,7 +367,8 @@ def validate_index(kdir, data):
     return errors
 
 
-def _do_add(kdir, data, eid, title, category, path, tag_list, summary, created=None):
+def _do_add(kdir, data, eid, title, category, path, tag_list, summary,
+            created=None, last_verified=None):
     """Shared add core. Validates BEFORE mutating; returns (entry, error)."""
     entries = data.setdefault("entries", [])
     tags_map = data.setdefault("tags", {})
@@ -342,6 +382,10 @@ def _do_add(kdir, data, eid, title, category, path, tag_list, summary, created=N
         return None, "duplicate id '%s'" % eid
     if any(e.get("path") == path for e in entries):
         return None, "path already indexed: %s" % path
+    if created is not None and not _is_valid_date(created):
+        return None, "created is not YYYY-MM-DD: %r" % created
+    if last_verified is not None and not _is_valid_date(last_verified):
+        return None, "last_verified is not YYYY-MM-DD: %r" % last_verified
 
     entry = {
         "id": eid,
@@ -352,6 +396,10 @@ def _do_add(kdir, data, eid, title, category, path, tag_list, summary, created=N
         "created": created or _today(),
         "summary": summary,
     }
+    # Optional freshness field: store ONLY when explicitly provided so the 36
+    # legacy entries stay byte-stable (absent == created via entry_last_verified).
+    if last_verified is not None:
+        entry["last_verified"] = last_verified
     insert_entry_sorted(entries, entry)
     add_tags_to_map(tags_map, eid, tag_list)
     return entry, None
@@ -548,7 +596,8 @@ def cmd_index_add(args):
 
     entry, add_err = _do_add(
         kdir, data, args.id, args.title, args.category, args.path,
-        parse_tags(args.tags), args.summary, args.created)
+        parse_tags(args.tags), args.summary, args.created,
+        getattr(args, "last_verified", None))
     if add_err is not None:
         sys.stderr.write("agentware: %s\n" % add_err)
         return 1
@@ -1019,6 +1068,1314 @@ def orphaned_learning_errors(kdir, data):
     return errors
 
 
+# --- Retrieval & evaluation (deterministic, stdlib-only) ---------------------
+# INV-1: ranking is hand-rolled, stdlib-only — NO LLM, NO embeddings, NO network,
+# NO wall-clock in scoring. INV-2: read-only — never mutates index.json or KB.
+# The tokenizer here is the SINGLE shared tokenizer reused by the BM25 `recall`
+# engine (Phase 1) so the baseline (tag) and ranked (bm25) paths stay comparable.
+
+# Fixed, documented tokenizer: lowercase, split on non-alphanumeric runs, no
+# stemming (v1). Pure stdlib; deterministic for identical input.
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+def tokenize(text):
+    """Lowercase + split on non-alphanumeric. Returns a list of tokens."""
+    return _TOKEN_RE.findall((text or "").lower())
+
+
+def estimate_tokens(text):
+    """Documented heuristic: ~4 characters per token (context-budget estimate)."""
+    return (len(text or "") + 3) // 4
+
+
+def _read_entry_body(kdir, entry):
+    """Read an entry's markdown body (read-only, best-effort). '' on any error."""
+    rel = entry.get("path")
+    if not rel:
+        return ""
+    try:
+        with open(os.path.join(kdir, rel), "r", encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def build_corpus(kdir, data):
+    """Return [(entry, doc_text), ...] for every dict entry, in index order.
+
+    doc_text = title + summary + tags + file body. Read-only; this is the shared
+    corpus builder for both the tag baseline (footprint) and BM25 recall (Phase 1).
+    """
+    corpus = []
+    for e in data.get("entries") or []:
+        if not isinstance(e, dict):
+            continue
+        parts = [
+            e.get("title") or "",
+            e.get("summary") or "",
+            " ".join(e.get("tags") or []),
+            _read_entry_body(kdir, e),
+        ]
+        corpus.append((e, "\n".join(parts)))
+    return corpus
+
+
+def retrieve_tag(kdir, data, query, top_k=None):
+    """Baseline strategy: map a free-text query onto the EXACT-tag `query` path.
+
+    Tokenize the query, union the exact-tag hits for each token that is a known
+    tag, and rank entries by (# matching query tokens) desc, then `created` desc,
+    then `id` asc. Deterministic and tokenizer-stable so the baseline reproduces.
+    `kdir` is accepted for a uniform strategy signature (unused here).
+    """
+    tags_map = data.get("tags") or {}
+    by_id = {}
+    for e in data.get("entries") or []:
+        if isinstance(e, dict) and e.get("id") is not None:
+            by_id.setdefault(e.get("id"), e)
+
+    counts = {}
+    for tok in set(tokenize(query)):
+        for eid in tags_map.get(tok, []):
+            counts[eid] = counts.get(eid, 0) + 1
+
+    ranked = list(counts.keys())
+    # Stable multi-pass sort, lowest priority first → highest priority last.
+    ranked.sort(key=lambda eid: eid)                                      # id asc
+    ranked.sort(key=lambda eid: by_id.get(eid, {}).get("created") or "",  # created
+                reverse=True)                                            # desc
+    ranked.sort(key=lambda eid: counts[eid], reverse=True)               # matches desc
+    return ranked if top_k is None else ranked[:top_k]
+
+
+# --- BM25 deterministic ranking (Phase 1) ------------------------------------
+# Fixed, documented Okapi BM25 parameters. Pinned for determinism; identical
+# inputs yield byte-identical ordering (INV-1). No embeddings, no network.
+_BM25_K1 = 1.5
+_BM25_B = 0.75
+
+
+def _bm25_index(corpus):
+    """Build a BM25 index from [(entry, doc_text), ...] in corpus order.
+
+    Returns (docs, df, avgdl): `docs` is [(entry, term_freqs, doc_len), ...] in
+    corpus order, `df` maps term -> number of docs containing it, `avgdl` is the
+    mean document length in tokens. Pure stdlib; deterministic.
+    """
+    docs = []
+    df = {}
+    total_len = 0
+    for entry, text in corpus:
+        toks = tokenize(text)
+        tf = {}
+        for t in toks:
+            tf[t] = tf.get(t, 0) + 1
+        docs.append((entry, tf, len(toks)))
+        total_len += len(toks)
+        for t in tf:
+            df[t] = df.get(t, 0) + 1
+    avgdl = (total_len / len(docs)) if docs else 0.0
+    return docs, df, avgdl
+
+
+def bm25_scores(corpus, query_tokens):
+    """Return [(entry, score), ...] in corpus order, scored by Okapi BM25.
+
+    idf = ln(1 + (N - df + 0.5)/(df + 0.5)) (always positive). Term contribution
+    saturates via k1 and is length-normalized via b. Deterministic for identical
+    input; a doc sharing no query term scores exactly 0.0.
+    """
+    docs, df, avgdl = _bm25_index(corpus)
+    n = len(docs)
+    q_terms = set(query_tokens)
+    idf = {}
+    for t in q_terms:
+        n_t = df.get(t, 0)
+        idf[t] = math.log(1.0 + (n - n_t + 0.5) / (n_t + 0.5))
+    results = []
+    for entry, tf, dl in docs:
+        score = 0.0
+        for t in q_terms:
+            f = tf.get(t, 0)
+            if f == 0:
+                continue
+            norm = 1.0 - _BM25_B + _BM25_B * (dl / avgdl if avgdl else 0.0)
+            denom = f + _BM25_K1 * norm
+            score += idf[t] * (f * (_BM25_K1 + 1.0)) / denom
+        results.append((entry, score))
+    return results
+
+
+def retrieve_bm25(kdir, data, query, top_k=None):
+    """BM25 recall strategy over title+summary+tags+body. Returns ranked ids.
+
+    Deterministic ordering: score desc -> created desc -> id asc. Only entries
+    with a positive score (sharing >=1 query term) are returned. Read-only
+    (INV-2); no network/LLM/embeddings (INV-1, INV-6).
+    """
+    corpus = build_corpus(kdir, data)
+    scored = [(e, s) for (e, s) in bm25_scores(corpus, tokenize(query)) if s > 0.0]
+    # Stable multi-pass sort: lowest priority first, highest priority last.
+    scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc
+    scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)    # created desc
+    scored.sort(key=lambda es: es[1], reverse=True)                         # score desc
+    ids = [e.get("id") for (e, _s) in scored]
+    return ids if top_k is None else ids[:top_k]
+
+
+def recall_ranked(kdir, data, query, top_k=None, category=None):
+    """Deterministic BM25 recall returning [(entry, score, doc_text), ...].
+
+    Reuses the shared `build_corpus` + `bm25_scores` so ordering is byte-identical
+    to `retrieve_bm25`: score desc -> created desc -> id asc, positive scores only.
+    An optional `category` restricts the corpus BEFORE scoring. Read-only (INV-2);
+    no network/LLM/embeddings (INV-1, INV-6). `doc_text` is the entry's full
+    corpus document (title+summary+tags+body) for token-footprint estimation.
+    """
+    corpus = build_corpus(kdir, data)
+    if category:
+        corpus = [(e, t) for (e, t) in corpus if e.get("category") == category]
+    text_by_id = {e.get("id"): t for (e, t) in corpus}
+    scored = [(e, s) for (e, s) in bm25_scores(corpus, tokenize(query)) if s > 0.0]
+    # Stable multi-pass sort: lowest priority first, highest priority last.
+    scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc
+    scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)    # created desc
+    scored.sort(key=lambda es: es[1], reverse=True)                         # score desc
+    if top_k is not None:
+        scored = scored[:top_k]
+    return [(e, s, text_by_id.get(e.get("id"), "")) for (e, s) in scored]
+
+
+def retrieve(kdir, data, query, strategy, top_k=None):
+    """Dispatch to a retrieval strategy. Returns a ranked list of entry ids.
+
+    'tag'  — the legacy exact-tag baseline (available from day one).
+    'bm25' — the deterministic BM25 recall engine (provided by Phase 1 as the
+             module-level `retrieve_bm25`); errors clearly until that lands.
+    """
+    if strategy == "tag":
+        return retrieve_tag(kdir, data, query, top_k)
+    if strategy == "bm25":
+        fn = globals().get("retrieve_bm25")
+        if fn is None:
+            raise NotImplementedError(
+                "the 'bm25' strategy requires the recall engine (Phase 1); "
+                "use --strategy tag for the baseline")
+        return fn(kdir, data, query, top_k)
+    raise ValueError("unknown retrieval strategy: %s" % strategy)
+
+
+# --- Ranking metrics (hand-computable, exact) --------------------------------
+def recall_at_k(ranked, relevant, k):
+    """|relevant ∩ top-k| / |relevant|. 0.0 when there are no relevant items."""
+    relevant = set(relevant)
+    if not relevant:
+        return 0.0
+    hits = sum(1 for r in ranked[:k] if r in relevant)
+    return hits / len(relevant)
+
+
+def precision_at_k(ranked, relevant, k):
+    """|relevant ∩ top-k| / k (standard precision@k; k is the denominator)."""
+    if k <= 0:
+        return 0.0
+    relevant = set(relevant)
+    hits = sum(1 for r in ranked[:k] if r in relevant)
+    return hits / k
+
+
+def _dcg(ranked, relevant, k):
+    relevant = set(relevant)
+    total = 0.0
+    for i, r in enumerate(ranked[:k]):
+        if r in relevant:
+            total += 1.0 / math.log2(i + 2)  # gain 1, discount log2(rank+1)
+    return total
+
+
+def ndcg_at_k(ranked, relevant, k):
+    """Binary-gain nDCG@k = DCG@k / ideal-DCG@k. 0.0 when ideal DCG is 0."""
+    relevant = set(relevant)
+    ideal_hits = min(len(relevant), k)
+    idcg = sum(1.0 / math.log2(i + 2) for i in range(ideal_hits))
+    if idcg == 0:
+        return 0.0
+    return _dcg(ranked, relevant, k) / idcg
+
+
+def reciprocal_rank(ranked, relevant):
+    """1 / (rank of first relevant item) over the FULL ranking; 0.0 if none."""
+    relevant = set(relevant)
+    for i, r in enumerate(ranked):
+        if r in relevant:
+            return 1.0 / (i + 1)
+    return 0.0
+
+
+def _median(values):
+    """Deterministic p50: middle of an odd list, mean of the two middles else."""
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2:
+        return float(s[mid])
+    return (s[mid - 1] + s[mid]) / 2.0
+
+
+def load_gold(path):
+    """Load a gold set: list of {query, expected_ids[]}. Returns (items, error)."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return None, "gold set not found: %s" % path
+    except json.JSONDecodeError as exc:
+        return None, "invalid JSON in gold set %s: %s" % (path, exc)
+    if not isinstance(data, list):
+        return None, "gold set must be a JSON list of {query, expected_ids}"
+    items = []
+    for i, row in enumerate(data):
+        if not isinstance(row, dict):
+            return None, "gold entry #%d is not an object" % i
+        q = row.get("query")
+        exp = row.get("expected_ids")
+        if not isinstance(q, str) or not q.strip():
+            return None, "gold entry #%d missing a non-empty 'query'" % i
+        if not isinstance(exp, list) or not exp:
+            return None, "gold entry #%d missing a non-empty 'expected_ids' list" % i
+        items.append({"query": q, "expected_ids": [str(x) for x in exp]})
+    if not items:
+        return None, "gold set is empty"
+    return items, None
+
+
+def evaluate(kdir, data, gold, strategy, top_k):
+    """Run the gold set through a strategy and compute graded metrics.
+
+    Returns a dict with aggregate `metrics` + `per_query` rows. Read-only.
+    Latency uses time.perf_counter and is the ONLY non-deterministic field; the
+    ranking itself is deterministic (INV-1).
+    """
+    docs_by_id = {e.get("id"): doc for e, doc in build_corpus(kdir, data)}
+    per_query = []
+    recalls, precisions, ndcgs, rrs, latencies, footprints = [], [], [], [], [], []
+    for row in gold:
+        query = row["query"]
+        relevant = set(row["expected_ids"])
+        t0 = time.perf_counter()
+        ranked = retrieve(kdir, data, query, strategy, top_k=None)
+        latency_ms = (time.perf_counter() - t0) * 1000.0
+        topk = ranked[:top_k]
+        rec = recall_at_k(ranked, relevant, top_k)
+        prec = precision_at_k(ranked, relevant, top_k)
+        nd = ndcg_at_k(ranked, relevant, top_k)
+        rr = reciprocal_rank(ranked, relevant)
+        footprint = sum(estimate_tokens(docs_by_id.get(eid, "")) for eid in topk)
+        recalls.append(rec)
+        precisions.append(prec)
+        ndcgs.append(nd)
+        rrs.append(rr)
+        latencies.append(latency_ms)
+        footprints.append(footprint)
+        per_query.append({
+            "query": query,
+            "expected_ids": sorted(relevant),
+            "ranked": topk,
+            "recall_at_k": rec,
+            "precision_at_k": prec,
+            "ndcg_at_k": nd,
+            "reciprocal_rank": rr,
+            "latency_ms": latency_ms,
+            "context_tokens": footprint,
+        })
+    n = len(gold)
+    mean = lambda xs: (sum(xs) / len(xs)) if xs else 0.0
+    return {
+        "strategy": strategy,
+        "top_k": top_k,
+        "num_queries": n,
+        "metrics": {
+            "recall_at_k": mean(recalls),
+            "precision_at_k": mean(precisions),
+            "ndcg_at_k": mean(ndcgs),
+            "mrr": mean(rrs),
+            "latency_ms_mean": mean(latencies),
+            "latency_ms_p50": _median(latencies),
+            "context_tokens_mean": mean(footprints),
+        },
+        "per_query": per_query,
+    }
+
+
+_ABLATE_METRIC_KEYS = (
+    "recall_at_k", "precision_at_k", "ndcg_at_k", "mrr",
+    "latency_ms_mean", "latency_ms_p50", "context_tokens_mean",
+)
+
+
+def evaluate_ablation(kdir, data, gold, top_k, baseline="tag", treatment="bm25"):
+    """Run the SAME gold set through two strategies and report the per-metric lift.
+
+    Proof-of-lift instrument (Phase 3.2): scores the legacy tag-only baseline and
+    the new BM25 treatment over identical queries, then reports `treatment -
+    baseline` for every headline metric. Read-only (INV-2); ranking is
+    deterministic (INV-1) so the delta is reproducible (latency excepted).
+    """
+    base = evaluate(kdir, data, gold, baseline, top_k)
+    treat = evaluate(kdir, data, gold, treatment, top_k)
+    delta = {}
+    for key in _ABLATE_METRIC_KEYS:
+        delta[key] = treat["metrics"][key] - base["metrics"][key]
+    return {
+        "mode": "ablate",
+        "top_k": top_k,
+        "num_queries": len(gold),
+        "baseline": baseline,
+        "treatment": treatment,
+        "strategies": {
+            baseline: base["metrics"],
+            treatment: treat["metrics"],
+        },
+        "delta": delta,
+        "per_query": {
+            baseline: base["per_query"],
+            treatment: treat["per_query"],
+        },
+    }
+
+
+# --- Benchmark ledger (Phase 3B.1): append-only, commit + date-stamped ------
+# Every package update records ONE immutable row keyed by (commit SHA, UTC run
+# timestamp) to <kdir>/benchmarks/history.jsonl. Rows are NEVER edited or
+# removed — `--record` only ever opens the file in append mode. SCORECARD.md
+# (Phase 3B.3) is the only regenerated, derived view over these rows.
+
+HISTORY_REL = os.path.join("benchmarks", "history.jsonl")
+LEDGER_SCHEMA = "agentware-bench/v1"
+
+
+def _git_capture(argv, env=None):
+    """Run a read-only git command in REPO_ROOT; return stripped stdout or ''."""
+    try:
+        proc = subprocess.run(
+            ["git"] + argv, cwd=REPO_ROOT,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=env)
+    except OSError:
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def git_info():
+    """Read-only snapshot of HEAD: short SHA, subject, UTC commit date, dirtiness.
+
+    Degrades gracefully (commit='unknown', empty strings) outside a git repo so
+    `--record` never fails just because git is missing. Never mutates anything.
+    """
+    utc_env = dict(os.environ)
+    utc_env["TZ"] = "UTC"
+    commit = _git_capture(["rev-parse", "--short", "HEAD"]) or "unknown"
+    subject = _git_capture(["log", "-1", "--pretty=%s"])
+    committed = _git_capture(
+        ["log", "-1", "--date=iso-strict-local", "--pretty=%cd"], env=utc_env)
+    dirty = bool(_git_capture(["status", "--porcelain"]))
+    return {"commit": commit, "subject": subject,
+            "committed": committed, "dirty": dirty}
+
+
+def utc_now_iso():
+    """Current UTC timestamp as ISO-8601 'Z' string. Metadata only (not scoring)."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ")
+
+
+def _record_test_passrate():
+    """Shell the unittest suite once and return (pass_rate, ran, failed).
+
+    Recursion guard: the unittest suite itself exercises `eval --record`; if we
+    are already inside a suite run (AGENTWARE_NESTED_UNITTEST=1) we return
+    (None, 0, 0) instead of spawning the suite again. pass_rate is None when not
+    measured. Pure stdlib subprocess (INV-6). Read-only.
+    """
+    if os.environ.get("AGENTWARE_NESTED_UNITTEST") == "1":
+        return None, 0, 0
+    env = dict(os.environ)
+    env["AGENTWARE_NESTED_UNITTEST"] = "1"
+    tests_dir = os.path.join(REPO_ROOT, "tests")
+    if not os.path.isdir(tests_dir):
+        return None, 0, 0
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+            cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=env)
+    except OSError:
+        return None, 0, 0
+    err = proc.stderr or ""
+    rm = re.search(r"Ran (\d+) test", err)
+    ran = int(rm.group(1)) if rm else 0
+    fm = re.search(r"failures=(\d+)", err)
+    em = re.search(r"errors=(\d+)", err)
+    failed = (int(fm.group(1)) if fm else 0) + (int(em.group(1)) if em else 0)
+    if ran == 0:
+        return None, 0, 0
+    return (ran - failed) / ran, ran, failed
+
+
+def _determinism_check(kdir, data, gold, top_k):
+    """Score the bm25 path twice over the gold set; True iff ranking is identical.
+
+    Operationalizes INV-1 as a recorded boolean: identical inputs -> identical
+    ordering. Latency is excluded (the only non-deterministic field). Read-only.
+    """
+    a = evaluate(kdir, data, gold, "bm25", top_k)["per_query"]
+    b = evaluate(kdir, data, gold, "bm25", top_k)["per_query"]
+    return [q["ranked"] for q in a] == [q["ranked"] for q in b]
+
+
+def compute_reliability(recall_at_k, test_pass_rate, index_ok, determinism_ok):
+    """Composite 0-100 reliability score (documented formula).
+
+    Weighted blend (weights sum to 1.0): Recall@k 0.40, unittest pass-rate 0.30,
+    index validate clean 0.15, determinism check 0.15. When test_pass_rate is
+    None (not measured, e.g. nested run) its component is dropped and the
+    remaining weights are renormalized so the score stays in [0, 100].
+    """
+    comps = [(0.40, max(0.0, min(1.0, recall_at_k)))]
+    if test_pass_rate is not None:
+        comps.append((0.30, max(0.0, min(1.0, test_pass_rate))))
+    comps.append((0.15, 1.0 if index_ok else 0.0))
+    comps.append((0.15, 1.0 if determinism_ok else 0.0))
+    total_w = sum(w for w, _ in comps)
+    if total_w <= 0:
+        return 0.0
+    return round(100.0 * sum(w * v for w, v in comps) / total_w, 2)
+
+
+def build_ledger_row(result, git_meta, run_ts, checks):
+    """Assemble one immutable ledger row from an eval/ablate result. Pure.
+
+    Deterministic given its inputs (the only volatile values — run_ts, latency,
+    git state — are injected by the caller), so tests can build + serialize a row
+    byte-identically. `checks` carries test_pass_rate / index_validate_ok /
+    determinism_ok / tests_ran / tests_failed.
+    """
+    mode = result.get("mode", "eval")
+    if mode == "ablate":
+        treatment = result["treatment"]
+        metrics = result["strategies"][treatment]
+        strategy = treatment
+        ablation = {
+            "baseline": result["baseline"],
+            "treatment": treatment,
+            "delta": result["delta"],
+        }
+    else:
+        metrics = result["metrics"]
+        strategy = result.get("strategy", "bm25")
+        ablation = None
+    recall = metrics.get("recall_at_k", 0.0)
+    reliability = compute_reliability(
+        recall, checks.get("test_pass_rate"),
+        checks.get("index_validate_ok", False),
+        checks.get("determinism_ok", False))
+    return {
+        "schema": LEDGER_SCHEMA,
+        "run": run_ts,
+        "commit": git_meta.get("commit", "unknown"),
+        "committed": git_meta.get("committed", ""),
+        "subject": git_meta.get("subject", ""),
+        "dirty": git_meta.get("dirty", False),
+        "mode": mode,
+        "strategy": strategy,
+        "top_k": result.get("top_k"),
+        "num_queries": result.get("num_queries"),
+        "gold_path": result.get("gold_path"),
+        "metrics": metrics,
+        "ablation": ablation,
+        "checks": checks,
+        "reliability": reliability,
+    }
+
+
+def append_ledger_row(path, row):
+    """Append ONE JSON line to the ledger. APPEND-ONLY — never rewrites a row.
+
+    Opens strictly in append mode ('a'), so existing rows are byte-immutable;
+    re-recording at the same commit adds a NEW row (distinct run timestamp). Keys
+    are sorted so a fixed row serializes byte-identically. Returns the line.
+    """
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    line = json.dumps(row, ensure_ascii=False, sort_keys=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+    return line
+
+
+def record_ledger(kdir, data, gold, gold_path, result, top_k):
+    """Gather volatile state (git, UTC ts, test pass-rate, validate, determinism),
+    build a row, and append it. Returns the row. Read-only w.r.t. the KB."""
+    pass_rate, ran, failed = _record_test_passrate()
+    checks = {
+        "test_pass_rate": pass_rate,
+        "tests_ran": ran,
+        "tests_failed": failed,
+        "index_validate_ok": not validate_index(kdir, data),
+        "determinism_ok": _determinism_check(kdir, data, gold, top_k),
+    }
+    row = build_ledger_row(result, git_info(), utc_now_iso(), checks)
+    append_ledger_row(os.path.join(kdir, HISTORY_REL), row)
+    return row
+
+
+# --- Regression gate (Phase 3B.2) -------------------------------------------
+# `eval --gate [--tolerance T]` compares the current run to the BEST prior
+# comparable ledger row (same retrieval strategy) and EXITS NON-ZERO if any
+# headline quality metric or the reliability score regresses beyond tolerance.
+# This is the INV-7 enforcement: every package update is benchmarked and a
+# regression cannot ship. A first-ever run (no comparable history) PASSES and
+# seeds the baseline. The gate ALWAYS records (append-only) so the ledger grows
+# on every gated run; it reads the prior rows BEFORE appending the new one so the
+# fresh row never compares against itself.
+
+# Higher-is-better quality metrics that the gate protects. Latency/ctx-token
+# footprint are deliberately NOT gated as hard failures (they are reported and
+# trended in the scorecard) so a benign latency jitter never fails a build.
+GATE_METRICS = ("recall_at_k", "precision_at_k", "ndcg_at_k", "mrr")
+
+
+def _read_ledger(path):
+    """Read all rows from the append-only ledger; tolerate blanks/bad lines.
+
+    Read-only (INV-2): only ever opens the file for reading. Returns [] when the
+    file does not exist (first-ever run).
+    """
+    rows = []
+    if not os.path.isfile(path):
+        return rows
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+    return rows
+
+
+def gate_baseline(rows, strategy):
+    """Best-seen value per gated metric + reliability among COMPARABLE rows.
+
+    Comparable = rows recorded with the same retrieval `strategy` (apples to
+    apples: a bm25 run is never gated against a tag-only baseline). The baseline
+    is the MAX of each metric across all prior comparable rows, so a run can
+    never silently drop below any earlier peak. Returns None when there is no
+    comparable history (first-ever run for this strategy -> gate seeds + passes).
+    """
+    comparable = [r for r in rows if r.get("strategy") == strategy]
+    if not comparable:
+        return None
+    base = {}
+    for key in GATE_METRICS:
+        vals = [r.get("metrics", {}).get(key) for r in comparable]
+        vals = [v for v in vals if isinstance(v, (int, float))]
+        if vals:
+            base[key] = max(vals)
+    rels = [r.get("reliability") for r in comparable
+            if isinstance(r.get("reliability"), (int, float))]
+    if rels:
+        base["reliability"] = max(rels)
+    return base
+
+
+def evaluate_gate(metrics, reliability, baseline, tolerance):
+    """Decide pass/fail vs a baseline. Returns (passed, regressions).
+
+    Each gated metric must stay within `tolerance` of the best prior value
+    (current >= best - tolerance). Reliability is a 0-100 score, so its
+    allowance is `tolerance * 100` points. `baseline is None` => first run =>
+    pass with no regressions (caller marks it seeded). `regressions` is a list of
+    (metric, baseline_value, current_value) for every metric that dropped too far.
+    """
+    if baseline is None:
+        return True, []
+    regressions = []
+    for key in GATE_METRICS:
+        if key not in baseline:
+            continue
+        cur = metrics.get(key)
+        if not isinstance(cur, (int, float)):
+            continue
+        if cur < baseline[key] - tolerance:
+            regressions.append((key, baseline[key], cur))
+    if "reliability" in baseline and isinstance(reliability, (int, float)):
+        if reliability < baseline["reliability"] - tolerance * 100.0:
+            regressions.append(
+                ("reliability", baseline["reliability"], reliability))
+    return (len(regressions) == 0), regressions
+
+
+def _record_and_gate(args, kdir, data, gold, gold_path, result):
+    """Apply --record / --gate to a computed eval result.
+
+    --gate implies --record (every gated run appends an immutable row). Reads the
+    prior ledger BEFORE appending so the new row never compares against itself.
+    Returns (recorded_or_None, gate_or_None); attaches `recorded`/`gate` to
+    `result` for the JSON output.
+    """
+    want_gate = getattr(args, "gate", False)
+    if not (getattr(args, "record", False) or want_gate):
+        return None, None
+    ledger_path = os.path.join(kdir, HISTORY_REL)
+    prior_rows = _read_ledger(ledger_path) if want_gate else None
+    recorded = record_ledger(kdir, data, gold, gold_path, result, args.top_k)
+    result["recorded"] = {
+        "path": ledger_path, "commit": recorded["commit"],
+        "run": recorded["run"], "reliability": recorded["reliability"],
+    }
+    gate = None
+    if want_gate:
+        baseline = gate_baseline(prior_rows, recorded["strategy"])
+        passed, regressions = evaluate_gate(
+            recorded["metrics"], recorded["reliability"],
+            baseline, args.tolerance)
+        gate = {
+            "passed": passed,
+            "tolerance": args.tolerance,
+            "strategy": recorded["strategy"],
+            "seeded": baseline is None,
+            "baseline": baseline,
+            "regressions": [
+                {"metric": m, "baseline": b, "current": c}
+                for m, b, c in regressions
+            ],
+        }
+        result["gate"] = gate
+    return recorded, gate
+
+
+def _gate_exit(gate):
+    """Exit code for a gate result: non-zero (1) only on a real regression."""
+    return 0 if (gate is None or gate["passed"]) else 1
+
+
+def _print_gate(gate):
+    """Human-readable gate verdict for text format."""
+    if gate is None:
+        return
+    if gate["seeded"]:
+        print("  gate: PASS (seeded baseline; no prior %s history)"
+              % gate["strategy"])
+        return
+    if gate["passed"]:
+        print("  gate: PASS (no regression beyond tolerance %.4f)"
+              % gate["tolerance"])
+        return
+    print("  gate: FAIL (regression beyond tolerance %.4f)" % gate["tolerance"])
+    for r in gate["regressions"]:
+        print("    %-16s best=%.4f  current=%.4f  drop=%.4f" % (
+            r["metric"], r["baseline"], r["current"],
+            r["baseline"] - r["current"]))
+
+
+# --- Scorecard (Phase 3B.3): derived trend VIEW over the ledger --------------
+# `bench scorecard` regenerates <kdir>/benchmarks/SCORECARD.md from the
+# append-only history.jsonl: a commit + date stamped trend table (newest run
+# first) plus the latest ablation delta. The ledger stays the immutable system
+# of record; SCORECARD.md is the only regenerated, human-readable VIEW. Pure
+# given its rows (no wall-clock, no git) so the same ledger always renders the
+# same markdown.
+
+SCORECARD_REL = os.path.join("benchmarks", "SCORECARD.md")
+
+_SCORECARD_COLS = ("Run (UTC)", "Commit", "Committed (UTC)", "Strategy", "Mode",
+                   "Recall@5", "nDCG@5", "MRR", "p50 ms", "ctx-tok",
+                   "Reliability")
+
+
+def _fmt_cell(value, fmt):
+    """Format a numeric ledger cell, or an em-dash when missing/non-numeric."""
+    return (fmt % value) if isinstance(value, (int, float)) else "—"
+
+
+def render_scorecard(rows):
+    """Render the append-only ledger rows as a Markdown trend table (newest run
+    first) plus the latest ablation delta. Pure: deterministic given `rows`, so
+    it is a faithful VIEW over the immutable ledger. Returns the markdown text.
+    """
+    head = "# agentware Recall / Benchmark Scorecard\n"
+    intro = (
+        "> Derived VIEW over the append-only benchmark ledger "
+        "(`benchmarks/history.jsonl`). Regenerate with "
+        "`scripts/agentware bench scorecard`. Newest run first; the ledger "
+        "itself is immutable (one row per commit + run-timestamp).\n")
+    if not rows:
+        return "%s\n%s\n_No benchmark runs recorded yet._\n" % (head, intro)
+    ordered = sorted(rows, key=lambda r: r.get("run", ""), reverse=True)
+    lines = [head, intro, ""]
+    lines.append("| " + " | ".join(_SCORECARD_COLS) + " |")
+    lines.append("| " + " | ".join("---" for _ in _SCORECARD_COLS) + " |")
+    for r in ordered:
+        m = r.get("metrics", {}) or {}
+        cells = [
+            r.get("run") or "—",
+            "`%s`" % (r.get("commit") or "—"),
+            r.get("committed") or "—",
+            r.get("strategy") or "—",
+            r.get("mode") or "—",
+            _fmt_cell(m.get("recall_at_k"), "%.4f"),
+            _fmt_cell(m.get("ndcg_at_k"), "%.4f"),
+            _fmt_cell(m.get("mrr"), "%.4f"),
+            _fmt_cell(m.get("latency_ms_p50"), "%.3f"),
+            _fmt_cell(m.get("context_tokens_mean"), "%.1f"),
+            _fmt_cell(r.get("reliability"), "%.2f"),
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    abl_rows = [r for r in ordered if r.get("ablation")]
+    if abl_rows:
+        a = abl_rows[0]
+        abl = a["ablation"]
+        delta = abl.get("delta", {}) or {}
+        lines.append("")
+        lines.append(
+            "## Latest ablation delta (%s vs %s) — commit `%s`, run %s"
+            % (abl.get("treatment", "?"), abl.get("baseline", "?"),
+               a.get("commit", "?"), a.get("run", "?")))
+        lines.append("")
+        lines.append("| Metric | Delta |")
+        lines.append("| --- | --- |")
+        for label, key in (("Recall@k", "recall_at_k"),
+                           ("Precision@k", "precision_at_k"),
+                           ("nDCG@k", "ndcg_at_k"), ("MRR", "mrr")):
+            v = delta.get(key)
+            cell = ("%+.4f" % v) if isinstance(v, (int, float)) else "—"
+            lines.append("| %s | %s |" % (label, cell))
+    return "\n".join(lines) + "\n"
+
+
+def write_scorecard(kdir):
+    """Read the ledger and (over)write SCORECARD.md as a derived VIEW. Returns
+    (path, row_count). The ledger is read-only here; only the derived markdown
+    view is regenerated."""
+    rows = _read_ledger(os.path.join(kdir, HISTORY_REL))
+    text = render_scorecard(rows)
+    path = os.path.join(kdir, SCORECARD_REL)
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return path, len(rows)
+
+
+def cmd_bench(args):
+    """`bench scorecard` regenerates benchmarks/SCORECARD.md from history.jsonl."""
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    path, n = write_scorecard(kdir)
+    print("bench scorecard: wrote %s (%d ledger row%s)" % (
+        path, n, "" if n == 1 else "s"))
+    return 0
+
+
+def cmd_eval(args):
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, err = load_index(kdir)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+
+    gold_path = args.gold or os.path.join(kdir, "benchmarks", "recall-gold.json")
+    gold, gerr = load_gold(gold_path)
+    if gerr is not None:
+        sys.stderr.write("agentware: %s\n" % gerr)
+        return 1
+
+    if args.top_k <= 0:
+        sys.stderr.write("agentware: --top-k must be a positive integer\n")
+        return 1
+
+    if getattr(args, "ablate", False):
+        try:
+            result = evaluate_ablation(kdir, data, gold, args.top_k)
+        except NotImplementedError as exc:
+            sys.stderr.write("agentware: %s\n" % exc)
+            return 2
+        result["gold_path"] = gold_path
+        recorded, gate = _record_and_gate(args, kdir, data, gold, gold_path, result)
+        if args.format == "json":
+            json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+            return _gate_exit(gate)
+        k = result["top_k"]
+        base, treat = result["baseline"], result["treatment"]
+        bm, tm = result["strategies"][base], result["strategies"][treat]
+        d = result["delta"]
+        print("eval --ablate: %s (baseline) vs %s  top_k=%d  queries=%d" % (
+            base, treat, k, result["num_queries"]))
+        print("  gold: %s" % gold_path)
+        labels = [
+            ("Recall@%d" % k, "recall_at_k"),
+            ("Precision@%d" % k, "precision_at_k"),
+            ("nDCG@%d" % k, "ndcg_at_k"),
+            ("MRR", "mrr"),
+            ("latency_ms_mean", "latency_ms_mean"),
+            ("latency_ms_p50", "latency_ms_p50"),
+            ("ctx_tokens_mean", "context_tokens_mean"),
+        ]
+        print("  %-16s %12s %12s %12s" % ("metric", base, treat, "delta"))
+        for label, key in labels:
+            print("  %-16s %12.4f %12.4f %+12.4f" % (
+                label, bm[key], tm[key], d[key]))
+        if recorded is not None:
+            print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
+                os.path.join(kdir, HISTORY_REL), recorded["commit"],
+                recorded["reliability"], recorded["run"]))
+        _print_gate(gate)
+        return _gate_exit(gate)
+
+    try:
+        result = evaluate(kdir, data, gold, args.strategy, args.top_k)
+    except NotImplementedError as exc:
+        sys.stderr.write("agentware: %s\n" % exc)
+        return 2
+    result["gold_path"] = gold_path
+    recorded, gate = _record_and_gate(args, kdir, data, gold, gold_path, result)
+
+    if args.format == "json":
+        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return _gate_exit(gate)
+
+    m = result["metrics"]
+    k = result["top_k"]
+    print("eval: strategy=%s  top_k=%d  queries=%d" % (
+        result["strategy"], k, result["num_queries"]))
+    print("  gold: %s" % gold_path)
+    print("  Recall@%d     : %.4f" % (k, m["recall_at_k"]))
+    print("  Precision@%d  : %.4f" % (k, m["precision_at_k"]))
+    print("  nDCG@%d       : %.4f" % (k, m["ndcg_at_k"]))
+    print("  MRR           : %.4f" % m["mrr"])
+    print("  latency (ms)  : mean=%.3f  p50=%.3f" % (
+        m["latency_ms_mean"], m["latency_ms_p50"]))
+    print("  ctx tokens    : mean=%.1f" % m["context_tokens_mean"])
+    if recorded is not None:
+        print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
+            os.path.join(kdir, HISTORY_REL), recorded["commit"],
+            recorded["reliability"], recorded["run"]))
+    _print_gate(gate)
+    return _gate_exit(gate)
+
+
+def cmd_recall(args):
+    """Deterministic BM25 ranked retrieval, token-budgeted (replaces MAIN.md dump).
+
+    Returns the highest-ranked entries (id, path, score, summary) trimmed so the
+    cumulative estimated token footprint stays <= --token-budget. The greedy pass
+    walks ranked order and STOPS at the first entry that would exceed the budget,
+    preserving rank order (INV-5: reduce injected context, never increase it).
+    Read-only (INV-2). --format json emits a stable schema for the loop.
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, err = load_index(kdir)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    if args.top_k < 0:
+        sys.stderr.write("agentware: --top-k must be >= 0\n")
+        return 1
+    if args.token_budget < 0:
+        sys.stderr.write("agentware: --token-budget must be >= 0\n")
+        return 1
+
+    ranked = recall_ranked(kdir, data, args.query, top_k=args.top_k,
+                           category=args.category)
+    results = []
+    used = 0
+    for entry, score, doc_text in ranked:
+        cost = estimate_tokens(doc_text)
+        if used + cost > args.token_budget:
+            break  # budget exhausted; keep rank order, drop the rest
+        used += cost
+        results.append({
+            "id": entry.get("id"),
+            "path": entry.get("path"),
+            "category": entry.get("category"),
+            "score": round(score, 6),
+            "summary": entry.get("summary") or "",
+            "estimated_tokens": cost,
+        })
+
+    if args.format == "json":
+        payload = {
+            "query": args.query,
+            "strategy": "bm25",
+            "top_k": args.top_k,
+            "token_budget": args.token_budget,
+            "category": args.category,
+            "context_tokens": used,
+            "count": len(results),
+            "results": results,
+        }
+        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    print("recall: query=%r  strategy=bm25  top_k=%d  budget=%d  -> %d entr%s (~%d tokens)"
+          % (args.query, args.top_k, args.token_budget, len(results),
+             "y" if len(results) == 1 else "ies", used))
+    if args.category:
+        print("  category: %s" % args.category)
+    for r in results:
+        print("  [%.4f] %s" % (r["score"], r["id"]))
+        print("    %s" % r["path"])
+        if r["summary"]:
+            print("    %s" % r["summary"])
+    return 0
+
+
+# --- metrics (execution observability over session transcripts) -------------
+# Token-usage keys live at message.usage on assistant lines. We sum exactly the
+# four canonical keys (NOT cache_read/cache_creation) per the transcript format.
+_USAGE_KEYS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+
+
+def logs_sessions_dir(kdir):
+    return os.path.join(kdir, LOGS_SESSIONS_REL)
+
+
+def _parse_iso(ts):
+    """Parse an ISO-8601 timestamp (tolerating a trailing 'Z') to a datetime.
+
+    Returns None on anything unparseable so a single malformed line can never
+    crash the parser (transcripts mix control lines that lack timestamps)."""
+    if not isinstance(ts, str) or not ts:
+        return None
+    import datetime
+    try:
+        return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _empty_usage():
+    return {k: 0 for k in _USAGE_KEYS}
+
+
+def aggregate_jsonl(path):
+    """Aggregate ONE JSONL transcript file (read-only).
+
+    Returns a dict with: turns (count of assistant lines), usage (summed token
+    keys), tools (tool_use name -> count), tool_calls (total), ts_first/ts_last
+    (raw ISO strings among lines that HAVE a timestamp), lines (parsed),
+    malformed (count of unparseable lines). Tolerates missing files, malformed
+    JSON, and lines whose `type` is not assistant/user.
+    """
+    agg = {
+        "turns": 0,
+        "usage": _empty_usage(),
+        "tools": {},
+        "tool_calls": 0,
+        "ts_first": None,
+        "ts_last": None,
+        "_first_dt": None,
+        "_last_dt": None,
+        "lines": 0,
+        "malformed": 0,
+    }
+    try:
+        f = open(path, "r", encoding="utf-8")
+    except (FileNotFoundError, IsADirectoryError, OSError):
+        return agg
+    with f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            agg["lines"] += 1
+            try:
+                obj = json.loads(raw)
+            except (ValueError, TypeError):
+                agg["malformed"] += 1
+                continue
+            if not isinstance(obj, dict):
+                agg["malformed"] += 1
+                continue
+
+            dt = _parse_iso(obj.get("timestamp"))
+            if dt is not None:
+                if agg["_first_dt"] is None or dt < agg["_first_dt"]:
+                    agg["_first_dt"] = dt
+                    agg["ts_first"] = obj.get("timestamp")
+                if agg["_last_dt"] is None or dt > agg["_last_dt"]:
+                    agg["_last_dt"] = dt
+                    agg["ts_last"] = obj.get("timestamp")
+
+            if obj.get("type") != "assistant":
+                continue
+            agg["turns"] += 1
+            message = obj.get("message")
+            if not isinstance(message, dict):
+                continue
+            usage = message.get("usage")
+            if isinstance(usage, dict):
+                for k in _USAGE_KEYS:
+                    v = usage.get(k)
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        agg["usage"][k] += int(v)
+            content = message.get("content")
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "tool_use":
+                        name = item.get("name") or "<unknown>"
+                        agg["tools"][name] = agg["tools"].get(name, 0) + 1
+                        agg["tool_calls"] += 1
+    return agg
+
+
+def _merge_usage(into, other):
+    for k in _USAGE_KEYS:
+        into[k] += other.get(k, 0)
+
+
+def _merge_tools(into, other):
+    for name, count in other.items():
+        into[name] = into.get(name, 0) + count
+
+
+def _duration_seconds(first_dt, last_dt):
+    if first_dt is None or last_dt is None:
+        return 0.0
+    return max(0.0, (last_dt - first_dt).total_seconds())
+
+
+def parse_session(session_dir):
+    """Parse one session directory into a metrics row (read-only).
+
+    Wall time is computed from main.jsonl's first->last timestamped line only.
+    Token + tool totals fold in subagents/*.jsonl. subagent_count is the number
+    of subagent transcript files. Returns None if there is no main.jsonl.
+    """
+    main_path = os.path.join(session_dir, "main.jsonl")
+    if not os.path.isfile(main_path):
+        return None
+    main = aggregate_jsonl(main_path)
+
+    usage = _empty_usage()
+    _merge_usage(usage, main["usage"])
+    tools = dict(main["tools"])
+    tool_calls = main["tool_calls"]
+    turns = main["turns"]
+
+    sub_dir = os.path.join(session_dir, "subagents")
+    subagent_files = []
+    if os.path.isdir(sub_dir):
+        subagent_files = sorted(
+            n for n in os.listdir(sub_dir) if n.endswith(".jsonl"))
+    sub_usage = _empty_usage()
+    sub_tools = {}
+    sub_turns = 0
+    for name in subagent_files:
+        sa = aggregate_jsonl(os.path.join(sub_dir, name))
+        _merge_usage(usage, sa["usage"])
+        _merge_usage(sub_usage, sa["usage"])
+        _merge_tools(tools, sa["tools"])
+        _merge_tools(sub_tools, sa["tools"])
+        tool_calls += sa["tool_calls"]
+        turns += sa["turns"]
+        sub_turns += sa["turns"]
+
+    duration = _duration_seconds(main["_first_dt"], main["_last_dt"])
+    total_tokens = sum(usage[k] for k in _USAGE_KEYS)
+    return {
+        "session_id": os.path.basename(session_dir.rstrip(os.sep)),
+        "turns": turns,
+        "main_turns": main["turns"],
+        "subagent_turns": sub_turns,
+        "start": main["ts_first"],
+        "end": main["ts_last"],
+        "duration_seconds": round(duration, 3),
+        "tokens": usage,
+        "total_tokens": total_tokens,
+        "subagent_tokens": sub_usage,
+        "tools": tools,
+        "tool_calls": tool_calls,
+        "subagent_count": len(subagent_files),
+        "malformed_lines": main["malformed"],
+    }
+
+
+def _session_feature_match(session_dir, feature):
+    """True iff the session transcript references the feature (deterministic).
+
+    A session 'belongs to' a feature when its main.jsonl mentions the feature
+    work dir (work/<feature>) or the bare feature name. Pure substring scan over
+    the raw transcript text — no parsing, fully deterministic.
+    """
+    main_path = os.path.join(session_dir, "main.jsonl")
+    try:
+        with open(main_path, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except (FileNotFoundError, IsADirectoryError, OSError):
+        return False
+    needles = (os.path.join("work", feature), feature)
+    return any(n in text for n in needles)
+
+
+def collect_sessions(kdir, session=None, feature=None, since=None):
+    """Collect per-session metric rows, deterministically ordered.
+
+    Filters: --session (exact id), --feature (transcript references feature),
+    --since (session start date >= since, YYYY-MM-DD). Ordering is by start
+    timestamp then session_id (rows lacking a start sort last) so output is
+    byte-stable across runs.
+    """
+    root = logs_sessions_dir(kdir)
+    rows = []
+    if not os.path.isdir(root):
+        return rows
+    for name in sorted(os.listdir(root)):
+        sdir = os.path.join(root, name)
+        if not os.path.isdir(sdir):
+            continue
+        if session is not None and name != session:
+            continue
+        if feature is not None and not _session_feature_match(sdir, feature):
+            continue
+        row = parse_session(sdir)
+        if row is None:
+            continue
+        if since is not None:
+            start = row.get("start") or ""
+            # Compare the YYYY-MM-DD date prefix lexically (ISO sorts correctly).
+            if start[:10] < since:
+                continue
+        rows.append(row)
+    rows.sort(key=lambda r: (r.get("start") is None, r.get("start") or "",
+                             r.get("session_id") or ""))
+    return rows
+
+
+def aggregate_metrics(rows):
+    """Aggregate per-session rows into feature/global totals."""
+    usage = _empty_usage()
+    tools = {}
+    agg = {
+        "session_count": len(rows),
+        "turns": 0,
+        "tool_calls": 0,
+        "subagent_count": 0,
+        "duration_seconds": 0.0,
+        "tokens": usage,
+        "total_tokens": 0,
+        "tools": tools,
+    }
+    for r in rows:
+        agg["turns"] += r["turns"]
+        agg["tool_calls"] += r["tool_calls"]
+        agg["subagent_count"] += r["subagent_count"]
+        agg["duration_seconds"] += r["duration_seconds"]
+        _merge_usage(usage, r["tokens"])
+        _merge_tools(tools, r["tools"])
+    agg["duration_seconds"] = round(agg["duration_seconds"], 3)
+    agg["total_tokens"] = sum(usage[k] for k in _USAGE_KEYS)
+    return agg
+
+
+def _fmt_duration(seconds):
+    seconds = int(round(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return "%dh%02dm%02ds" % (h, m, s)
+    if m:
+        return "%dm%02ds" % (m, s)
+    return "%ds" % s
+
+
+def _print_metrics_text(rows, agg, flt):
+    desc = []
+    if flt.get("session"):
+        desc.append("session=%s" % flt["session"])
+    if flt.get("feature"):
+        desc.append("feature=%s" % flt["feature"])
+    if flt.get("since"):
+        desc.append("since=%s" % flt["since"])
+    print("metrics: %d session%s%s" % (
+        len(rows), "" if len(rows) == 1 else "s",
+        ("  (%s)" % ", ".join(desc)) if desc else ""))
+    for r in rows:
+        print("  %s  turns=%d  tools=%d  subagents=%d  tokens=%d  wall=%s"
+              % (r["session_id"], r["turns"], r["tool_calls"],
+                 r["subagent_count"], r["total_tokens"],
+                 _fmt_duration(r["duration_seconds"])))
+        if r["tools"]:
+            parts = ", ".join("%s=%d" % (k, r["tools"][k])
+                              for k in sorted(r["tools"]))
+            print("    tool calls: %s" % parts)
+    print("  ----")
+    print("  TOTAL  sessions=%d  turns=%d  tools=%d  subagents=%d  tokens=%d  wall=%s"
+          % (agg["session_count"], agg["turns"], agg["tool_calls"],
+             agg["subagent_count"], agg["total_tokens"],
+             _fmt_duration(agg["duration_seconds"])))
+    u = agg["tokens"]
+    print("    tokens: in=%d out=%d cache_creation=%d cache_read=%d"
+          % (u["input_tokens"], u["output_tokens"],
+             u["cache_creation_input_tokens"], u["cache_read_input_tokens"]))
+
+
+def cmd_metrics(args):
+    """Execution observability over session transcripts (READ-ONLY, INV-2).
+
+    Parses logs/sessions/<sid>/main.jsonl (+ subagents/*.jsonl) for turn counts,
+    wall time, token usage, tool-call counts and subagent counts. NEVER touches
+    index.json or any KB file."""
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    since = getattr(args, "since", None)
+    if since is not None and not _is_valid_date(since):
+        sys.stderr.write("agentware: --since must be YYYY-MM-DD\n")
+        return 1
+    rows = collect_sessions(
+        kdir, session=getattr(args, "session", None),
+        feature=getattr(args, "feature", None), since=since)
+    agg = aggregate_metrics(rows)
+    flt = {"session": getattr(args, "session", None),
+           "feature": getattr(args, "feature", None), "since": since}
+
+    if args.format == "json":
+        payload = {"filter": flt, "session_count": len(rows),
+                   "sessions": rows, "aggregate": agg}
+        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0 if rows else 1
+
+    if not rows:
+        print("metrics: no matching sessions under %s"
+              % logs_sessions_dir(kdir))
+        return 1
+    _print_metrics_text(rows, agg, flt)
+    return 0
+
+
 def _audit_steering_lint_check():
     result = lint_steering()
     details = []
@@ -1035,6 +2392,201 @@ def _audit_steering_lint_check():
         "details": details or ["DSF-clean: %d/%d chars" % (
             result["total_chars"], result["char_budget"])],
     }
+
+
+def _audit_tests_check():
+    """Shell the stdlib unittest suite and report pass/fail as an audit check.
+
+    Read-only, hermetic: the suite points the CLI at a synthetic temp KB via
+    AGENTWARE_KNOWLEDGE_DIR (see tests/_fixtures.py), so it never touches the
+    operator KB. subprocess is stdlib, so INV-6 (stdlib-only) holds.
+    """
+    tests_dir = os.path.join(REPO_ROOT, "tests")
+    if not os.path.isdir(tests_dir):
+        return {"name": "unittest", "ok": False,
+                "details": ["tests/ directory not found at %s" % tests_dir]}
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+            cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True)
+    except OSError as exc:
+        return {"name": "unittest", "ok": False,
+                "details": ["could not launch unittest: %s" % exc]}
+    ok = proc.returncode == 0
+    lines = [ln for ln in (proc.stderr or "").splitlines() if ln.strip()]
+    ran_line = next((ln for ln in lines if ln.startswith("Ran ")), "")
+    details = [ran_line.strip() or ("unittest exit %d" % proc.returncode)]
+    if not ok:
+        details.extend(lines[-12:])
+    return {"name": "unittest", "ok": ok, "details": details}
+
+
+def _audit_gate_check(kdir):
+    """Run the benchmark regression gate as the audit's INV-7 enforcement.
+
+    Shells `eval --strategy bm25 --gate --format json` as an isolated subprocess
+    (so it measures an honest reliability via its own test pass-rate and stays
+    decoupled from this process), then regenerates SCORECARD.md from the freshly
+    appended row. FAILS the audit on a beyond-tolerance regression (non-zero
+    gate exit). A first-ever run seeds + passes. When no gold set exists yet the
+    check is a soft pass (nothing to benchmark). Read-only w.r.t. index.json;
+    only appends to the append-only ledger + regenerates the derived scorecard.
+    """
+    gold = os.path.join(kdir, "benchmarks", "recall-gold.json")
+    if not os.path.isfile(gold):
+        return {"name": "benchmark_gate", "ok": True,
+                "details": ["no gold set at %s; skipped" % gold]}
+    env = dict(os.environ)
+    env["AGENTWARE_KNOWLEDGE_DIR"] = kdir
+    try:
+        proc = subprocess.run(
+            [sys.executable, os.path.join(REPO_ROOT, "scripts", "agentware"),
+             "eval", "--strategy", "bm25", "--gate", "--format", "json"],
+            cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=env)
+    except OSError as exc:
+        return {"name": "benchmark_gate", "ok": False,
+                "details": ["could not launch eval --gate: %s" % exc]}
+    ok = proc.returncode == 0
+    details = []
+    try:
+        payload = json.loads(proc.stdout)
+        g = payload.get("gate", {}) or {}
+        rec = payload.get("recorded", {}) or {}
+        if g.get("seeded"):
+            details.append("seeded baseline (no prior bm25 history)")
+        details.append("reliability=%.2f commit=%s tolerance=%.4f" % (
+            rec.get("reliability", 0.0), rec.get("commit", "?"),
+            g.get("tolerance", 0.0)))
+        for r in g.get("regressions", []) or []:
+            details.append("REGRESSION %s best=%.4f current=%.4f" % (
+                r.get("metric"), r.get("baseline", 0.0), r.get("current", 0.0)))
+    except ValueError:
+        details.append("eval --gate exit %d" % proc.returncode)
+        if not ok:
+            details.extend((proc.stderr or "").splitlines()[-6:])
+    try:
+        write_scorecard(kdir)
+    except OSError as exc:
+        details.append("scorecard regen failed: %s" % exc)
+    return {"name": "benchmark_gate", "ok": ok, "details": details}
+
+
+# --- Freshness & conflict detection (Phase 2.2) ------------------------------
+# "Volatile" categories whose facts decay (R-FAIL-08): treat a point-in-time
+# value as suspect once its last_verified is older than the staleness window.
+VOLATILE_CATEGORIES = ("learnings", "configurations")
+# Token-set Jaccard at/above this threshold flags a same-category pair as a
+# possible duplicate/conflict. Reporting only; never auto-mutates the KB (INV-2).
+_CONFLICT_JACCARD = 0.6
+
+
+def stale_entries(data, max_age_days, today=None):
+    """Return [(entry, age_days), ...] for volatile-category entries whose
+    effective last_verified is older than max_age_days.
+
+    Deterministic given `today` (defaults to the system date — reporting only,
+    so wall-clock here is fine; INV-1 forbids wall-clock in RANKING, not in this
+    advisory freshness report). Entries with no valid date are skipped. Ordering:
+    oldest first, then id asc. Read-only (INV-2).
+    """
+    import datetime
+    today = today or _today()
+    try:
+        today_d = datetime.date.fromisoformat(today)
+    except ValueError:
+        return []
+    out = []
+    for e in data.get("entries") or []:
+        if not isinstance(e, dict):
+            continue
+        if (e.get("category") or "") not in VOLATILE_CATEGORIES:
+            continue
+        lv = entry_last_verified(e)
+        if not _is_valid_date(lv):
+            continue
+        age = (today_d - datetime.date.fromisoformat(lv)).days
+        if age > max_age_days:
+            out.append((e, age))
+    out.sort(key=lambda ea: ea[0].get("id") or "")          # id asc
+    out.sort(key=lambda ea: ea[1], reverse=True)            # oldest first
+    return out
+
+
+def conflict_pairs(kdir, data, threshold=_CONFLICT_JACCARD):
+    """Return [(entry_a, entry_b, jaccard), ...] for same-category entry pairs
+    whose token-set Jaccard >= threshold (possible duplicate/conflict).
+
+    Token sets come from the shared corpus document (title+summary+tags+body)
+    via the same tokenizer BM25 uses, so flagging is deterministic and stable.
+    Read-only (INV-2); reporting only — never auto-deletes/merges. Ordering:
+    highest similarity first, then (id_a, id_b) asc.
+    """
+    corpus = build_corpus(kdir, data)
+    items = [(e, set(tokenize(text))) for (e, text) in corpus]
+    pairs = []
+    for i in range(len(items)):
+        ei, si = items[i]
+        if not si:
+            continue
+        for j in range(i + 1, len(items)):
+            ej, sj = items[j]
+            if not sj:
+                continue
+            if (ei.get("category") or "") != (ej.get("category") or ""):
+                continue
+            union = si | sj
+            if not union:
+                continue
+            jac = len(si & sj) / len(union)
+            if jac >= threshold:
+                pairs.append((ei, ej, round(jac, 6)))
+    pairs.sort(key=lambda p: ((p[0].get("id") or ""), (p[1].get("id") or "")))
+    pairs.sort(key=lambda p: p[2], reverse=True)            # most similar first
+    return pairs
+
+
+def build_stale_report(kdir, data, max_age_days):
+    """Build the advisory staleness + conflict report dict. Reporting only."""
+    stale = stale_entries(data, max_age_days)
+    conflicts = conflict_pairs(kdir, data)
+    return {
+        "max_age_days": max_age_days,
+        "volatile_categories": list(VOLATILE_CATEGORIES),
+        "stale": [
+            {"id": e.get("id"), "category": e.get("category"),
+             "path": e.get("path"), "last_verified": entry_last_verified(e),
+             "age_days": age}
+            for (e, age) in stale
+        ],
+        "conflicts": [
+            {"a": a.get("id"), "b": b.get("id"),
+             "category": a.get("category"), "jaccard": jac}
+            for (a, b, jac) in conflicts
+        ],
+    }
+
+
+def _print_stale_report(report):
+    print("STALE REPORT (advisory — reporting only, no mutation):")
+    print("  window: last_verified older than %d day(s) in %s" % (
+        report["max_age_days"], ", ".join(report["volatile_categories"])))
+    if report["stale"]:
+        print("  stale entries (%d):" % len(report["stale"]))
+        for s in report["stale"]:
+            print("    - %s [%s] last_verified=%s age=%dd" % (
+                s["id"], s["category"], s["last_verified"], s["age_days"]))
+    else:
+        print("  stale entries: none")
+    if report["conflicts"]:
+        print("  possible duplicate/conflict pairs (%d, Jaccard >= %.2f):" % (
+            len(report["conflicts"]), _CONFLICT_JACCARD))
+        for c in report["conflicts"]:
+            print("    - %s <-> %s [%s] jaccard=%.4f" % (
+                c["a"], c["b"], c["category"], c["jaccard"]))
+    else:
+        print("  possible duplicate/conflict pairs: none")
 
 
 def cmd_audit(args):
@@ -1059,10 +2611,20 @@ def cmd_audit(args):
             {"name": "orphaned_learnings", "ok": not oe, "details": oe},
             _audit_steering_lint_check(),
         ]
+    if getattr(args, "with_tests", False):
+        checks.append(_audit_tests_check())
+        if err is None:
+            checks.append(_audit_gate_check(kdir))
+    stale_report = None
+    if getattr(args, "stale", False) and err is None:
+        stale_report = build_stale_report(
+            kdir, data, getattr(args, "max_age_days", 120))
     ok = all(c["ok"] for c in checks)
     if as_json:
-        json.dump({"ok": ok, "checks": checks}, sys.stdout,
-                  ensure_ascii=False, indent=2)
+        payload = {"ok": ok, "checks": checks}
+        if stale_report is not None:
+            payload["stale_report"] = stale_report
+        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
         print("AUDIT %s (%d check(s)):" % ("PASSED" if ok else "FAILED", len(checks)))
@@ -1071,6 +2633,8 @@ def cmd_audit(args):
             if not c["ok"]:
                 for d in c["details"]:
                     print("      - %s" % d)
+        if stale_report is not None:
+            _print_stale_report(stale_report)
     return 0 if ok else 1
 
 
@@ -1210,6 +2774,8 @@ def build_parser():
     p_add.add_argument("--tags", required=True, help="comma-separated tags")
     p_add.add_argument("--summary", required=True, help="one-line summary")
     p_add.add_argument("--created", default=None, help="YYYY-MM-DD (default: today)")
+    p_add.add_argument("--last-verified", default=None,
+                       help="YYYY-MM-DD freshness date (default: == created)")
     p_add.set_defaults(func=cmd_index_add)
 
     p_rm = index_sub.add_parser(
@@ -1266,7 +2832,79 @@ def build_parser():
     # audit ------------------------------------------------------------------
     p_audit = sub.add_parser(
         "audit", parents=[fmt_parent], help="run all consistency checks in one pass")
+    p_audit.add_argument(
+        "--with-tests", action="store_true",
+        help="also run the unittest suite (tests/) and fail the audit on failure")
+    p_audit.add_argument(
+        "--stale", action="store_true",
+        help="report aged volatile entries + near-duplicate/conflict pairs (advisory)")
+    p_audit.add_argument(
+        "--max-age-days", type=int, default=120, dest="max_age_days",
+        help="staleness window in days for --stale (default: 120)")
     p_audit.set_defaults(func=cmd_audit)
+
+    # recall -----------------------------------------------------------------
+    p_recall = sub.add_parser(
+        "recall", parents=[fmt_parent],
+        help="deterministic BM25 ranked retrieval, token-budgeted")
+    p_recall.add_argument("query", help="free-text query to rank KB entries against")
+    p_recall.add_argument("--top-k", type=int, default=5, dest="top_k",
+                          help="max entries to return before budgeting (default: 5)")
+    p_recall.add_argument("--token-budget", type=int, default=1500,
+                          dest="token_budget",
+                          help="trim so cumulative est. tokens <= budget (default: 1500)")
+    p_recall.add_argument("--category", default=None,
+                          help="restrict ranking to a single category")
+    p_recall.set_defaults(func=cmd_recall)
+
+    # eval -------------------------------------------------------------------
+    p_eval = sub.add_parser(
+        "eval", parents=[fmt_parent],
+        help="benchmark recall over a gold set (Recall@k, precision@k, nDCG@k, MRR)")
+    p_eval.add_argument(
+        "--gold", default=None,
+        help="path to gold set JSON (default: <kdir>/benchmarks/recall-gold.json)")
+    p_eval.add_argument("--top-k", type=int, default=5, dest="top_k",
+                        help="cutoff k for @k metrics (default: 5)")
+    p_eval.add_argument("--strategy", choices=("tag", "bm25"), default="tag",
+                        help="retrieval strategy to score (default: tag baseline)")
+    p_eval.add_argument("--ablate", action="store_true",
+                        help="run the gold set through both tag (baseline) and "
+                             "bm25 (treatment) and report the per-metric lift")
+    p_eval.add_argument("--record", action="store_true",
+                        help="append one immutable commit+UTC-date-stamped row "
+                             "(with a 0-100 reliability score) to "
+                             "<kdir>/benchmarks/history.jsonl (append-only)")
+    p_eval.add_argument("--gate", action="store_true",
+                        help="compare this run to the best prior comparable "
+                             "ledger row and EXIT NON-ZERO on a regression "
+                             "beyond --tolerance (implies --record; seeds + "
+                             "passes when there is no prior history)")
+    p_eval.add_argument("--tolerance", type=float, default=0.02,
+                        help="max allowed drop per headline metric before --gate "
+                             "fails (default: 0.02; reliability uses x100 points)")
+    p_eval.set_defaults(func=cmd_eval)
+
+    # bench ------------------------------------------------------------------
+    p_bench = sub.add_parser("bench", help="benchmark scorecard utilities")
+    bench_sub = p_bench.add_subparsers(dest="bench_command", metavar="<subcommand>")
+    bench_sub.required = True
+    p_score = bench_sub.add_parser(
+        "scorecard",
+        help="regenerate benchmarks/SCORECARD.md trend table from history.jsonl")
+    p_score.set_defaults(func=cmd_bench)
+
+    # metrics ----------------------------------------------------------------
+    p_metrics = sub.add_parser(
+        "metrics", parents=[fmt_parent],
+        help="execution observability over session transcripts (read-only)")
+    p_metrics.add_argument("--session", default=None,
+                           help="restrict to a single session id")
+    p_metrics.add_argument("--feature", default=None,
+                           help="sessions whose transcript references the feature")
+    p_metrics.add_argument("--since", default=None,
+                           help="only sessions starting on/after YYYY-MM-DD")
+    p_metrics.set_defaults(func=cmd_metrics)
 
     # steering ---------------------------------------------------------------
     p_steer = sub.add_parser("steering", help="Deterministic Steering Format tooling")

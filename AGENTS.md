@@ -52,6 +52,7 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 - ALWAYS write new knowledge, learnings, skills, and work artifacts to the external knowledge dir, never into the package. [R-PKG-02]
 - IF the user EXPLICITLY asks to change agentware's own steering, skills, agents, or loop THEN STOP and present a "!! WARNING !!" that self-extension can destabilize the system for this and every future project, and edit only on explicit confirmation. [R-PKG-03]
 - IF a package edit is confirmed THEN RUN scripts/agentware steering lint afterward and STOP if it fails. [R-PKG-04]
+- IF a package edit is confirmed THEN RUN scripts/agentware eval --record --gate afterward and STOP if the reliability score regresses. [R-PKG-05]
 
 ## Drill-down architecture
 
@@ -77,6 +78,7 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 - IF the instruction is a clear standalone task THEN skip context discovery and execute. [R-CTX-02]
 - NEVER read every knowledge-base file before starting work. [R-CTX-03]
 - NEVER quote MAIN.md to prove context was read. [R-CTX-04]
+- RUN scripts/agentware recall "<task summary>" at task start to surface relevant entries by ranked relevance, then READ the returned paths instead of injecting the whole MAIN.md. [R-CTX-05]
 
 ## Verification gates
 
@@ -126,6 +128,7 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 
 - ALWAYS mark discoveries in the worklog as `> LEARNED: <one-liner>`. [R-SI-01]
 - ALWAYS follow the self-improvement skill (.claude/skills/self-improvement/SKILL.md) at end of task to promote learnings into durable knowledge. [R-SI-02]
+- NEVER emit a task-completion promise while any `> LEARNED:` marker in the worklog is unpromoted; promote each via scripts/agentware learn first, then confirm scripts/agentware worklog scan passes. [R-SI-03]
 
 ## Conventions
 

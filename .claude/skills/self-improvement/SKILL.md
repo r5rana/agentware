@@ -71,9 +71,8 @@ blockquote with the marker `LEARNED:`:
 > 500. Mitigation: extend webServer.timeout to 15000 in the config.
 ```
 
-This is cheap memory — it survives even if the task fails. The loop's post-hook
-(`scripts/agentware worklog scan`) FAILS the run if any `LEARNED:` marker is left
-unpromoted, so capture freely and promote at task end.
+This is cheap memory — it survives even if the task fails. Capture freely; you
+promote before the task's completion promise (Step 4).
 
 ### Step 2 — Classify (at end of task / iteration)
 
@@ -159,6 +158,27 @@ it is self-extension, not normal knowledge capture.
    `Package change: <file> — "<what>" (self-extension, user-confirmed)`.
 
 Never edit the package silently.
+
+### Step 4 — Promote BEFORE the completion promise (not after)
+
+Promotion is a precondition of completion, enforced at three layers
+(defense-in-depth — `R-SI-03`):
+
+1. **You, proactively** — before emitting ANY completion `<promise>`, run
+   `scripts/agentware worklog scan --path <knowledge-dir>/work/<feature>/worklog.md`
+   and promote every `> LEARNED:` marker it flags (Steps 2–3) until it reports 0.
+   This is the intended path — do not offload it to the gate below.
+2. **The loop self-heals** — if you forget and signal completion anyway, the main
+   phase of `agentware.sh` refuses to finish: it detects the unpromoted markers via
+   the same `worklog scan`, deletes the stale `.done`, and re-engages you with a
+   promotion-only prompt. This is **bounded** (`MAX_PROMOTE_RETRIES`, default 3);
+   after that it fails loud with a non-zero exit rather than looping forever.
+3. **The post-phase backstop** — `run_post_hooks` runs `worklog scan` one last time
+   and hard-fails the run if anything is still unpromoted. It is the safety net, NOT
+   the trigger; if it ever fires, layers 1–2 were skipped.
+
+The takeaway: promote at task end, BEFORE the promise. Zero knowledge loss is a
+gate, not a suggestion.
 
 ## Avoiding skill bloat
 

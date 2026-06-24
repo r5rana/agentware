@@ -17,9 +17,11 @@ that you own completely, and how everything is tracked deterministically.
 - **An orchestrator that never changes as you work.** The cloned package is
   read-only during normal use. Everything mutable goes to *your* directory.
 - **Deterministic recall.** A small toolkit (`scripts/agentware`) is the only
-  thing that writes structured data, and agents look things up with `query` /
-  `audit` instead of re-reading the whole base — so memory doesn't cost a fortune
-  in tokens.
+  thing that writes structured data, and agents look things up with ranked
+  `recall` (BM25, token-budgeted) plus exact `query` / `audit` instead of
+  re-reading the whole base — so memory doesn't cost a fortune in tokens. Quality
+  is **measured**, not assumed: `eval` benchmarks recall against a gold set and
+  records a commit-stamped trend. See "Recall, benchmarking & metrics" below.
 
 ---
 
@@ -116,13 +118,130 @@ exist, run `scripts/agentware index validate` afterward. Never hand-edit
 
 ---
 
+## Recall, benchmarking & metrics (deterministic — you own the numbers)
+
+`query`/`audit` find entries by **exact** tag, id, or category. On top of that,
+agentware ships a deterministic, **stdlib-only** retrieval + measurement spine.
+Every command below is **read-only** over your knowledge base (it never writes
+`index.json` or any entry — the toolkit's `learn`/`index add` stay the sole
+writers), and every ranking is reproducible: identical inputs produce
+byte-identical output. There is **no LLM, no embedding model, and no network** in
+any of it.
+
+### `recall` — ranked relevance retrieval
+
+```bash
+scripts/agentware recall "<free-text query>" \
+  [--top-k 5] [--token-budget 1500] [--category learnings] [--format text|json]
+```
+
+`recall` ranks every entry (built from its title + summary + tags + file body)
+with a hand-rolled **BM25** scorer (`k1=1.5`, `b=0.75`) over a fixed tokenizer
+(lowercase, split on non-alphanumeric, no stemming), then trims the result so the
+cumulative estimated context (≈ chars/4) stays under `--token-budget`. Ordering is
+deterministic: score desc → `created` desc → `id` asc. This is what the execution
+agent runs at task start (`R-CTX-05`) to inject a **small, focused** set instead of
+dumping all of `MAIN.md` — it reduces context cost, it never increases it. Use
+`--format json` for a stable machine-readable schema (`id`, `path`, `score`,
+`summary`, `estimated_tokens`).
+
+### `eval` — measure recall quality against a gold set
+
+```bash
+scripts/agentware eval [--strategy tag|bm25] [--top-k 5] \
+  [--gold <path>] [--ablate] [--record] [--gate] [--tolerance 0.02] \
+  [--format text|json]
+```
+
+`eval` scores a retrieval strategy against an operator-owned gold set
+(`<knowledge-dir>/benchmarks/recall-gold.json`, a list of
+`{ "query": …, "expected_ids": [ … ] }`) and reports **Recall@k**, **precision@k**,
+**nDCG@k**, **MRR**, mean/p50 **latency**, and the **context-token footprint** the
+returned set injects. `--strategy tag` scores the legacy exact-tag path (the
+untouched-agentware baseline); `--strategy bm25` scores `recall`.
+
+- `--ablate` runs the same gold set through **both** strategies and prints the
+  per-metric lift — the concrete proof BM25 recall beats tag-only retrieval.
+- `--record` appends one **immutable, commit-SHA + UTC-date-stamped** row (with a
+  0–100 composite reliability score) to `<knowledge-dir>/benchmarks/history.jsonl`.
+  The ledger is strictly **append-only**: rows are never edited or deleted.
+- `--gate [--tolerance T]` compares this run to the best prior comparable row and
+  **exits non-zero** if any headline metric (or the reliability score) regresses
+  beyond tolerance; it implies `--record`, and seeds + passes on the first run.
+
+### `bench scorecard` — human-readable trend
+
+```bash
+scripts/agentware bench scorecard
+```
+
+Regenerates `<knowledge-dir>/benchmarks/SCORECARD.md` from the ledger: a table of
+commit · date · Recall@5 · nDCG@5 · MRR · p50 latency · token footprint ·
+reliability, newest first, plus the latest ablation delta. The `.md` is a derived
+**view**; `history.jsonl` is the source of truth.
+
+### `audit --stale` — freshness & conflict flagging (advisory)
+
+```bash
+scripts/agentware audit --stale [--max-age-days 120]
+```
+
+Lists entries in volatile categories (`learnings`, `configurations`) whose
+`last_verified` is older than the window, plus same-category near-duplicate/conflict
+pairs (token-set Jaccard ≥ 0.6). It is **advisory only** — it reports, never deletes
+or rewrites, and never flips the audit exit code.
+
+### `metrics` — execution observability
+
+```bash
+scripts/agentware metrics [--session <sid> | --feature <name> | --since YYYY-MM-DD] \
+  [--format text|json]
+```
+
+Parses your own session transcripts (`logs/sessions/<sid>/main.jsonl` plus
+`subagents/*.jsonl`) into per-session + aggregate rows: turn count, wall time, token
+usage (input / output / cache-creation / cache-read), tool-call counts by tool, and
+subagent count. Read-only; tolerant of malformed or missing fields.
+
+### Every package update is benchmarked
+
+`scripts/agentware audit --with-tests` runs the full `unittest` suite **and** the
+benchmark gate, so a package change cannot ship a beyond-tolerance regression
+(`R-PKG-05` makes `eval --record --gate` a mandatory post-edit step). That is how
+"reliability" stays a **recorded, trended number** rather than a claim.
+
+> **v1 is BM25; embeddings are a future, pluggable boundary.** Ranking is
+> deterministic BM25 by deliberate design — it protects the non-hallucinated,
+> reproducible, git-versioned memory that is agentware's edge. A vector/embedding
+> or graph backend, if ever added, stays **optional and pluggable behind the same
+> `recall` interface**, with the deterministic stdlib path remaining the default;
+> the package never hard-requires a model or network service.
+
+---
+
 ## The audit log (never lose a prompt or a session)
 
-Hooks record everything to your dir, timestamped:
+Five hooks record everything to your dir, timestamped. Two are **boundary**
+captures (they fire at lifecycle edges and write the lossless record), one is a
+**streaming** capture (it fires after every tool call and writes the live view):
+
+| Hook | Fires when | Writes |
+|---|---|---|
+| `UserPromptSubmit` (`log-prompt.sh`) | a prompt is submitted | `logs/prompts.log` |
+| `PostToolUse` (`log-tool.sh`) | **after every single tool call** (live) | `sessions/<sid>/live.{md,jsonl}` |
+| `SubagentStop` (`log-subagent.sh`) | a subagent finishes | `sessions/<sid>/subagents/<agent-id>.{jsonl,md}` |
+| `Stop` (`log-stop.sh`) | an assistant turn finishes | `sessions/<sid>/main.{jsonl,md}` + `full.md` |
+| `SessionStart` (`session-start.sh`) | a session starts | injects your `MAIN.md` context |
 
 - `logs/prompts.log` — **every prompt you submit**, appended immediately, so you
   never lose something you typed.
 - `logs/sessions/<session-id>/` — one folder per session:
+  - `live.md` / `live.jsonl` — the **streaming view**: one line appended **per
+    tool call, as it happens** (so you can `tail -f` a run in real time, before
+    the turn ends). `live.md` is human-readable
+    (`[ts] 🔧 <tool> <input summary> → ok|ERR`); `live.jsonl` is its
+    machine-readable twin. Large tool input/response is truncated (~1500 chars)
+    for size; the lossless copy lives in `main.jsonl`.
   - `main.jsonl` — the **complete, lossless** transcript of the main agent
     (prompts, assistant text, thinking, every tool call with file names, results).
   - `main.md` — readable, timestamped render of the above.
@@ -130,9 +249,17 @@ Hooks record everything to your dir, timestamped:
     subagent** the session spawned (its own thinking + tool calls), one per agent.
   - `full.md` — the main transcript with **every subagent appended at the end**,
     so one file shows the entire session including all delegated work.
-- `logs/activity.log` — one line per turn / per subagent (quick index).
+- `logs/activity.log` — one line per turn / tool call / subagent (quick index).
 
 Go back and read any session anytime. It's your data; nothing is hidden.
+
+> **Boundary vs streaming.** `main.{jsonl,md}` and the `subagents/` snapshots are
+> written at lifecycle *edges* (turn / subagent end) — lossless, but they only
+> land once the turn finishes. `live.{md,jsonl}` is written *as each tool runs*,
+> so you can watch progress mid-turn; it is a truncated **view**, not the record
+> of truth. `PostToolUse` fires for subagent tool calls too (attributed to the
+> parent session), so `live.*` reflects full-depth activity. To watch a run live,
+> see "Watch a run live" in `docs/loop.md`.
 
 > The lossless `.jsonl` files are the source of truth; the `.md` renders truncate
 > only individual very-long blocks for readability. (Very large tool outputs that
