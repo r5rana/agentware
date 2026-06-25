@@ -602,14 +602,21 @@ def cmd_index_add(args):
         sys.stderr.write("agentware: %s\n" % add_err)
         return 1
 
+    # Ensure the registered (pre-existing) file is frontmatter-complete: if it
+    # lacks a frontmatter block, prepend one built from the entry + defaults so
+    # the file remains the rebuildable source of truth (C-1). Never overwrite an
+    # existing block (idempotent); never edit the body.
+    backfilled = ensure_entry_frontmatter(kdir, entry)
+
     save_index(kdir, data)
     if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, "added": entry}, sys.stdout,
-                  ensure_ascii=False, indent=2)
+        json.dump({"ok": True, "added": entry, "frontmatter_backfilled": backfilled},
+                  sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
-        print("ADDED entry '%s' (category=%s, path=%s)"
-              % (args.id, args.category, args.path))
+        print("ADDED entry '%s' (category=%s, path=%s)%s"
+              % (args.id, args.category, args.path,
+                 " [frontmatter backfilled]" if backfilled else ""))
     return 0
 
 
@@ -731,6 +738,180 @@ def cmd_index_sync(args):
     return 1 if failures else 0
 
 
+def cmd_index_migrate(args):
+    """One-time backfill: prepend frontmatter to every indexed entry file.
+
+    Bootstraps the rebuildable source of truth (C-1): each entry's `.md` gets a
+    frontmatter block derived from its `index.json` row + defaults
+    (author=operator handle, source=agent, last_verified=created). PREPEND only —
+    bodies are never edited. Idempotent: a file that already carries frontmatter
+    is skipped, so re-running is a no-op (reports 0 changed).
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, err = load_index(kdir)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+
+    author = _operator_handle(kdir)
+    migrated, skipped, missing = [], [], []
+    for entry in data.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        rel = entry.get("path")
+        if not rel or not os.path.exists(os.path.join(kdir, rel)):
+            missing.append(rel)
+            continue
+        if ensure_entry_frontmatter(kdir, entry, author=author,
+                                    source=DEFAULT_ENTRY_SOURCE):
+            migrated.append(rel)
+        else:
+            skipped.append(rel)
+
+    as_json = getattr(args, "format", "text") == "json"
+    if as_json:
+        json.dump({"ok": not missing, "migrated": migrated, "skipped": skipped,
+                   "missing": missing, "migrated_count": len(migrated),
+                   "skipped_count": len(skipped)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("MIGRATE: %d file(s) gained frontmatter, %d already had it."
+              % (len(migrated), len(skipped)))
+        for p in migrated:
+            print("  + %s" % p)
+        for p in missing:
+            sys.stderr.write("agentware: indexed path missing on disk: %s\n" % p)
+    return 1 if missing else 0
+
+
+def scan_entry_files(kdir):
+    """All indexable entry *.md paths (knowledge-dir-relative), sorted.
+
+    Same candidate rule as `index sync` (2-part `<section>/index.md` rosters and
+    structural files are excluded), but WITHOUT the already-indexed filter — this
+    is the full set of files `index rebuild` derives the index from.
+    """
+    found = []
+    for sub in KNOWLEDGE_SUBDIRS:
+        d = os.path.join(kdir, sub)
+        if not os.path.isdir(d):
+            continue
+        for root, _dirs, files in os.walk(d):
+            for fn in files:
+                if not fn.endswith(".md"):
+                    continue
+                rel = os.path.relpath(os.path.join(root, fn), kdir).replace(os.sep, "/")
+                if _is_sync_candidate(rel):
+                    found.append(rel)
+    return sorted(set(found))
+
+
+def build_index_from_frontmatter(kdir):
+    """Reconstruct the index dict from per-entry frontmatter alone.
+
+    Returns (data, errors). Deterministic: entries are (category, id)-sorted and
+    the tags map is rebuilt from that stable order, so identical inputs yield
+    byte-identical output (C-2). `path` is derived from each file's location;
+    every other column comes from its frontmatter (C-1).
+    """
+    entries, errors = [], []
+    for rel in scan_entry_files(kdir):
+        fm = read_entry_frontmatter(os.path.join(kdir, rel))
+        eid = fm.get("id")
+        if not eid:
+            errors.append("missing frontmatter id (un-migrated?): %s" % rel)
+            continue
+        category = fm.get("category") or _infer_category(rel)
+        created = fm.get("created") or _today()
+        row = {
+            "id": eid,
+            "title": fm.get("title") or "",
+            "category": category,
+            "path": rel,
+            "tags": list(fm.get("tags") or []),
+            "created": created,
+            "summary": fm.get("summary") or "",
+            "last_verified": fm.get("last_verified") or created,
+        }
+        insert_entry_sorted(entries, row)
+    tags_map = {}
+    for e in entries:
+        add_tags_to_map(tags_map, e["id"], e["tags"])
+    return {"entries": entries, "tags": tags_map}, errors
+
+
+def _roster_link(sub, rel_path):
+    """Subdir-relative link target for a roster row (e.g. projects/x/index.md -> x/index.md)."""
+    prefix = sub + "/"
+    return rel_path[len(prefix):] if rel_path.startswith(prefix) else rel_path
+
+
+def _render_roster(sub, entries):
+    """Deterministic, derived `<sub>/index.md` roster (regenerated by rebuild)."""
+    rows = [e for e in entries if e.get("category") == sub]
+    out = ["# %s\n" % sub.capitalize(),
+           "> Auto-generated roster — DO NOT edit. Source of truth is each entry's "
+           "frontmatter; regenerate with `scripts/agentware index rebuild`.\n"]
+    if not rows:
+        out.append("_No entries yet._\n")
+    else:
+        out.append("| Title | Path | Summary |")
+        out.append("|-------|------|---------|")
+        for e in rows:
+            link = _roster_link(sub, e.get("path") or "")
+            out.append("| **%s** | [%s](%s) | %s |"
+                       % (e.get("title") or "", link, link, e.get("summary") or ""))
+        out.append("")
+    return "\n".join(out) + "\n"
+
+
+def cmd_index_rebuild(args):
+    """Regenerate index.json + `<sub>/index.md` rosters + FEATURES.md from frontmatter.
+
+    The index is a DERIVED cache: this reconstructs it from the per-entry markdown
+    frontmatter alone (C-1), deterministically and idempotently (C-2). It is the
+    conflict-safe resolver for the derived files — never hand-edit them (C-3).
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, errors = build_index_from_frontmatter(kdir)
+    if errors:
+        for e in errors:
+            sys.stderr.write("agentware: rebuild: %s\n" % e)
+        return 1
+    verrs = validate_index(kdir, data)
+    if verrs:
+        for e in verrs:
+            sys.stderr.write("agentware: rebuild produced an invalid index: %s\n" % e)
+        return 1
+
+    save_index(kdir, data)
+    rosters = []
+    for sub in KNOWLEDGE_SUBDIRS:
+        d = os.path.join(kdir, sub)
+        if not os.path.isdir(d):
+            continue
+        with open(os.path.join(d, "index.md"), "w", encoding="utf-8") as f:
+            f.write(_render_roster(sub, data["entries"]))
+        rosters.append("%s/index.md" % sub)
+    with open(features_path(kdir), "w", encoding="utf-8") as f:
+        f.write(_render_features(data))
+
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "entries": len(data["entries"]),
+                   "rosters": rosters, "features": features_path(kdir)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("REBUILT index.json (%d entries) + %d roster(s) + FEATURES.md "
+              "from frontmatter." % (len(data["entries"]), len(rosters)))
+    return 0
+
+
 def cmd_query(args):
     kdir = require_knowledge_dir()
     if not kdir:
@@ -781,18 +962,277 @@ def _topic_to_title(topic):
     return " ".join(w.capitalize() for w in words if w) or topic
 
 
-def _render_learning(title, created, tag_list, body):
+# --- Entry frontmatter (machine-readable source of truth) --------------------
+# Per-entry `.md` files carry a leading YAML frontmatter block that is the SOURCE
+# OF TRUTH for the index. `index.json` is a DERIVED cache (`index rebuild`
+# reconstructs it from frontmatter alone). The format is a RESTRICTED,
+# deterministic YAML subset (C-5): a block delimited by `---` lines holding flat
+# `key: value` scalars plus one inline list (`tags: [a, b]`). Emit + parse are
+# hand-rolled, stdlib only — NO PyYAML (preserves the zero-dependency moat).
+
+# Canonical field order in every emitted block.
+FRONTMATTER_FIELDS = ("id", "title", "category", "tags", "created",
+                      "summary", "author", "source", "last_verified")
+# The index columns derivable from frontmatter (tags handled separately).
+_FM_INDEX_SCALARS = ("id", "title", "category", "created", "summary")
+
+DEFAULT_ENTRY_SOURCE = "agent"
+
+
+def _operator_handle(kdir):
+    """Best-effort operator handle for the `author` default. Stdlib only.
+
+    Parses `**Handle**:` (then `**Operator**:`) out of the KB MAIN.md. Falls back
+    to 'operator' so the writer never blocks on a missing profile.
+    """
+    try:
+        with open(os.path.join(kdir, "MAIN.md"), "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return "operator"
+    for pat in (r"\*\*Handle\*\*:\s*([^\s·|]+)", r"\*\*Operator\*\*:\s*([^\s·|]+)"):
+        m = re.search(pat, text)
+        if m:
+            return m.group(1).strip()
+    return "operator"
+
+
+def _fm_needs_quote(s):
+    """True iff a scalar string must be double-quoted to survive round-trip."""
+    if s == "":
+        return True
+    if s != s.strip():
+        return True
+    if s[0] in "\"'[]{}>|*&!#%@`,?:-":
+        return True
+    # A colon or hash mid-value can change YAML meaning; quote to be safe.
+    return ":" in s or "#" in s
+
+
+def _fm_quote(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _fm_emit_scalar(value):
+    s = "" if value is None else str(value)
+    return _fm_quote(s) if _fm_needs_quote(s) else s
+
+
+def _fm_emit_tag(t):
+    t = "" if t is None else str(t)
+    if t == "" or t != t.strip() or any(c in t for c in ',[]"\' '):
+        return _fm_quote(t)
+    return t
+
+
+def render_frontmatter(fields):
+    """Emit the restricted-YAML frontmatter block (including `---` delimiters)."""
+    lines = ["---"]
+    for k in FRONTMATTER_FIELDS:
+        if k == "tags":
+            tags = fields.get("tags") or []
+            lines.append("tags: [%s]" % ", ".join(_fm_emit_tag(t) for t in tags))
+        else:
+            lines.append("%s: %s" % (k, _fm_emit_scalar(fields.get(k))))
+    lines.append("---")
+    return "\n".join(lines) + "\n"
+
+
+def _fm_parse_scalar(raw):
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+        return raw[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+    return raw
+
+
+def _fm_split_inline_list(s):
+    """Split an inline list body on commas not inside double quotes."""
+    parts, buf, in_q, esc = [], [], False, False
+    for ch in s:
+        if esc:
+            buf.append(ch)
+            esc = False
+            continue
+        if ch == "\\" and in_q:
+            buf.append(ch)
+            esc = True
+            continue
+        if ch == '"':
+            in_q = not in_q
+            buf.append(ch)
+            continue
+        if ch == "," and not in_q:
+            parts.append("".join(buf))
+            buf = []
+            continue
+        buf.append(ch)
+    parts.append("".join(buf))
+    return parts
+
+
+def _fm_parse_tags(raw):
+    raw = raw.strip()
+    if raw.startswith("[") and raw.endswith("]"):
+        raw = raw[1:-1]
+    out = []
+    for p in _fm_split_inline_list(raw):
+        if p.strip() == "":
+            continue
+        out.append(_fm_parse_scalar(p))
+    return out
+
+
+def split_frontmatter(text):
+    """Return (fields_dict_or_None, body_text).
+
+    Recognizes a frontmatter block ONLY when the file's first line is exactly
+    `---` and a closing `---` follows. Otherwise returns (None, text) so legacy
+    files and bodies that merely contain `---` horizontal rules are untouched.
+    """
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None, text
+    close = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            close = i
+            break
+    if close is None:
+        return None, text
+    fields = {}
+    for ln in lines[1:close]:
+        if not ln.strip() or ":" not in ln:
+            continue
+        key, _, val = ln.partition(":")
+        key = key.strip()
+        if key == "tags":
+            fields["tags"] = _fm_parse_tags(val)
+        elif key in FRONTMATTER_FIELDS:
+            fields[key] = _fm_parse_scalar(val)
+    return fields, "\n".join(lines[close + 1:])
+
+
+def strip_frontmatter(text):
+    """Body text with any leading frontmatter block removed (lossless tail)."""
+    fields, body = split_frontmatter(text)
+    if fields is None:
+        return text
+    return body.lstrip("\n")
+
+
+_LEGACY_CREATED_RE = re.compile(r">\s*\*\*Created\*\*:\s*(\S+)")
+_LEGACY_CATEGORY_RE = re.compile(r">\s*\*\*Category\*\*:\s*(\S+)")
+_LEGACY_TAGS_RE = re.compile(r">\s*\*\*Tags\*\*:\s*(.+)")
+
+
+def _parse_legacy_header(text):
+    """Best-effort extraction from a legacy blockquote-only entry (pre-migration).
+
+    Returns whatever it can (title/created/category/tags) so callers degrade
+    gracefully before the one-time migration runs.
+    """
+    out = {}
+    m = re.search(r"^#\s+(.+?)\s*$", text, re.M)
+    if m:
+        out["title"] = m.group(1).strip()
+    m = _LEGACY_CREATED_RE.search(text)
+    if m:
+        out["created"] = m.group(1).strip()
+    m = _LEGACY_CATEGORY_RE.search(text)
+    if m:
+        out["category"] = m.group(1).strip()
+    m = _LEGACY_TAGS_RE.search(text)
+    if m:
+        tags = re.findall(r"`([^`]+)`", m.group(1))
+        if tags:
+            out["tags"] = tags
+    return out
+
+
+def read_entry_frontmatter(path):
+    """Parse an entry file's frontmatter into a dict (possibly partial).
+
+    If the file carries a real frontmatter block, return its parsed fields.
+    Otherwise tolerate a legacy blockquote-only file and return what it can.
+    Returns {} on any read error.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return {}
+    fields, _ = split_frontmatter(text)
+    if fields is not None:
+        return fields
+    return _parse_legacy_header(text)
+
+
+def build_entry_frontmatter(entry, kdir, author=None,
+                            source=DEFAULT_ENTRY_SOURCE, last_verified=None):
+    """Build the 9-field frontmatter dict for an index entry + defaults."""
+    created = entry.get("created") or _today()
+    return {
+        "id": entry.get("id") or "",
+        "title": entry.get("title") or "",
+        "category": entry.get("category") or "",
+        "tags": list(entry.get("tags") or []),
+        "created": created,
+        "summary": entry.get("summary") or "",
+        "author": author if author is not None else _operator_handle(kdir),
+        "source": source,
+        "last_verified": last_verified or entry.get("last_verified") or created,
+    }
+
+
+def ensure_entry_frontmatter(kdir, entry, author=None,
+                             source=DEFAULT_ENTRY_SOURCE):
+    """Prepend a frontmatter block to `entry`'s file iff it lacks one.
+
+    Idempotent: a file that already carries a frontmatter block is left untouched
+    (returns False). PREPEND only — never edits the body. Returns True if it wrote
+    a block. The block is derived from the index `entry` row + defaults so the
+    file becomes the rebuildable source of truth (C-1, C-3).
+    """
+    rel = entry.get("path")
+    if not rel:
+        return False
+    abs_path = os.path.join(kdir, rel)
+    try:
+        with open(abs_path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return False
+    existing, _ = split_frontmatter(text)
+    if existing is not None:
+        return False
+    fm = build_entry_frontmatter(entry, kdir, author=author, source=source)
+    with open(abs_path, "w", encoding="utf-8") as f:
+        f.write(render_frontmatter(fm) + text)
+    return True
+
+
+def _render_learning(fields, body):
+    """Render a learning entry: machine frontmatter + human header + body.
+
+    `fields` is the 9-field frontmatter dict (source of truth); the human
+    blockquote header below it is for readability and is regenerated from the
+    same fields, so the two never drift.
+    """
+    tag_list = fields.get("tags") or []
     tags_str = ", ".join("`%s`" % t for t in tag_list) if tag_list else "_(none)_"
     return (
+        "%s"
         "# %s\n\n"
         "> **Created**: %s  \n"
         "> **Tags**: %s  \n"
-        "> **Category**: learnings\n\n"
+        "> **Category**: %s\n\n"
         "---\n\n"
         "%s\n\n"
         "---\n\n"
         "[← Back to Learnings](./index.md) | [← Back to Main](../MAIN.md)\n"
-        % (title, created, tags_str, body.rstrip("\n"))
+        % (render_frontmatter(fields), fields.get("title") or "",
+           fields.get("created") or "", tags_str,
+           fields.get("category") or "learnings", body.rstrip("\n"))
     )
 
 
@@ -835,9 +1275,13 @@ def cmd_learn(args):
             % abs_path)
         return 1
 
+    fm = build_entry_frontmatter(
+        {"id": eid, "title": title, "category": "learnings", "tags": tag_list,
+         "created": created, "summary": args.summary},
+        kdir, source=DEFAULT_ENTRY_SOURCE)
     os.makedirs(learnings_dir(kdir), exist_ok=True)
     with open(abs_path, "w", encoding="utf-8") as f:
-        f.write(_render_learning(title, created, tag_list, body))
+        f.write(_render_learning(fm, body))
 
     entry, add_err = _do_add(
         kdir, data, eid, title, "learnings", rel_path, tag_list, args.summary, created)
@@ -1090,13 +1534,18 @@ def estimate_tokens(text):
 
 
 def _read_entry_body(kdir, entry):
-    """Read an entry's markdown body (read-only, best-effort). '' on any error."""
+    """Read an entry's markdown body (read-only, best-effort). '' on any error.
+
+    Strips any leading machine frontmatter block so the BM25 corpus sees only the
+    human body — keeping recall/eval byte-identical to the pre-frontmatter corpus
+    (the index already contributes title/summary/tags separately).
+    """
     rel = entry.get("path")
     if not rel:
         return ""
     try:
         with open(os.path.join(kdir, rel), "r", encoding="utf-8") as f:
-            return f.read()
+            return strip_frontmatter(f.read())
     except OSError:
         return ""
 
@@ -2792,6 +3241,16 @@ def build_parser():
     p_sync.add_argument("--fix", action="store_true",
                         help="add missing entries instead of just reporting")
     p_sync.set_defaults(func=cmd_index_sync)
+
+    p_migrate = index_sub.add_parser(
+        "migrate-frontmatter", parents=[fmt_parent],
+        help="one-time: backfill YAML frontmatter into every indexed entry file")
+    p_migrate.set_defaults(func=cmd_index_migrate)
+
+    p_rebuild = index_sub.add_parser(
+        "rebuild", parents=[fmt_parent],
+        help="regenerate index.json + rosters + FEATURES.md from entry frontmatter")
+    p_rebuild.set_defaults(func=cmd_index_rebuild)
 
     # query ------------------------------------------------------------------
     p_query = sub.add_parser(

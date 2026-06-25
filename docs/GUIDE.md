@@ -90,7 +90,7 @@ Everything lives under your knowledge dir (`scripts/agentware config` shows wher
 ```
 <knowledge-dir>/
 ├── MAIN.md          # your profile + active work — injected into every session
-├── index.json       # the searchable index (managed by the toolkit only)
+├── index.json       # DERIVED cache — regenerable from entry frontmatter (toolkit-only)
 ├── FEATURES.md      # generated table of contents
 ├── learnings/       # gotchas + facts (one file per topic)
 ├── projects/        # per-project context
@@ -115,6 +115,40 @@ scripts/agentware audit                      # full consistency sweep
 You may freely read or hand-edit the Markdown files. If you change which entries
 exist, run `scripts/agentware index validate` afterward. Never hand-edit
 `index.json` — use `scripts/agentware index add|remove` so it stays consistent.
+
+### The index is a derived cache (frontmatter is the source of truth)
+
+Every entry file carries a machine-readable **YAML frontmatter** block at the top
+— the canonical source of truth for that entry:
+
+```yaml
+---
+id: learn-some-topic
+title: Some Topic
+category: learnings
+tags: [alpha, beta]
+created: 2026-06-25
+summary: One-line summary.
+author: rahul
+source: agent
+last_verified: 2026-06-25
+---
+```
+
+Because of this, `index.json` (plus the per-section `index.md` rosters and
+`FEATURES.md`) is a **derived cache** — 100% regenerable from the entry files:
+
+```bash
+scripts/agentware index rebuild   # reconstruct index.json + rosters + FEATURES.md
+```
+
+`rebuild` is deterministic and idempotent (pure stdlib, no network/LLM): on a
+clean tree a second run changes nothing. This is what makes the knowledge base
+safe to sync over git — a conflict in the derived `index.json` is resolved by
+**rebuilding from the entry frontmatter**, never by a fragile hand-merge.
+`learn` / `index add` / `index rebuild` remain the **only** writers of the index;
+hand-editing `index.json` is still forbidden. (One-time, after upgrading a KB that
+predates frontmatter: `scripts/agentware index migrate-frontmatter` backfills it.)
 
 ---
 
