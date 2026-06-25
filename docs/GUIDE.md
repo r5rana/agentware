@@ -129,7 +129,7 @@ category: learnings
 tags: [alpha, beta]
 created: 2026-06-25
 summary: One-line summary.
-author: rahul
+author: <your-handle>
 source: agent
 last_verified: 2026-06-25
 ---
@@ -149,6 +149,120 @@ safe to sync over git — a conflict in the derived `index.json` is resolved by
 `learn` / `index add` / `index rebuild` remain the **only** writers of the index;
 hand-editing `index.json` is still forbidden. (One-time, after upgrading a KB that
 predates frontmatter: `scripts/agentware index migrate-frontmatter` backfills it.)
+
+---
+
+## Syncing the knowledge base over git (team mode)
+
+Your knowledge dir is plain files, so you can keep it in **its own private git
+repo** and share it across machines or teammates. agentware makes that safe with a
+deterministic sync model: the only file that two agents can realistically collide
+on — the derived `index.json` (and the per-section rosters + `FEATURES.md`) — is
+**never hand-merged**; it is **regenerated from the entry frontmatter** (the source
+of truth). Everything below is scoped to your knowledge repo only — it never
+touches the agentware package or your code projects.
+
+### On by default (with a persisted opt-out)
+
+Auto-commit + push is **ON by default**. After a run that wrote to the KB,
+agentware commits the change and pushes it — **but only when your knowledge dir is
+actually a git work tree with an upstream**. A knowledge dir that isn't git-tracked
+(or is offline / has no upstream) is a **clean no-op**: nothing is committed, the
+run is never blocked. So fresh clones whose KB isn't a repo see no behavior change
+until you opt into git; once you do, versioning + backup just happen.
+
+The setting resolves with this precedence:
+
+1. **Per-run env** — `AGENTWARE_KB_AUTOCOMMIT=0|1` set on the command line wins for
+   that one run (the escape hatch).
+2. **Config file** — `AGENTWARE_KB_AUTOCOMMIT=0|1` persisted in
+   `~/.agentware/config.env` (the same file that stores your knowledge dir).
+3. **Default** — **ON (`1`)** when neither is set.
+
+Persist a choice (writes the config file without clobbering your knowledge-dir
+setting), and read the resolved value the loop uses:
+
+```bash
+scripts/agentware config --set-autocommit off   # persist opt-out (or: on|yes)
+scripts/agentware config --kb-autocommit-only    # prints the resolved 1 / 0
+```
+
+Disable it for a single run without changing your saved preference:
+
+```bash
+AGENTWARE_KB_AUTOCOMMIT=0 ./agentware.sh <feature>
+```
+
+Onboarding asks once whether to enable auto-commit (recommended: yes) and persists
+your answer here, so most operators never touch these flags by hand.
+
+> **`logs/` is never committed or pushed.** Your knowledge dir's `logs/` (full
+> session transcripts) is **gitignored and untracked**, so auto-commit only ever
+> versions *knowledge* — learnings, the index, the scorecard, `MAIN.md` — never
+> your transcripts. New knowledge dirs get this `.gitignore` at init; an existing
+> KB is fixed once with `git -C "$KDIR" rm -r --cached logs/`.
+
+The same plumbing is available as direct commands if you'd rather drive it by hand
+(all default to the resolved knowledge dir; `--path` points at any other KB repo):
+
+```bash
+scripts/agentware kb-git status     # is_work_tree / has_upstream / is_clean
+scripts/agentware kb-git pull        # fast-forward from upstream at a safe point
+scripts/agentware kb-git commit      # one feat|chore(tag): commit, KB repo only
+scripts/agentware kb-git push        # push, auto-resolving derived-file conflicts
+```
+
+### The cadence
+
+1. **Pull at the start (safe-point fast-forward).** When the tree is a clean work
+   tree with an upstream, the loop fast-forwards your KB from upstream before doing
+   any work, so the run builds on the latest shared knowledge. If the tree is dirty,
+   offline, or has no upstream, the pull is a **graceful skip** — it prints a notice
+   and never blocks the run, and it never pulls onto uncommitted writes
+   (`--ff-only`, so it never invents a merge commit).
+
+2. **Commit at the end (after learnings are promoted).** When a run wrote to the KB,
+   the commit fires at the **tail of the post-phase, only after the zero-knowledge-
+   loss gate passes** — i.e. every `> LEARNED:` marker has been promoted and the
+   index validates. It stages **only** files under your knowledge dir and makes
+   **one** conventional commit: `feat|chore(<tag>): <message>` (the `<tag>` is
+   derived from the feature/dominant category; the message summarizes the change).
+   It can never stage your code project or the agentware package — a scope guard
+   refuses if the target's work-tree root is the package repo.
+
+3. **Push, resolving derived-file conflicts deterministically.** On a push that the
+   remote rejects because upstream moved, agentware pulls with `--rebase`. If the
+   only conflicts are in **derived files** (`index.json`, the `*/index.md` rosters,
+   `FEATURES.md`), it discards the textual conflict and **rebuilds those files from
+   the entry frontmatter** (`index rebuild`) — *no agent, no hand-merge*. This is
+   why two agents each adding a *different* learning merge cleanly: their entry files
+   live at distinct paths, and the only collision (the index) is regenerated.
+
+### The rare case: the same entry edited two ways
+
+If two sides edited the **same entry's prose**, that can't be regenerated — it needs
+judgment. Here, and only here, agentware reconciles with a curated **`MERGE_PROMPT`**
+that reuses the execution agent (no new agent type): it is told to merge **only** the
+listed entry files, preserve the facts from **both** sides and the YAML frontmatter,
+and **never** touch derived files. After the agent reconciles the prose, the derived
+files are **unconditionally rebuilt** from frontmatter — so the agent literally
+cannot corrupt the index — and the merge continues.
+
+### Nothing-lost guarantee
+
+Before any resolved merge is pushed, a **mechanical nothing-lost gate** runs (no
+LLM): it rebuilds + validates the index, then checks that the merged set of entry
+IDs is a **superset of the union** of both parents' entry IDs (read straight from
+each parent commit's frontmatter, no checkout). If any entry ID was dropped or the
+index is invalid, the merge is **aborted and fails loud** — a lossy merge can never
+reach the remote. Re-push races (upstream moving again mid-resolve) retry the whole
+pull→resolve→push cycle a bounded number of times (default 3) and then fail loud
+rather than loop forever.
+
+> **Determinism first, agent last, nothing silently lost.** Structured/derived files
+> are *always* regenerated, never merged. An agent is involved *only* for same-entry
+> prose, and even then it can't touch the derived files. Every merge is gated on an
+> entry-ID superset check before it's allowed to leave your machine.
 
 ---
 

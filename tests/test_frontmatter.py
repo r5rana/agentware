@@ -20,7 +20,7 @@ class FrontmatterRoundTripTests(SyntheticKBTestCase):
             "tags": ["alpha", "beta-gamma", "needs space", "with,comma"],
             "created": "2026-06-25",
             "summary": "Summary with: colon, comma, # and \"quotes\" inside.",
-            "author": "rahul",
+            "author": "testhandle",
             "source": "agent",
             "last_verified": "2026-06-25",
         }
@@ -33,7 +33,7 @@ class FrontmatterRoundTripTests(SyntheticKBTestCase):
     def test_empty_tags_round_trip(self):
         mod = load_cli()
         fields = {"id": "x", "title": "X", "category": "references", "tags": [],
-                  "created": "2026-01-01", "summary": "s", "author": "rahul",
+                  "created": "2026-01-01", "summary": "s", "author": "testhandle",
                   "source": "agent", "last_verified": "2026-01-01"}
         parsed, _ = mod.split_frontmatter(mod.render_frontmatter(fields))
         self.assertEqual(parsed["tags"], [])
@@ -43,7 +43,7 @@ class FrontmatterRoundTripTests(SyntheticKBTestCase):
         body = "# Heading\n\n> **Created**: 2026-01-01\n\nSome body.\n\n---\n\nfooter\n"
         fields = {"id": "x", "title": "Heading", "category": "learnings",
                   "tags": ["a"], "created": "2026-01-01", "summary": "s",
-                  "author": "rahul", "source": "agent", "last_verified": "2026-01-01"}
+                  "author": "testhandle", "source": "agent", "last_verified": "2026-01-01"}
         full = mod.render_frontmatter(fields) + body
         self.assertEqual(mod.strip_frontmatter(full), body)
 
@@ -60,7 +60,7 @@ class FrontmatterDefaultsTests(SyntheticKBTestCase):
         super().setUp()
         # Provide a MAIN.md so the author default resolves to the operator handle.
         with open(os.path.join(self.kdir, "MAIN.md"), "w", encoding="utf-8") as f:
-            f.write("# KB\n\n- **Handle**: rahul\n")
+            f.write("# KB\n\n- **Handle**: testhandle\n")
 
     def test_learn_writes_nine_field_frontmatter(self):
         code, out, err = self.run_cli(
@@ -77,7 +77,7 @@ class FrontmatterDefaultsTests(SyntheticKBTestCase):
         self.assertEqual(fm["category"], "learnings")
         self.assertEqual(fm["tags"], ["widgets", "quirks"])
         self.assertEqual(fm["summary"], "A widget quirk.")
-        self.assertEqual(fm["author"], "rahul")
+        self.assertEqual(fm["author"], "testhandle")
         self.assertEqual(fm["source"], "agent")
         # Defaults: last_verified == created.
         self.assertEqual(fm["last_verified"], fm["created"])
@@ -125,7 +125,7 @@ class IndexAddBackfillTests(SyntheticKBTestCase):
         mod = load_cli()
         fm = {"id": "ref-already", "title": "Already", "category": "references",
               "tags": ["x"], "created": "2026-03-03", "summary": "Has fm.",
-              "author": "rahul", "source": "agent", "last_verified": "2026-03-03"}
+              "author": "testhandle", "source": "agent", "last_verified": "2026-03-03"}
         with open(abs_path, "w", encoding="utf-8") as f:
             f.write(mod.render_frontmatter(fm) + "# Already\n\nbody\n")
         with open(abs_path, encoding="utf-8") as f:

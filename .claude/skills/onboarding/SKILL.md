@@ -210,17 +210,18 @@ If the user is purely doing data / ML / shell work, skip this step entirely.
 If any sub-step fails, capture what was done into the worklog and proceed to
 Step 7. Do NOT block the rest of onboarding on Playwright setup.
 
-### Step 7 — Offer git/GitHub, install aliases, then write the sentinel
+### Step 7 — Offer git/GitHub, set KB auto-commit, install aliases, then write the sentinel
 
-Run **7a (git/GitHub)**, then **7b (aliases — install AND verify)**, then
-**7c (sentinel)**. 7a is optional; 7b is a standard step that must be VERIFIED
+Run **7a (git/GitHub for this repo)**, then **7b (knowledge-base versioning &
+auto-commit)**, then **7c (aliases — install AND verify)**, then **7d
+(sentinel)**. 7a and 7b are optional; 7c is a standard step that must be VERIFIED
 working before onboarding completes.
 
 #### Step 7a — Git and GitHub setup
 
 Ask: "Would you like this agentware repo under version control? (y/n)"
 
-If no, skip to 7b. If yes:
+If no, skip to 7b. If yes (this concerns the **repo**, not your knowledge dir):
 
 1. Check for an existing repo: `test -d .git && echo HAS_GIT || echo NO_GIT`.
 2. If `HAS_GIT`: say so and skip to the GitHub question below.
@@ -239,7 +240,49 @@ If no, skip to 7b. If yes:
    - If `gh` is NOT available: print the manual `git remote add origin <URL>` /
      `git push -u origin main` steps; do not hardcode URLs.
 
-#### Step 7b — Install the two workflow aliases (and VERIFY them)
+#### Step 7b — Knowledge-base versioning & auto-commit
+
+This is about the **external knowledge dir** (`$KDIR`), NOT the repo from 7a.
+With versioning on, agentware can auto-commit and push your knowledge (learnings,
+index, scorecard, MAIN) after each run, so you never lose context and can sync it
+across machines. Transcripts in `logs/` are gitignored, so auto-commit only ever
+versions knowledge — never raw session logs.
+
+**Recommend keeping the KB in git** for versioning, backup, and team sharing.
+Then ask once and persist the answer. The setting resolves env → config →
+**default ON**; this step records the operator's explicit choice in
+`~/.agentware/config.env`.
+
+1. Check whether `$KDIR` is already a git work tree:
+   ```bash
+   KDIR=$(scripts/agentware config --knowledge-dir-only)
+   git -C "$KDIR" rev-parse --is-inside-work-tree 2>/dev/null && echo TRACKED || echo UNTRACKED
+   ```
+2. Ask: **"Auto-commit & push your knowledge base after each run? [recommended: yes]"**
+3. Persist the choice with the toolkit (the ONLY writer of the setting — accepts
+   `on|off|yes|no|1|0|true|false`):
+   ```bash
+   scripts/agentware config --set-autocommit yes   # or: off, if they decline
+   ```
+   Confirm it landed:
+   ```bash
+   scripts/agentware config --kb-autocommit-only    # prints 1 (on) or 0 (off)
+   ```
+4. Handle the KB git state:
+   - **If `UNTRACKED` and the user wants auto-commit**: offer to initialize it.
+     With the user's OK, `git -C "$KDIR" init`, then help them add a remote
+     (`git -C "$KDIR" remote add origin <URL>` — do NOT hardcode URLs; if `gh`
+     is available offer `gh repo create`). Auto-commit only ACTS once the KB is a
+     git work tree with an upstream — until then it is a graceful no-op even when
+     the setting is on.
+   - **If the user declines git entirely**: run
+     `scripts/agentware config --set-autocommit off` and tell them auto-commit is
+     **inert** (stored off; also a no-op because the KB isn't tracked). They can
+     enable it later with `scripts/agentware config --set-autocommit on`.
+5. Note the escape hatch: a per-run `AGENTWARE_KB_AUTOCOMMIT=0 ./agentware.sh …`
+   overrides the persisted setting for a single run.
+
+#### Step 7c — Install the two workflow aliases (and VERIFY them)
 
 These two aliases are the whole interface. Each launches the matching subagent
 with permissions pre-granted (`--dangerously-skip-permissions`) so the user is
@@ -254,7 +297,7 @@ resolve.
 
 1. Ask: "Install the two workflow aliases (`PLAN_AW`, `WORK_AW`)
    into your shell rc? They make the system zero-friction. (y/n)". If the user
-   declines, note it and skip to 7c.
+   declines, note it and skip to 7d.
 2. Detect the shell rc: `echo "$SHELL"` → `~/.zshrc` (zsh) or `~/.bashrc` /
    `~/.bash_profile` (bash). Confirm the target with the user.
 3. Idempotency: `grep -q '# >>> agentware aliases >>>' <target-rc>`. If present,
@@ -288,7 +331,7 @@ resolve.
 7. Tell the user: "`source <rc>` (or open a new terminal), then just run
    `PLAN_AW` to plan and `WORK_AW` to execute."
 
-#### Step 7c — Write the sentinel and announce
+#### Step 7d — Write the sentinel and announce
 
 1. Resolve the knowledge dir: `KDIR=$(scripts/agentware config --knowledge-dir-only)`.
 2. Use the `write` tool to create `$KDIR/.initialized` with:

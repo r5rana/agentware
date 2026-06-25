@@ -17,7 +17,7 @@ class RebuildTests(SyntheticKBTestCase):
         # `author` default resolves from MAIN.md; migrate so entry files carry
         # frontmatter (the rebuild source of truth).
         with open(os.path.join(self.kdir, "MAIN.md"), "w", encoding="utf-8") as f:
-            f.write("# KB\n\n- **Handle**: rahul\n")
+            f.write("# KB\n\n- **Handle**: testhandle\n")
         code, _, err = self.run_cli(["index", "migrate-frontmatter"])
         self.assertEqual(code, 0, err)
         # Normalize once so subsequent rebuilds are no-ops.

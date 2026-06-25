@@ -43,12 +43,39 @@ REPO_CONFIG = os.path.join(REPO_ROOT, ".agentware", "config.env")
 CONFIG_PATHS = (HOME_CONFIG, REPO_CONFIG)
 CONFIG_KEY = "AGENTWARE_KNOWLEDGE_DIR"
 
+# KB auto-commit+push setting (feature 260625-kb-autocommit-default). Resolution
+# precedence: the AGENTWARE_KB_AUTOCOMMIT env var -> config.env -> default ON.
+# The resolved value is '1' (on) or '0' (off); the loop still only ACTS when the
+# KB is a git work tree with an upstream (a non-tracked KB stays a clean no-op).
+AUTOCOMMIT_KEY = "AGENTWARE_KB_AUTOCOMMIT"
+AUTOCOMMIT_DEFAULT = "1"
+_AUTOCOMMIT_OFF_TOKENS = ("0", "off", "no", "false", "disable", "disabled")
+_AUTOCOMMIT_ON_TOKENS = ("1", "on", "yes", "true", "enable", "enabled")
+
 # Knowledge-dir-relative locations (joined with the resolved knowledge dir).
 INDEX_REL = "index.json"
 LEARNINGS_REL = "learnings"
 FEATURES_REL = "FEATURES.md"
 SENTINEL_REL = ".initialized"
 LOGS_SESSIONS_REL = os.path.join("logs", "sessions")
+GITIGNORE_REL = ".gitignore"
+
+# The KB .gitignore `init` scaffolds. `logs/` holds full session transcripts and
+# is local-only: with KB autocommit ON by default, every run would otherwise
+# commit+push transcripts to the remote (bloat + an unwanted disclosure for a
+# security-first operator). Ignoring + untracking `logs/` keeps autocommit to
+# KNOWLEDGE only (learnings, index, scorecard, MAIN) — never transcripts.
+KB_GITIGNORE_MARKER = "logs/"
+KB_GITIGNORE_CONTENT = (
+    "# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\n"
+    "# Session transcripts/logs are local-only: NEVER committed or pushed. KB\n"
+    "# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\n"
+    "logs/\n"
+    "\n"
+    "# OS / editor / tooling noise\n"
+    ".DS_Store\n"
+    "__pycache__/\n"
+)
 
 # Indexed knowledge categories scaffolded by `init` inside the knowledge dir.
 KNOWLEDGE_SUBDIRS = ("learnings", "projects", "configurations", "prompts",
@@ -148,6 +175,72 @@ def resolve_knowledge_dir():
         except OSError:
             continue
     return None
+
+
+def _read_config_key(key):
+    """Read KEY=VALUE from the first config.env that defines it (None if absent).
+
+    Mirrors resolve_knowledge_dir's file precedence (HOME then REPO). Values may
+    be quoted; surrounding quotes are stripped.
+    """
+    for cfg in CONFIG_PATHS:
+        if not os.path.isfile(cfg):
+            continue
+        try:
+            with open(cfg, "r", encoding="utf-8") as f:
+                for line in f:
+                    s = line.strip()
+                    if s.startswith("#") or "=" not in s:
+                        continue
+                    k, _, val = s.partition("=")
+                    if k.strip() == key:
+                        return val.strip().strip('"').strip("'")
+        except OSError:
+            continue
+    return None
+
+
+def _parse_autocommit(raw):
+    """Map a raw setting to '1'/'0', or None if empty/unset.
+
+    Honors the "anything that isn't an explicit off-token is ON" contract so an
+    unrecognized non-empty value never silently disables autocommit.
+    """
+    if raw is None:
+        return None
+    v = raw.strip().strip('"').strip("'").lower()
+    if not v:
+        return None
+    return "0" if v in _AUTOCOMMIT_OFF_TOKENS else "1"
+
+
+def _parse_autocommit_strict(raw):
+    """Strict parse for `config --set-autocommit`: only recognized tokens.
+
+    Returns '1'/'0' for known on/off tokens, else None (caller errors out).
+    """
+    v = (raw or "").strip().strip('"').strip("'").lower()
+    if v in _AUTOCOMMIT_OFF_TOKENS:
+        return "0"
+    if v in _AUTOCOMMIT_ON_TOKENS:
+        return "1"
+    return None
+
+
+def resolve_kb_autocommit():
+    """Resolve the effective KB-autocommit setting as '1' (on) or '0' (off).
+
+    Precedence: AGENTWARE_KB_AUTOCOMMIT env var -> config.env -> default ON.
+    This is the SINGLE source of truth read by agentware.sh
+    (`config --kb-autocommit-only`).
+    """
+    env = _parse_autocommit(os.environ.get(AUTOCOMMIT_KEY))
+    if env is not None:
+        return env
+    cfg = _parse_autocommit(_read_config_key(AUTOCOMMIT_KEY))
+    if cfg is not None:
+        return cfg
+    return AUTOCOMMIT_DEFAULT
 
 
 def require_knowledge_dir():
@@ -476,16 +569,74 @@ def _suggest_title(path):
 
 
 # --- init / config -----------------------------------------------------------
+_CONFIG_HEADER = (
+    "# agentware config — machine-specific, points at this operator's",
+    "# EXTERNAL knowledge base so the orchestrator package stays read-only.",
+)
+
+
+def _set_config_value(key, value):
+    """Upsert KEY=VALUE in HOME_CONFIG, preserving every other line.
+
+    Creates the file (with the standard header) if absent. Replaces the FIRST
+    existing definition of KEY and drops any later duplicates, so the setting is
+    written exactly once. Kept in HOME (not the repo) so the package stays pristine.
+    """
+    os.makedirs(os.path.dirname(HOME_CONFIG), exist_ok=True)
+    if os.path.isfile(HOME_CONFIG):
+        with open(HOME_CONFIG, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    else:
+        lines = list(_CONFIG_HEADER)
+    out, replaced = [], False
+    for line in lines:
+        s = line.strip()
+        if not s.startswith("#") and "=" in s and s.partition("=")[0].strip() == key:
+            if not replaced:
+                out.append("%s=%s" % (key, value))
+                replaced = True
+            # else: drop the duplicate definition
+        else:
+            out.append(line)
+    if not replaced:
+        out.append("%s=%s" % (key, value))
+    with open(HOME_CONFIG, "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
+
+
 def _write_config(kdir):
-    """Write ~/.agentware/config.env pinning the knowledge dir.
+    """Pin the knowledge dir in ~/.agentware/config.env (preserving other keys).
 
     Kept in HOME (not the repo) so the orchestrator package stays pristine.
     """
-    os.makedirs(os.path.dirname(HOME_CONFIG), exist_ok=True)
-    with open(HOME_CONFIG, "w", encoding="utf-8") as f:
-        f.write("# agentware config — machine-specific, points at this operator's\n")
-        f.write("# EXTERNAL knowledge base so the orchestrator package stays read-only.\n")
-        f.write('%s=%s\n' % (CONFIG_KEY, kdir))
+    _set_config_value(CONFIG_KEY, kdir)
+
+
+def _ensure_kb_gitignore(kdir):
+    """Ensure the KB `.gitignore` exists and ignores `logs/` (transcripts).
+
+    Idempotent: creates the file with the standard content if absent; if a
+    `.gitignore` already exists but has no `logs/` rule, appends one (so an
+    existing KB scaffolded before this rule still gets transcripts excluded).
+    Returns 'created' | 'appended' | 'kept' describing what it did.
+    """
+    path = os.path.join(kdir, GITIGNORE_REL)
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(KB_GITIGNORE_CONTENT)
+        return "created"
+    with open(path, "r", encoding="utf-8") as f:
+        existing = f.read()
+    # A bare `logs/` line (ignoring surrounding whitespace) means it's covered.
+    has_rule = any(ln.strip().rstrip("/") == "logs"
+                   for ln in existing.splitlines())
+    if has_rule:
+        return "kept"
+    sep = "" if existing.endswith("\n") or existing == "" else "\n"
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(sep + "\n# Session transcripts/logs are local-only "
+                "(added by agentware).\n" + KB_GITIGNORE_MARKER + "\n")
+    return "appended"
 
 
 def cmd_init(args):
@@ -540,12 +691,16 @@ def cmd_init(args):
                 shutil.copyfile(os.path.join(src_templates, fn), dst)
                 installed_templates.append(fn)
 
+    # Scaffold the KB .gitignore so transcripts (logs/) are never committed/pushed
+    # once autocommit is ON by default.
+    gitignore_action = _ensure_kb_gitignore(kdir)
+
     _write_config(kdir)
 
     if as_json:
         json.dump({"ok": True, "knowledge_dir": kdir, "seeded_index": seeded,
                    "created_dirs": created_dirs, "installed_templates": installed_templates,
-                   "config": HOME_CONFIG},
+                   "gitignore": gitignore_action, "config": HOME_CONFIG},
                   sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
@@ -553,6 +708,8 @@ def cmd_init(args):
         print("  index:  %s%s" % (ipath, " (seeded)" if seeded else " (kept)"))
         print("  config: %s" % HOME_CONFIG)
         print("  work:   %s/work/<feature>/   logs: %s/logs/" % (kdir, kdir))
+        print("  .gitignore: %s (logs/ excluded — transcripts never committed)"
+              % gitignore_action)
         if installed_templates:
             print("  templates installed: %s" % ", ".join(installed_templates))
         print("Next: run onboarding (.claude/skills/onboarding/SKILL.md) to "
@@ -561,14 +718,45 @@ def cmd_init(args):
 
 
 def cmd_config(args):
-    """Print the resolved knowledge dir. Exit 1 if unconfigured."""
-    kdir = resolve_knowledge_dir()
+    """Show resolved config; optionally set/print the KB-autocommit setting.
+
+    Exit 1 if the knowledge dir is unconfigured (for the default/dir views).
+    `--set-autocommit` and `--kb-autocommit-only` never require a knowledge dir.
+    """
     as_json = getattr(args, "format", "text") == "json"
+
+    # --set-autocommit on|off: persist to ~/.agentware/config.env, then report.
+    set_val = getattr(args, "set_autocommit", None)
+    if set_val is not None:
+        norm = _parse_autocommit_strict(set_val)
+        if norm is None:
+            sys.stderr.write(
+                "agentware: invalid --set-autocommit value %r (use on|off|1|0|yes|no)\n"
+                % set_val)
+            return 2
+        _set_config_value(AUTOCOMMIT_KEY, norm)
+        if as_json:
+            json.dump({"ok": True, "kb_autocommit": norm, "config": HOME_CONFIG},
+                      sys.stdout, ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+        else:
+            print("Set %s=%s in %s (KB autocommit %s)"
+                  % (AUTOCOMMIT_KEY, norm, HOME_CONFIG,
+                     "ON" if norm == "1" else "OFF"))
+        return 0
+
+    # --kb-autocommit-only: bare resolved setting for shell consumers (the loop).
+    if getattr(args, "kb_autocommit_only", False):
+        print(resolve_kb_autocommit())
+        return 0
+
+    kdir = resolve_knowledge_dir()
+    autocommit = resolve_kb_autocommit()
     initialized = bool(kdir) and os.path.isfile(os.path.join(kdir, SENTINEL_REL))
     if as_json:
         json.dump({"knowledge_dir": kdir, "configured": bool(kdir),
-                   "initialized": initialized}, sys.stdout,
-                  ensure_ascii=False, indent=2)
+                   "initialized": initialized, "kb_autocommit": autocommit},
+                  sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0 if kdir else 1
     if getattr(args, "knowledge_dir_only", False):
@@ -579,8 +767,10 @@ def cmd_config(args):
     if kdir:
         print("knowledge_dir: %s" % kdir)
         print("initialized:   %s" % ("yes" if initialized else "no"))
+        print("kb_autocommit: %s" % ("on" if autocommit == "1" else "off"))
         return 0
     print("knowledge_dir: <unconfigured>")
+    print("kb_autocommit: %s" % ("on" if autocommit == "1" else "off"))
     return 1
 
 
@@ -868,26 +1058,23 @@ def _render_roster(sub, entries):
     return "\n".join(out) + "\n"
 
 
-def cmd_index_rebuild(args):
-    """Regenerate index.json + `<sub>/index.md` rosters + FEATURES.md from frontmatter.
+def rebuild_kb(kdir):
+    """Regenerate index.json + rosters + FEATURES.md from frontmatter at `kdir`.
 
-    The index is a DERIVED cache: this reconstructs it from the per-entry markdown
-    frontmatter alone (C-1), deterministically and idempotently (C-2). It is the
-    conflict-safe resolver for the derived files — never hand-edit them (C-3).
+    Path-parameterized core of `index rebuild` so callers (the CLI command AND
+    the git-sync push resolver, Task 4.1) can rebuild ANY knowledge dir — e.g. a
+    throwaway clone mid-rebase — not just the resolved operator KB. Returns
+    `(data, rosters, errors)`: on any frontmatter/validation error `data` is None,
+    `errors` is the non-empty reason list, and NOTHING is written (the caller
+    decides how to surface the failure). Deterministic + idempotent (C-1/C-2).
     """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
     data, errors = build_index_from_frontmatter(kdir)
     if errors:
-        for e in errors:
-            sys.stderr.write("agentware: rebuild: %s\n" % e)
-        return 1
+        return None, [], errors
     verrs = validate_index(kdir, data)
     if verrs:
-        for e in verrs:
-            sys.stderr.write("agentware: rebuild produced an invalid index: %s\n" % e)
-        return 1
+        return None, [], ["rebuild produced an invalid index: %s" % e
+                          for e in verrs]
 
     save_index(kdir, data)
     rosters = []
@@ -900,6 +1087,24 @@ def cmd_index_rebuild(args):
         rosters.append("%s/index.md" % sub)
     with open(features_path(kdir), "w", encoding="utf-8") as f:
         f.write(_render_features(data))
+    return data, rosters, []
+
+
+def cmd_index_rebuild(args):
+    """Regenerate index.json + `<sub>/index.md` rosters + FEATURES.md from frontmatter.
+
+    The index is a DERIVED cache: this reconstructs it from the per-entry markdown
+    frontmatter alone (C-1), deterministically and idempotently (C-2). It is the
+    conflict-safe resolver for the derived files — never hand-edit them (C-3).
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, rosters, errors = rebuild_kb(kdir)
+    if errors:
+        for e in errors:
+            sys.stderr.write("agentware: rebuild: %s\n" % e)
+        return 1
 
     if getattr(args, "format", "text") == "json":
         json.dump({"ok": True, "entries": len(data["entries"]),
@@ -995,6 +1200,120 @@ def _operator_handle(kdir):
         if m:
             return m.group(1).strip()
     return "operator"
+
+
+# --- Personal-data leak guard (R-LOC-03) -------------------------------------
+# Directories NEVER scanned for operator identity: VCS metadata, the machine-
+# local config (it legitimately stores the KB path, which contains HOME),
+# spawn/prompt logs, caches, and vendored deps. This mirrors .gitignore so the
+# guard only ever inspects what the package actually ships/pushes.
+PERSONAL_SCAN_EXCLUDE_DIRS = (
+    ".git", ".agentware", ".agentware-logs", "__pycache__",
+    ".venv", "node_modules", ".idea", ".vscode",
+)
+# Generic / fallback handles that are NOT personal data. Scanning for these
+# would match framework prose everywhere; "operator" is also the _operator_handle
+# fallback. Compared case-insensitively.
+_GENERIC_HANDLES = ("operator", "user", "handle", "admin")
+# Email-shaped token, used to lift an operator email out of MAIN.md if present.
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+
+def _operator_email(kdir):
+    """Best-effort operator email parsed from the KB MAIN.md, or None.
+
+    Reads the LIVE profile at runtime (hardcodes nothing). Returns the first
+    email-shaped token found in MAIN.md, else None.
+    """
+    try:
+        with open(os.path.join(kdir, "MAIN.md"), "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return None
+    m = _EMAIL_RE.search(text)
+    return m.group(0) if m else None
+
+
+def operator_identity_strings(kdir):
+    """Resolve the LIVE operator identity to the set of literal strings whose
+    presence in the package tree would be a personal-data leak (R-LOC-03).
+
+    Resolved entirely at runtime — hardcodes nothing — so the package still ships
+    zero personal data. Sources: the handle (MAIN.md/config), the email (MAIN.md,
+    if present), and the operator HOME path. Generic/fallback handles are dropped
+    (they would match framework prose), as are tokens shorter than 3 chars.
+    """
+    strings = set()
+    handle = _operator_handle(kdir)
+    if handle and handle.lower() not in _GENERIC_HANDLES:
+        strings.add(handle)
+    email = _operator_email(kdir)
+    if email:
+        strings.add(email)
+    home = os.path.expanduser("~")
+    if home and home not in ("", "/", "~"):
+        strings.add(home)
+    return {s for s in strings if len(s) >= 3}
+
+
+def _package_files(root):
+    """Yield (abspath, relpath) for the files that make up the package at `root`.
+
+    Prefers `git ls-files` so the guard inspects EXACTLY what the package
+    ships/pushes — which naturally excludes machine-local, gitignored files
+    (e.g. `.claude/settings.local.json`, `.agentware/`, `.agentware-logs/`,
+    caches). Falls back to a pruned filesystem walk when `root` is not a git work
+    tree (e.g. the unit-test temp dirs).
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", root, "ls-files", "-z"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.returncode == 0:
+            for rel in proc.stdout.decode("utf-8", "replace").split("\0"):
+                if rel:
+                    yield os.path.join(root, rel), rel
+            return
+    except OSError:
+        pass
+    kdir = resolve_knowledge_dir()
+    kdir_abs = os.path.abspath(kdir) if kdir else None
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in PERSONAL_SCAN_EXCLUDE_DIRS
+            and not (kdir_abs and os.path.abspath(
+                os.path.join(dirpath, d)) == kdir_abs)
+        ]
+        for name in filenames:
+            fpath = os.path.join(dirpath, name)
+            yield fpath, os.path.relpath(fpath, root)
+
+
+def scan_personal_data(root, needles):
+    """Scan the package's files under `root` for any of the literal `needles`.
+
+    Returns a sorted list of human-readable hit strings (empty list == clean).
+    Inspects only what the package ships (see `_package_files`) and silently
+    skips non-text/binary files (decode errors). Read-only (INV-2).
+    """
+    needles = [n for n in (needles or []) if n]
+    if not needles:
+        return []
+    hits = []
+    for fpath, rel in _package_files(root):
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for i, line in enumerate(lines, 1):
+            for n in needles:
+                if n in line:
+                    hits.append(
+                        "%s:%d leaks operator identity %r" % (rel, i, n))
+    hits.sort()
+    return hits
 
 
 def _fm_needs_quote(s):
@@ -2922,6 +3241,25 @@ def _audit_gate_check(kdir):
     return {"name": "benchmark_gate", "ok": ok, "details": details}
 
 
+def _audit_personal_data_check(kdir):
+    """R-LOC-03 guard: the package must ship ZERO operator personal data.
+
+    Resolves the LIVE operator identity (handle, email, HOME path) at runtime
+    and scans the package tree (REPO_ROOT) for those exact strings. Hardcodes
+    nothing, so the package still ships zero personal data. FAILS if any leak is
+    present. Read-only.
+    """
+    needles = operator_identity_strings(kdir)
+    hits = scan_personal_data(REPO_ROOT, needles)
+    return {
+        "name": "personal_data",
+        "ok": not hits,
+        "details": hits or [
+            "clean: no operator identity in package tree "
+            "(%d needle(s) checked)" % len(needles)],
+    }
+
+
 # --- Freshness & conflict detection (Phase 2.2) ------------------------------
 # "Volatile" categories whose facts decay (R-FAIL-08): treat a point-in-time
 # value as suspect once its last_verified is older than the staleness window.
@@ -3059,6 +3397,7 @@ def cmd_audit(args):
             {"name": "template_conformance", "ok": not tce, "details": tce},
             {"name": "orphaned_learnings", "ok": not oe, "details": oe},
             _audit_steering_lint_check(),
+            _audit_personal_data_check(kdir),
         ]
     if getattr(args, "with_tests", False):
         checks.append(_audit_tests_check())
@@ -3178,6 +3517,776 @@ def cmd_steering_lint(args):
     return 0 if result["ok"] else 1
 
 
+# --- KB git sync -------------------------------------------------------------
+# Pure-git helpers for the conflict-safe knowledge-base sync (feature
+# 260625-kb-git-sync). NO new dependency: shells the operator's `git` only. All
+# helpers operate on an explicit directory so tests can drive throwaway temp
+# repos (NEVER the operator's real $KDIR) and never raise on a non-repo dir.
+
+def _git(target, *args, **kwargs):
+    """Run `git -C <target> <args>`; return the CompletedProcess.
+
+    Never raises on a non-zero exit (check=False); callers inspect returncode.
+    Captures stdout/stderr as text. If the `git` binary is absent the
+    FileNotFoundError is surfaced as a synthetic returncode 127 so callers can
+    degrade to local-only (C-4) without crashing.
+    """
+    cmd = ["git", "-C", target] + [str(a) for a in args]
+    try:
+        return subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, check=False, **kwargs)
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(cmd, 127, "", "git: command not found")
+
+
+def git_is_work_tree(target):
+    """True iff `target` is inside a git work tree."""
+    cp = _git(target, "rev-parse", "--is-inside-work-tree")
+    return cp.returncode == 0 and cp.stdout.strip() == "true"
+
+
+def git_has_upstream(target):
+    """True iff the current branch has a configured upstream tracking branch.
+
+    This is the precise precondition for a fast-forward pull / push: a bare
+    remote alone is not enough — the branch must track an upstream (`@{u}`).
+    """
+    if not git_is_work_tree(target):
+        return False
+    cp = _git(target, "rev-parse", "--abbrev-ref",
+              "--symbolic-full-name", "@{upstream}")
+    return cp.returncode == 0 and bool(cp.stdout.strip())
+
+
+def git_is_clean(target):
+    """True iff the work tree has no staged/unstaged/untracked changes."""
+    if not git_is_work_tree(target):
+        return False
+    cp = _git(target, "status", "--porcelain")
+    return cp.returncode == 0 and cp.stdout.strip() == ""
+
+
+def git_status(target):
+    """Report the three KB git-state booleans as a dict.
+
+    has_upstream / is_clean are forced False on a non-work-tree so the shape is
+    always the same regardless of the target.
+    """
+    iwt = git_is_work_tree(target)
+    return {
+        "is_work_tree": iwt,
+        "has_upstream": git_has_upstream(target) if iwt else False,
+        "is_clean": git_is_clean(target) if iwt else False,
+    }
+
+
+def cmd_kb_git_status(args):
+    """Print the KB git-state booleans (is_work_tree / has_upstream / is_clean).
+
+    Targets the resolved knowledge dir by default; `--path` overrides it so the
+    loop (and tests) can point at a throwaway repo. NEVER mutates anything.
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = require_knowledge_dir()
+        if not target:
+            return 1
+    st = git_status(target)
+    if getattr(args, "format", "text") == "json":
+        json.dump(st, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("is_work_tree: %s" % ("yes" if st["is_work_tree"] else "no"))
+        print("has_upstream: %s" % ("yes" if st["has_upstream"] else "no"))
+        print("is_clean:     %s" % ("yes" if st["is_clean"] else "no"))
+    return 0
+
+
+def git_toplevel(target):
+    """Absolute path of `target`'s git work-tree root, or None if not a repo."""
+    cp = _git(target, "rev-parse", "--show-toplevel")
+    if cp.returncode != 0:
+        return None
+    top = cp.stdout.strip()
+    return os.path.realpath(top) if top else None
+
+
+def git_changed_paths(target):
+    """Repo-relative paths with pending changes (staged, unstaged, untracked).
+
+    Parses `status --porcelain` (machine-stable). Rename entries (`old -> new`)
+    contribute the NEW path. Returns a de-duplicated, sorted list.
+    """
+    cp = _git(target, "status", "--porcelain")
+    if cp.returncode != 0:
+        return []
+    paths = set()
+    for line in cp.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        p = line[3:]
+        if " -> " in p:  # rename / copy: take the destination
+            p = p.split(" -> ", 1)[1]
+        p = p.strip().strip('"')
+        if p:
+            paths.add(p)
+    return sorted(paths)
+
+
+def _sanitize_commit_tag(tag):
+    """Lowercase + restrict a commit scope tag to [a-z0-9._-] (collapsed `-`)."""
+    tag = (tag or "kb").strip().lower()
+    tag = re.sub(r"[^a-z0-9._-]+", "-", tag).strip("-._")
+    return tag or "kb"
+
+
+# Conventional-commit subject the auto-commit must satisfy: feat|chore(scope): msg
+COMMIT_MSG_RE = re.compile(r"^(feat|chore)\([a-z0-9._-]+\): .+")
+
+
+def cmd_kb_git_commit(args):
+    """Stage + commit ONLY the knowledge-base repo as one conventional commit.
+
+    Deterministic, opt-in commit discipline (feature 260625-kb-git-sync, Task
+    2.1). Scope is the KB repo ONLY (C-3): the helper operates with `git -C
+    <target>` against a SEPARATE git repo and refuses if the target's work-tree
+    root resolves to the agentware package repo, so the project/package can
+    never be staged. No-ops (rc 0) on a non-tracked KB (C-4) or a clean tree.
+
+    Message format is ENFORCED: `feat|chore(<tag>): <summary>`. The tag is
+    derived deterministically (caller-supplied --tag, sanitized); when --message
+    is omitted a deterministic summary of the changed top-level dirs is built.
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = require_knowledge_dir()
+        if not target:
+            return 1
+
+    # C-4: degrade to local-only (no failure) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git commit: %s is not a git work tree — skipping commit "
+              "(local-only)." % target)
+        return 0
+
+    # C-3 scope guard: NEVER commit the agentware package repo. The KB is a
+    # separate repo; if the target somehow resolves to this package's work-tree
+    # root, refuse loudly rather than stage package/project files.
+    top = git_toplevel(target)
+    pkg_top = git_toplevel(REPO_ROOT)
+    if top and pkg_top and top == pkg_top:
+        sys.stderr.write(
+            "kb-git commit: refusing — target resolves to the agentware "
+            "package repo (%s); commits are scoped to the KB repo only "
+            "(C-3).\n" % top)
+        return 1
+
+    changed = git_changed_paths(target)
+    if not changed:
+        print("kb-git commit: nothing to commit — work tree clean.")
+        return 0
+
+    tag = _sanitize_commit_tag(getattr(args, "tag", None))
+    ctype = getattr(args, "type", None) or "chore"
+    message = getattr(args, "message", None)
+    if not message:
+        tops = sorted({p.split("/", 1)[0] for p in changed})
+        n = len(changed)
+        message = "sync %s (%d file%s)" % (
+            ", ".join(tops), n, "" if n == 1 else "s")
+
+    subject = "%s(%s): %s" % (ctype, tag, message)
+    if not COMMIT_MSG_RE.match(subject):
+        sys.stderr.write(
+            "kb-git commit: refusing — message '%s' does not match "
+            "feat|chore(<tag>): <summary>.\n" % subject)
+        return 1
+
+    # Stage ONLY this repo (git -C <target> scopes the add to <target>'s repo).
+    add = _git(target, "add", "-A")
+    if add.returncode != 0:
+        sys.stderr.write("kb-git commit: git add failed: %s\n" % add.stderr.strip())
+        return 1
+
+    commit = _git(target, "commit", "-m", subject)
+    if commit.returncode != 0:
+        sys.stderr.write("kb-git commit: git commit failed: %s\n"
+                         % (commit.stderr.strip() or commit.stdout.strip()))
+        return 1
+
+    head = _git(target, "rev-parse", "HEAD").stdout.strip()
+    print("kb-git commit: %s — %s" % (head[:9], subject))
+    return 0
+
+
+def git_pull_ff(target):
+    """Fast-forward-only `git pull`; non-interactive (never prompts for input).
+
+    Returns the CompletedProcess. `GIT_TERMINAL_PROMPT=0` makes an offline /
+    auth-required fetch fail fast instead of hanging for credentials
+    (R-SHELL-01), and `--ff-only` refuses to create a merge commit — a divergent
+    upstream is reported as a non-zero exit the caller treats as a graceful skip
+    (the push/rebase path, Phase 4, owns real divergence).
+    """
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return _git(target, "pull", "--ff-only", env=env)
+
+
+def cmd_kb_git_pull(args):
+    """Fast-forward the KB repo from its upstream at a safe point.
+
+    Pull cadence (feature 260625-kb-git-sync, Task 3.1): run at agent start and
+    again right before a push. Preconditions — the target is a git work tree
+    (C-4), has a configured upstream, and the tree is CLEAN (prior writes must be
+    committed first; we NEVER pull onto uncommitted edits). Any unmet
+    precondition, an offline fetch, or a non-fast-forward divergence is a
+    graceful SKIP (rc 0 + a clear notice) — pulling NEVER blocks work. Beyond the
+    fast-forward this mutates nothing.
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = require_knowledge_dir()
+        if not target:
+            return 1
+
+    # C-4: degrade to local-only (never block) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git pull: %s is not a git work tree — skipping pull "
+              "(local-only)." % target)
+        return 0
+
+    if not git_has_upstream(target):
+        print("kb-git pull: no upstream tracking branch — skipping pull "
+              "(local-only).")
+        return 0
+
+    # Precondition: a clean tree. Prior writes must be committed first so a
+    # fast-forward can never clobber or conflict with uncommitted edits.
+    if not git_is_clean(target):
+        print("kb-git pull: work tree has uncommitted changes — skipping pull "
+              "(commit first; never pulling onto uncommitted writes).")
+        return 0
+
+    cp = git_pull_ff(target)
+    if cp.returncode != 0:
+        detail = [l for l in (cp.stderr or "").strip().splitlines() if l.strip()]
+        first = detail[0] if detail else "fetch failed"
+        print("kb-git pull: skipped — %s (offline or diverged; not blocking "
+              "work)." % first)
+        return 0
+
+    out_lines = [l for l in (cp.stdout or "").strip().splitlines() if l.strip()]
+    summary = out_lines[0] if out_lines else "up to date"
+    print("kb-git pull: %s" % summary)
+    return 0
+
+
+def _is_derived_rel(rel):
+    """True iff a KB-relative path is a DERIVED file regenerated by `index rebuild`.
+
+    The derived set is exactly `index.json`, `FEATURES.md`, and each
+    `<sub>/index.md` roster (sub in KNOWLEDGE_SUBDIRS). These are NEVER merged by
+    hand or by an agent (C-1) — conflicts in them are resolved deterministically
+    by rebuilding from the union of entry frontmatter.
+    """
+    rel = rel.strip().strip('"')
+    if rel in ("index.json", "FEATURES.md"):
+        return True
+    parts = rel.split("/")
+    return (len(parts) == 2 and parts[1] == "index.md"
+            and parts[0] in KNOWLEDGE_SUBDIRS)
+
+
+def git_unmerged_paths(target):
+    """Repo-relative paths currently in a conflicted (unmerged) state, sorted."""
+    cp = _git(target, "diff", "--name-only", "--diff-filter=U")
+    if cp.returncode != 0:
+        return []
+    return sorted({l.strip().strip('"') for l in cp.stdout.splitlines()
+                   if l.strip()})
+
+
+def git_rebase_in_progress(target):
+    """True iff a rebase is currently paused/in progress in `target`.
+
+    Checks both git rebase backends (merge → `rebase-merge`, am → `rebase-apply`)
+    via `rev-parse --git-path`, which respects worktrees. Used by the prose-merge
+    path (Phase 5): `kb-git push --on-prose-conflict pause` leaves a rebase in
+    progress for the MERGE_PROMPT, and `kb-git merge-continue` only proceeds when
+    one is actually in progress.
+    """
+    for marker in ("rebase-merge", "rebase-apply"):
+        cp = _git(target, "rev-parse", "--git-path", marker)
+        if cp.returncode != 0:
+            continue
+        p = cp.stdout.strip()
+        if not p:
+            continue
+        if not os.path.isabs(p):
+            p = os.path.join(target, p)
+        if os.path.isdir(p):
+            return True
+    return False
+
+
+def file_has_conflict_markers(path):
+    """True iff `path` still contains git conflict markers (`<<<<<<<`/`>>>>>>>`).
+
+    Only the 7-angle-bracket markers are checked: they never occur in normal
+    prose/markdown, so this avoids false positives on a `=======` setext heading
+    or horizontal rule. The nothing-lost prose merge (Phase 5) refuses to continue
+    a rebase while any reconciled entry file still carries an unresolved marker.
+    """
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith("<<<<<<<") or line.startswith(">>>>>>>"):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
+def _git_noninteractive_env():
+    """Env that makes git fail fast instead of prompting (stdin/editor/creds)."""
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"  # never prompt for credentials (R-SHELL-01)
+    env["GIT_EDITOR"] = "true"        # never open an editor (rebase --continue)
+    return env
+
+
+def git_push(target):
+    """`git push` to the upstream; non-interactive. Returns the CompletedProcess."""
+    return _git(target, "push", env=_git_noninteractive_env())
+
+
+def _push_was_rejected(cp):
+    """True iff a non-zero push failed because the upstream moved (non-fast-forward).
+
+    Distinguishes a resolvable rejection (rebase + retry) from an offline / auth /
+    network failure (graceful skip, C-4). Matches git's stable wording.
+    """
+    blob = ((cp.stderr or "") + (cp.stdout or "")).lower()
+    return ("rejected" in blob or "non-fast-forward" in blob
+            or "fetch first" in blob or "updates were rejected" in blob)
+
+
+# Distinct return code for a re-push RACE (upstream moved again between our
+# resolve and our push). It is recoverable — `kb_git_push_synced` retries the
+# whole pull→resolve→push up to a bounded cap (C-2) — so it is kept separate from
+# a fail-loud rc 1. Never surfaced to a CLI caller: the wrapper maps an exhausted
+# race to a plain rc 1.
+RC_REPUSH_RACE = 4
+
+
+def git_entry_ids_at_ref(target, ref):
+    """Set of entry frontmatter IDs present at a git ref's tree, or None.
+
+    Lists the tree at `ref` WITHOUT a checkout (`git ls-tree -r`), keeps only
+    indexable entry files (the same `<sub>/…md` candidate rule as
+    `scan_entry_files`, minus the `<sub>/index.md` rosters), reads each blob via
+    `git show <ref>:<path>`, and parses its frontmatter `id`. Returns None when
+    `ref` does not resolve, so the nothing-lost gate can SKIP an unavailable
+    parent (e.g. `@{upstream}` during a detached-HEAD rebase) rather than
+    mis-count it as empty. Pure git — no new dependency (C-5).
+    """
+    ls = _git(target, "ls-tree", "-r", "--name-only", ref)
+    if ls.returncode != 0:
+        return None
+    ids = set()
+    for rel in ls.stdout.splitlines():
+        rel = rel.strip().strip('"')
+        if not rel.endswith(".md"):
+            continue
+        parts = rel.split("/")
+        if parts[0] not in KNOWLEDGE_SUBDIRS:
+            continue
+        if not _is_sync_candidate(rel):
+            continue
+        show = _git(target, "show", "%s:%s" % (ref, rel))
+        if show.returncode != 0:
+            continue
+        fields, _body = split_frontmatter(show.stdout)
+        if fields and fields.get("id"):
+            ids.add(fields["id"])
+    return ids
+
+
+def kb_entry_ids(target):
+    """Set of entry frontmatter IDs in the WORKING TREE at `target`.
+
+    The same enumeration the index derives from (`scan_entry_files` +
+    `read_entry_frontmatter`); used by the nothing-lost gate to compute the
+    MERGED entry-ID set after a resolution.
+    """
+    ids = set()
+    for rel in scan_entry_files(target):
+        fm = read_entry_frontmatter(os.path.join(target, rel))
+        if fm.get("id"):
+            ids.add(fm["id"])
+    return ids
+
+
+def kb_nothing_lost_gate(target, parent_refs):
+    """Mechanical "nothing lost" gate after a merge resolution (C-2).
+
+    Runs ON the resolved work tree, BEFORE the network push, so a lossy or
+    invalid merge is REJECTED before it can reach the remote:
+
+      1. index rebuild → index validate: re-derive the index from frontmatter
+         (`build_index_from_frontmatter`, read-only — writes nothing) and validate
+         it. Any frontmatter / validation error fails the gate.
+      2. entry-ID superset check: the merged entry-ID set MUST be a SUPERSET of
+         the UNION of every resolvable parent's entry-ID set. A parent ref that
+         does not resolve is skipped (not counted as empty). If any id was dropped
+         the gate fails.
+
+    Returns (ok, note). The caller aborts/leaves the rebase and fails loud on a
+    False result — no silent loss. Deterministic, no agent, no new dependency.
+    """
+    data, errors = build_index_from_frontmatter(target)
+    if errors:
+        return False, ("nothing-lost gate: invalid frontmatter after merge: %s"
+                       % "; ".join(errors))
+    verrs = validate_index(target, data)
+    if verrs:
+        return False, ("nothing-lost gate: index invalid after merge: %s"
+                       % "; ".join(verrs))
+
+    merged = {e.get("id") for e in data["entries"] if e.get("id")}
+    union = set()
+    for ref in parent_refs:
+        if not ref:
+            continue
+        pids = git_entry_ids_at_ref(target, ref)
+        if pids is None:
+            continue  # parent ref unavailable (e.g. detached @{upstream}) — skip
+        union |= pids
+    dropped = union - merged
+    if dropped:
+        return False, ("nothing-lost gate: merge would DROP entry id(s): %s — "
+                       "merged set is not a superset of the parents (C-2 abort)"
+                       % ", ".join(sorted(dropped)))
+    return True, ("nothing-lost gate: ok (%d merged id(s) ⊇ %d parent id(s))"
+                  % (len(merged), len(union)))
+
+
+def _git_upstream_name(target):
+    """The current branch's upstream ref name (e.g. `origin/main`), or "".
+
+    Resolved while ON the branch (before any rebase detaches HEAD) so the
+    nothing-lost gate can reference the upstream parent by a concrete name that
+    still resolves mid-rebase.
+    """
+    cp = _git(target, "rev-parse", "--abbrev-ref",
+              "--symbolic-full-name", "@{upstream}")
+    return cp.stdout.strip() if cp.returncode == 0 else ""
+
+
+def kb_git_push_once(target, on_prose_conflict="abort"):
+    """One push attempt with deterministic derived-file conflict resolution.
+
+    Returns (rc, note). rc 0 == pushed or a graceful no-op skip (C-4); rc 1 ==
+    fail loud; rc 3 == paused on a prose conflict (only when
+    `on_prose_conflict == "pause"`) with the rebase LEFT IN PROGRESS for the
+    MERGE_PROMPT — `note` is `"PROSE_CONFLICT\n<rel>\n<rel>..."`. The flow:
+
+      1. push → success: done.
+      2. push rejected (upstream moved) → `pull --rebase`.
+         - rebase clean → push again.
+         - rebase conflicts ONLY in derived files → rebuild from the entry union
+           (`rebuild_kb`, C-1, NO agent), stage, `rebase --continue`, push.
+         - any conflict in a NON-derived (entry) file → same-entry prose case:
+           * on_prose_conflict == "abort" (default): `rebase --abort` + fail loud
+             rc 1 (preserves the deterministic, agent-free push contract).
+           * on_prose_conflict == "pause" (Phase 5): leave the rebase in progress
+             and return rc 3 + the conflicted entry-file list, so the loop can
+             reconcile them with the curated MERGE_PROMPT (agentware-execution)
+             and then run `kb-git merge-continue`. NO agent is invoked here.
+      3. push failed for any other reason (offline/auth) → graceful skip (C-4).
+
+    Every conflict RESOLUTION is verified by the nothing-lost gate (C-2) BEFORE
+    the resulting commit is pushed: a lossy or invalid merge aborts the rebase
+    and fails loud rather than reaching the remote. A re-push race returns
+    RC_REPUSH_RACE so `kb_git_push_synced` can retry within a bounded cap.
+    """
+    # Captured ON the branch (before any rebase detaches HEAD) so the nothing-lost
+    # gate can name the upstream parent with a ref that still resolves mid-rebase.
+    upstream_name = _git_upstream_name(target)
+
+    push = git_push(target)
+    if push.returncode == 0:
+        out = (push.stderr or push.stdout or "").strip().splitlines()
+        return 0, "pushed%s" % ((" — " + out[-1]) if out else "")
+
+    if not _push_was_rejected(push):
+        first = (push.stderr or "push failed").strip().splitlines()
+        return 0, "skipped — %s (offline or no access; not blocking work)" % (
+            first[0] if first else "push failed")
+
+    # Upstream moved: rebase our local commits on top of it, resolving any
+    # derived-file conflicts deterministically.
+    env = _git_noninteractive_env()
+    rebase = _git(target, "pull", "--rebase", env=env)
+    if rebase.returncode == 0:
+        push2 = git_push(target)
+        if push2.returncode == 0:
+            return 0, "pushed (after fast-forward rebase)"
+        # A conflict-free rebase replays every commit verbatim (no synthesized
+        # content) so there is nothing for the gate to catch; a rejection here is
+        # purely a re-push race for the bounded retry.
+        return (RC_REPUSH_RACE,
+                "push still rejected after clean rebase (re-push race)")
+
+    unmerged = git_unmerged_paths(target)
+    if not unmerged:
+        _git(target, "rebase", "--abort", env=env)
+        first = (rebase.stderr or "rebase failed").strip().splitlines()
+        return 1, "rebase failed: %s" % (first[0] if first else "unknown")
+
+    non_derived = [p for p in unmerged if not _is_derived_rel(p)]
+    if non_derived:
+        # Same-entry prose conflict — the deterministic path stops here (C-1: an
+        # agent NEVER merges via this engine). Two dispositions:
+        if on_prose_conflict == "pause":
+            # Phase 5: leave the rebase in progress for the curated MERGE_PROMPT.
+            # The loop reconciles these entry files via agentware-execution, then
+            # calls `kb-git merge-continue` (which rebuilds the derived files).
+            return 3, "PROSE_CONFLICT\n" + "\n".join(non_derived)
+        # Default: abort cleanly and fail loud rather than touch entry files.
+        _git(target, "rebase", "--abort", env=env)
+        return 1, ("conflict in non-derived file(s) %s — needs prose merge "
+                   "(not auto-resolvable here)" % ", ".join(non_derived))
+
+    # All conflicts are in derived files: regenerate them from the union of
+    # entry frontmatter (the entry files themselves merged cleanly). NO agent.
+    data, _rosters, errors = rebuild_kb(target)
+    if errors:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, "rebuild during merge failed: %s" % "; ".join(errors)
+
+    add = _git(target, "add", "-A")
+    if add.returncode != 0:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, "git add failed during merge: %s" % add.stderr.strip()
+
+    # Nothing-lost gate (C-2): the resolved (mid-rebase) work tree must rebuild to
+    # a valid index whose entry-ID set is a superset of BOTH parents. Fail loud +
+    # abort the rebase BEFORE the push if anything was dropped — no silent loss.
+    ok, gnote = kb_nothing_lost_gate(target, ["ORIG_HEAD", upstream_name])
+    if not ok:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, gnote
+
+    cont = _git(target, "rebase", "--continue", env=env)
+    if cont.returncode != 0:
+        _git(target, "rebase", "--abort", env=env)
+        first = (cont.stderr or "rebase --continue failed").strip().splitlines()
+        return 1, "rebase --continue failed: %s" % (first[0] if first else "")
+
+    push3 = git_push(target)
+    if push3.returncode == 0:
+        return 0, "pushed (derived files auto-resolved via index rebuild)"
+    return (RC_REPUSH_RACE,
+            "push rejected after deterministic resolve (re-push race)")
+
+
+def kb_git_push_synced(target, on_prose_conflict="abort", max_retries=3):
+    """`kb_git_push_once` wrapped in a bounded pull→resolve→push retry (C-2).
+
+    Each attempt runs a full `kb_git_push_once` (which itself pulls/rebases and
+    resolves derived-file conflicts under the nothing-lost gate). When the upstream
+    moves AGAIN between our resolve and our push (`RC_REPUSH_RACE`), we retry the
+    whole cycle up to `max_retries` times, then FAIL LOUD (rc 1) — never an
+    unbounded loop. Any other disposition (pushed rc 0, graceful skip rc 0, prose
+    pause rc 3, fail-loud rc 1) returns immediately. The race sentinel is internal
+    and is mapped to a plain rc 1 on exhaustion so callers see a normal failure.
+    """
+    attempts = max(1, max_retries)
+    last_note = "no attempt"
+    for attempt in range(1, attempts + 1):
+        rc, note = kb_git_push_once(target, on_prose_conflict=on_prose_conflict)
+        if rc != RC_REPUSH_RACE:
+            return rc, note
+        last_note = note  # race — pull/resolve/push again on the next iteration
+    return 1, ("push failed after %d re-push race retries: %s (upstream keeps "
+               "moving — try again)" % (attempts, last_note))
+
+
+def cmd_kb_git_push(args):
+    """Push KB commits to upstream, auto-resolving derived-file conflicts.
+
+    Git-sync push (feature 260625-kb-git-sync, Task 4.1). Preconditions: the
+    target is a git work tree (C-4) with a configured upstream, and is NOT the
+    agentware package repo (C-3). A push rejected by a moved upstream is resolved
+    by rebasing and regenerating the DERIVED files (`index.json`, rosters,
+    `FEATURES.md`) from the entry union via `index rebuild` — never by an agent
+    (C-1). Offline / no-upstream / non-repo are graceful rc-0 skips (never block).
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = require_knowledge_dir()
+        if not target:
+            return 1
+
+    # C-4: degrade to local-only (never block) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git push: %s is not a git work tree — skipping push "
+              "(local-only)." % target)
+        return 0
+
+    # C-3 scope guard: NEVER push the agentware package repo.
+    top = git_toplevel(target)
+    pkg_top = git_toplevel(REPO_ROOT)
+    if top and pkg_top and top == pkg_top:
+        sys.stderr.write(
+            "kb-git push: refusing — target resolves to the agentware package "
+            "repo (%s); sync is scoped to the KB repo only (C-3).\n" % top)
+        return 1
+
+    if not git_has_upstream(target):
+        print("kb-git push: no upstream tracking branch — skipping push "
+              "(local-only).")
+        return 0
+
+    mode = getattr(args, "on_prose_conflict", "abort")
+    retries = getattr(args, "max_retries", 3) or 3
+    rc, note = kb_git_push_synced(target, on_prose_conflict=mode,
+                                  max_retries=retries)
+
+    if rc == 3 and note.startswith("PROSE_CONFLICT"):
+        # Paused on a same-entry prose conflict (Phase 5). Emit the conflicted
+        # entry paths on stdout (one per line) so the loop can feed them to the
+        # MERGE_PROMPT; the human note goes to stderr. The rebase is LEFT IN
+        # PROGRESS — the loop reconciles, then runs `kb-git merge-continue`.
+        files = [l for l in note.splitlines()[1:] if l.strip()]
+        for f in files:
+            print(f)
+        sys.stderr.write(
+            "kb-git push: prose conflict in %d entry file(s) — rebase left in "
+            "progress; reconcile via the MERGE_PROMPT, then run "
+            "`kb-git merge-continue`.\n" % len(files))
+        return 3
+
+    stream = sys.stdout if rc == 0 else sys.stderr
+    stream.write("kb-git push: %s\n" % note)
+    return rc
+
+
+def kb_git_merge_continue(target):
+    """Finish a prose-merge rebase after the agent reconciled the entry files.
+
+    Phase 5 second half. Preconditions: a rebase is in progress (left by
+    `kb-git push --on-prose-conflict pause`) and the conflicted ENTRY files have
+    been reconciled in the work tree (both sides' facts retained, no conflict
+    markers). Deterministic, C-1/C-2:
+
+      1. Require a rebase in progress (else nothing to continue).
+      2. Refuse if any reconciled entry file still carries conflict markers — the
+         prose merge is incomplete (do NOT continue, do NOT abort: the partial
+         work is preserved for another reconciliation pass).
+      3. Stage the reconciled entry files, then UNCONDITIONALLY rebuild the
+         DERIVED files (`index.json`, rosters, `FEATURES.md`) from the entry
+         frontmatter union (`rebuild_kb`) — so even if the agent touched a derived
+         file it is overwritten with the canonical regenerated content (C-1).
+      4. `rebase --continue`, then push.
+
+    Returns (rc, note). rc 0 == pushed; rc 1 == fail loud (the rebase is left in
+    place for inspection, never silently aborted).
+    """
+    env = _git_noninteractive_env()
+    if not git_rebase_in_progress(target):
+        return 1, "no rebase in progress — nothing to continue"
+
+    unmerged = git_unmerged_paths(target)
+    entry_unmerged = [p for p in unmerged if not _is_derived_rel(p)]
+    for rel in entry_unmerged:
+        if file_has_conflict_markers(os.path.join(target, rel)):
+            return 1, ("unresolved conflict markers remain in %s — prose merge "
+                       "incomplete (not continuing; rebase left in place)" % rel)
+
+    # Stage the agent-reconciled entry files (C-1: derived files are NEVER
+    # hand-merged — they are regenerated below).
+    if entry_unmerged:
+        add = _git(target, "add", "--", *entry_unmerged)
+        if add.returncode != 0:
+            return 1, "git add (entry files) failed: %s" % add.stderr.strip()
+
+    # Regenerate the DERIVED files from the reconciled entry union — never merged.
+    data, _rosters, errors = rebuild_kb(target)
+    if errors:
+        return 1, "rebuild after prose merge failed: %s" % "; ".join(errors)
+
+    add2 = _git(target, "add", "-A")
+    if add2.returncode != 0:
+        return 1, "git add (derived) failed: %s" % add2.stderr.strip()
+
+    # Nothing-lost gate (C-2): the reconciled (mid-rebase) work tree must rebuild
+    # to a valid index whose entry-ID set is a superset of BOTH parents. On
+    # failure leave the rebase in place (never silently abort — the partial work
+    # is preserved for another reconciliation pass) and fail loud BEFORE the push.
+    ok, gnote = kb_nothing_lost_gate(target, ["ORIG_HEAD", "@{upstream}"])
+    if not ok:
+        return 1, gnote
+
+    cont = _git(target, "rebase", "--continue", env=env)
+    if cont.returncode != 0:
+        first = (cont.stderr or "rebase --continue failed").strip().splitlines()
+        return 1, "rebase --continue failed: %s" % (first[0] if first else "")
+
+    push = git_push(target)
+    if push.returncode == 0:
+        return 0, "pushed (prose conflict reconciled; derived files rebuilt)"
+    return 1, "push rejected after prose merge (re-push race)"
+
+
+def cmd_kb_git_merge_continue(args):
+    """Continue a paused prose-merge rebase, then push (feature 260625-kb-git-sync).
+
+    Runs after the curated MERGE_PROMPT reconciled the conflicted entry markdown.
+    Same scope guards as push: a non-repo target is a graceful no-op (C-4), and
+    the agentware package repo is refused (C-3). The derived files are always
+    rebuilt from frontmatter, never hand-merged (C-1).
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = require_knowledge_dir()
+        if not target:
+            return 1
+
+    # C-4: degrade to local-only (never block) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git merge-continue: %s is not a git work tree — nothing to "
+              "continue (local-only)." % target)
+        return 0
+
+    # C-3 scope guard: NEVER operate on the agentware package repo.
+    top = git_toplevel(target)
+    pkg_top = git_toplevel(REPO_ROOT)
+    if top and pkg_top and top == pkg_top:
+        sys.stderr.write(
+            "kb-git merge-continue: refusing — target resolves to the agentware "
+            "package repo (%s); sync is scoped to the KB repo only (C-3).\n" % top)
+        return 1
+
+    rc, note = kb_git_merge_continue(target)
+    stream = sys.stdout if rc == 0 else sys.stderr
+    stream.write("kb-git merge-continue: %s\n" % note)
+    return rc
+
+
 # --- Parser construction -----------------------------------------------------
 def build_parser():
     fmt_parent = argparse.ArgumentParser(add_help=False)
@@ -3205,6 +4314,13 @@ def build_parser():
     p_cfg.add_argument("--knowledge-dir-only", action="store_true",
                        dest="knowledge_dir_only",
                        help="print only the bare path (for shell consumers)")
+    p_cfg.add_argument("--kb-autocommit-only", action="store_true",
+                       dest="kb_autocommit_only",
+                       help="print only the resolved KB-autocommit setting (1/0)")
+    p_cfg.add_argument("--set-autocommit", dest="set_autocommit",
+                       metavar="on|off",
+                       help="persist the KB-autocommit setting to "
+                            "~/.agentware/config.env (env still overrides per-run)")
     p_cfg.set_defaults(func=cmd_config)
 
     # index ------------------------------------------------------------------
@@ -3364,6 +4480,73 @@ def build_parser():
     p_metrics.add_argument("--since", default=None,
                            help="only sessions starting on/after YYYY-MM-DD")
     p_metrics.set_defaults(func=cmd_metrics)
+
+    # kb-git -----------------------------------------------------------------
+    p_kbgit = sub.add_parser(
+        "kb-git", help="knowledge-base git sync (detection, commit, pull/push)")
+    kbgit_sub = p_kbgit.add_subparsers(dest="kb_git_command", metavar="<subcommand>")
+    kbgit_sub.required = True
+    p_kbstatus = kbgit_sub.add_parser(
+        "status", parents=[fmt_parent],
+        help="report is_work_tree / has_upstream / is_clean for the KB repo")
+    p_kbstatus.add_argument(
+        "--path", default=None,
+        help="repo dir to inspect (default: the resolved knowledge dir)")
+    p_kbstatus.set_defaults(func=cmd_kb_git_status)
+
+    p_kbcommit = kbgit_sub.add_parser(
+        "commit",
+        help="stage + commit ONLY the KB repo as one feat|chore(tag): commit")
+    p_kbcommit.add_argument(
+        "--path", default=None,
+        help="KB repo dir to commit (default: the resolved knowledge dir)")
+    p_kbcommit.add_argument(
+        "--tag", default=None,
+        help="commit scope tag (sanitized to [a-z0-9._-]; default: kb)")
+    p_kbcommit.add_argument(
+        "--type", choices=("feat", "chore"), default="chore",
+        help="conventional-commit type (default: chore)")
+    p_kbcommit.add_argument(
+        "--message", default=None,
+        help="commit summary (default: deterministic changed-dirs summary)")
+    p_kbcommit.set_defaults(func=cmd_kb_git_commit)
+
+    p_kbpull = kbgit_sub.add_parser(
+        "pull",
+        help="fast-forward the KB repo from upstream at a safe point (no-op "
+             "when dirty / offline / no upstream)")
+    p_kbpull.add_argument(
+        "--path", default=None,
+        help="KB repo dir to pull (default: the resolved knowledge dir)")
+    p_kbpull.set_defaults(func=cmd_kb_git_pull)
+
+    p_kbpush = kbgit_sub.add_parser(
+        "push",
+        help="push KB commits to upstream, auto-resolving derived-file "
+             "conflicts via index rebuild (no-op when offline / no upstream)")
+    p_kbpush.add_argument(
+        "--path", default=None,
+        help="KB repo dir to push (default: the resolved knowledge dir)")
+    p_kbpush.add_argument(
+        "--on-prose-conflict", dest="on_prose_conflict",
+        choices=("abort", "pause"), default="abort",
+        help="same-entry (non-derived) conflict disposition: 'abort' fails loud "
+             "(default); 'pause' leaves the rebase in progress + lists the "
+             "conflicted entry files (rc 3) for the MERGE_PROMPT")
+    p_kbpush.add_argument(
+        "--max-retries", dest="max_retries", type=int, default=3,
+        help="bounded pull→resolve→push retries on a re-push race before "
+             "failing loud (default: 3)")
+    p_kbpush.set_defaults(func=cmd_kb_git_push)
+
+    p_kbcont = kbgit_sub.add_parser(
+        "merge-continue",
+        help="continue a paused prose-merge rebase after the entry files were "
+             "reconciled, rebuild derived files, then push")
+    p_kbcont.add_argument(
+        "--path", default=None,
+        help="KB repo dir to continue (default: the resolved knowledge dir)")
+    p_kbcont.set_defaults(func=cmd_kb_git_merge_continue)
 
     # steering ---------------------------------------------------------------
     p_steer = sub.add_parser("steering", help="Deterministic Steering Format tooling")

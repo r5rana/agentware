@@ -67,6 +67,43 @@ in `<knowledge-dir>/work/<feature>/`, and hooks record every prompt plus the ful
 transcript of each session AND every subagent it spawns to `<knowledge-dir>/logs/`.
 The orchestrator package stays read-only across projects.
 
+## Git-syncing the knowledge base (on by default)
+
+If you keep your knowledge dir in its own git repo, the loop syncs it
+automatically. It is **ON by default** and resolves env → config → default-ON:
+the per-run env var `AGENTWARE_KB_AUTOCOMMIT=0|1` wins, then a persisted choice in
+`~/.agentware/config.env`, then the default `1`. It only ever **acts** when the KB
+is a git work tree with an upstream — a non-tracked / offline KB is a clean no-op.
+
+```bash
+scripts/agentware config --set-autocommit off   # persist an opt-out (or on|yes)
+AGENTWARE_KB_AUTOCOMMIT=0 ./agentware.sh <feature>   # disable for one run
+```
+
+`logs/` (session transcripts) is **gitignored and untracked**, so auto-commit only
+ever versions knowledge, never transcripts. When set, the loop folds a
+deterministic git cadence into its phases — scoped to **your knowledge repo only**
+(never your code project, never the agentware package):
+
+- **Pre-phase** fast-forwards the KB from upstream at a safe point (clean tree with
+  an upstream). Dirty/offline/no-upstream → a graceful skip that never blocks the run.
+- **Post-phase**, at its very tail and **only after the zero-knowledge-loss gate
+  passes** (every `> LEARNED:` promoted, index valid), stages only files under the
+  knowledge dir into **one** `feat|chore(<tag>): <message>` commit, then pushes.
+- **On push conflict**, conflicts in the *derived* files (`index.json`, the
+  `*/index.md` rosters, `FEATURES.md`) are resolved by **rebuilding them from entry
+  frontmatter** (`index rebuild`) — never by an agent. Only a same-entry *prose*
+  conflict invokes a curated `MERGE_PROMPT` (reusing the execution agent), and even
+  then the derived files are rebuilt afterward, not merged.
+- **Before every push**, a mechanical *nothing-lost* gate verifies the merged set of
+  entry IDs is a superset of both parents' and that the index validates; otherwise it
+  aborts and fails loud (with a bounded retry on re-push races).
+
+Full details — the `feat/chore(tag)` convention, the `MERGE_PROMPT`, and the
+nothing-lost gate — are in `docs/GUIDE.md` ("Syncing the knowledge base over git").
+The same steps are available as `scripts/agentware kb-git status|pull|commit|push`
+for driving the sync by hand.
+
 ## Watch a run live
 
 A `PostToolUse` hook (`scripts/hooks/log-tool.sh`) streams **one line per tool

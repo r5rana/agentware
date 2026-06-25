@@ -369,6 +369,44 @@ POST_PROMPT="You are assessing the completed implementation of $FEATURE_NAME.
    wiring location, and tags.
 8. Output <promise>POST_COMPLETE</promise> when done"
 
+# MERGE_PROMPT — Phase 5 of the KB git sync (feature 260625-kb-git-sync). Spawned
+# (reusing the agentware-execution agent — NO new agent) ONLY for the rare case of
+# a same-entry prose conflict: two agents/devs edited the SAME knowledge entry two
+# different ways. The deterministic CLI already resolves all DERIVED-file conflicts
+# by rebuilding (C-1); this agent reconciles ONLY the conflicted ENTRY markdown,
+# preserving facts from BOTH sides, and NEVER touches derived files (they are
+# rebuilt by `kb-git merge-continue` afterward). The <FILES> placeholder is
+# substituted by kb_sync_push() with the newline-separated conflicted entry paths.
+MERGE_PROMPT="A knowledge-base git rebase has PAUSED on a same-entry prose
+conflict: the SAME knowledge entry was edited two different ways and git could not
+merge it automatically. Your ONLY job is to reconcile the conflicted entry file(s)
+below, preserving the facts from BOTH sides. A separate deterministic step rebuilds
+all derived files and continues the rebase after you finish — so do NOT run any git
+command and do NOT touch derived files.
+
+## Conflicted entry file(s) (resolve EXACTLY these, nothing else)
+<FILES>
+
+## Steps
+1. Open each conflicted file. Find the git conflict markers (\`<<<<<<<\`,
+   \`=======\`, \`>>>>>>>\`) and resolve EVERY one of them.
+2. Reconcile by UNION: keep every distinct fact/sentence/bullet from BOTH sides.
+   When the two sides state the same thing, keep it once; never drop a fact that
+   exists on only one side. Preserve the YAML frontmatter block at the top intact
+   (do not duplicate or alter \`id\`, \`title\`, \`category\`, \`tags\`, etc.).
+3. Remove ALL conflict markers so no \`<<<<<<<\`, \`=======\`, or \`>>>>>>>\` line
+   remains. Leave the file as clean, readable markdown.
+
+## Critical — do NOT cross these lines
+- Edit ONLY the conflicted entry file(s) listed above.
+- NEVER edit derived files (\`index.json\`, \`FEATURES.md\`, any \`<section>/index.md\`
+   roster) — they are regenerated deterministically from frontmatter afterward.
+- NEVER run git (no add/commit/rebase/push) — the loop continues the rebase for you.
+- Do NOT delete or rename any entry; nothing-lost is enforced downstream.
+
+When every listed file is conflict-marker-free with both sides' facts retained,
+output <promise>MERGE_COMPLETE</promise> on a single line."
+
 # Append extra prompts if provided.
 [[ -n "$EXTRA_PRE_PROMPT" ]] && PRE_PROMPT="$PRE_PROMPT
 
@@ -411,6 +449,23 @@ learnings_promoted() {
 # All hooks no-op gracefully if scripts/agentware is absent. KDIR-dependent gates
 # (index validate / worklog scan) are skipped until the workspace is initialized.
 
+# kb_autocommit_enabled — resolve the single source of truth for KB autocommit
+# (feature 260625-kb-autocommit-default, Task 3.1). The resolution precedence
+# (per-run env AGENTWARE_KB_AUTOCOMMIT → ~/.agentware/config.env → default ON)
+# lives entirely in `scripts/agentware config --kb-autocommit-only`, which prints
+# 1/0. The per-run env override (C-3) is honored there. Returns 0 (enabled) iff
+# the resolved setting != 0, and DEFAULTS TO ON if the CLI can't be read, matching
+# the default-ON contract. The KB git work-tree/upstream preconditions (C-2) are
+# enforced INSIDE the kb-git CLI (git_is_work_tree / git_has_upstream → graceful
+# rc-0 no-op), so a non-tracked / offline KB stays a clean no-op regardless of the
+# setting — the loop never commits into an untracked dir.
+kb_autocommit_enabled() {
+  [[ ! -x scripts/agentware ]] && return 1
+  local resolved
+  resolved="$(scripts/agentware config --kb-autocommit-only 2>/dev/null || echo 1)"
+  [[ "$resolved" != "0" ]]
+}
+
 run_pre_hooks() {
   if [[ ! -x scripts/agentware ]]; then
     log "[pre-hook] scripts/agentware not found or not executable — skipping toolkit gates."
@@ -432,6 +487,17 @@ run_pre_hooks() {
   if ! scripts/agentware index validate; then
     echo "Error: [pre-hook] index validation failed. Fix the knowledge index (via scripts/agentware) first."
     exit 1
+  fi
+
+  # KB pull cadence (feature 260625-kb-git-sync, Task 3.1; default-ON flip
+  # 260625-kb-autocommit-default, Task 3.1). Gated on the SAME resolved setting as
+  # autocommit (env → config → default ON, via kb_autocommit_enabled). Fast-forward
+  # the KB from upstream at agent start so the run builds on the latest shared
+  # knowledge. Every precondition (work tree / upstream / clean tree) and an offline
+  # fetch are graceful skips inside the CLI (rc 0) — pulling NEVER blocks the run.
+  if kb_autocommit_enabled; then
+    log "[pre-hook] scripts/agentware kb-git pull (KB sync — fast-forward from upstream)"
+    scripts/agentware kb-git pull || true
   fi
 
   if [[ -f "$DOCS_DIR/worklog.md" ]]; then
@@ -480,6 +546,70 @@ run_post_hooks() {
     echo "Zero knowledge loss is enforced — the feature is NOT complete until every LEARNED: item is promoted."
     exit 1
   fi
+
+  # KB commit discipline (feature 260625-kb-git-sync, Task 2.1; default-ON flip
+  # 260625-kb-autocommit-default, Task 3.1). ON BY DEFAULT — gated on the resolved
+  # setting (env → config → default ON, via kb_autocommit_enabled; operator consent
+  # captured at onboarding satisfies R-GIT-01, and the per-run env override C-3 is
+  # the escape hatch). Runs ONLY after the zero-knowledge-loss gate above passed, so
+  # nothing commits until every LEARNED: marker is promoted and the index is valid.
+  # Scope is the KB repo ONLY (C-1) — the CLI refuses to stage the project/package.
+  # No-ops on a non-tracked KB or no upstream (C-2) or a clean tree. logs/ is
+  # gitignored (C-4) so transcripts are never staged. The commit-message scope tag
+  # is the feature name with its leading YYMMDD- date stripped.
+  if kb_autocommit_enabled; then
+    local kb_tag="${FEATURE#[0-9][0-9][0-9][0-9][0-9][0-9]-}"
+    log "[post-hook] scripts/agentware kb-git commit (KB autocommit, tag: $kb_tag)"
+    if ! scripts/agentware kb-git commit --tag "$kb_tag"; then
+      echo "Error: [post-hook] kb-git commit failed — see the message above."
+      exit 1
+    fi
+
+    # KB push (feature 260625-kb-git-sync, Phase 6). Runs AFTER the commit, behind
+    # the SAME opt-in. Deterministic-first / agent-last with the nothing-lost gate
+    # + bounded re-push retry inside the CLI: derived-file conflicts resolve with
+    # no agent (C-1); a same-entry prose conflict pauses for the MERGE_PROMPT; a
+    # lossy or invalid merge is REJECTED before it reaches the remote (C-2). A
+    # non-tracked / offline KB is a graceful no-op (C-4) — kb_sync_push returns 0.
+    log "[post-hook] kb_sync_push (push KB upstream — deterministic merge + nothing-lost gate)"
+    if ! kb_sync_push; then
+      echo "Error: [post-hook] KB push failed — see the message above. Nothing was"
+      echo "pushed (no silent loss); resolve the conflict/race and re-run."
+      exit 1
+    fi
+  else
+    log "[post-hook] KB autocommit disabled (resolved AGENTWARE_KB_AUTOCOMMIT=0 — config opt-out or per-run env override) — leaving the KB uncommitted/unpushed."
+  fi
+}
+
+# kb_sync_push — push the KB to upstream with the deterministic-first, agent-last
+# conflict policy (feature 260625-kb-git-sync, Phase 5). Derived-file conflicts are
+# resolved by the CLI with NO agent (C-1). A same-entry PROSE conflict pauses the
+# rebase (rc 3); we reconcile ONLY the conflicted entry files by spawning
+# agentware-execution with MERGE_PROMPT (no new agent), then run
+# `kb-git merge-continue` to rebuild the derived files and finish the push.
+# Returns the CLI's exit code. The nothing-lost ID-superset gate + bounded
+# re-push retry live inside the CLI (`kb-git push` / `merge-continue`, Phase 6);
+# this is wired into run_post_hooks AFTER the KB commit, behind the same opt-in.
+kb_sync_push() {
+  local files rc
+  # Capture stdout (= conflicted entry paths on a prose pause); stderr/notes flow
+  # straight to the terminal.
+  files=$(scripts/agentware kb-git push --on-prose-conflict pause); rc=$?
+  [[ $rc -eq 0 ]] && return 0          # pushed or graceful skip (C-4)
+  [[ $rc -ne 3 ]] && return $rc        # fail loud (non-prose error)
+
+  # rc 3: same-entry prose conflict — reconcile the listed entry files via the
+  # curated MERGE_PROMPT, then continue the rebase deterministically.
+  log "[sync] prose conflict — reconciling entry file(s) via MERGE_PROMPT:"
+  printf '%s\n' "$files"
+  local prompt="${MERGE_PROMPT//<FILES>/$files}"
+  MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
+  CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" \
+    --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$prompt" || true
+
+  log "[sync] scripts/agentware kb-git merge-continue (rebuild derived + finish push)"
+  scripts/agentware kb-git merge-continue
 }
 
 # --dry-run — print prompts + iteration plan, then exit WITHOUT spawning the CLI.
