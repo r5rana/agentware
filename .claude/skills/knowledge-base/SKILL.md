@@ -124,6 +124,50 @@ scripts/agentware query --tag <tag>        # all entries with a tag
 
 Output is a JSON array of matching entries (empty `[]` on a miss).
 
+## Read-only MCP server (cross-tool KB access)
+
+`scripts/agentware mcp serve` speaks the **Model Context Protocol** over the
+**stdio transport** (newline-delimited JSON-RPC 2.0), exposing the KB's
+deterministic retrieval to MCP-speaking clients that **cannot shell out**
+(ChatGPT web, hosted assistants, IDE plugins). It is pure stdlib (`json`+`sys`),
+no network, no new dependency; it resolves the external KB the standard way and
+exits 0 cleanly on stdin EOF.
+
+It implements the MCP lifecycle (`initialize` → `notifications/initialized` →
+`tools/list` → `tools/call`) and exposes exactly **two READ-ONLY tools**:
+
+- `recall` — args mirror `recall` (`query` required; `top_k` 5, `token_budget`
+  1500, `category`, `strategy` `bm25|bm25+acr`, `as_of`). Result is
+  **byte-identical** to `recall --format json`.
+- `query` — exactly one of `id`/`path`/`tag`/`category`; same records as `query`.
+
+**Safety (the moat):** there is **NO write tool** — the CLI stays the sole writer
+of the index (`R-KB-01`), so a read-only server cannot corrupt the KB even from
+an untrusted client; tool-call arguments are validated. **Stdio only:** any HTTP
+transport is a future, separately-subprocess'd, `127.0.0.1`-bound tier — NOT this
+server (a network import in `scripts/agentware` would trip the stdlib/no-network
+guards).
+
+**Value-peak (guidance, not a gate):** this matters most for non-filesystem
+clients. CLI-capable agents (Claude Code, Cursor, shell harnesses) read the KB
+directly and, post git-sync, mostly don't need it.
+
+Client `mcpServers` stanza (resolve the KB dir once, then hardcode the absolute
+paths your client needs):
+
+```jsonc
+// KDIR=$(scripts/agentware config --knowledge-dir-only)
+{
+  "mcpServers": {
+    "agentware-kb": {
+      "command": "/abs/path/to/agentware/scripts/agentware",
+      "args": ["mcp", "serve"],
+      "env": { "AGENTWARE_KNOWLEDGE_DIR": "<KDIR>" }
+    }
+  }
+}
+```
+
 ## Declared dependency graph (`relates`)
 
 Entries can declare **typed edges** to other entries in an OPTIONAL `relates`
