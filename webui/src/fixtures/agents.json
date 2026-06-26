@@ -1,0 +1,276 @@
+{
+  "plan": {
+    "kind": "plan",
+    "active": false,
+    "active_session": {
+      "session_id": "aaaa1111-plan",
+      "stage": "unknown",
+      "kind": "plan",
+      "name": "260626-dashboard-redesign",
+      "feature": "260626-dashboard-redesign",
+      "confidence": "high",
+      "complete": true,
+      "status": "complete",
+      "start": "2026-06-26T09:00:00Z",
+      "end": "2026-06-26T09:01:00Z",
+      "date": "2026-06-26",
+      "turns": 1,
+      "main_turns": 1,
+      "subagent_turns": 0,
+      "tool_calls": 1,
+      "subagent_count": 0,
+      "duration_seconds": 60.0,
+      "total_tokens": 382000,
+      "peak_input_tokens": 360000,
+      "cache_read_ratio": 0.75,
+      "cost_usd": 3.405,
+      "models": [
+        "claude-opus-4-8"
+      ]
+    },
+    "session_count": 1,
+    "attributed_count": 1,
+    "incomplete_count": 0,
+    "aggregate": {
+      "total_tokens": 382000,
+      "cost_usd": 3.405,
+      "turns": 1,
+      "tool_calls": 1,
+      "subagent_count": 0,
+      "duration_seconds": 60.0,
+      "cache_read_ratio": 0.75,
+      "tokens": {
+        "input_tokens": 90000,
+        "output_tokens": 22000,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 270000
+      }
+    },
+    "by_day": {
+      "2026-06-26": {
+        "sessions": 1,
+        "total_tokens": 382000,
+        "cost_usd": 3.405
+      }
+    },
+    "by_feature": {
+      "260626-dashboard-redesign": {
+        "sessions": 1,
+        "total_tokens": 382000,
+        "cost_usd": 3.405
+      }
+    },
+    "sessions": [
+      {
+        "session_id": "aaaa1111-plan",
+        "stage": "unknown",
+        "kind": "plan",
+        "name": "260626-dashboard-redesign",
+        "feature": "260626-dashboard-redesign",
+        "confidence": "high",
+        "complete": true,
+        "status": "complete",
+        "start": "2026-06-26T09:00:00Z",
+        "end": "2026-06-26T09:01:00Z",
+        "date": "2026-06-26",
+        "turns": 1,
+        "main_turns": 1,
+        "subagent_turns": 0,
+        "tool_calls": 1,
+        "subagent_count": 0,
+        "duration_seconds": 60.0,
+        "total_tokens": 382000,
+        "peak_input_tokens": 360000,
+        "cache_read_ratio": 0.75,
+        "cost_usd": 3.405,
+        "models": [
+          "claude-opus-4-8"
+        ]
+      }
+    ],
+    "features": [
+      "260626-dashboard-redesign"
+    ],
+    "plans": [
+      {
+        "feature": "260626-dashboard-redesign",
+        "authored": "2026-06-26T09:00:00Z",
+        "authored_session": "aaaa1111-plan",
+        "tasks_total": 8,
+        "tasks_done": 0,
+        "complete": false,
+        "status": "open"
+      },
+      {
+        "feature": "260625-recall-budget",
+        "authored": "2026-06-26T09:00:00Z",
+        "authored_session": "bbbb2222-build",
+        "tasks_total": 9,
+        "tasks_done": 6,
+        "complete": false,
+        "status": "in_progress"
+      }
+    ]
+  },
+  "work": {
+    "kind": "work",
+    "active": false,
+    "active_session": {
+      "session_id": "dddd4444-adhoc",
+      "stage": "unknown",
+      "kind": "work",
+      "name": "ad-hoc dddd4444",
+      "feature": null,
+      "confidence": "pending",
+      "complete": false,
+      "status": "ended",
+      "start": "2026-06-26T09:00:00Z",
+      "end": "2026-06-26T09:01:00Z",
+      "date": "2026-06-26",
+      "turns": 1,
+      "main_turns": 1,
+      "subagent_turns": 0,
+      "tool_calls": 1,
+      "subagent_count": 0,
+      "duration_seconds": 60.0,
+      "total_tokens": 338000,
+      "peak_input_tokens": 320000,
+      "cache_read_ratio": 0.75,
+      "cost_usd": 2.91,
+      "models": [
+        "claude-opus-4-8"
+      ]
+    },
+    "session_count": 3,
+    "attributed_count": 2,
+    "incomplete_count": 0,
+    "aggregate": {
+      "total_tokens": 3518000,
+      "cost_usd": 31.035,
+      "turns": 4,
+      "tool_calls": 5,
+      "subagent_count": 0,
+      "duration_seconds": 240.0,
+      "cache_read_ratio": 0.75,
+      "tokens": {
+        "input_tokens": 830000,
+        "output_tokens": 198000,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 2490000
+      }
+    },
+    "by_day": {
+      "2026-06-25": {
+        "sessions": 1,
+        "total_tokens": 1060000,
+        "cost_usd": 9.375
+      },
+      "2026-06-26": {
+        "sessions": 2,
+        "total_tokens": 2458000,
+        "cost_usd": 21.66
+      }
+    },
+    "by_feature": {
+      "260626-dashboard-redesign": {
+        "sessions": 1,
+        "total_tokens": 1060000,
+        "cost_usd": 9.375
+      },
+      "260625-recall-budget": {
+        "sessions": 1,
+        "total_tokens": 2120000,
+        "cost_usd": 18.75
+      },
+      "(unattributed)": {
+        "sessions": 1,
+        "total_tokens": 338000,
+        "cost_usd": 2.91
+      }
+    },
+    "sessions": [
+      {
+        "session_id": "dddd4444-adhoc",
+        "stage": "unknown",
+        "kind": "work",
+        "name": "ad-hoc dddd4444",
+        "feature": null,
+        "confidence": "pending",
+        "complete": false,
+        "status": "ended",
+        "start": "2026-06-26T09:00:00Z",
+        "end": "2026-06-26T09:01:00Z",
+        "date": "2026-06-26",
+        "turns": 1,
+        "main_turns": 1,
+        "subagent_turns": 0,
+        "tool_calls": 1,
+        "subagent_count": 0,
+        "duration_seconds": 60.0,
+        "total_tokens": 338000,
+        "peak_input_tokens": 320000,
+        "cache_read_ratio": 0.75,
+        "cost_usd": 2.91,
+        "models": [
+          "claude-opus-4-8"
+        ]
+      },
+      {
+        "session_id": "bbbb2222-build",
+        "stage": "work",
+        "kind": "work",
+        "name": "260625-recall-budget",
+        "feature": "260625-recall-budget",
+        "confidence": "high",
+        "complete": true,
+        "status": "complete",
+        "start": "2026-06-26T09:00:00Z",
+        "end": "2026-06-26T09:02:00Z",
+        "date": "2026-06-26",
+        "turns": 2,
+        "main_turns": 2,
+        "subagent_turns": 0,
+        "tool_calls": 3,
+        "subagent_count": 0,
+        "duration_seconds": 120.0,
+        "total_tokens": 2120000,
+        "peak_input_tokens": 1200000,
+        "cache_read_ratio": 0.75,
+        "cost_usd": 18.75,
+        "models": [
+          "claude-opus-4-8"
+        ]
+      },
+      {
+        "session_id": "cccc3333-work",
+        "stage": "work",
+        "kind": "work",
+        "name": "260626-dashboard-redesign",
+        "feature": "260626-dashboard-redesign",
+        "confidence": "high",
+        "complete": true,
+        "status": "complete",
+        "start": "2026-06-25T09:00:00Z",
+        "end": "2026-06-25T09:01:00Z",
+        "date": "2026-06-25",
+        "turns": 1,
+        "main_turns": 1,
+        "subagent_turns": 0,
+        "tool_calls": 1,
+        "subagent_count": 0,
+        "duration_seconds": 60.0,
+        "total_tokens": 1060000,
+        "peak_input_tokens": 1000000,
+        "cache_read_ratio": 0.75,
+        "cost_usd": 9.375,
+        "models": [
+          "claude-opus-4-8"
+        ]
+      }
+    ],
+    "features": [
+      "260625-recall-budget",
+      "260626-dashboard-redesign"
+    ]
+  }
+}

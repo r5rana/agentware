@@ -1,0 +1,257 @@
+{
+  "session_count": 2,
+  "sessions": [
+    {
+      "session_id": "20260101-plan",
+      "turns": 2,
+      "stage": "plan",
+      "main_turns": 2,
+      "subagent_turns": 0,
+      "start": "2026-01-01T09:00:00Z",
+      "end": "2026-01-01T09:05:00Z",
+      "date": "2026-01-01",
+      "feature": "260101-observability-demo",
+      "duration_seconds": 300.0,
+      "tokens": {
+        "input_tokens": 2700,
+        "output_tokens": 1700,
+        "cache_creation_input_tokens": 400,
+        "cache_read_input_tokens": 18000
+      },
+      "total_tokens": 22800,
+      "peak_input_tokens": 13500,
+      "subagent_tokens": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      },
+      "models": {
+        "claude-opus-4-20250514": {
+          "tokens": {
+            "input_tokens": 2700,
+            "output_tokens": 1700,
+            "cache_creation_input_tokens": 400,
+            "cache_read_input_tokens": 18000
+          },
+          "total_tokens": 22800,
+          "cost_usd": 0.2025
+        }
+      },
+      "cache_read_ratio": 0.853081,
+      "tools": {},
+      "tool_calls": 0,
+      "subagent_count": 0,
+      "malformed_lines": 0,
+      "cost_usd": 0.2025,
+      "cache_read_per_turn": 9000.0,
+      "context_window_pct": 0.0675,
+      "truncation_risk": false
+    },
+    {
+      "session_id": "20260101-loop",
+      "turns": 2,
+      "stage": "loop-main",
+      "main_turns": 2,
+      "subagent_turns": 0,
+      "start": "2026-01-02T10:00:00Z",
+      "end": "2026-01-02T10:10:00Z",
+      "date": "2026-01-02",
+      "feature": "260101-observability-demo",
+      "duration_seconds": 600.0,
+      "tokens": {
+        "input_tokens": 4500,
+        "output_tokens": 2700,
+        "cache_creation_input_tokens": 800,
+        "cache_read_input_tokens": 75000
+      },
+      "total_tokens": 83000,
+      "peak_input_tokens": 47500,
+      "subagent_tokens": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0
+      },
+      "models": {
+        "claude-sonnet-4-20250514": {
+          "tokens": {
+            "input_tokens": 4500,
+            "output_tokens": 2700,
+            "cache_creation_input_tokens": 800,
+            "cache_read_input_tokens": 75000
+          },
+          "total_tokens": 83000,
+          "cost_usd": 0.0795
+        }
+      },
+      "cache_read_ratio": 0.933998,
+      "tools": {},
+      "tool_calls": 0,
+      "subagent_count": 0,
+      "malformed_lines": 0,
+      "cost_usd": 0.0795,
+      "cache_read_per_turn": 37500.0,
+      "context_window_pct": 0.2375,
+      "truncation_risk": false
+    }
+  ],
+  "aggregate": {
+    "session_count": 2,
+    "turns": 4,
+    "tool_calls": 0,
+    "subagent_count": 0,
+    "duration_seconds": 900.0,
+    "tokens": {
+      "input_tokens": 7200,
+      "output_tokens": 4400,
+      "cache_creation_input_tokens": 1200,
+      "cache_read_input_tokens": 93000
+    },
+    "total_tokens": 105800,
+    "tools": {},
+    "cost_usd": 0.282,
+    "cache_read_ratio": 0.91716,
+    "by_model": {
+      "claude-opus-4-20250514": {
+        "tokens": {
+          "input_tokens": 2700,
+          "output_tokens": 1700,
+          "cache_creation_input_tokens": 400,
+          "cache_read_input_tokens": 18000
+        },
+        "total_tokens": 22800,
+        "cost_usd": 0.2025,
+        "session_count": 0,
+        "cache_read_ratio": 0.853081
+      },
+      "claude-sonnet-4-20250514": {
+        "tokens": {
+          "input_tokens": 4500,
+          "output_tokens": 2700,
+          "cache_creation_input_tokens": 800,
+          "cache_read_input_tokens": 75000
+        },
+        "total_tokens": 83000,
+        "cost_usd": 0.0795,
+        "session_count": 0,
+        "cache_read_ratio": 0.933998
+      }
+    },
+    "by_day": {
+      "2026-01-01": {
+        "tokens": {
+          "input_tokens": 2700,
+          "output_tokens": 1700,
+          "cache_creation_input_tokens": 400,
+          "cache_read_input_tokens": 18000
+        },
+        "total_tokens": 0,
+        "cost_usd": 0.2025,
+        "session_count": 1,
+        "cache_read_ratio": 0.853081,
+        "cost_anomaly": false
+      },
+      "2026-01-02": {
+        "tokens": {
+          "input_tokens": 4500,
+          "output_tokens": 2700,
+          "cache_creation_input_tokens": 800,
+          "cache_read_input_tokens": 75000
+        },
+        "total_tokens": 0,
+        "cost_usd": 0.0795,
+        "session_count": 1,
+        "cache_read_ratio": 0.933998,
+        "cost_anomaly": false
+      }
+    },
+    "by_feature": {
+      "260101-observability-demo": {
+        "tokens": {
+          "input_tokens": 7200,
+          "output_tokens": 4400,
+          "cache_creation_input_tokens": 1200,
+          "cache_read_input_tokens": 93000
+        },
+        "total_tokens": 0,
+        "cost_usd": 0.282,
+        "session_count": 2,
+        "cache_read_ratio": 0.91716
+      }
+    },
+    "cost_anomaly_dates": [],
+    "authoring": {
+      "wall_s": 300.0,
+      "tokens": 22800,
+      "session_count": 1,
+      "sessions": [
+        "20260101-plan"
+      ]
+    },
+    "context_tax": {
+      "injected_tokens": 671,
+      "main_md_bytes": 2681,
+      "cache_read_per_turn": 23250.0,
+      "context_window": 200000,
+      "truncation_threshold": 0.9,
+      "peak_input_tokens": 47500,
+      "context_window_pct": 0.2375,
+      "truncation_risk": false,
+      "by_day": {
+        "2026-01-01": {
+          "turns": 2,
+          "cache_read_input_tokens": 18000,
+          "peak_input_tokens": 13500,
+          "cache_read_per_turn": 9000.0,
+          "context_window_pct": 0.0675,
+          "truncation_risk": false
+        },
+        "2026-01-02": {
+          "turns": 2,
+          "cache_read_input_tokens": 75000,
+          "peak_input_tokens": 47500,
+          "cache_read_per_turn": 37500.0,
+          "context_window_pct": 0.2375,
+          "truncation_risk": false
+        }
+      }
+    },
+    "phase_costs": {
+      "by_phase": {
+        "plan": {
+          "tokens": {
+            "input_tokens": 2700,
+            "output_tokens": 1700,
+            "cache_creation_input_tokens": 400,
+            "cache_read_input_tokens": 18000
+          },
+          "total_tokens": 22800,
+          "cost_usd": 0.2025,
+          "session_count": 1,
+          "cache_read_ratio": 0.853081,
+          "sessions": [
+            "20260101-plan"
+          ]
+        },
+        "main": {
+          "tokens": {
+            "input_tokens": 4500,
+            "output_tokens": 2700,
+            "cache_creation_input_tokens": 800,
+            "cache_read_input_tokens": 75000
+          },
+          "total_tokens": 83000,
+          "cost_usd": 0.0795,
+          "session_count": 1,
+          "cache_read_ratio": 0.933998,
+          "sessions": [
+            "20260101-loop"
+          ]
+        }
+      },
+      "total_tokens": 105800,
+      "cost_usd": 0.282
+    }
+  }
+}

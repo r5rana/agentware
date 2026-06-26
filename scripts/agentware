@@ -20,6 +20,7 @@ portable.
 """
 
 import argparse
+import copy
 import datetime
 import glob
 import json
@@ -29,7 +30,9 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
+from collections import OrderedDict
 
 # --- Repo + knowledge-dir resolution ----------------------------------------
 # Repo root = the parent of the scripts/ dir that holds this file. Computed from
@@ -3159,6 +3162,10 @@ def evaluate(kdir, data, gold, strategy, top_k, as_of=None):
         "top_k": top_k,
         "num_queries": n,
         "corpus_fingerprint": corpus_fp,
+        # Number of scored corpus entries (additive, append-only — same seam as
+        # corpus_fingerprint). Lets /api/scaling plot Recall@k vs corpus size and
+        # compute a meaningful slope. Legacy rows lacking it report N unknown.
+        "corpus_size": len(corpus),
         "metrics": {
             "recall_at_k": mean(recalls),
             "precision_at_k": mean(precisions),
@@ -3322,6 +3329,9 @@ def evaluate_longmemeval(kdir, dataset_path, strategy, top_k, as_of=None,
         "top_k": top_k,
         "num_queries": len(recalls),
         "corpus_fingerprint": corpus_fp,
+        # Scored-corpus entry count (additive; mirrors the own-gold evaluate()
+        # seam) so LongMemEval rows also carry corpus_size for /api/scaling.
+        "corpus_size": len(_lme_corpus),
         "dataset_path": dataset_path,
         "as_of": as_of,
         "metrics": {
@@ -3490,6 +3500,9 @@ def evaluate_ablation(kdir, data, gold, top_k, baseline="tag", treatment="bm25",
         # Both strategies scored the SAME corpus, so either evaluate() result's
         # fingerprint identifies it (acr-gate rows inherit this for comparability).
         "corpus_fingerprint": base.get("corpus_fingerprint"),
+        # Both strategies scored the SAME corpus, so inherit the corpus_size from
+        # the baseline evaluate() result (acr-gate rows pick this up too).
+        "corpus_size": base.get("corpus_size"),
         "baseline": baseline,
         "treatment": treatment,
         "strategies": {
@@ -3909,6 +3922,10 @@ def build_ledger_row(result, git_meta, run_ts, checks):
         # own-gold drift no longer false-FAILs. Legacy rows lack it (treated as a
         # distinct bucket by gate_baseline).
         "corpus_fingerprint": result.get("corpus_fingerprint"),
+        # Scored-corpus entry count (additive, append-only, same pattern as
+        # corpus_fingerprint). Powers /api/scaling's Recall@k-vs-corpus-size plot;
+        # legacy rows lacking it report N unknown.
+        "corpus_size": result.get("corpus_size"),
         "metrics": metrics,
         "ablation": ablation,
         "checks": checks,
@@ -3995,6 +4012,9 @@ def build_acr_gate_row(result, decision, git_meta, run_ts, checks):
         # ablation result). Keeps acr-gate rows corpus-aware too (Task 3 criterion:
         # EVERY recorded row carries a fingerprint).
         "corpus_fingerprint": result.get("corpus_fingerprint"),
+        # Scored-corpus entry count (additive; inherited from the ablation result)
+        # so acr-gate rows are corpus-size-aware for /api/scaling too.
+        "corpus_size": result.get("corpus_size"),
         "as_of": result.get("as_of"),
         "metrics": metrics,
         "ablation": {
@@ -5088,6 +5108,217 @@ _USAGE_KEYS = (
     "cache_read_input_tokens",
 )
 
+# The INPUT-side token keys: what is loaded INTO the context window on a turn
+# (the prompt + cached prefix). Excludes output_tokens (the generated reply).
+# Used for context-window utilization / truncation-risk derivations.
+_INPUT_SIDE_KEYS = (
+    "input_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+
+# Context-tax tuning. The model context window (tokens) the peak single-turn
+# input-side total is measured against, and the utilization fraction past which
+# a turn is flagged truncation-risk. Both configurable via `metrics
+# --context-window N`; defaults match a 200K-token Claude window.
+_DEFAULT_CONTEXT_WINDOW = 200_000
+_CONTEXT_WINDOW_1M = 1_000_000
+_TRUNCATION_RISK_THRESHOLD = 0.9
+
+
+def _model_context_window(model):
+    """The context-window size (tokens) for a model id. Claude 4-family models run
+    with the 1M-token context beta in this harness — a single-turn peak input of
+    >900k tokens is ONLY reachable with the 1M window, so measuring those turns
+    against 200k yields a nonsensical >400% utilization and a permanent false
+    'truncation risk'. Default to 200k for anything unrecognized."""
+    m = (model or "").lower()
+    if "[1m]" in m or "-1m" in m or "1m" in m.split("-")[-1:]:
+        return _CONTEXT_WINDOW_1M
+    if re.search(r"claude-(?:opus|sonnet|haiku)-(?:[4-9]|\d{2,})", m):
+        return _CONTEXT_WINDOW_1M
+    return _DEFAULT_CONTEXT_WINDOW
+
+
+def _context_window_for_rows(rows):
+    """The largest context window across the models present in `rows` (so peak
+    utilization is measured against the real ceiling the run actually had)."""
+    win = _DEFAULT_CONTEXT_WINDOW
+    for r in rows:
+        for model in (r.get("models") or {}):
+            win = max(win, _model_context_window(model))
+    return win
+
+# --- Loop-health / runaway-detection thresholds (Task 30) --------------------
+# The most-cited autonomous-agent failure modes (dead loops, runaway token burn,
+# context-window overflow, no-progress) mapped to deterministic thresholds. All
+# read-only derivations; thresholds are configurable per call.
+#   DUP: the same (tool, args) repeated >= this many times is a dead-loop signal
+#        (maps to R-FAIL-04 "never repeat an identical failing action").
+#   NOPROGRESS_K: tasks_remaining flat (and > 0) across >= this many consecutive
+#        MAIN iterations is a stuck-loop signal.
+#   MAXITER_WARN: iterations-used / max past this fraction (run not completed) is
+#        an at-risk "nearing the cap" signal; >= 1.0 is critical.
+#   CONTEXT_WARN: context-window utilization past this fraction is at-risk;
+#        truncation_risk (>= _TRUNCATION_RISK_THRESHOLD) is critical.
+# A genuine dead-loop is the SAME (tool, args) repeated MANY times within one
+# session. Normal iterative work legitimately re-reads/re-edits a file several
+# times, so the 'critical' bar is set well above that (12); the at-risk warn tier
+# (derived as threshold//2+1 = 7) catches the 7-11 range worth a glance.
+_LOOP_HEALTH_DUP_THRESHOLD = 12
+_LOOP_HEALTH_NOPROGRESS_K = 3
+_LOOP_HEALTH_MAXITER_WARN = 0.8
+_LOOP_HEALTH_CONTEXT_WARN = 0.75
+
+# Default price table ($ per 1,000,000 tokens), keyed by a model-id SUBSTRING.
+# Lookup picks the LONGEST matching key (most specific) so e.g.
+# "claude-opus-4-20250514" matches "claude-opus-4" over "claude". Fully
+# configurable via `metrics --prices <file.json>` (a JSON object of the same
+# shape) so no real cost number is hard-coded into behaviour. The cost math is
+# PURE: cost = sum(tokens_of_type * price_of_type) / 1e6 — no collection added.
+_DEFAULT_PRICES = {
+    "claude-opus-4": {
+        "input": 15.0, "output": 75.0,
+        "cache_creation_input_tokens": 18.75, "cache_read_input_tokens": 1.5},
+    "claude-sonnet-4": {
+        "input": 3.0, "output": 15.0,
+        "cache_creation_input_tokens": 3.75, "cache_read_input_tokens": 0.3},
+    "claude-haiku-4": {
+        "input": 1.0, "output": 5.0,
+        "cache_creation_input_tokens": 1.25, "cache_read_input_tokens": 0.1},
+    "claude-3-5-haiku": {
+        "input": 0.8, "output": 4.0,
+        "cache_creation_input_tokens": 1.0, "cache_read_input_tokens": 0.08},
+    "claude-3-5-sonnet": {
+        "input": 3.0, "output": 15.0,
+        "cache_creation_input_tokens": 3.75, "cache_read_input_tokens": 0.3},
+    "default": {
+        "input": 3.0, "output": 15.0,
+        "cache_creation_input_tokens": 3.75, "cache_read_input_tokens": 0.3},
+}
+
+# Maps each token-usage key to its price-table component.
+_PRICE_COMPONENT = {
+    "input_tokens": "input",
+    "output_tokens": "output",
+    "cache_creation_input_tokens": "cache_creation_input_tokens",
+    "cache_read_input_tokens": "cache_read_input_tokens",
+}
+
+# A feature work dir reference inside a transcript: work/<YYMMDD-name>.
+_FEATURE_RE = re.compile(r"work/(\d{6}-[A-Za-z0-9][A-Za-z0-9_-]*)")
+# A plan.md authored under a feature dir — the authoritative "a plan now exists"
+# signal that promotes a planner session from anonymous to feature-named.
+_PLAN_PATH_RE = re.compile(
+    r"work/(\d{6}-[A-Za-z0-9][A-Za-z0-9_-]*)/plan\.md")
+# Planning ARTIFACTS — writing/editing these is planning, not execution. Anything
+# else a session edits (source code, configs, READMEs, the package) is EXECUTION.
+_PLAN_DOC_RE = re.compile(
+    r"work/\d{6}-[A-Za-z0-9][A-Za-z0-9_-]*/(?:plan|design)\.md$")
+# Promise emitted by the agent itself (completion signal). Matched in assistant
+# OUTPUT text only (not the instruction chrome that also mentions the tag).
+_PROMISE_RE = re.compile(r"<promise>[^<]+</promise>")
+
+# Cost-anomaly tuning: a day is flagged when its cost exceeds the trailing
+# median of all PRIOR days by this factor, once enough history exists.
+_COST_ANOMALY_FACTOR = 2.0
+_COST_ANOMALY_MIN_HISTORY = 3
+
+# Session STAGE classification (pure, documented transcript heuristic).
+# Stages: plan, work, loop-pre, loop-main, loop-post, unknown.
+#  - LOOP sessions are authoritative: agentware.sh exports
+#    `AGENTWARE_STAGE=loop-{pre,main,post}` (Task 6/7) and that marker, when it
+#    appears anywhere in the transcript, WINS — the loop knows its own phase.
+#  - INTERACTIVE sessions are classified by counting discriminating signals:
+#    plan-authoring sessions invoke the planner / the `plan new|add-task` CLI;
+#    execution sessions run `plan set-status`, emit a completion `</promise>`,
+#    or scan the worklog. Whichever side has MORE distinct hits wins; a tie or
+#    no hits is `unknown` (never guess).
+# The agent-NAME tokens are deliberately omitted from the signal sets because a
+# harness agent-type listing can mention BOTH names in any session; the CLI/verb
+# signals below only fire on an action that one role actually performs.
+_STAGE_LOOP_RE = re.compile(r"AGENTWARE_STAGE=(loop-(?:pre|main|post))")
+# Plan/work signals must be ACTIONS one role performs — NOT harness chrome. The
+# `/agentware-plan` skill name is listed in the available-skills reminder that
+# recurs on many message lines of EVERY session, so counting it inflated stage_plan
+# and misclassified long execution sessions (no promise/worklog that turn) as
+# "plan". Use only the planner's actual CLI verbs; execution verbs stay as-is.
+_STAGE_PLAN_SIGNALS = ("/agentware-plan", "plan new", "plan add-task")
+_STAGE_WORK_SIGNALS = ("plan set-status", "</promise>", "worklog scan",
+                       "scripts/agentware learn")
+
+
+def classify_stage(loop_stage, plan_hits, work_hits):
+    """Pure stage label from the accumulated signals (documented heuristic).
+
+    The loop's own AGENTWARE_STAGE marker is authoritative. Otherwise EXECUTION
+    wins ties and presence: a session that emitted ANY execution verb (completion
+    promise, `plan set-status`, worklog scan, a `learn` write) actually executed,
+    so it is "work" even if the planner skill name also appears (that name recurs
+    in the available-skills reminder on many lines and must never, on its own,
+    label a long execution session as "plan"). Only a session with planner signals
+    and NO execution signal is "plan"."""
+    if loop_stage:
+        return loop_stage
+    if work_hits > 0:
+        return "work"
+    if plan_hits > 0:
+        return "plan"
+    return "unknown"
+
+
+def _price_for(model, prices):
+    """Return the price entry for a model id (longest substring match wins)."""
+    best_key, best_len = None, -1
+    for key in prices:
+        if key == "default":
+            continue
+        if key in (model or "") and len(key) > best_len:
+            best_key, best_len = key, len(key)
+    if best_key is not None:
+        return prices[best_key]
+    return prices.get("default", _DEFAULT_PRICES["default"])
+
+
+def _usage_cost(usage, price):
+    """Pure cost ($) for a usage dict under a price entry ($ per 1M tokens)."""
+    total = 0.0
+    for k in _USAGE_KEYS:
+        comp = _PRICE_COMPONENT[k]
+        total += usage.get(k, 0) * float(price.get(comp, 0.0))
+    return total / 1_000_000.0
+
+
+def _cache_read_ratio(usage):
+    """cache_read / total INPUT-side tokens (input + cache_creation + cache_read).
+
+    Returns 0.0 when there is no input-side traffic (never divides by zero)."""
+    total_in = (usage.get("input_tokens", 0)
+                + usage.get("cache_creation_input_tokens", 0)
+                + usage.get("cache_read_input_tokens", 0))
+    if total_in <= 0:
+        return 0.0
+    return round(usage.get("cache_read_input_tokens", 0) / total_in, 6)
+
+
+def _median(values):
+    """Pure median of a numeric list (empty -> 0.0). Deterministic."""
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    mid = n // 2
+    if n % 2 == 1:
+        return float(s[mid])
+    return (s[mid - 1] + s[mid]) / 2.0
+
+
+def _dominant_feature(feature_counts):
+    """The most-referenced feature in a transcript (tie-break: lexical)."""
+    if not feature_counts:
+        return None
+    return sorted(feature_counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+
 
 def logs_sessions_dir(kdir):
     return os.path.join(kdir, LOGS_SESSIONS_REL)
@@ -5123,6 +5354,23 @@ def aggregate_jsonl(path):
     agg = {
         "turns": 0,
         "usage": _empty_usage(),
+        "peak_input_tokens": 0,  # max single-turn input-side total (context fill)
+        "models": {},          # model_id -> usage dict (ALL usage attributed)
+        "features": {},        # feature name -> MENTION count (work/<feature> anywhere)
+        # ACTION attribution: features referenced inside a tool_use INPUT (a file
+        # the agent edited, a command it ran). This is what the session actually
+        # OPERATED on — immune to injected context (MAIN.md/FEATURES.md/recall
+        # listings) that mention features the session never touched. The pillars
+        # attribute by this, not by passive mentions.
+        "action_features": {}, # feature name -> action count (tool inputs only)
+        "plan_authored": {},   # feature -> True if a work/<f>/plan.md was written
+        "code_edits": 0,       # Edit/Write to a NON-planning file = execution work
+        "planner_spawned": False,  # a Task(subagent_type=agentware-planner) fired
+        "executor_spawned": False, # a Task(subagent_type=agentware-execution) fired
+        "promise_emitted": False,  # the agent emitted a <promise>…</promise> (done)
+        "loop_stage": None,    # loop-{pre,main,post} from AGENTWARE_STAGE marker
+        "stage_plan": 0,       # distinct plan-authoring signal lines
+        "stage_work": 0,       # distinct execution signal lines
         "tools": {},
         "tool_calls": 0,
         "ts_first": None,
@@ -5142,6 +5390,16 @@ def aggregate_jsonl(path):
             if not raw:
                 continue
             agg["lines"] += 1
+            for feat in _FEATURE_RE.findall(raw):
+                agg["features"][feat] = agg["features"].get(feat, 0) + 1
+            if agg["loop_stage"] is None:
+                sm = _STAGE_LOOP_RE.search(raw)
+                if sm:
+                    agg["loop_stage"] = sm.group(1)
+            if any(sig in raw for sig in _STAGE_PLAN_SIGNALS):
+                agg["stage_plan"] += 1
+            if any(sig in raw for sig in _STAGE_WORK_SIGNALS):
+                agg["stage_work"] += 1
             try:
                 obj = json.loads(raw)
             except (ValueError, TypeError):
@@ -5168,17 +5426,78 @@ def aggregate_jsonl(path):
                 continue
             usage = message.get("usage")
             if isinstance(usage, dict):
+                model = message.get("model")
+                if not isinstance(model, str) or not model:
+                    model = "unknown"
+                per_model = agg["models"].get(model)
+                if per_model is None:
+                    per_model = _empty_usage()
+                    agg["models"][model] = per_model
                 for k in _USAGE_KEYS:
                     v = usage.get(k)
                     if isinstance(v, (int, float)) and not isinstance(v, bool):
                         agg["usage"][k] += int(v)
+                        per_model[k] += int(v)
+                # Per-turn input-side total = what was loaded into the context
+                # window on this turn; the MAX across turns is the peak fill, the
+                # signal behind context-window-overflow / silent truncation.
+                turn_in = 0
+                for k in _INPUT_SIDE_KEYS:
+                    v = usage.get(k)
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        turn_in += int(v)
+                if turn_in > agg["peak_input_tokens"]:
+                    agg["peak_input_tokens"] = turn_in
             content = message.get("content")
             if isinstance(content, list):
                 for item in content:
-                    if isinstance(item, dict) and item.get("type") == "tool_use":
-                        name = item.get("name") or "<unknown>"
-                        agg["tools"][name] = agg["tools"].get(name, 0) + 1
-                        agg["tool_calls"] += 1
+                    if not isinstance(item, dict):
+                        continue
+                    itype = item.get("type")
+                    if itype == "text":
+                        # The agent emitting a completion promise (its OWN output)
+                        # is the authoritative "this run finished" signal.
+                        txt = item.get("text")
+                        if isinstance(txt, str) and _PROMISE_RE.search(txt):
+                            agg["promise_emitted"] = True
+                        continue
+                    if itype != "tool_use":
+                        continue
+                    name = item.get("name") or "<unknown>"
+                    agg["tools"][name] = agg["tools"].get(name, 0) + 1
+                    agg["tool_calls"] += 1
+                    inp = item.get("input")
+                    inp_text = inp if isinstance(inp, str) else json.dumps(inp)
+                    # ACTION feature attribution: features named inside a tool
+                    # INPUT (an edited file path, a command operating on work/<f>).
+                    for feat in _FEATURE_RE.findall(inp_text or ""):
+                        agg["action_features"][feat] = \
+                            agg["action_features"].get(feat, 0) + 1
+                    fp = inp.get("file_path") if isinstance(inp, dict) else None
+                    if isinstance(fp, str) and name in (
+                            "Write", "Edit", "MultiEdit", "NotebookEdit"):
+                        if _PLAN_DOC_RE.search(fp):
+                            # A planning artifact (plan.md / design.md). A FULL Write
+                            # of plan.md is plan AUTHORSHIP; Edits are status/marker
+                            # maintenance and do NOT count as either authoring or
+                            # execution. Either way it is NOT a code edit.
+                            if name == "Write":
+                                pm = _PLAN_PATH_RE.search(fp)
+                                if pm:
+                                    agg["plan_authored"][pm.group(1)] = True
+                        else:
+                            # Editing/writing ANY non-planning file is EXECUTION.
+                            # This is what separates a planner (writes a plan and
+                            # hands off) from a worker (edits code) — even when the
+                            # same session did both, heavy code editing makes it a
+                            # worker, not a planner.
+                            agg["code_edits"] += 1
+                    sub = inp.get("subagent_type") if isinstance(inp, dict) \
+                        else None
+                    if sub == "agentware-planner":
+                        agg["planner_spawned"] = True
+                    elif sub == "agentware-execution":
+                        agg["executor_spawned"] = True
     return agg
 
 
@@ -5192,13 +5511,121 @@ def _merge_tools(into, other):
         into[name] = into.get(name, 0) + count
 
 
+def _merge_models(into, other):
+    """Fold a per-model usage dict (model_id -> usage) into another."""
+    for model, usage in other.items():
+        dest = into.get(model)
+        if dest is None:
+            dest = _empty_usage()
+            into[model] = dest
+        _merge_usage(dest, usage)
+
+
 def _duration_seconds(first_dt, last_dt):
     if first_dt is None or last_dt is None:
         return 0.0
     return max(0.0, (last_dt - first_dt).total_seconds())
 
 
+# =============================================================================
+# Read cache (perf: collapse the O(features × sessions × file) loop hot path)
+# =============================================================================
+# The dashboard's loop endpoints re-derive per-feature loop state by scanning
+# EVERY session transcript ONCE PER FEATURE (collect_sessions/derive_trace are
+# called per feature; loop-health calls them 3× per feature). On a real KB
+# (37 features × 341 sessions × up to 6 MB each ≈ 13 GB of re-parsing) this
+# blows past 90 s. We memoize the expensive per-file derivations keyed by the
+# source file's (mtime_ns, size) so the SECOND..Nth read is O(1) and the cache
+# AUTO-INVALIDATES the instant a file changes (live-run correctness). Pure
+# read-only acceleration: identical inputs → identical outputs, so every loop
+# endpoint stays BYTE-IDENTICAL to the pre-cache baseline. Thread-safe (the
+# dashboard is a ThreadingHTTPServer) and bounded (LRU) so memory can't grow
+# without limit. The CLI stays the sole index writer; this adds no writer.
+
+_READ_CACHE_LOCK = threading.Lock()
+_READ_CACHE = OrderedDict()       # cache_key -> (file_key_tuple, value)
+_READ_CACHE_MAX = 4096            # bounded LRU; evicts least-recently-used
+_CACHE_MISS = object()
+
+
+def _file_key(path):
+    """A change-detecting identity for `path`: (mtime_ns, size), or None when the
+    file is absent/unstatable. Any edit (append, rewrite) changes mtime or size,
+    so a stale cache entry can never be served for a changed file."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _multi_file_key(paths):
+    """Composite change-key over several files (e.g. a session's live+main)."""
+    return tuple(_file_key(p) for p in paths)
+
+
+def _cached_by_key(cache_id, file_key, compute):
+    """Return compute() memoized under (cache_id) and validated by file_key.
+
+    A cache HIT requires the same recorded file_key (so a changed file misses and
+    re-computes). `file_key` of None (missing file) is NOT cached — compute() runs
+    every time so a file appearing later is picked up immediately. Thread-safe +
+    LRU-bounded."""
+    if file_key is None:
+        return compute()
+    with _READ_CACHE_LOCK:
+        hit = _READ_CACHE.get(cache_id)
+        if hit is not None and hit[0] == file_key:
+            _READ_CACHE.move_to_end(cache_id)
+            return hit[1]
+    value = compute()
+    with _READ_CACHE_LOCK:
+        _READ_CACHE[cache_id] = (file_key, value)
+        _READ_CACHE.move_to_end(cache_id)
+        while len(_READ_CACHE) > _READ_CACHE_MAX:
+            _READ_CACHE.popitem(last=False)
+    return value
+
+
+def _reset_read_cache():
+    """Clear the read cache (used by tests for isolation; harmless in prod)."""
+    with _READ_CACHE_LOCK:
+        _READ_CACHE.clear()
+
+
+def _cached_text(path):
+    """Memoized full-text read of `path` (mtime/size-keyed), or None when absent.
+    Used by the substring feature-match so a transcript is read from disk ONCE
+    per request instead of once per feature."""
+    fk = _file_key(path)
+
+    def _compute():
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                return f.read()
+        except (FileNotFoundError, IsADirectoryError, OSError):
+            return None
+    return _cached_by_key(("text", path), fk, _compute)
+
+
 def parse_session(session_dir):
+    """Parse one session directory into a metrics row (read-only).
+
+    Memoized by main.jsonl's (mtime_ns, size): re-parsing a 6 MB transcript once
+    per feature is the loop endpoints' dominant cost. Returns a DEEP COPY so
+    callers that mutate the row (e.g. apply_pricing adds cost fields in place)
+    can never corrupt the cached canonical row. Live-run correct: main.jsonl
+    changes every turn, which changes the key and invalidates the entry."""
+    main_path = os.path.join(session_dir, "main.jsonl")
+    if not os.path.isfile(main_path):
+        return None
+    fk = _file_key(main_path)
+    row = _cached_by_key(("parse_session", os.path.abspath(session_dir)), fk,
+                         lambda: _parse_session_uncached(session_dir))
+    return copy.deepcopy(row) if row is not None else None
+
+
+def _parse_session_uncached(session_dir):
     """Parse one session directory into a metrics row (read-only).
 
     Wall time is computed from main.jsonl's first->last timestamped line only.
@@ -5212,9 +5639,14 @@ def parse_session(session_dir):
 
     usage = _empty_usage()
     _merge_usage(usage, main["usage"])
+    models = {}
+    _merge_models(models, main["models"])
     tools = dict(main["tools"])
     tool_calls = main["tool_calls"]
     turns = main["turns"]
+    # Peak single-turn context fill: max across the main loop AND each subagent
+    # (every agent has its OWN window, so the peak is a max, never a sum).
+    peak_input = main["peak_input_tokens"]
 
     sub_dir = os.path.join(session_dir, "subagents")
     subagent_files = []
@@ -5224,33 +5656,74 @@ def parse_session(session_dir):
     sub_usage = _empty_usage()
     sub_tools = {}
     sub_turns = 0
+    # Identity signals fold the subagents in too (the planner/executor run AS
+    # subagents, so their plan-authoring / action features live there).
+    action_features = dict(main["action_features"])
+    plan_authored = dict(main["plan_authored"])
+    code_edits = main["code_edits"]
+    planner_spawned = main["planner_spawned"]
+    executor_spawned = main["executor_spawned"]
+    promise_emitted = main["promise_emitted"]
     for name in subagent_files:
         sa = aggregate_jsonl(os.path.join(sub_dir, name))
         _merge_usage(usage, sa["usage"])
         _merge_usage(sub_usage, sa["usage"])
+        _merge_models(models, sa["models"])
         _merge_tools(tools, sa["tools"])
         _merge_tools(sub_tools, sa["tools"])
         tool_calls += sa["tool_calls"]
         turns += sa["turns"]
         sub_turns += sa["turns"]
+        if sa["peak_input_tokens"] > peak_input:
+            peak_input = sa["peak_input_tokens"]
+        for f, c in sa["action_features"].items():
+            action_features[f] = action_features.get(f, 0) + c
+        plan_authored.update(sa["plan_authored"])
+        code_edits += sa["code_edits"]
+        planner_spawned = planner_spawned or sa["planner_spawned"]
+        executor_spawned = executor_spawned or sa["executor_spawned"]
+        promise_emitted = promise_emitted or sa["promise_emitted"]
 
     duration = _duration_seconds(main["_first_dt"], main["_last_dt"])
     total_tokens = sum(usage[k] for k in _USAGE_KEYS)
+    start = main["ts_first"]
+    # ACTION-based feature attribution (what the session actually edited/ran),
+    # falling back to a mention only when the session took no feature-scoped
+    # action. This is immune to the injected MAIN.md/FEATURES.md context that
+    # names features the session never touched (the "everything is tokto" bug).
+    action_feature = _dominant_feature(action_features)
+    feature = action_feature or _dominant_feature(main["features"])
+    # Stage uses main.jsonl signals only (subagents inherit the parent's stage).
+    stage = classify_stage(main["loop_stage"], main["stage_plan"],
+                           main["stage_work"])
     return {
         "session_id": os.path.basename(session_dir.rstrip(os.sep)),
         "turns": turns,
+        "stage": stage,
         "main_turns": main["turns"],
         "subagent_turns": sub_turns,
-        "start": main["ts_first"],
+        "start": start,
         "end": main["ts_last"],
+        "date": (start[:10] if isinstance(start, str) and start else None),
+        "feature": feature,
+        "action_feature": action_feature,
         "duration_seconds": round(duration, 3),
         "tokens": usage,
         "total_tokens": total_tokens,
+        "peak_input_tokens": peak_input,
         "subagent_tokens": sub_usage,
+        "models": {m: dict(u) for m, u in models.items()},
+        "cache_read_ratio": _cache_read_ratio(usage),
         "tools": tools,
         "tool_calls": tool_calls,
         "subagent_count": len(subagent_files),
         "malformed_lines": main["malformed"],
+        # --- identity signals (authoritative, action-based) -------------------
+        "plan_authored": sorted(plan_authored.keys()),
+        "code_edits": code_edits,
+        "planner_spawned": planner_spawned,
+        "executor_spawned": executor_spawned,
+        "promise_emitted": promise_emitted,
     }
 
 
@@ -5259,13 +5732,13 @@ def _session_feature_match(session_dir, feature):
 
     A session 'belongs to' a feature when its main.jsonl mentions the feature
     work dir (work/<feature>) or the bare feature name. Pure substring scan over
-    the raw transcript text — no parsing, fully deterministic.
+    the raw transcript text — no parsing, fully deterministic. The text read is
+    memoized (mtime/size-keyed) so scanning N features re-reads each transcript
+    from disk ONCE, not once per feature.
     """
     main_path = os.path.join(session_dir, "main.jsonl")
-    try:
-        with open(main_path, "r", encoding="utf-8", errors="replace") as f:
-            text = f.read()
-    except (FileNotFoundError, IsADirectoryError, OSError):
+    text = _cached_text(main_path)
+    if text is None:
         return False
     needles = (os.path.join("work", feature), feature)
     return any(n in text for n in needles)
@@ -5305,6 +5778,66 @@ def collect_sessions(kdir, session=None, feature=None, since=None):
     return rows
 
 
+def _group_events_by_feature(all_events):
+    """{feature: [events]} from a single full metrics.jsonl read — the in-memory
+    equivalent of N _read_metrics_jsonl(feature=f) filtered reads (same order)."""
+    out = {}
+    for e in all_events:
+        out.setdefault(e.get("feature"), []).append(e)
+    return out
+
+
+def _session_matched_features(sdir, features, features_key):
+    """Frozenset of `features` whose name is a substring of this session's
+    transcript — IDENTICAL membership to _session_feature_match (since 'work/f'
+    contains 'f', the bare-name test subsumes it). Memoized by (main.jsonl
+    mtime/size, features identity) so the features×sessions substring scan is
+    done ONCE per session per request instead of 3× per feature (analytics +
+    context-check + dup-check each used to re-scan)."""
+    main_path = os.path.join(sdir, "main.jsonl")
+    fk = _file_key(main_path)
+
+    def _compute():
+        text = _cached_text(main_path)
+        if text is None:
+            return frozenset()
+        return frozenset(f for f in features if f in text)
+    return _cached_by_key(("matched_feats", os.path.abspath(sdir), features_key),
+                          fk, _compute)
+
+
+def build_session_index(kdir, features):
+    """Read every session ONCE and group it under each feature it references,
+    returning {'rows': {feature: [session rows]}, 'dirs': {feature: [(name, dir)]}}.
+
+    Byte-identical to calling collect_sessions(feature=f) and _trace_session_dirs(
+    feature=f) for each feature separately (same membership, same ordering), but
+    collapses the O(features × sessions × file) hot path to O(sessions × file):
+    each transcript is matched + parsed exactly once and fanned out to its
+    features. Read-only; safe to share across the bulk loop derivations."""
+    root = logs_sessions_dir(kdir)
+    features_key = hash(tuple(features))
+    rows = {f: [] for f in features}
+    dirs = {f: [] for f in features}
+    if os.path.isdir(root):
+        for name in sorted(os.listdir(root)):
+            sdir = os.path.join(root, name)
+            if not os.path.isdir(sdir):
+                continue
+            matched = _session_matched_features(sdir, features, features_key)
+            if not matched:
+                continue
+            row = parse_session(sdir)
+            for f in matched:
+                dirs[f].append((name, sdir))
+                if row is not None:
+                    rows[f].append(row)
+    for f in features:
+        rows[f].sort(key=lambda r: (r.get("start") is None, r.get("start") or "",
+                                    r.get("session_id") or ""))
+    return {"rows": rows, "dirs": dirs}
+
+
 def aggregate_metrics(rows):
     """Aggregate per-session rows into feature/global totals."""
     usage = _empty_usage()
@@ -5329,6 +5862,2075 @@ def aggregate_metrics(rows):
     agg["duration_seconds"] = round(agg["duration_seconds"], 3)
     agg["total_tokens"] = sum(usage[k] for k in _USAGE_KEYS)
     return agg
+
+
+# A session counts as ACTIVE when its last activity is within this window — the
+# "active planner/worker" signal the dashboard surfaces (best-effort, persisted).
+_AGENT_ACTIVE_WINDOW_S = 12 * 60
+# Group label for sessions whose feature can't yet be determined (anonymous
+# planner before a plan exists, ad-hoc worker not yet tied to a feature).
+_UNATTRIBUTED = "(unattributed)"
+
+
+def _is_noise_session(r):
+    """A trivial/empty session that should NOT count as planner/worker activity.
+
+    SessionStart hooks create a session dir + a near-empty main.jsonl even when no
+    real work happens; those showed up as bogus '0 turns / 0 tokens / 2s' rows.
+    Drop a session with no assistant turn, or with neither tokens nor tool calls."""
+    if (r.get("turns", 0) or 0) <= 0:
+        return True
+    if (r.get("total_tokens", 0) or 0) <= 0 and (r.get("tool_calls", 0) or 0) <= 0:
+        return True
+    return False
+
+
+def resolve_session_identity(row):
+    """Resolve a session's AGENT IDENTITY per the operator's model (read-only).
+
+    Returns {kind, feature, name, confidence, complete}:
+      - kind ∈ {plan, work, loop}.
+      - feature: the work feature this session belongs to, or None when it cannot
+        yet be determined (anonymous planner before a plan exists; ad-hoc worker
+        not yet tied to a feature).
+      - name: human display label (the feature, or 'planner <id>' / 'ad-hoc <id>').
+      - confidence: 'high' (attributed from an ACTION — a file it edited / plan it
+        wrote / loop it ran), 'provisional' (inferred), 'pending' (not determinable
+        yet — backfills once an action reveals the feature).
+      - complete: did the run reach its natural end? plan authored (planner) /
+        promise emitted (worker/loop). False ⇒ stopped or in-progress.
+
+    Identity comes from what the session DID, never from passive mentions of a
+    feature in injected context (which is why the old model mislabeled every
+    session as 'tokto')."""
+    sid = row.get("session_id") or "????????"
+    short = sid.split("-")[0][:8]
+    stage = row.get("stage") or "unknown"
+    af = row.get("action_feature")
+    planned = row.get("plan_authored") or []
+    planner = bool(row.get("planner_spawned"))
+    promise = bool(row.get("promise_emitted"))
+    # A session EXECUTED if it edited any non-planning file, spawned the executor,
+    # or emitted a completion promise. This is the line between a PLANNER (writes a
+    # plan and hands off) and a WORKER (builds the feature) — even when ONE session
+    # did both, heavy code editing makes it a worker that ALSO authored its plan,
+    # NOT a planner. (A 668-turn / 286M-token build that wrote its plan first is a
+    # worker, not a planner.)
+    executed = bool(row.get("code_edits", 0)) or \
+        bool(row.get("executor_spawned")) or promise
+
+    # 1) LOOP — the orchestrated loop exports AGENTWARE_STAGE=loop-*; a loop ALWAYS
+    #    has a plan to follow, so its feature IS known (the feature it operated on).
+    if stage.startswith("loop-"):
+        feat = af or row.get("feature")
+        return {"kind": "loop", "feature": feat,
+                "name": feat or ("loop " + short),
+                "confidence": "high" if af else "provisional",
+                "complete": promise,
+                "terminal": "complete" if promise else "ended"}
+
+    # 2) PLANNER — a session that authored a plan (or ran the planner agent) and DID
+    #    NOT execute. Authoritative action only, never the polluted classify_stage
+    #    'plan' label. A planner with no plan produced yet is ANONYMOUS + INCOMPLETE
+    #    (named by session id until a plan exists — exactly the operator's model).
+    if not executed:
+        if planned:
+            return {"kind": "plan", "feature": planned[0], "name": planned[0],
+                    "confidence": "high", "complete": True,
+                    "terminal": "complete"}
+        if planner:
+            return {"kind": "plan", "feature": af, "name": af or
+                    ("planner " + short),
+                    "confidence": "provisional" if af else "pending",
+                    "complete": False, "terminal": "incomplete"}
+
+    # 3) WORKER — execution (NON-loop), including a session that authored its plan
+    #    and then built it. Named by the feature it edited (the plan it wrote, or
+    #    the dominant action feature); anonymous ad-hoc when none is determinable.
+    #    'complete' only on an emitted promise, else neutral 'ended'.
+    term = "complete" if promise else "ended"
+    feat = af or (planned[0] if planned else None)
+    if feat:
+        return {"kind": "work", "feature": feat, "name": feat,
+                "confidence": "high", "complete": promise, "terminal": term}
+    return {"kind": "work", "feature": None, "name": "ad-hoc " + short,
+            "confidence": "pending", "complete": promise, "terminal": term}
+
+
+def _agent_session_view(r, identity=None, status=None):
+    """Compact, render-ready projection of a session row for the agent panels,
+    carrying the resolved identity (name / feature / kind / confidence / status)."""
+    ident = identity or resolve_session_identity(r)
+    return {
+        "session_id": r.get("session_id"),
+        "stage": r.get("stage"),
+        "kind": ident["kind"],
+        "name": ident["name"],
+        "feature": ident["feature"],
+        "confidence": ident["confidence"],
+        "complete": ident["complete"],
+        "status": status or ("complete" if ident["complete"] else "stopped"),
+        "start": r.get("start"),
+        "end": r.get("end"),
+        "date": r.get("date"),
+        "turns": r.get("turns", 0),
+        "main_turns": r.get("main_turns", 0),
+        "subagent_turns": r.get("subagent_turns", 0),
+        "tool_calls": r.get("tool_calls", 0),
+        "subagent_count": r.get("subagent_count", 0),
+        "duration_seconds": r.get("duration_seconds", 0.0),
+        "total_tokens": r.get("total_tokens", 0),
+        "peak_input_tokens": r.get("peak_input_tokens", 0),
+        "cache_read_ratio": r.get("cache_read_ratio", 0.0),
+        "cost_usd": r.get("cost_usd", 0.0),
+        "models": sorted((r.get("models") or {}).keys()),
+    }
+
+
+def derive_agent_activity(kdir, kind, rows=None, now=None):
+    """Per-agent (PLAN_AW / WORK_AW) activity rollup (pure, read-only, INV-2).
+
+    Selects sessions whose resolved IDENTITY (resolve_session_identity) is `kind`
+    — NOT a passive stage label — and folds them into: an ACTIVE marker (the
+    most-recent session within the active window), a chronological history (each
+    session carrying its honest name + complete/stopped/active status), cost/token
+    /turn aggregates, and per-day + per-feature breakdowns. Loop runs are excluded
+    here (they own the LOOP pillar). Noise (empty 0-turn) sessions are dropped.
+    Idle-resilient: full history shows with no live run."""
+    if rows is None:
+        rows = collect_sessions(kdir)
+
+    sel = []
+    for r in rows:
+        if _is_noise_session(r):
+            continue
+        ident = resolve_session_identity(r)
+        if ident["kind"] != kind:
+            continue
+        r = dict(r)            # never mutate the cached/shared row
+        r["_identity"] = ident
+        sel.append(r)
+
+    agg = aggregate_metrics(sel)
+    apply_pricing(sel, agg, _DEFAULT_PRICES)  # adds cost_usd onto the COPIES + agg
+
+    ordered = sorted(sel, key=lambda r: (r.get("start") or "",
+                                         r.get("session_id") or ""),
+                     reverse=True)
+    ref = now if now is not None else \
+        datetime.datetime.now(datetime.timezone.utc)
+    active = False
+    active_sid = None
+    if ordered:
+        last_dt = _parse_iso(ordered[0].get("end") or ordered[0].get("start"))
+        if last_dt is not None and \
+                (ref - last_dt).total_seconds() <= _AGENT_ACTIVE_WINDOW_S:
+            active = True
+            active_sid = ordered[0].get("session_id")
+
+    def _status(r):
+        if r.get("session_id") == active_sid:
+            return "active"
+        # complete (done signal) | incomplete (planner w/o plan) | ended (neutral).
+        return r["_identity"].get("terminal", "ended")
+
+    by_day = {}
+    by_feature = {}
+    for r in sel:
+        d = r.get("date")
+        if d:
+            slot = by_day.setdefault(d, {"sessions": 0, "total_tokens": 0,
+                                         "cost_usd": 0.0})
+            slot["sessions"] += 1
+            slot["total_tokens"] += r.get("total_tokens", 0)
+            slot["cost_usd"] = round(slot["cost_usd"] + r.get("cost_usd", 0.0), 6)
+        f = r["_identity"]["feature"] or _UNATTRIBUTED
+        fr = by_feature.setdefault(f, {"sessions": 0, "total_tokens": 0,
+                                       "cost_usd": 0.0})
+        fr["sessions"] += 1
+        fr["total_tokens"] += r.get("total_tokens", 0)
+        fr["cost_usd"] = round(fr["cost_usd"] + r.get("cost_usd", 0.0), 6)
+
+    incomplete = sum(1 for r in sel if _status(r) == "incomplete")
+    attributed = sum(1 for r in sel if r["_identity"]["feature"])
+    latest = ordered[0] if ordered else None
+
+    return {
+        "kind": kind,
+        "active": active,
+        "active_session": (_agent_session_view(latest, latest["_identity"],
+                                               _status(latest))
+                           if latest else None),
+        "session_count": len(sel),
+        "attributed_count": attributed,
+        "incomplete_count": incomplete,
+        "aggregate": {
+            "total_tokens": agg.get("total_tokens", 0),
+            "cost_usd": agg.get("cost_usd", 0.0),
+            "turns": agg.get("turns", 0),
+            "tool_calls": agg.get("tool_calls", 0),
+            "subagent_count": agg.get("subagent_count", 0),
+            "duration_seconds": agg.get("duration_seconds", 0.0),
+            "cache_read_ratio": agg.get("cache_read_ratio", 0.0),
+            "tokens": agg.get("tokens", _empty_usage()),
+        },
+        "by_day": by_day,
+        "by_feature": by_feature,
+        "sessions": [_agent_session_view(r, r["_identity"], _status(r))
+                     for r in ordered],
+        "features": sorted(k for k in by_feature if k != _UNATTRIBUTED),
+    }
+
+
+def derive_plan_authoring(kdir, rows):
+    """The PLANNER's OUTPUT: every plan that was AUTHORED (a full Write of a
+    work/<f>/plan.md), attributed by that authoring ACTION — independent of which
+    session did it (an inline builder authors a plan inside a worker session, so
+    'pure planner sessions' barely exist; the PLANS still do). Each entry carries
+    the feature, when it was first authored, the authoring session, and the plan's
+    size + completion read live from its plan.md markers. This is the honest
+    'planner metrics' an inline-building operator actually has. Read-only."""
+    first = {}
+    for r in rows:
+        sid = r.get("session_id")
+        ts = r.get("start") or ""
+        for f in (r.get("plan_authored") or []):
+            cur = first.get(f)
+            if cur is None or ts < cur["authored"]:
+                first[f] = {"feature": f, "authored": ts,
+                            "authored_session": sid}
+    out = []
+    for f, p in first.items():
+        pm = os.path.join(kdir, "work", f, "plan.md")
+        open_n, done_n = (_plan_marker_status_counts(pm)
+                          if os.path.isfile(pm) else (0, 0))
+        total = open_n + done_n
+        if total > 0 and open_n == 0:
+            status = "complete"
+        elif done_n > 0:
+            status = "in_progress"
+        else:
+            status = "open"
+        out.append({
+            "feature": f,
+            "authored": p["authored"],
+            "authored_session": p["authored_session"],
+            "tasks_total": total,
+            "tasks_done": done_n,
+            "complete": total > 0 and open_n == 0,
+            "status": status,
+        })
+    out.sort(key=lambda x: (x["authored"] or "", x["feature"]), reverse=True)
+    return out
+
+
+def derive_agents(kdir):
+    """Both agent rollups (PLAN_AW + WORK_AW) from a SINGLE session read (the
+    /api/agents payload). Read-only; the panels select their slice. The plan slice
+    additionally carries `plans` — the authored-plan OUTPUT (see derive_plan_authoring)
+    — which is the meaningful planner view for an operator who plans inline."""
+    rows = collect_sessions(kdir)
+    plan = derive_agent_activity(kdir, "plan", rows=rows)
+    plan["plans"] = derive_plan_authoring(kdir, rows)
+    return {
+        "plan": plan,
+        "work": derive_agent_activity(kdir, "work", rows=rows),
+    }
+
+
+def _cost_record(usage):
+    """A rollup bucket seeded from a usage dict (tokens + zeroed cost)."""
+    rec = _empty_usage()
+    _merge_usage(rec, usage)
+    return {
+        "tokens": rec,
+        "total_tokens": sum(rec[k] for k in _USAGE_KEYS),
+        "cost_usd": 0.0,
+        "session_count": 0,
+        "cache_read_ratio": 0.0,
+    }
+
+
+def _finalize_record(rec):
+    rec["cost_usd"] = round(rec["cost_usd"], 6)
+    rec["cache_read_ratio"] = _cache_read_ratio(rec["tokens"])
+
+
+def apply_pricing(rows, agg, prices):
+    """Derive PURE cost/cache/model/feature/day rollups onto rows + aggregate.
+
+    Mutates each row in `rows` (adds per-model cost + row cost_usd) and `agg`
+    (adds cost_usd, cache_read_ratio, by_model, by_day, by_feature and a
+    cost-anomaly flag per day). No collection, no I/O — derived only from the
+    already-parsed token usage. Deterministic."""
+    by_model = {}
+    by_day = {}
+    by_feature = {}
+
+    for r in rows:
+        row_cost = 0.0
+        priced_models = {}
+        for model, usage in sorted(r.get("models", {}).items()):
+            price = _price_for(model, prices)
+            mcost = _usage_cost(usage, price)
+            row_cost += mcost
+            priced_models[model] = {
+                "tokens": dict(usage),
+                "total_tokens": sum(usage.get(k, 0) for k in _USAGE_KEYS),
+                "cost_usd": round(mcost, 6),
+            }
+            # by_model rollup
+            mr = by_model.get(model)
+            if mr is None:
+                mr = _cost_record(_empty_usage())
+                by_model[model] = mr
+            _merge_usage(mr["tokens"], usage)
+            mr["total_tokens"] = sum(mr["tokens"][k] for k in _USAGE_KEYS)
+            mr["cost_usd"] += mcost
+        # If a row had usage but no per-model breakdown (no model on lines),
+        # price the whole row under the default entry so cost is never under-counted.
+        if not r.get("models") and r.get("total_tokens"):
+            row_cost += _usage_cost(r["tokens"], _price_for("", prices))
+        r["models"] = priced_models
+        r["cost_usd"] = round(row_cost, 6)
+
+        date = r.get("date")
+        if date:
+            dr = by_day.get(date)
+            if dr is None:
+                dr = _cost_record(_empty_usage())
+                by_day[date] = dr
+            _merge_usage(dr["tokens"], r["tokens"])
+            dr["cost_usd"] += row_cost
+            dr["session_count"] += 1
+
+        feat = r.get("feature") or "unknown"
+        fr = by_feature.get(feat)
+        if fr is None:
+            fr = _cost_record(_empty_usage())
+            by_feature[feat] = fr
+        _merge_usage(fr["tokens"], r["tokens"])
+        fr["cost_usd"] += row_cost
+        fr["session_count"] += 1
+
+    for rec in by_model.values():
+        _finalize_record(rec)
+    for rec in by_day.values():
+        _finalize_record(rec)
+    for rec in by_feature.values():
+        _finalize_record(rec)
+
+    # Cost-anomaly: walk days chronologically; flag a day whose cost exceeds the
+    # trailing median of all PRIOR days by the configured factor.
+    anomaly_dates = []
+    history = []
+    for date in sorted(by_day):
+        cost = by_day[date]["cost_usd"]
+        flagged = False
+        if len(history) >= _COST_ANOMALY_MIN_HISTORY:
+            med = _median(history)
+            flagged = bool(med > 0 and cost > med * _COST_ANOMALY_FACTOR)
+        by_day[date]["cost_anomaly"] = flagged
+        if flagged:
+            anomaly_dates.append(date)
+        history.append(cost)
+
+    agg["cost_usd"] = round(sum(r["cost_usd"] for r in rows), 6)
+    agg["cache_read_ratio"] = _cache_read_ratio(agg["tokens"])
+    agg["by_model"] = by_model
+    agg["by_day"] = by_day
+    agg["by_feature"] = by_feature
+    agg["cost_anomaly_dates"] = anomaly_dates
+
+
+def load_price_table(path):
+    """Load + validate a JSON price table; returns (prices, error_or_None)."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        return None, "could not read price table %s: %s" % (path, e)
+    if not isinstance(data, dict) or not data:
+        return None, "price table must be a non-empty JSON object"
+    for model, entry in data.items():
+        if not isinstance(entry, dict):
+            return None, "price entry for %r must be an object" % model
+    if "default" not in data:
+        # merge over defaults so a partial table still prices unknown models
+        merged = dict(_DEFAULT_PRICES)
+        merged.update(data)
+        return merged, None
+    return data, None
+
+
+def derive_plan_size(plan_path):
+    """Read-only plan-authoring size metrics from a plan.md (pure parse).
+
+    Returns {tasks, phases, accept, bytes, promise} or None when the plan is
+    unreadable. NEVER writes — observation only (INV-2).
+      - tasks:   well-formed task markers (`_PLAN_TASK_LINE_RE`, any status)
+      - phases:  distinct MAJOR groups among phased `**N.M**` markers
+                 (0 for a flat plan with no phasing)
+      - accept:  `- [ ]` acceptance-criteria checkboxes under the
+                 '## Acceptance criteria' heading
+      - bytes:   plan.md size in bytes
+      - promise: a `<promise>…</promise>` token is present
+    """
+    try:
+        with open(plan_path, "rb") as f:
+            data = f.read()
+    except (OSError, ValueError):
+        return None
+    text = data.decode("utf-8", "replace")
+    lines = text.splitlines()
+    tasks = 0
+    majors = []
+    for ln in lines:
+        m = _PLAN_TASK_LINE_RE.match(ln)
+        if not m:
+            continue
+        tasks += 1
+        parts = _parse_task_number(m.group(2))
+        if len(parts) > 1 and parts[0] not in majors:
+            majors.append(parts[0])
+    accept = 0
+    in_accept = False
+    for ln in lines:
+        hm = _PLAN_HEADING_RE.match(ln)
+        if hm:
+            in_accept = "acceptance" in hm.group(1).lower()
+            continue
+        if in_accept and _PLAN_CHECKBOX_RE.match(ln):
+            accept += 1
+    return {
+        "tasks": tasks,
+        "phases": len(majors),
+        "accept": accept,
+        "bytes": len(data),
+        "promise": bool(_PLAN_PROMISE_RE.search(text)),
+    }
+
+
+def derive_authoring(rows):
+    """Attribute plan-authoring wall-time + tokens to plan-stage sessions.
+
+    Sums wall time + total tokens over the rows classified `stage == 'plan'`
+    (pure, derived from already-parsed session rows). Returns
+    {wall_s, tokens, session_count, sessions}.
+    """
+    wall = 0.0
+    tokens = 0
+    sessions = []
+    for r in rows:
+        if r.get("stage") == "plan":
+            wall += r.get("duration_seconds", 0.0)
+            tokens += r.get("total_tokens", 0)
+            sessions.append(r.get("session_id"))
+    return {
+        "wall_s": round(wall, 3),
+        "tokens": tokens,
+        "session_count": len(sessions),
+        "sessions": sessions,
+    }
+
+
+def _cache_read_per_turn(cache_read, turns):
+    """Avg cache-read (re-injected context) tokens per assistant turn (pure)."""
+    if turns <= 0:
+        return 0.0
+    return round(cache_read / turns, 3)
+
+
+def derive_context_tax(rows, kdir, window=None,
+                       threshold=_TRUNCATION_RISK_THRESHOLD):
+    """Read-only context-tax derivations (INV-2 — derives, never writes).
+
+    The "context tax" is the silent overhead of re-injecting context every turn
+    and the risk of overflowing the model window as the KB/loop grows:
+      - cache_read_per_turn: cache_read_input_tokens / turns — the avg context
+        re-read per assistant turn (overall + a per-day series).
+      - injected_tokens: estimate_tokens over the CURRENT MAIN.md — the
+        SessionStart-injected footprint that grows with the KB (snapshot value;
+        absent MAIN.md -> 0).
+      - context_window_pct / truncation_risk: the PEAK single-turn input-side
+        token total vs a configurable model `window` size, flagged past
+        `threshold` — the documented failure where a long loop fills the window
+        and silently truncates.
+    Annotates each row in `rows` with cache_read_per_turn + context_window_pct +
+    truncation_risk, and returns the aggregate context_tax block (incl. by_day).
+    """
+    if not window or window <= 0:
+        # Auto-detect the real ceiling from the models in scope (1M for Claude 4
+        # family) so utilization isn't measured against a wrong 200k window.
+        window = _context_window_for_rows(rows)
+
+    # Current MAIN.md footprint (snapshot; missing/unreadable -> 0). Read-only.
+    injected_tokens = 0
+    main_md_bytes = 0
+    try:
+        with open(os.path.join(kdir, "MAIN.md"), "rb") as f:
+            data = f.read()
+        main_md_bytes = len(data)
+        injected_tokens = estimate_tokens(data.decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        pass
+
+    def _pct(peak):
+        return round(peak / window, 6) if window else 0.0
+
+    by_day = {}
+    total_turns = 0
+    total_cache_read = 0
+    peak_overall = 0
+    for r in rows:
+        turns = r.get("turns", 0) or 0
+        cr = r.get("tokens", {}).get("cache_read_input_tokens", 0)
+        peak = r.get("peak_input_tokens", 0) or 0
+        total_turns += turns
+        total_cache_read += cr
+        if peak > peak_overall:
+            peak_overall = peak
+        # Annotate the row (additive; existing keys untouched).
+        r["cache_read_per_turn"] = _cache_read_per_turn(cr, turns)
+        r["context_window_pct"] = _pct(peak)
+        r["truncation_risk"] = bool(_pct(peak) >= threshold)
+        date = r.get("date")
+        if date:
+            d = by_day.get(date)
+            if d is None:
+                d = {"turns": 0, "cache_read_input_tokens": 0,
+                     "peak_input_tokens": 0}
+                by_day[date] = d
+            d["turns"] += turns
+            d["cache_read_input_tokens"] += cr
+            if peak > d["peak_input_tokens"]:
+                d["peak_input_tokens"] = peak
+    for d in by_day.values():
+        d["cache_read_per_turn"] = _cache_read_per_turn(
+            d["cache_read_input_tokens"], d["turns"])
+        d["context_window_pct"] = _pct(d["peak_input_tokens"])
+        d["truncation_risk"] = bool(d["context_window_pct"] >= threshold)
+
+    return {
+        "injected_tokens": injected_tokens,
+        "main_md_bytes": main_md_bytes,
+        "cache_read_per_turn": _cache_read_per_turn(total_cache_read,
+                                                    total_turns),
+        "context_window": window,
+        "truncation_threshold": threshold,
+        "peak_input_tokens": peak_overall,
+        "context_window_pct": _pct(peak_overall),
+        "truncation_risk": bool(_pct(peak_overall) >= threshold),
+        "by_day": by_day,
+    }
+
+
+# ---- Per-phase / per-iteration cost attribution + terminal run outcome (Task 5)
+
+# Maps a session `stage` tag (Task 3 `classify_stage`) to the loop PHASE bucket it
+# is attributed to. The loop runs pre -> main -> post; plan-authoring and ad-hoc
+# interactive work get their own buckets; an unclassifiable session is `unknown`.
+# This is a PARTITION: every session lands in EXACTLY one phase, so the per-phase
+# `total_tokens` SUM reproduces the aggregate session total (no double counting).
+_STAGE_TO_PHASE = {
+    "loop-pre": "pre",
+    "loop-main": "main",
+    "loop-post": "post",
+    "plan": "plan",
+    "work": "work",
+    "unknown": "unknown",
+}
+
+# The terminal run outcomes a feature loop can end in (agentware.sh):
+#   completed         -> the loop signalled done (.done / all markers ✅ / promise)
+#   hit_max_iterations-> the main loop reached --max-iterations without completing
+#   post_hook_failure -> a post-hook gate (features/index/lint/scan) aborted
+#   pre_hook_abort    -> a pre-hook gate (steering/index/plan-lint) aborted the run
+_TERMINAL_OUTCOMES = (
+    "completed", "hit_max_iterations", "post_hook_failure", "pre_hook_abort",
+)
+
+
+def _phase_for_stage(stage):
+    return _STAGE_TO_PHASE.get(stage or "unknown", "unknown")
+
+
+def derive_phase_costs(rows):
+    """Attribute token usage + cost to each loop PHASE (pure, read-only, INV-2).
+
+    Buckets every session row under the phase its `stage` maps to. Because the
+    mapping is a partition (each session -> exactly one bucket), summing the
+    per-phase `total_tokens` reproduces the aggregate session total EXACTLY — no
+    double counting (asserted by tests). Expects `apply_pricing` to have annotated
+    each row with `cost_usd` (treated as 0.0 when absent). Returns
+    {by_phase: {phase: cost_record + sessions[]}, total_tokens, cost_usd}.
+    """
+    by_phase = {}
+    total_tokens = 0
+    total_cost = 0.0
+    for r in rows:
+        phase = _phase_for_stage(r.get("stage"))
+        rec = by_phase.get(phase)
+        if rec is None:
+            rec = _cost_record(_empty_usage())
+            rec["sessions"] = []
+            by_phase[phase] = rec
+        _merge_usage(rec["tokens"], r.get("tokens", {}))
+        rec["total_tokens"] = sum(rec["tokens"][k] for k in _USAGE_KEYS)
+        rec["cost_usd"] += r.get("cost_usd", 0.0)
+        rec["session_count"] += 1
+        sid = r.get("session_id")
+        if sid is not None:
+            rec["sessions"].append(sid)
+        total_tokens += r.get("total_tokens", 0)
+        total_cost += r.get("cost_usd", 0.0)
+    for rec in by_phase.values():
+        _finalize_record(rec)
+    return {
+        "by_phase": by_phase,
+        "total_tokens": total_tokens,
+        "cost_usd": round(total_cost, 6),
+    }
+
+
+def _read_metrics_jsonl(kdir, feature=None):
+    """Read the append-only loop-emission channel logs/metrics.jsonl (Task 6/7).
+
+    READ-ONLY + tolerant: a missing file yields [], malformed JSON lines are
+    skipped, non-dict payloads ignored. Optionally filters to one `feature`. The
+    channel does not exist until the Task 6/7 shell emitter lands; until then this
+    returns [] so the derivations are forward-compatible (empty, never crashing).
+    """
+    path = os.path.join(kdir, "logs", "metrics.jsonl")
+
+    def _compute_all():
+        out = []
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(obj, dict):
+                        continue
+                    out.append(obj)
+        except OSError:
+            return []
+        return out
+
+    # Parse the whole channel ONCE (mtime/size-keyed), then filter in memory.
+    # Previously each of the 37 per-feature calls re-read+re-parsed the entire
+    # file; now repeated calls within a request (and across polls) are O(events).
+    all_events = _cached_by_key(("metrics_jsonl", path), _file_key(path),
+                                _compute_all)
+    if feature is None:
+        return list(all_events)
+    return [e for e in all_events if e.get("feature") == feature]
+
+
+def derive_iteration_costs(events):
+    """Per-iteration loop structure from the metrics.jsonl emission (read-only).
+
+    Groups the per-iteration loop events (those carrying an integer `iteration`)
+    into an ordered series with per-phase wall-time + task-burndown signals. Each
+    record: {iteration, phases: {phase: wall_s}, phase_wall_s, tasks_remaining,
+    tasks_done_delta, self_heal_count}. Returns [] when the emission channel is
+    absent (Task 6/7 add it) — forward-compatible, never fabricates per-iteration
+    data that the loop has not yet emitted.
+    """
+    by_it = {}
+    order = []
+    for e in events:
+        # Skip the non-iteration event types (Task 7): task_transition events also
+        # carry an integer `iteration` but describe a single task's lifecycle, not
+        # the per-iteration loop structure; terminal events have no iteration. Only
+        # the Task-6 per-iteration/phase events (no `event` discriminator) fold here.
+        if e.get("event") in ("task_transition", "terminal"):
+            continue
+        it = e.get("iteration")
+        if not isinstance(it, int) or isinstance(it, bool):
+            continue
+        rec = by_it.get(it)
+        if rec is None:
+            rec = {
+                "iteration": it,
+                "phases": {},
+                "phase_wall_s": 0.0,
+                "tasks_remaining": e.get("tasks_remaining"),
+                "tasks_done_delta": 0,
+                "self_heal_count": e.get("self_heal_count"),
+            }
+            by_it[it] = rec
+            order.append(it)
+        phase = e.get("phase") or e.get("stage") or "main"
+        wall = e.get("phase_wall_s") or 0.0
+        try:
+            wall = float(wall)
+        except (TypeError, ValueError):
+            wall = 0.0
+        rec["phases"][phase] = round(rec["phases"].get(phase, 0.0) + wall, 3)
+        rec["phase_wall_s"] = round(rec["phase_wall_s"] + wall, 3)
+        if isinstance(e.get("tasks_done_delta"), int) and \
+                not isinstance(e.get("tasks_done_delta"), bool):
+            rec["tasks_done_delta"] += e["tasks_done_delta"]
+        if e.get("tasks_remaining") is not None:
+            rec["tasks_remaining"] = e.get("tasks_remaining")
+        if e.get("self_heal_count") is not None:
+            rec["self_heal_count"] = e.get("self_heal_count")
+    return [by_it[i] for i in sorted(order)]
+
+
+def _plan_marker_status_counts(plan_path):
+    """Count plan.md task markers by status -> (open, done); open = ⬜/🟡 (pure).
+
+    Reads plan.md with the SAME `_PLAN_TASK_LINE_RE` the linter uses. Returns
+    (0, 0) on an unreadable plan. Read-only.
+    """
+    open_n = 0
+    done_n = 0
+    try:
+        with open(plan_path, "r", encoding="utf-8", errors="replace") as f:
+            for ln in f:
+                m = _PLAN_TASK_LINE_RE.match(ln)
+                if not m:
+                    continue
+                if m.group(1) == "✅":
+                    done_n += 1
+                else:
+                    open_n += 1
+    except OSError:
+        return (0, 0)
+    return (open_n, done_n)
+
+
+def derive_outcome(kdir, feature, events=None):
+    """Derive a feature's terminal run outcome (read-only, NEVER writes — INV-2).
+
+    Outcome ∈ _TERMINAL_OUTCOMES (plus `unknown` when the artifacts are
+    indeterminate). Precedence:
+      1. AUTHORITATIVE — the LAST terminal event in logs/metrics.jsonl (Task 7
+         appends {feature, outcome, iterations_used, self_heal_count, ...} on loop
+         exit). Used verbatim; it is the deterministic source for all four states.
+      2. ARTIFACT heuristic over the persisted feature dir — only `completed` is
+         asserted with confidence (a `.loop/.done` signal, OR every plan task ✅).
+         Anything else stays `unknown` rather than GUESS a failure mode the
+         artifacts cannot distinguish (R-FAIL — never guess).
+    Returns {outcome, source, iterations_used?, self_heal_count?, signals} or None
+    when no feature is in scope.
+    """
+    if not feature:
+        return None
+    if events is None:
+        events = _read_metrics_jsonl(kdir, feature=feature)
+    terminal = [e for e in events
+                if e.get("feature") == feature
+                and e.get("outcome") in _TERMINAL_OUTCOMES]
+    if terminal:
+        last = terminal[-1]
+        return {
+            "outcome": last["outcome"],
+            "source": "metrics.jsonl",
+            "iterations_used": last.get("iterations_used"),
+            "self_heal_count": last.get("self_heal_count"),
+            "signals": {"terminal_events": len(terminal)},
+        }
+    fdir = os.path.join(kdir, "work", feature)
+    done_flag = os.path.isfile(os.path.join(fdir, ".loop", ".done"))
+    assessment = os.path.isfile(os.path.join(fdir, "assessment.md"))
+    open_n, done_n = _plan_marker_status_counts(os.path.join(fdir, "plan.md"))
+    signals = {"loop_done": done_flag, "assessment": assessment,
+               "open_markers": open_n, "done_markers": done_n}
+    if done_flag:
+        return {"outcome": "completed", "source": "loop-done", "signals": signals}
+    if done_n > 0 and open_n == 0:
+        return {"outcome": "completed",
+                "source": "assessment" if assessment else "plan-markers",
+                "signals": signals}
+    return {"outcome": "unknown", "source": "artifacts", "signals": signals}
+
+
+# --- Loop analytics (Task 28) -------------------------------------------------
+# First-class observability over the 3-phase loop — agentware's differentiator.
+# ALL derivations below are PURE + READ-ONLY (INV-2): they read only the existing
+# append-only logs/metrics.jsonl emission channel (Task 6/7) + the already-parsed
+# session rows, never writing anything. Forward-compatible: every field degrades
+# to None/[]/{} when the channel has not emitted it yet (never fabricated).
+
+_LOOP_PHASES = ("pre", "main", "post")
+
+
+def _normalize_phase(phase):
+    """`loop-pre`/`loop-main`/`loop-post` (the stage tag) -> bare phase name."""
+    if isinstance(phase, str) and phase.startswith("loop-"):
+        return phase[len("loop-"):]
+    return phase or "main"
+
+
+def list_loop_features(kdir):
+    """Sorted feature dirs under <kdir>/work carrying a plan.md or a .loop/ — the
+    unit the loop operates on (read-only directory listing; [] when absent)."""
+    work = os.path.join(kdir, "work")
+    out = []
+    try:
+        for name in sorted(os.listdir(work)):
+            fdir = os.path.join(work, name)
+            if not os.path.isdir(fdir):
+                continue
+            if os.path.isfile(os.path.join(fdir, "plan.md")) or \
+                    os.path.isdir(os.path.join(fdir, ".loop")):
+                out.append(name)
+    except OSError:
+        return []
+    return out
+
+
+def derive_loop_throughput(kdir, events=None):
+    """Loop throughput over time: features COMPLETED per day + ISO week, derived
+    from the terminal events (outcome == 'completed') across all features. Pure +
+    read-only; an empty channel yields empty maps."""
+    if events is None:
+        events = _read_metrics_jsonl(kdir)
+    by_day = {}
+    by_week = {}
+    for e in events:
+        if e.get("event") != "terminal" or e.get("outcome") != "completed":
+            continue
+        ts = e.get("ts")
+        dt = _parse_iso(ts)
+        if dt is None or not isinstance(ts, str):
+            continue
+        day = ts[:10]
+        by_day[day] = by_day.get(day, 0) + 1
+        iso = dt.isocalendar()
+        wk = "%04d-W%02d" % (iso[0], iso[1])
+        by_week[wk] = by_week.get(wk, 0) + 1
+    return {
+        "by_day": by_day,
+        "by_week": by_week,
+        "completed_total": sum(by_day.values()),
+    }
+
+
+def _loop_analytics_for_feature(kdir, feature, events=None, sessions_rows=None):
+    """Per-run loop analytics for ONE feature (pure, read-only). Folds the
+    metrics.jsonl emission into: per-phase wall split, iterations-to-completion,
+    a tasks-remaining burndown, iteration efficiency, self-heal count,
+    max-iteration utilization, pre/post-hook gate outcomes, promise/.done
+    latency, and the terminal outcome. Empty channel -> safe zero/None values."""
+    if events is None:
+        events = _read_metrics_jsonl(kdir, feature=feature)
+    outcome = derive_outcome(kdir, feature, events=events)
+    terminals = [e for e in events if e.get("event") == "terminal"]
+    terminal = terminals[-1] if terminals else {}
+
+    phase_wall = {}
+    gates = {"pre": [], "post": []}
+    iter_ts = []
+    max_seen = None
+    # The 3 phases each run their OWN iteration counter (pre 1..3, main 1..N,
+    # post 1..3), so their iteration numbers OVERLAP. The burndown is the MAIN
+    # loop's tasks-remaining curve, so it folds main-phase events ONLY (keyed by
+    # iteration: last remaining seen + summed done-delta); pre/post wall-time is
+    # still attributed to phase_wall, and pre/post events drive the gate outcomes.
+    main_by_it = {}
+    main_order = []
+    for e in events:
+        if e.get("event") in ("task_transition", "terminal"):
+            continue
+        phase = _normalize_phase(e.get("phase") or e.get("stage"))
+        wall = e.get("phase_wall_s") or 0.0
+        try:
+            wall = float(wall)
+        except (TypeError, ValueError):
+            wall = 0.0
+        phase_wall[phase] = round(phase_wall.get(phase, 0.0) + wall, 3)
+        if isinstance(e.get("ts"), str):
+            iter_ts.append(e["ts"])
+        m = e.get("max")
+        if isinstance(m, int) and not isinstance(m, bool):
+            max_seen = m if max_seen is None else max(max_seen, m)
+        if phase in ("pre", "post"):
+            gates[phase].append({
+                "iteration": e.get("iteration"),
+                "result": e.get("result"),
+                "promise_status": e.get("promise_status"),
+                "ts": e.get("ts"),
+                "ok": (e.get("promise_status") == "signalled"
+                       or e.get("result") == "complete"),
+            })
+        elif phase == "main":
+            it = e.get("iteration")
+            if not isinstance(it, int) or isinstance(it, bool):
+                continue
+            rec = main_by_it.get(it)
+            if rec is None:
+                rec = {"iteration": it, "tasks_remaining": None,
+                       "tasks_done_delta": 0}
+                main_by_it[it] = rec
+                main_order.append(it)
+            if e.get("tasks_remaining") is not None:
+                rec["tasks_remaining"] = e.get("tasks_remaining")
+            d = e.get("tasks_done_delta")
+            if isinstance(d, int) and not isinstance(d, bool):
+                rec["tasks_done_delta"] += d
+            sh = e.get("self_heal_count")
+            if isinstance(sh, int) and not isinstance(sh, bool):
+                rec["self_heal_count"] = sh
+
+    # Per-phase TOKEN split from the already-parsed session rows (read-only): the
+    # phase a session lands in is its AGENTWARE_STAGE (Task 3/5 classifier).
+    # `sessions_rows` (from a shared single-pass index) avoids re-scanning every
+    # session per feature; falls back to the per-feature scan when not supplied.
+    rows = (sessions_rows if sessions_rows is not None
+            else collect_sessions(kdir, feature=feature))
+    by_phase = derive_phase_costs(rows)["by_phase"]
+    phase_tokens = {ph: by_phase[ph]["total_tokens"] for ph in by_phase}
+
+    iterations = [main_by_it[i] for i in sorted(main_order)]
+    burndown = [{
+        "iteration": r["iteration"],
+        "tasks_remaining": r.get("tasks_remaining"),
+        "tasks_done_delta": r.get("tasks_done_delta", 0),
+    } for r in iterations]
+
+    tasks_closed = sum((r.get("tasks_done_delta") or 0) for r in iterations)
+    n_iters = terminal.get("iterations_used")
+    if not isinstance(n_iters, int) or isinstance(n_iters, bool) or n_iters <= 0:
+        n_iters = len(iterations)
+    iteration_efficiency = round(tasks_closed / n_iters, 3) if n_iters else None
+
+    max_iter = terminal.get("max")
+    if not isinstance(max_iter, int) or isinstance(max_iter, bool):
+        max_iter = max_seen
+    max_util = (round(n_iters / max_iter, 3)
+                if (isinstance(max_iter, int) and max_iter and n_iters)
+                else None)
+
+    self_heal = terminal.get("self_heal_count")
+    if self_heal is None:
+        sh = [r.get("self_heal_count") for r in iterations
+              if isinstance(r.get("self_heal_count"), int)
+              and not isinstance(r.get("self_heal_count"), bool)]
+        self_heal = max(sh) if sh else 0
+
+    latency_s = None
+    if terminal and iter_ts:
+        t0 = _parse_iso(min(iter_ts))
+        t1 = _parse_iso(terminal.get("ts"))
+        if t0 is not None and t1 is not None:
+            latency_s = round((t1 - t0).total_seconds(), 3)
+
+    return {
+        "feature": feature,
+        "outcome": (outcome or {}).get("outcome", "unknown"),
+        "iterations_to_completion": n_iters,
+        "max_iterations": max_iter,
+        "max_iteration_utilization": max_util,
+        "iteration_efficiency": iteration_efficiency,
+        "tasks_closed": tasks_closed,
+        "tasks_total": terminal.get("tasks_total"),
+        "tasks_done": terminal.get("tasks_done"),
+        "self_heal_count": self_heal,
+        "promise_status": terminal.get("promise_status"),
+        "latency_s": latency_s,
+        "burndown": burndown,
+        "phase_wall_s": phase_wall,
+        "phase_tokens": phase_tokens,
+        "gates": gates,
+        "event_count": len(events),
+    }
+
+
+def derive_loop_analytics(kdir, feature=None):
+    """Loop analytics for the Loops dashboard section (pure, read-only, INV-2).
+
+    With a `feature`, returns that single run's analytics dict. Without one,
+    returns {features: [per-feature dicts], throughput: {by_day, by_week,
+    completed_total}} across every work feature. Never writes; degrades to empty
+    structures when the emission channel is absent (forward-compatible)."""
+    if feature:
+        return _loop_analytics_for_feature(kdir, feature)
+    all_events = _read_metrics_jsonl(kdir)
+    by_feat = _group_events_by_feature(all_events)
+    features = list_loop_features(kdir)
+    index = build_session_index(kdir, features)
+    feats = [_loop_analytics_for_feature(
+                kdir, f, events=by_feat.get(f, []),
+                sessions_rows=index["rows"].get(f, []))
+             for f in features]
+    return {
+        "features": feats,
+        "throughput": derive_loop_throughput(kdir, events=all_events),
+    }
+
+
+# --- Trace / Run-explorer (Task 29) ------------------------------------------
+# Step-level observability — the #1 LLM/agent-observability pain ("see the
+# reasoning, not just inputs/outputs"). Builds an ORDERED tool-call step timeline
+# (name, args, result, status, timing, best-effort tokens) + marker/decision
+# transitions, GROUPED by loop iteration, from logs/sessions/<sid>/{live.jsonl,
+# main.jsonl} + the metrics.jsonl emission. PURE + READ-ONLY (INV-2): reads logs
+# only, NEVER writes. Forward-compatible: missing logs yield empty groups.
+
+
+def _trace_io(raw, limit=2000):
+    """Normalize a tool I/O field to a bounded STRING for the trace payload.
+
+    The live.jsonl hook stores tool_input/tool_response as JSON STRINGS (already
+    truncated to ~1500 chars). Re-serialize parseable JSON deterministically
+    (sorted keys) and bound length, returning (text, truncated_bool). Strings
+    keep the UI contract simple — the step detail shows truncated tool I/O."""
+    if raw is None:
+        return "", False
+    if isinstance(raw, str):
+        try:
+            s = json.dumps(json.loads(raw), ensure_ascii=False, sort_keys=True)
+        except ValueError:
+            s = raw
+    else:
+        s = json.dumps(raw, ensure_ascii=False, sort_keys=True)
+    if len(s) > limit:
+        return s[:limit] + " …[truncated]", True
+    return s, False
+
+
+def _main_tooluse_token_shares(main_path):
+    """Memoized wrapper (mtime/size-keyed) over the per-step token attribution —
+    read once per request instead of once per feature's trace derivation."""
+    return _cached_by_key(("tooluse_shares", main_path), _file_key(main_path),
+                          lambda: _main_tooluse_token_shares_uncached(main_path))
+
+
+def _main_tooluse_token_shares_uncached(main_path):
+    """Ordered (tool_name, token_share) for each main-agent tool_use in main.jsonl.
+
+    A turn's output_tokens are split EVENLY across the tool_use items it emitted
+    (best-effort per-step token attribution). Read-only; [] when the transcript
+    is absent/unreadable/malformed."""
+    shares = []
+    try:
+        f = open(main_path, "r", encoding="utf-8", errors="replace")
+    except (FileNotFoundError, IsADirectoryError, OSError):
+        return shares
+    with f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                obj = json.loads(raw)
+            except ValueError:
+                continue
+            if not isinstance(obj, dict) or obj.get("type") != "assistant":
+                continue
+            msg = obj.get("message")
+            content = msg.get("content") if isinstance(msg, dict) else None
+            if not isinstance(content, list):
+                continue
+            names = [it.get("name") or "<unknown>" for it in content
+                     if isinstance(it, dict) and it.get("type") == "tool_use"]
+            if not names:
+                continue
+            usage = msg.get("usage") if isinstance(msg.get("usage"), dict) else {}
+            out = usage.get("output_tokens")
+            out = out if isinstance(out, int) and not isinstance(out, bool) else 0
+            share = round(out / len(names))
+            for nm in names:
+                shares.append((nm, share))
+    return shares
+
+
+def _trace_steps_for_session(sdir):
+    """Memoized wrapper (keyed on this session's live.jsonl+main.jsonl identity)
+    over the step build. derive_trace MUTATES returned steps (sets iteration), so
+    return a DEEP COPY to keep the cached canonical steps pristine across the
+    per-feature trace calls that loop-health/alerts make repeatedly."""
+    keyfiles = (os.path.join(sdir, "live.jsonl"), os.path.join(sdir, "main.jsonl"))
+    steps = _cached_by_key(("trace_steps", os.path.abspath(sdir)),
+                           _multi_file_key(keyfiles),
+                           lambda: _trace_steps_for_session_uncached(sdir))
+    return copy.deepcopy(steps)
+
+
+def _trace_steps_for_session_uncached(sdir):
+    """Build a session's ordered tool-call steps (read-only).
+
+    Primary source: live.jsonl (the per-action stream carrying name/args/result/
+    status/ts). Falls back to main.jsonl tool_use items when no live stream
+    exists (no result/status then). Per-step duration = the next step's ts minus
+    this ts (within the session); per-step tokens align best-effort to the
+    main.jsonl turn output tokens by ordered name match."""
+    live_path = os.path.join(sdir, "live.jsonl")
+    main_path = os.path.join(sdir, "main.jsonl")
+    shares = _main_tooluse_token_shares(main_path)
+    steps = []
+    live_rows = []
+    try:
+        with open(live_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(obj, dict):
+                    live_rows.append(obj)
+    except OSError:
+        live_rows = []
+    if live_rows:
+        for obj in live_rows:
+            args, at = _trace_io(obj.get("input"))
+            res, rt = _trace_io(obj.get("response"))
+            steps.append({
+                "ts": obj.get("ts") if isinstance(obj.get("ts"), str) else None,
+                "tool": obj.get("tool") or "<unknown>",
+                "status": obj.get("status") or "ok",
+                "args": args, "args_truncated": at,
+                "result": res, "result_truncated": rt,
+            })
+    else:
+        # Fallback: main.jsonl tool_use items (no result/status streamed).
+        try:
+            f = open(main_path, "r", encoding="utf-8", errors="replace")
+        except (FileNotFoundError, IsADirectoryError, OSError):
+            f = None
+        if f is not None:
+            with f:
+                for raw in f:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        obj = json.loads(raw)
+                    except ValueError:
+                        continue
+                    if not isinstance(obj, dict) or \
+                            obj.get("type") != "assistant":
+                        continue
+                    msg = obj.get("message")
+                    ts = obj.get("timestamp")
+                    ts = ts if isinstance(ts, str) else None
+                    content = msg.get("content") if isinstance(msg, dict) else None
+                    if not isinstance(content, list):
+                        continue
+                    for it in content:
+                        if isinstance(it, dict) and it.get("type") == "tool_use":
+                            args, at = _trace_io(it.get("input"))
+                            steps.append({
+                                "ts": ts, "tool": it.get("name") or "<unknown>",
+                                "status": "ok", "args": args,
+                                "args_truncated": at, "result": "",
+                                "result_truncated": False,
+                            })
+    # Per-step tokens: best-effort index+name alignment with main-agent turns.
+    for i, st in enumerate(steps):
+        st["tokens"] = (shares[i][1]
+                        if i < len(shares) and shares[i][0] == st["tool"]
+                        else None)
+    # Per-step duration within the session (next.ts - this.ts).
+    for i, st in enumerate(steps):
+        dur = None
+        if st["ts"] is not None and i + 1 < len(steps):
+            t0 = _parse_iso(st["ts"])
+            t1 = _parse_iso(steps[i + 1]["ts"])
+            if t0 is not None and t1 is not None:
+                d = round((t1 - t0).total_seconds(), 3)
+                dur = d if d >= 0 else None
+        st["duration_s"] = dur
+    return steps
+
+
+def _trace_session_dirs(kdir, session=None, feature=None):
+    """Resolve the session dirs in scope (read-only): a single `session` id, or
+    every session whose transcript references `feature`. Sorted by session id."""
+    root = logs_sessions_dir(kdir)
+    out = []
+    if not os.path.isdir(root):
+        return out
+    if session is not None:
+        sdir = os.path.join(root, session)
+        if os.path.isdir(sdir):
+            out.append((session, sdir))
+        return out
+    for name in sorted(os.listdir(root)):
+        sdir = os.path.join(root, name)
+        if not os.path.isdir(sdir):
+            continue
+        if feature is not None and not _session_feature_match(sdir, feature):
+            continue
+        out.append((name, sdir))
+    return out
+
+
+def _trace_iteration_windows(events):
+    """Sorted [(ts, iteration)] boundaries from the metrics.jsonl MAIN-phase
+    events, used to bucket trace steps into loop iterations by timestamp."""
+    wins = []
+    for e in events:
+        if e.get("event") in ("task_transition", "terminal"):
+            continue
+        if _normalize_phase(e.get("phase") or e.get("stage")) != "main":
+            continue
+        it = e.get("iteration")
+        ts = e.get("ts")
+        if isinstance(it, int) and not isinstance(it, bool) \
+                and isinstance(ts, str):
+            wins.append((ts, it))
+    wins.sort(key=lambda w: w[0])
+    return wins
+
+
+def _iteration_for_ts(windows, ts):
+    """The iteration of the latest window starting at-or-before ts (None if the
+    step predates the first window or has no timestamp)."""
+    if not isinstance(ts, str):
+        return None
+    found = None
+    for wts, it in windows:
+        if wts <= ts:
+            found = it
+        else:
+            break
+    return found
+
+
+def derive_trace(kdir, session=None, feature=None, max_steps=4000,
+                 sess_dirs=None, events=None):
+    """Step-level run trace for the Trace/Run-explorer (pure, read-only, INV-2).
+
+    Scope is a single `session` id or a `feature` (all sessions whose transcript
+    references it). Returns an ORDERED tool-call step timeline grouped by loop
+    iteration, plus per-iteration marker/decision transitions from metrics.jsonl.
+    Empty/missing logs yield empty groups (forward-compatible, never crashes).
+    Optional `sess_dirs`/`events` (shared single-pass index) skip the per-feature
+    session re-scan + metrics re-read when the bulk caller already has them."""
+    if sess_dirs is None:
+        sess_dirs = _trace_session_dirs(kdir, session=session, feature=feature)
+    # Resolve the feature used for iteration/transition grouping.
+    grp_feature = feature
+    if grp_feature is None and session is not None and sess_dirs:
+        row = parse_session(sess_dirs[0][1])
+        if row:
+            grp_feature = row.get("feature")
+    if events is None:
+        events = (_read_metrics_jsonl(kdir, feature=grp_feature)
+                  if grp_feature else [])
+    windows = _trace_iteration_windows(events)
+    transitions = [e for e in events if e.get("event") == "task_transition"]
+
+    steps = []
+    sessions_meta = []
+    for sid, sdir in sess_dirs:
+        s_steps = _trace_steps_for_session(sdir)
+        for st in s_steps:
+            st["session_id"] = sid
+        sessions_meta.append({"session_id": sid, "step_count": len(s_steps)})
+        steps.extend(s_steps)
+    # Deterministic global order: by ts (None last), then session id, then arrival.
+    steps.sort(key=lambda s: (s.get("ts") is None, s.get("ts") or "",
+                              s.get("session_id") or ""))
+    truncated = False
+    if len(steps) > max_steps:
+        steps = steps[:max_steps]
+        truncated = True
+
+    tool_summary = {}
+    for i, st in enumerate(steps):
+        st["index"] = i
+        st["iteration"] = _iteration_for_ts(windows, st.get("ts"))
+        tool_summary[st["tool"]] = tool_summary.get(st["tool"], 0) + 1
+
+    groups = {}
+    order = []
+
+    def _group(itv):
+        if itv not in groups:
+            groups[itv] = {"iteration": itv, "steps": [], "transitions": []}
+            order.append(itv)
+        return groups[itv]
+
+    for st in steps:
+        _group(st["iteration"])["steps"].append(st)
+    for tr in transitions:
+        itv = tr.get("iteration")
+        if not isinstance(itv, int) or isinstance(itv, bool):
+            itv = None
+        _group(itv)["transitions"].append({
+            "ts": tr.get("ts"), "task": tr.get("task"),
+            "from": tr.get("from"), "to": tr.get("to"),
+            "approx": tr.get("approx"),
+        })
+
+    iterations = [groups[k] for k in
+                  sorted(order, key=lambda k: (k is None,
+                                               k if isinstance(k, int) else 0))]
+    for g in iterations:
+        g["step_count"] = len(g["steps"])
+
+    err_count = sum(1 for s in steps if s.get("status") == "ERR")
+    return {
+        "scope": "session" if session is not None else "feature",
+        "session": session,
+        "feature": grp_feature,
+        "sessions": sessions_meta,
+        "step_count": len(steps),
+        "err_count": err_count,
+        "tool_summary": tool_summary,
+        "truncated": truncated,
+        "iterations": iterations,
+    }
+
+
+# --- Loop-health & runaway detection (Task 30) -------------------------------
+# The most-cited autonomous-agent pain: dead loops, runaway token burn, context-
+# window overflow, and silent no-progress (maps to agentware R-FAIL-04). ALL
+# derivations below are PURE + READ-ONLY (INV-2): they fold the existing trace
+# (live.jsonl) + loop-analytics (metrics.jsonl) + context-tax (session rows)
+# derivations into per-run health signals, never writing anything. Each check
+# degrades to an OK/empty result when its source is absent (forward-compatible).
+
+_LOOP_HEALTH_SEVERITY = {"ok": 0, "at_risk": 1, "critical": 2}
+
+
+def _worst_status(statuses):
+    """The most-severe status among an iterable of {ok,at_risk,critical}."""
+    worst = "ok"
+    for s in statuses:
+        if _LOOP_HEALTH_SEVERITY.get(s, 0) > _LOOP_HEALTH_SEVERITY[worst]:
+            worst = s
+    return worst
+
+
+def _loop_health_dup_check(kdir, feature, threshold, sess_dirs=None,
+                           events=None):
+    """Duplicate/repeated tool-call detection — a dead-loop signal (R-FAIL-04).
+
+    Folds the read-only trace steps (live.jsonl per-action stream) into a count
+    per (tool, args) signature; the worst offender drives the status. `flagged`
+    when the same call repeats >= `threshold` times. Names the offending tool +
+    the iteration it recurs in so the badge can point at the stuck step. Optional
+    `sess_dirs`/`events` come from the shared single-pass index (avoid re-scan)."""
+    # AUTHORITATIVE attribution: count duplicate tool calls only from sessions whose
+    # DOMINANT feature is this one. A broad substring match folds the single global
+    # outlier session (e.g. "Read repeated 77×" while it discussed many features)
+    # into EVERY feature's dup count, making 100% of runs read 'critical'. Filter to
+    # dominant-feature sessions; keep the broad set only if the strict filter empties.
+    if sess_dirs is not None:
+        sess_dirs = [(sid, sdir) for (sid, sdir) in sess_dirs
+                     if (parse_session(sdir) or {}).get("feature") == feature]
+    tr = derive_trace(kdir, feature=feature, sess_dirs=sess_dirs, events=events)
+    # A genuine dead-loop is the SAME (tool, args) repeated within ONE session (or
+    # iteration window). Counting across a feature's whole multi-session history
+    # inflates normal re-reads/edits into a false 'critical', so scope the signature
+    # by session (and iteration when the emission channel provides one). This makes
+    # 'critical' actually mean "stuck repeating one call", not "long-lived feature".
+    counts = {}
+    first_iter = {}
+    for grp in tr.get("iterations", []):
+        for st in grp.get("steps", []):
+            key = (st.get("session_id"), st.get("iteration"),
+                   st.get("tool") or "<unknown>", st.get("args") or "")
+            counts[key] = counts.get(key, 0) + 1
+            if key not in first_iter:
+                first_iter[key] = st.get("iteration")
+    max_count = 0
+    offender = None
+    for key, n in counts.items():
+        if n > max_count:
+            max_count, offender = n, key
+    # offender is (session_id, iteration, tool, args); expose tool/iteration.
+    offender_tool = offender[2] if offender else None
+    warn = max(2, threshold // 2 + 1)
+    if max_count >= threshold:
+        status = "critical"
+    elif max_count >= warn:
+        status = "at_risk"
+    else:
+        status = "ok"
+    return {
+        "name": "duplicate_tool_calls",
+        "status": status,
+        "flagged": max_count >= threshold,
+        "max_repeat": max_count,
+        "threshold": threshold,
+        "tool": offender_tool,
+        "iteration": first_iter.get(offender) if offender else None,
+        "detail": (("tool %r repeated %d times in one session"
+                    % (offender_tool, max_count))
+                   if (offender and max_count >= warn) else None),
+    }
+
+
+def _longest_flat_run(burndown):
+    """Longest run of consecutive MAIN iterations with the SAME (and > 0)
+    tasks_remaining — the no-progress signal. Returns (run_len, iteration_at_end)
+    where the iteration marks where the flat streak ends. None values break a run.
+    """
+    best_len = 0
+    best_iter = None
+    cur_len = 0
+    prev = None
+    for b in burndown:
+        rem = b.get("tasks_remaining")
+        if rem is None or rem <= 0:
+            cur_len, prev = 0, None
+            continue
+        if prev is not None and rem == prev:
+            cur_len += 1
+        else:
+            cur_len = 1
+        if cur_len > best_len:
+            best_len, best_iter = cur_len, b.get("iteration")
+        prev = rem
+    return best_len, best_iter
+
+
+def _loop_health_progress_check(la, k, maxiter_warn):
+    """No-progress / nearing-max detection from the loop-analytics burndown.
+
+    Critical when the run hit (or is at/over) the iteration cap without
+    completing; at-risk when tasks_remaining is flat across >= `k` MAIN
+    iterations OR utilization crosses `maxiter_warn` while still running."""
+    burndown = la.get("burndown") or []
+    outcome = la.get("outcome")
+    flat_len, flat_iter = _longest_flat_run(burndown)
+    util = la.get("max_iteration_utilization")
+    completed = outcome == "completed"
+    hit_max = (outcome == "hit_max_iterations"
+               or (isinstance(util, (int, float)) and util >= 1.0
+                   and not completed))
+    flat_stuck = flat_len >= k
+    nearing = (isinstance(util, (int, float)) and util >= maxiter_warn
+               and not completed)
+    if hit_max:
+        status = "critical"
+    elif flat_stuck or nearing:
+        status = "at_risk"
+    else:
+        status = "ok"
+    detail = None
+    if flat_stuck:
+        detail = ("tasks_remaining flat across %d iterations (at iteration %s)"
+                  % (flat_len, flat_iter))
+    elif hit_max:
+        detail = "run reached the iteration cap without completing"
+    elif nearing:
+        detail = "nearing the iteration cap (%.0f%% used)" % (util * 100.0)
+    return {
+        "name": "no_progress",
+        "status": status,
+        "flagged": status != "ok",
+        "flat_run": flat_len,
+        "flat_iteration": flat_iter,
+        "max_iteration_utilization": util,
+        "outcome": outcome,
+        "iteration": flat_iter,
+        "detail": detail,
+    }
+
+
+def _loop_health_burn_check(kdir, feature, la, budget=None):
+    """Token burn-rate per MAIN iteration + a projection to the iteration cap.
+
+    rate = main-phase tokens / iterations-to-completion; projection = rate ×
+    max_iterations. When a `budget` is supplied, `flagged`/at-risk fires if the
+    projection would exceed it. Read-only (delegates to the loop-analytics phase
+    tokens). No budget -> reported but never flagged."""
+    main_tokens = (la.get("phase_tokens") or {}).get("main", 0) or 0
+    n_iters = la.get("iterations_to_completion") or 0
+    rate = round(main_tokens / n_iters, 1) if n_iters else None
+    max_iter = la.get("max_iterations")
+    projected = (round(rate * max_iter)
+                 if (rate is not None and isinstance(max_iter, int)
+                     and not isinstance(max_iter, bool)) else None)
+    status = "ok"
+    detail = None
+    if budget and projected is not None:
+        if projected >= budget:
+            status = "critical"
+            detail = ("projected %d tokens exceeds budget %d"
+                      % (projected, budget))
+        elif projected >= budget * _LOOP_HEALTH_MAXITER_WARN:
+            status = "at_risk"
+            detail = ("projected %d tokens nearing budget %d"
+                      % (projected, budget))
+    return {
+        "name": "token_burn",
+        "status": status,
+        "flagged": status != "ok",
+        "tokens_per_iteration": rate,
+        "main_tokens": main_tokens,
+        "iterations": n_iters,
+        "projected_total": projected,
+        "budget": budget,
+        "detail": detail,
+    }
+
+
+def _loop_health_context_check(kdir, feature, window, threshold,
+                               sessions_rows=None):
+    """Context-window utilization + truncation-risk for a feature's sessions.
+
+    Delegates to the read-only context-tax derivation (peak input-side tokens vs
+    a configurable `window`). Critical at truncation_risk (>= `threshold`),
+    at-risk past _LOOP_HEALTH_CONTEXT_WARN — the context-overflow failure mode.
+    `sessions_rows` (shared single-pass index) avoids the per-feature re-scan."""
+    rows = (sessions_rows if sessions_rows is not None
+            else collect_sessions(kdir, feature=feature))
+    # AUTHORITATIVE attribution: a session counts toward THIS feature's context
+    # health only when the feature is its DOMINANT feature (parse_session.feature),
+    # not merely a substring of its transcript. Without this, the single global-max
+    # session (which mentions many features) leaks its peak into every feature and
+    # makes 100% of runs read 'critical'. Fall back to the broad set if the strict
+    # filter is empty (so a feature with only substring matches still reports).
+    rows = [r for r in rows if r.get("feature") == feature]
+    ct = derive_context_tax(rows, kdir, window=window, threshold=threshold)
+    pct = ct.get("context_window_pct", 0.0) or 0.0
+    risk = bool(ct.get("truncation_risk"))
+    if risk:
+        status = "critical"
+    elif pct >= _LOOP_HEALTH_CONTEXT_WARN:
+        status = "at_risk"
+    else:
+        status = "ok"
+    return {
+        "name": "context_window",
+        "status": status,
+        "flagged": risk,
+        "context_window_pct": pct,
+        "peak_input_tokens": ct.get("peak_input_tokens", 0),
+        "context_window": ct.get("context_window", window),
+        "truncation_risk": risk,
+        "truncation_threshold": ct.get("truncation_threshold", threshold),
+        "detail": (("peak input %d tokens = %.0f%% of the %d window"
+                    % (ct.get("peak_input_tokens", 0), pct * 100.0,
+                       ct.get("context_window", window)))
+                   if status != "ok" else None),
+    }
+
+
+def _loop_health_for_feature(kdir, feature, window=None,
+                             threshold=_TRUNCATION_RISK_THRESHOLD,
+                             dup_threshold=_LOOP_HEALTH_DUP_THRESHOLD,
+                             noprogress_k=_LOOP_HEALTH_NOPROGRESS_K,
+                             budget=None, index=None, events=None):
+    """Per-run loop-health for ONE feature (pure, read-only, INV-2).
+
+    Runs the four runaway-detection checks (duplicate tool calls, no-progress,
+    token burn-rate, context-window utilization) and folds them into an overall
+    OK/at-risk/critical badge that NAMES the offending tool/iteration. Every
+    check degrades to OK when its source channel is absent. A shared single-pass
+    `index` (build_session_index) + pre-grouped `events` let the bulk caller
+    avoid re-scanning every session 3× per feature; both are optional."""
+    # window=None => the context check auto-detects the real model ceiling (1M for
+    # Claude 4) rather than forcing a 200k window that mis-reads big sessions.
+    sessions_rows = index["rows"].get(feature) if index is not None else None
+    sess_dirs = index["dirs"].get(feature) if index is not None else None
+    la = _loop_analytics_for_feature(kdir, feature, events=events,
+                                     sessions_rows=sessions_rows)
+    dup = _loop_health_dup_check(kdir, feature, dup_threshold,
+                                 sess_dirs=sess_dirs, events=events)
+    progress = _loop_health_progress_check(la, noprogress_k,
+                                           _LOOP_HEALTH_MAXITER_WARN)
+    burn = _loop_health_burn_check(kdir, feature, la, budget=budget)
+    context = _loop_health_context_check(kdir, feature, window, threshold,
+                                         sessions_rows=sessions_rows)
+    checks = {c["name"]: c for c in (dup, progress, burn, context)}
+    status = _worst_status(c["status"] for c in checks.values())
+    # The offender that drives the badge: the worst flagged check naming a tool/
+    # iteration (dup first — it points at a concrete stuck step), else progress.
+    offender = None
+    for c in (dup, progress, context, burn):
+        if c["flagged"]:
+            offender = {"check": c["name"], "tool": c.get("tool"),
+                        "iteration": c.get("iteration"), "detail": c.get("detail")}
+            break
+    flagged = [c["name"] for c in checks.values() if c["flagged"]]
+    return {
+        "feature": feature,
+        "status": status,
+        "checks": checks,
+        "flagged_checks": flagged,
+        "offender": offender,
+        "outcome": la.get("outcome"),
+    }
+
+
+def derive_loop_health(kdir, feature=None, window=None,
+                       threshold=_TRUNCATION_RISK_THRESHOLD,
+                       dup_threshold=_LOOP_HEALTH_DUP_THRESHOLD,
+                       noprogress_k=_LOOP_HEALTH_NOPROGRESS_K, budget=None):
+    """Loop-health & runaway detection for the Loops + Overview sections (pure,
+    read-only, INV-2).
+
+    With a `feature`, returns that single run's health dict (status + per-check
+    detail + the offending tool/iteration). Without one, returns
+    {features: [...], summary: {ok, at_risk, critical}} across every work feature.
+    Never writes; degrades to OK/empty when the emission/log channels are absent.
+    """
+    if feature:
+        return _loop_health_for_feature(
+            kdir, feature, window=window, threshold=threshold,
+            dup_threshold=dup_threshold, noprogress_k=noprogress_k,
+            budget=budget)
+    features = list_loop_features(kdir)
+    by_feat = _group_events_by_feature(_read_metrics_jsonl(kdir))
+    index = build_session_index(kdir, features)
+    feats = [_loop_health_for_feature(
+        kdir, f, window=window, threshold=threshold,
+        dup_threshold=dup_threshold, noprogress_k=noprogress_k, budget=budget,
+        index=index, events=by_feat.get(f, []))
+        for f in features]
+    summary = {"ok": 0, "at_risk": 0, "critical": 0}
+    for f in feats:
+        summary[f["status"]] = summary.get(f["status"], 0) + 1
+    worst = _worst_status(f["status"] for f in feats)
+    return {"features": feats, "summary": summary, "status": worst}
+
+
+# --- Alerts surface (Task 31) ------------------------------------------------
+# Symptom-based, severity-ranked alerts derived PURELY (INV-2, read-only) from
+# the SAME sources the other panels read — the eval ledger, the cost rollups,
+# loop-health, the staleness/conflict report, and the per-feature worklogs. No
+# new collection; every alert deep-links to the panel/route that explains it, and
+# the ledger SHAs are returned as commit markers so trend charts can correlate a
+# metric shift with the commit that caused it (per SRE symptom-based alerting).
+
+# severity -> rank (higher = worse); mirrors _LOOP_HEALTH_SEVERITY's intent but
+# spans the three alert severities used across every class.
+_ALERT_SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
+
+# Reliability is a 0..100 score; a run-over-run DROP past these (percentage
+# points) is a warning, then critical. nDCG is a 0..1 fraction.
+_ALERT_RELIABILITY_WARN = 2.0
+_ALERT_RELIABILITY_CRIT = 10.0
+_ALERT_NDCG_WARN = 0.05
+_ALERT_NDCG_CRIT = 0.10
+
+# Retrieval scaling: recall@k SHOULD hold/improve as the corpus grows. A net
+# NEGATIVE slope of recall-vs-corpus_size is the degradation symptom to flag.
+_ALERT_SCALING_SLOPE_THRESHOLD = 0.0
+
+# Loop-health status -> alert severity for the stuck-loop/runaway class.
+_LOOP_STATUS_TO_ALERT = {"critical": "critical", "at_risk": "warning"}
+
+# Frontend routes each alert class deep-links to (must match the panel registry).
+_ALERT_DEEP_LINKS = {
+    "regression": "/health/quality",
+    "scaling": "/memory/scaling",
+    "cost": "/cost",
+    "loop": "/loops/health",
+    "kb_stale": "/health",
+    "kb_conflict": "/health",
+    "unpromoted": "/loops/outcomes",
+}
+
+
+def _ols_slope(points):
+    """Ordinary-least-squares slope over (x, y) numeric points; None if < 2 or
+    degenerate. Mirrors the dashboard's /api/scaling slope so the alert and the
+    plotted slope agree (read-only, pure)."""
+    pts = [(x, y) for (x, y) in points
+           if isinstance(x, (int, float)) and not isinstance(x, bool)
+           and isinstance(y, (int, float)) and not isinstance(y, bool)]
+    n = len(pts)
+    if n < 2:
+        return None
+    sx = sum(x for x, _ in pts)
+    sy = sum(y for _, y in pts)
+    sxx = sum(x * x for x, _ in pts)
+    sxy = sum(x * y for x, y in pts)
+    denom = n * sxx - sx * sx
+    if denom == 0:
+        return None
+    return (n * sxy - sx * sy) / denom
+
+
+def _worst_alert_severity(severities):
+    worst = None
+    for s in severities:
+        if worst is None or \
+                _ALERT_SEVERITY_RANK.get(s, 0) > _ALERT_SEVERITY_RANK[worst]:
+            worst = s
+    return worst
+
+
+def _alert(category, severity, title, detail, feature=None, extra=None):
+    """Build one alert record with a deterministic id + the class deep-link."""
+    aid = category if feature is None else "%s:%s" % (category, feature)
+    rec = {
+        "id": aid,
+        "category": category,
+        "severity": severity,
+        "title": title,
+        "detail": detail,
+        "feature": feature,
+        "deep_link": _ALERT_DEEP_LINKS.get(category),
+    }
+    if extra:
+        rec.update(extra)
+    return rec
+
+
+def _alerts_regression(rows):
+    """Reliability + nDCG REGRESSION vs the prior ledger row (E5)."""
+    out = []
+    if len(rows) < 2:
+        return out
+    latest, prev = rows[-1], rows[-2]
+    lr, pr = latest.get("reliability"), prev.get("reliability")
+    if isinstance(lr, (int, float)) and isinstance(pr, (int, float)):
+        drop = pr - lr
+        if drop >= _ALERT_RELIABILITY_WARN:
+            sev = "critical" if drop >= _ALERT_RELIABILITY_CRIT else "warning"
+            out.append(_alert(
+                "regression", sev, "Reliability regression",
+                "reliability fell %.1f pts (%.1f -> %.1f) vs the prior eval"
+                % (drop, pr, lr),
+                extra={"metric": "reliability", "from": pr, "to": lr,
+                       "commit": latest.get("commit"),
+                       "prev_commit": prev.get("commit")}))
+    ln = (latest.get("metrics") or {}).get("ndcg_at_k")
+    pn = (prev.get("metrics") or {}).get("ndcg_at_k")
+    if isinstance(ln, (int, float)) and isinstance(pn, (int, float)):
+        ndrop = pn - ln
+        if ndrop >= _ALERT_NDCG_WARN:
+            sev = "critical" if ndrop >= _ALERT_NDCG_CRIT else "warning"
+            out.append(_alert(
+                "regression", sev, "nDCG regression",
+                "nDCG@k fell %.3f (%.3f -> %.3f) vs the prior eval"
+                % (ndrop, pn, ln),
+                feature=None,
+                extra={"metric": "ndcg_at_k", "from": pn, "to": ln,
+                       "commit": latest.get("commit"),
+                       "prev_commit": prev.get("commit"),
+                       "id": "regression:ndcg"}))
+    return out
+
+
+def _alerts_scaling(rows, slope_threshold):
+    """Retrieval scaling-slope crossing threshold — recall degrading as the
+    corpus grows (E5). Reuses the same OLS the /api/scaling panel plots."""
+    xy = []
+    for r in rows:
+        size = r.get("corpus_size")
+        recall = (r.get("metrics") or {}).get("recall_at_k")
+        if isinstance(size, (int, float)) and not isinstance(size, bool) \
+                and isinstance(recall, (int, float)):
+            xy.append((size, recall))
+    slope = _ols_slope(xy)
+    if slope is None or slope >= slope_threshold:
+        return []
+    return [_alert(
+        "scaling", "warning", "Retrieval scaling degradation",
+        "recall@k slope vs corpus size is %.6f (< %.6f) over %d measured runs"
+        % (slope, slope_threshold, len(xy)),
+        extra={"slope": slope, "measured": len(xy)})]
+
+
+def _alerts_cost(agg):
+    """COST spike vs the trailing median (E5) — reuses the cost-anomaly flag."""
+    dates = agg.get("cost_anomaly_dates") or []
+    if not dates:
+        return []
+    return [_alert(
+        "cost", "warning", "Cost spike",
+        "%d day(s) exceeded the trailing-median cost: %s"
+        % (len(dates), ", ".join(dates)),
+        extra={"dates": list(dates)})]
+
+
+def _alerts_loop(kdir):
+    """Stuck-loop / runaway-tokens from loop-health (E4 -> E5)."""
+    out = []
+    health = derive_loop_health(kdir)
+    for f in health.get("features", []):
+        sev = _LOOP_STATUS_TO_ALERT.get(f.get("status"))
+        if not sev:
+            continue
+        off = f.get("offender") or {}
+        detail = off.get("detail") or ", ".join(f.get("flagged_checks") or []) \
+            or "loop-health flagged"
+        out.append(_alert(
+            "loop", sev, "Loop-health: %s" % f.get("status"),
+            detail, feature=f.get("feature"),
+            extra={"flagged_checks": f.get("flagged_checks") or [],
+                   "offender": off or None}))
+    return out
+
+
+def _alerts_kb(kdir, data, max_age_days):
+    """Stale + possibly-conflicting KB entries (E5) from the audit report."""
+    out = []
+    if data is None:
+        return out
+    report = build_stale_report(kdir, data, max_age_days)
+    stale = report.get("stale") or []
+    if stale:
+        out.append(_alert(
+            "kb_stale", "info", "Stale knowledge entries",
+            "%d entr%s past the %d-day freshness window"
+            % (len(stale), "y" if len(stale) == 1 else "ies", max_age_days),
+            extra={"count": len(stale),
+                   "ids": [s.get("id") for s in stale]}))
+    conflicts = report.get("conflicts") or []
+    if conflicts:
+        out.append(_alert(
+            "kb_conflict", "warning", "Possible duplicate/conflicting entries",
+            "%d high-overlap entry pair(s) may duplicate or conflict"
+            % len(conflicts),
+            extra={"count": len(conflicts), "pairs": conflicts}))
+    return out
+
+
+def _alerts_unpromoted(kdir, data):
+    """Unpromoted `> LEARNED:` / `> DECISION:` markers in a FINISHED run's
+    worklog (E5) — the completion-gate symptom (R-SI-03 / R-AUTO-05)."""
+    out = []
+    if data is None:
+        return out
+    for feature in list_loop_features(kdir):
+        outcome = derive_outcome(kdir, feature) or {}
+        if outcome.get("outcome") != "completed":
+            continue
+        wl = os.path.join(kdir, "work", feature, "worklog.md")
+        if not os.path.isfile(wl):
+            continue
+        try:
+            unpromoted, _total = scan_worklog(wl, kdir, data)
+        except OSError:
+            continue
+        if not unpromoted:
+            continue
+        out.append(_alert(
+            "unpromoted", "warning", "Unpromoted learnings at finish",
+            "%d marker(s) still unpromoted in a completed run" % len(unpromoted),
+            feature=feature,
+            extra={"count": len(unpromoted),
+                   "markers": unpromoted}))
+    return out
+
+
+def derive_alerts(kdir, slope_threshold=_ALERT_SCALING_SLOPE_THRESHOLD,
+                  max_age_days=120):
+    """Severity-ranked, symptom-based alerts derived read-only (INV-2) from the
+    existing telemetry (Task 31): reliability/nDCG regression, retrieval
+    scaling-slope, cost spike, stuck-loop/runaway, stale/conflicting KB, and
+    unpromoted LEARNED/DECISION at finish. Each alert deep-links to its panel;
+    the ledger SHAs are returned as `commit_markers` so trend charts can place
+    commit markers aligned to the runs. Never writes; degrades to empty when a
+    source channel is absent."""
+    rows = _read_ledger(os.path.join(kdir, HISTORY_REL))
+    rows_sessions = collect_sessions(kdir)
+    agg = aggregate_metrics(rows_sessions)
+    apply_pricing(rows_sessions, agg, _DEFAULT_PRICES)
+    data, _err = load_index(kdir)
+
+    alerts = []
+    alerts += _alerts_regression(rows)
+    alerts += _alerts_scaling(rows, slope_threshold)
+    alerts += _alerts_cost(agg)
+    alerts += _alerts_loop(kdir)
+    alerts += _alerts_kb(kdir, data, max_age_days)
+    alerts += _alerts_unpromoted(kdir, data)
+
+    # Stable, severity-ranked order (worst first), then by category/id so the
+    # output is deterministic across runs (read-only repeatability, INV-2).
+    alerts.sort(key=lambda a: (
+        -_ALERT_SEVERITY_RANK.get(a["severity"], 0),
+        a["category"], str(a["id"])))
+
+    summary = {"critical": 0, "warning": 0, "info": 0}
+    for a in alerts:
+        summary[a["severity"]] = summary.get(a["severity"], 0) + 1
+    worst = _worst_alert_severity(a["severity"] for a in alerts)
+
+    # Commit/deployment markers for the trend charts: one per ledger run, newest
+    # last (chronological), carrying the headline metrics for tooltip context.
+    commit_markers = [{
+        "commit": r.get("commit"),
+        "run": r.get("run"),
+        "strategy": r.get("strategy"),
+        "reliability": r.get("reliability"),
+        "recall_at_k": (r.get("metrics") or {}).get("recall_at_k"),
+    } for r in rows if r.get("commit")]
+
+    return {
+        "alerts": alerts,
+        "summary": summary,
+        "open_count": len(alerts),
+        "status": worst or "ok",
+        "commit_markers": commit_markers,
+    }
+
+
+# --- Failure-ladder & error-recovery (Task 32) -------------------------------
+# agentware-specific, high value: WHERE runs get stuck (tool ERR rate from the
+# live.jsonl per-action stream) and HOW they recovered along the R-FAIL
+# escalation ladder — (1) knowledge base -> (2) own reasoning -> (3) change
+# inputs -> (4) switch approach -> (5) web search (R-FAIL-01). ALL derivations
+# are PURE + READ-ONLY (INV-2): they fold the existing trace (live.jsonl) + the
+# per-feature worklog markers + the loop self-heal count, never writing. Each
+# signal degrades to a zeroed tally when its source channel is absent.
+
+# The R-FAIL escalation-ladder tiers, in order (R-FAIL-01). The dashboard plots
+# WHERE a run climbed the ladder to recover from a tool failure.
+_FAIL_LADDER_TIERS = ["kb", "reasoning", "inputs", "switch", "web"]
+
+# Tools that count as a web escalation (ladder tier 5, R-FAIL-06/R-WEB-01).
+_FAIL_WEB_TOOLS = {"WebSearch", "WebFetch"}
+
+# Substrings in a tool's input that mark a knowledge-base lookup (ladder tier 1,
+# R-FAIL-02): the agent re-queries the KB by the error signature before retrying.
+_FAIL_KB_SIGNATURES = ("agentware recall", "agentware query", "agentware audit")
+
+
+def _fail_step_is_web(step):
+    """A step is a web escalation iff its tool is a web-search/fetch tool."""
+    return (step.get("tool") or "") in _FAIL_WEB_TOOLS
+
+
+def _fail_step_is_kb_lookup(step):
+    """A step is a KB lookup iff it invokes an agentware recall/query/audit (read
+    from the bounded tool-input string the trace already carries)."""
+    if (step.get("tool") or "") in _FAIL_WEB_TOOLS:
+        return False
+    args = step.get("args") or ""
+    return any(sig in args for sig in _FAIL_KB_SIGNATURES)
+
+
+def _classify_recovery(err_step, next_step):
+    """Map an ERR step + the action that FOLLOWED it onto an R-FAIL ladder tier.
+
+    The recovery is an OBSERVABLE proxy read from the NEXT tool call (the run's
+    actual next action after the failure):
+      - a web search/fetch         -> "web"     (tier 5)
+      - a KB recall/query/audit    -> "kb"      (tier 1)
+      - the SAME tool, CHANGED args -> "inputs" (tier 3, R-FAIL-04)
+      - the SAME tool, SAME args    -> "reasoning" (tier 2 — a reasoned re-attempt)
+      - a DIFFERENT tool           -> "switch"  (tier 4, R-FAIL-05)
+    No next step -> the run ended ON the error (unrecovered) -> None.
+    """
+    if next_step is None:
+        return None
+    if _fail_step_is_web(next_step):
+        return "web"
+    if _fail_step_is_kb_lookup(next_step):
+        return "kb"
+    if next_step.get("tool") == err_step.get("tool"):
+        if (next_step.get("args") or "") != (err_step.get("args") or ""):
+            return "inputs"
+        return "reasoning"
+    return "switch"
+
+
+def _failure_marker_tally(kdir, feature):
+    """Per-kind LEARNED/DECISION tallies (total + unpromoted) from the feature's
+    worklog (read-only). Reuses the completion-gate regexes + promotion stems so
+    the tally agrees with the worklog-scan gate."""
+    out = {"learned": {"total": 0, "unpromoted": 0},
+           "decision": {"total": 0, "unpromoted": 0}}
+    wl = os.path.join(kdir, "work", feature, "worklog.md")
+    if not os.path.isfile(wl):
+        return out
+    data, _err = load_index(kdir)
+    kinds = (
+        ("learned", LEARNED_RE, learning_stems(kdir, data)),
+        ("decision", DECISION_RE, decision_stems(kdir, data)),
+    )
+    try:
+        f = open(wl, "r", encoding="utf-8", errors="replace")
+    except OSError:
+        return out
+    with f:
+        for line in f:
+            for kind, rx, stems in kinds:
+                m = rx.match(line)
+                if not m:
+                    continue
+                text = m.group(1).strip()
+                if not text:
+                    continue
+                out[kind]["total"] += 1
+                if not _is_promoted(text, stems):
+                    out[kind]["unpromoted"] += 1
+                break
+    return out
+
+
+def derive_failures(kdir, feature):
+    """Failure-ladder & error-recovery for one feature (pure, read-only, INV-2).
+
+    Folds the read-only trace (live.jsonl) + the per-feature worklog markers +
+    the loop terminal self-heal count into: tool ERR rate (+ per-tool tallies),
+    R-FAIL ladder tier usage (kb/reasoning/inputs/switch/web — classified from
+    the action that followed each ERR), the web-search escalation count, KB-lookup
+    count, self-heal re-engagements, and the DECISION/LEARNED marker tallies.
+    Empty/missing logs yield zeroed tallies (forward-compatible, never crashes)."""
+    trace = derive_trace(kdir, feature=feature)
+    steps = []
+    for grp in trace.get("iterations", []):
+        steps.extend(grp.get("steps", []))
+    # Restore the deterministic GLOBAL order (the trace assigns each step a
+    # monotonic `index`) so recovery classification reads the true next action.
+    steps.sort(key=lambda s: s.get("index", 0))
+
+    step_count = trace.get("step_count", len(steps))
+    err_count = trace.get("err_count",
+                          sum(1 for s in steps if s.get("status") == "ERR"))
+    err_rate = round(err_count / step_count, 4) if step_count else 0.0
+
+    err_by_tool = {}
+    for s in steps:
+        if s.get("status") == "ERR":
+            t = s.get("tool") or "<unknown>"
+            err_by_tool[t] = err_by_tool.get(t, 0) + 1
+
+    ladder = {t: 0 for t in _FAIL_LADDER_TIERS}
+    unrecovered = 0
+    for i, s in enumerate(steps):
+        if s.get("status") != "ERR":
+            continue
+        nxt = steps[i + 1] if i + 1 < len(steps) else None
+        tier = _classify_recovery(s, nxt)
+        if tier is None:
+            unrecovered += 1
+        else:
+            ladder[tier] += 1
+
+    web_search_count = sum(1 for s in steps if _fail_step_is_web(s))
+    kb_lookup_count = sum(1 for s in steps if _fail_step_is_kb_lookup(s))
+
+    outcome = derive_outcome(kdir, feature) or {}
+    self_heal = outcome.get("self_heal_count")
+    if not isinstance(self_heal, int) or isinstance(self_heal, bool):
+        self_heal = 0
+
+    markers = _failure_marker_tally(kdir, feature)
+
+    return {
+        "feature": feature,
+        "scope": "feature",
+        "step_count": step_count,
+        "err_count": err_count,
+        "err_rate": err_rate,
+        "err_by_tool": err_by_tool,
+        "ladder": ladder,
+        "ladder_order": list(_FAIL_LADDER_TIERS),
+        "unrecovered": unrecovered,
+        "web_search_count": web_search_count,
+        "kb_lookup_count": kb_lookup_count,
+        "self_heal_count": self_heal,
+        "markers": markers,
+        "tool_summary": trace.get("tool_summary", {}),
+        "sessions": trace.get("sessions", []),
+    }
 
 
 def _fmt_duration(seconds):
@@ -5371,6 +7973,63 @@ def _print_metrics_text(rows, agg, flt):
     print("    tokens: in=%d out=%d cache_creation=%d cache_read=%d"
           % (u["input_tokens"], u["output_tokens"],
              u["cache_creation_input_tokens"], u["cache_read_input_tokens"]))
+    if "cost_usd" in agg:
+        print("    cost: $%.4f  cache_read_ratio=%.3f%s"
+              % (agg["cost_usd"], agg.get("cache_read_ratio", 0.0),
+                 ("  cost_anomalies=%d" % len(agg["cost_anomaly_dates"]))
+                 if agg.get("cost_anomaly_dates") else ""))
+    if "context_tax" in agg:
+        ct = agg["context_tax"]
+        print("    context_tax: cache_read/turn=%.1f  injected_tokens=%d  "
+              "window_util=%.1f%%%s"
+              % (ct["cache_read_per_turn"], ct["injected_tokens"],
+                 ct["context_window_pct"] * 100.0,
+                 "  TRUNCATION-RISK" if ct["truncation_risk"] else ""))
+    if agg.get("outcome"):
+        print("    outcome: %s (%s)" % (agg["outcome"]["outcome"],
+                                        agg["outcome"]["source"]))
+    if "phase_costs" in agg:
+        pc = agg["phase_costs"]["by_phase"]
+        parts = ", ".join("%s=$%.4f" % (ph, pc[ph]["cost_usd"])
+                          for ph in sorted(pc))
+        if parts:
+            print("    phase_costs: %s" % parts)
+
+
+DASHBOARD_SERVER = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard.py")
+
+
+def cmd_dashboard(args):
+    """Serve the read-only observability dashboard (localhost-only).
+
+    The HTTP server needs `http.server`, which the toolkit's import guards
+    (INV-1/INV-6, tests/test_invariants.py) forbid in this CLI source. So the
+    server lives in a SEPARATE sidecar file (`scripts/agentware_dashboard.py`)
+    that the guards never scan, and we launch it via subprocess — the same
+    pattern as the optional embedder backend. This keeps the toolkit's
+    static-import surface stdlib-only while the dashboard still runs.
+
+    The server binds 127.0.0.1 ONLY, serves the built static bundle
+    (webui/dist/) through a hardened static handler, and exposes the read-only
+    JSON API. It adds NO writer.
+    """
+    if not os.path.isfile(DASHBOARD_SERVER):
+        print("error: dashboard server missing (%s)" % DASHBOARD_SERVER,
+              file=sys.stderr)
+        return 1
+    host = getattr(args, "host", None) or "127.0.0.1"
+    dist_dir = os.path.join(REPO_ROOT, "webui", "dist")
+    kdir = resolve_knowledge_dir()
+    cmd = [sys.executable, DASHBOARD_SERVER,
+           "--host", host, "--port", str(args.port), "--dist", dist_dir]
+    if kdir:
+        cmd += ["--kdir", kdir]
+    if getattr(args, "no_open", False):
+        cmd.append("--no-open")
+    try:
+        return subprocess.call(cmd, cwd=REPO_ROOT)
+    except KeyboardInterrupt:
+        return 0
 
 
 def cmd_metrics(args):
@@ -5386,16 +8045,50 @@ def cmd_metrics(args):
     if since is not None and not _is_valid_date(since):
         sys.stderr.write("agentware: --since must be YYYY-MM-DD\n")
         return 1
+    prices = _DEFAULT_PRICES
+    price_source = "default"
+    prices_path = getattr(args, "prices", None)
+    if prices_path:
+        prices, perr = load_price_table(prices_path)
+        if perr:
+            sys.stderr.write("agentware: %s\n" % perr)
+            return 1
+        price_source = prices_path
     rows = collect_sessions(
         kdir, session=getattr(args, "session", None),
         feature=getattr(args, "feature", None), since=since)
     agg = aggregate_metrics(rows)
+    apply_pricing(rows, agg, prices)
     flt = {"session": getattr(args, "session", None),
            "feature": getattr(args, "feature", None), "since": since}
 
+    # Plan-authoring derivations (read-only): attributed authoring time/tokens
+    # always; plan-size only when a single feature is in scope (it has a plan.md).
+    agg["authoring"] = derive_authoring(rows)
+    # Context-tax derivations (read-only): cache-read-per-turn series, the
+    # injected MAIN.md footprint, and context-window utilization + truncation risk.
+    agg["context_tax"] = derive_context_tax(
+        rows, kdir, window=getattr(args, "context_window", None))
+    feature = getattr(args, "feature", None)
+    plan_meta = derive_plan_size(_plan_path(kdir, feature)) if feature else None
+
+    # Per-phase / per-iteration cost attribution + terminal run outcome (Task 5,
+    # read-only). phase_costs partition the session tokens by loop phase (sums ==
+    # session totals); iterations + outcome are per-feature: outcome reads the
+    # Task 6/7 metrics.jsonl terminal event when present, else falls back to the
+    # persisted .loop/plan/assessment artifacts.
+    agg["phase_costs"] = derive_phase_costs(rows)
+    if feature:
+        loop_events = _read_metrics_jsonl(kdir, feature=feature)
+        agg["iterations"] = derive_iteration_costs(loop_events)
+        agg["outcome"] = derive_outcome(kdir, feature, events=loop_events)
+
     if args.format == "json":
         payload = {"filter": flt, "session_count": len(rows),
+                   "price_source": price_source,
                    "sessions": rows, "aggregate": agg}
+        if feature:
+            payload["plan"] = plan_meta
         json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0 if rows else 1
@@ -5811,11 +8504,21 @@ _PLAN_OPEN_MARKER_PY = re.compile(_posix_ere_to_python(PLAN_TASK_MARKER_RE))
 
 # Well-formed task marker of ANY status. Extends the open-marker form with the
 # done glyph ✅, since a complete plan's tasks are legitimately well-formed and
-# must still lint clean (all-✅ plans). Captures the task number.
-_PLAN_TASK_LINE_RE = re.compile(r"^\s*-\s*(⬜|🟡|✅)\s*\*\*(\d+)\*\*")
+# must still lint clean (all-✅ plans). Captures the task number, which may be a
+# FLAT `**N**` or a PHASED `**N.M**` marker (the documented phased form in
+# docs/loop.md, e.g. `**1.1**`, `**1.2**`, `**2.1**`). The loop's grep counter
+# (`PLAN_TASK_MARKER_RE`, `\*\*[0-9]`) already matches both, so this re-aligns the
+# linter with the loop and with the documented task format.
+_PLAN_TASK_LINE_RE = re.compile(r"^\s*-\s*(⬜|🟡|✅)\s*\*\*(\d+(?:\.\d+)?)\*\*")
 # Malformed task-like lines we flag with a specific fix hint (R3).
 _PLAN_CHECKBOX_RE = re.compile(r"^\s*-\s*\[[ xX]?\]")        # GitHub `- [ ]`
-_PLAN_LETTERED_RE = re.compile(r"^\s*-\s*\*\*[A-Za-z]")       # `- **T1**`
+# A lettered TASK ID someone wrote instead of the canonical marker — `- **T1**`,
+# `- **T12**`, `- **A3**`: a compact identifier (letters then digits) inside the
+# bold, mirroring the `- **N**` shape but with a letter prefix. The trailing
+# `\d+` requirement is deliberate: it flags real task-id mistakes WITHOUT
+# false-flagging ordinary prose bullets like `- **Note:** …` or
+# `- **Foundation first:** …` (a word/phrase, no compact `<letters><digits>**`).
+_PLAN_LETTERED_RE = re.compile(r"^\s*-\s*\*\*[A-Za-z]+\d+\*\*")  # `- **T1**`
 _PLAN_HEADING_RE = re.compile(r"^##\s+(.*\S)\s*$")
 _PLAN_VERIFY_RE = re.compile(r"\*Verify:\*")
 _PLAN_VERIFY_NONEMPTY_RE = re.compile(r"\*Verify:\*\s*\S")
@@ -5829,6 +8532,57 @@ _PLAN_R9_BLOCKING = ("stop and ask", "operator decision required",
 _PLAN_R9_CARVEOUT = ("r-pkg-03", "r-exec-06", "pre-decided",
                      "proceed deterministically", "deterministic resolution",
                      "carve-out", "carveout")
+
+
+def _parse_task_number(s):
+    """'1' -> (1,); '1.2' -> (1, 2). Tuple form drives the R4 ordering check."""
+    return tuple(int(p) for p in s.split("."))
+
+
+def _check_task_numbering(number_strings):
+    """Validate task-number ordering for FLAT or PHASED markers (R4).
+
+    Returns an error message string, or None when the numbering is well-formed.
+
+    - Flat plans (`**1**`, `**2**`, …): numbers must be 1..N, no gaps/dups.
+    - Phased plans (`**1.1**`, `**1.2**`, `**2.1**`, …): the MAJOR groups must
+      appear contiguously as 1..K, and within each major the MINORS must run
+      1..m (so `set-status` / the burndown stay unambiguous). A flat marker is
+      not mixed into a phased plan.
+    """
+    parsed = [_parse_task_number(s) for s in number_strings]
+    phased = any(len(p) > 1 for p in parsed)
+    if not phased:
+        nums = [p[0] for p in parsed]
+        expected = list(range(1, len(nums) + 1))
+        if nums != expected:
+            return ("task numbers must increase monotonically from 1 with no "
+                    "gaps or duplicates; found %s, expected %s"
+                    % (nums, expected))
+        return None
+    # Phased: walk the markers, grouping contiguous runs by major number.
+    majors_in_order = []
+    minors = {}
+    for p in parsed:
+        if len(p) != 2:
+            return ("phased plans must use `**N.M**` markers throughout; found "
+                    "a flat marker %r mixed in" % ".".join(map(str, p)))
+        major, minor = p
+        if not majors_in_order or majors_in_order[-1] != major:
+            if major in majors_in_order:
+                return ("phased major groups must be contiguous; major %d "
+                        "reappears out of order" % major)
+            majors_in_order.append(major)
+        minors.setdefault(major, []).append(minor)
+    if majors_in_order != list(range(1, len(majors_in_order) + 1)):
+        return ("phased major numbers must increase from 1 with no gaps; "
+                "found %s" % majors_in_order)
+    for major in majors_in_order:
+        ms = minors[major]
+        if ms != list(range(1, len(ms) + 1)):
+            return ("phased minors under major %d must run 1..%d with no gaps "
+                    "or duplicates; found %s" % (major, len(ms), ms))
+    return None
 
 
 def lint_plan(text, strict=False):
@@ -5878,12 +8632,12 @@ def lint_plan(text, strict=False):
 
     # Find well-formed markers and malformed task-like lines within Tasks only
     # (so legit `- [ ]` checkboxes under '## Acceptance criteria' are NOT flagged).
-    markers = []   # (idx, number)
+    markers = []   # (idx, number-string)  — number is flat "N" or phased "N.M"
     for i in scan_range:
         ln = lines[i]
         m = _PLAN_TASK_LINE_RE.match(ln)
         if m:
-            markers.append((i, int(m.group(2))))
+            markers.append((i, m.group(2)))
         elif _PLAN_CHECKBOX_RE.match(ln) or _PLAN_LETTERED_RE.match(ln):
             add(errors, "R3", i + 1,
                 "malformed task marker: %r — %s" % (ln.strip(), _PLAN_MARKER_HINT))
@@ -5894,14 +8648,11 @@ def lint_plan(text, strict=False):
             "no well-formed task markers found in '## Tasks' — %s"
             % _PLAN_MARKER_HINT)
 
-    # R4 — task numbers monotonic from 1, no gaps/dups.
+    # R4 — task numbers monotonic from 1, no gaps/dups (flat OR phased N.M).
     if markers:
-        nums = [n for (_, n) in markers]
-        expected = list(range(1, len(nums) + 1))
-        if nums != expected:
-            add(errors, "R4", markers[0][0] + 1,
-                "task numbers must increase monotonically from 1 with no gaps or "
-                "duplicates; found %s, expected %s" % (nums, expected))
+        msg = _check_task_numbering([n for (_, n) in markers])
+        if msg:
+            add(errors, "R4", markers[0][0] + 1, msg)
 
     # Build per-task bodies (marker line .. next marker / section end).
     tasks = []
@@ -5916,7 +8667,7 @@ def lint_plan(text, strict=False):
     for t in tasks:
         if not _PLAN_VERIFY_RE.search(t["body"]):
             add(errors, "R5", t["line"],
-                "task %d (line %d) has no `*Verify:*` line (every task must be "
+                "task %s (line %d) has no `*Verify:*` line (every task must be "
                 "independently verifiable — R-VERIFY-01)" % (t["num"], t["line"]))
 
     # R6 — at least one `[e2e]` task with a non-empty Verify line.
@@ -5948,7 +8699,7 @@ def lint_plan(text, strict=False):
                 not any(c in low for c in _PLAN_R9_CARVEOUT):
             bucket = errors if strict else warnings
             add(bucket, "R9", t["line"],
-                "task %d (line %d) uses blocking/interactive phrasing without a "
+                "task %s (line %d) uses blocking/interactive phrasing without a "
                 "deterministic resolution or a cited R-PKG-03/R-EXEC-06 carve-out "
                 "(plans must execute autonomously)" % (t["num"], t["line"]))
 
@@ -6214,7 +8965,9 @@ def cmd_plan_set_status(args):
     hit = False
     for i, ln in enumerate(lines):
         m = _PLAN_TASK_LINE_RE.match(ln)
-        if m and int(m.group(2)) == target:
+        # Toolkit-managed plans use flat `**N**`; phased `**N.M**` markers (which
+        # int() cannot parse) are skipped rather than crashing set-status.
+        if m and m.group(2).isdigit() and int(m.group(2)) == target:
             lines[i] = re.sub(r"(⬜|🟡|✅)", glyph, ln, count=1)
             hit = True
             break
@@ -7363,7 +10116,28 @@ def build_parser():
                            help="sessions whose transcript references the feature")
     p_metrics.add_argument("--since", default=None,
                            help="only sessions starting on/after YYYY-MM-DD")
+    p_metrics.add_argument("--prices", default=None,
+                           help="path to a JSON price table ($ per 1M tokens, "
+                                "keyed by model-id substring) overriding the "
+                                "built-in default cost rates")
+    p_metrics.add_argument("--context-window", dest="context_window",
+                           type=int, default=None,
+                           help="model context-window size (tokens) the "
+                                "context-tax truncation-risk is measured "
+                                "against (default 200000)")
     p_metrics.set_defaults(func=cmd_metrics)
+
+    # dashboard --------------------------------------------------------------
+    p_dash = sub.add_parser(
+        "dashboard",
+        help="serve the read-only observability dashboard (localhost-only)")
+    p_dash.add_argument("--port", type=int, default=8765,
+                        help="port to bind (default: 8765)")
+    p_dash.add_argument("--host", default="127.0.0.1",
+                        help="loopback host to bind (default: 127.0.0.1)")
+    p_dash.add_argument("--no-open", dest="no_open", action="store_true",
+                        help="do not open a browser window")
+    p_dash.set_defaults(func=cmd_dashboard)
 
     # kb-git -----------------------------------------------------------------
     p_kbgit = sub.add_parser(

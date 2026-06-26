@@ -1,0 +1,115 @@
+{
+  "features": [
+    {
+      "feature": "260101-observability-demo",
+      "status": "ok",
+      "checks": {
+        "duplicate_tool_calls": {
+          "name": "duplicate_tool_calls",
+          "status": "ok",
+          "flagged": false,
+          "max_repeat": 2,
+          "threshold": 5,
+          "tool": "Read",
+          "iteration": 1,
+          "detail": null
+        },
+        "no_progress": {
+          "name": "no_progress",
+          "status": "ok",
+          "flagged": false,
+          "flat_run": 1,
+          "flat_iteration": 1,
+          "max_iteration_utilization": 0.3,
+          "outcome": "completed",
+          "iteration": 1,
+          "detail": null
+        },
+        "token_burn": {
+          "name": "token_burn",
+          "status": "ok",
+          "flagged": false,
+          "tokens_per_iteration": 3266.7,
+          "main_tokens": 9800,
+          "iterations": 3,
+          "projected_total": 32667,
+          "budget": null,
+          "detail": null
+        },
+        "context_window": {
+          "name": "context_window",
+          "status": "ok",
+          "flagged": false,
+          "context_window_pct": 0.21,
+          "peak_input_tokens": 42000,
+          "context_window": 200000,
+          "truncation_risk": false,
+          "truncation_threshold": 0.9,
+          "detail": null
+        }
+      },
+      "flagged_checks": [],
+      "offender": null,
+      "outcome": "completed"
+    },
+    {
+      "feature": "260101-stuck-loop-demo",
+      "status": "critical",
+      "checks": {
+        "duplicate_tool_calls": {
+          "name": "duplicate_tool_calls",
+          "status": "critical",
+          "flagged": true,
+          "max_repeat": 7,
+          "threshold": 5,
+          "tool": "Bash",
+          "iteration": 4,
+          "detail": "tool 'Bash' repeated 7 times"
+        },
+        "no_progress": {
+          "name": "no_progress",
+          "status": "at_risk",
+          "flagged": true,
+          "flat_run": 3,
+          "flat_iteration": 4,
+          "max_iteration_utilization": 0.9,
+          "outcome": "hit_max_iterations",
+          "iteration": 4,
+          "detail": "tasks_remaining flat across 3 iterations (at iteration 4)"
+        },
+        "token_burn": {
+          "name": "token_burn",
+          "status": "ok",
+          "flagged": false,
+          "tokens_per_iteration": 5200.0,
+          "main_tokens": 36400,
+          "iterations": 7,
+          "projected_total": 52000,
+          "budget": null,
+          "detail": null
+        },
+        "context_window": {
+          "name": "context_window",
+          "status": "critical",
+          "flagged": true,
+          "context_window_pct": 0.94,
+          "peak_input_tokens": 188000,
+          "context_window": 200000,
+          "truncation_risk": true,
+          "truncation_threshold": 0.9,
+          "detail": "peak input 188000 tokens = 94% of the 200000 window"
+        }
+      },
+      "flagged_checks": ["duplicate_tool_calls", "no_progress", "context_window"],
+      "offender": {
+        "check": "duplicate_tool_calls",
+        "tool": "Bash",
+        "iteration": 4,
+        "detail": "tool 'Bash' repeated 7 times"
+      },
+      "outcome": "hit_max_iterations"
+    }
+  ],
+  "summary": { "ok": 1, "at_risk": 0, "critical": 1 },
+  "status": "critical"
+}

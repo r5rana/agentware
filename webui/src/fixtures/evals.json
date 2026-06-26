@@ -1,0 +1,66 @@
+{
+  "series": [
+    {
+      "run": "2026-01-01T00:00:00Z",
+      "commit": "aaa1111",
+      "strategy": "bm25",
+      "suite": null,
+      "mode": "eval",
+      "reliability": 75.0,
+      "recall_at_k": 0.4,
+      "ndcg_at_k": 0.38,
+      "mrr": 0.42,
+      "precision_at_k": 0.1,
+      "corpus_size": 120
+    },
+    {
+      "run": "2026-01-02T00:00:00Z",
+      "commit": "bbb2222",
+      "strategy": "bm25",
+      "suite": null,
+      "mode": "eval",
+      "reliability": 82.5,
+      "recall_at_k": 0.5625,
+      "ndcg_at_k": 0.4788,
+      "mrr": 0.4858,
+      "precision_at_k": 0.1214,
+      "corpus_size": 183
+    }
+  ],
+  "acr": [
+    {
+      "run": "2026-01-02T01:00:00Z",
+      "commit": "ccc3333",
+      "decided_strategy": "bm25",
+      "passed": false,
+      "checks": {
+        "primary": { "delta_ndcg": 0.0, "margin": 0.01, "passed": false },
+        "win_rate": { "improved": 0, "regressed": 0, "ties": 56, "passed": false }
+      }
+    }
+  ],
+  "count": 2,
+  "acr_count": 1,
+  "latest": {
+    "run": "2026-01-02T00:00:00Z",
+    "commit": "bbb2222",
+    "strategy": "bm25",
+    "suite": null,
+    "mode": "eval",
+    "reliability": 82.5,
+    "recall_at_k": 0.5625,
+    "ndcg_at_k": 0.4788,
+    "mrr": 0.4858,
+    "precision_at_k": 0.1214,
+    "corpus_size": 183
+  },
+  "latest_acr": {
+    "run": "2026-01-02T01:00:00Z",
+    "commit": "ccc3333",
+    "decided_strategy": "bm25",
+    "passed": false,
+    "checks": {
+      "primary": { "delta_ndcg": 0.0, "margin": 0.01, "passed": false }
+    }
+  }
+}

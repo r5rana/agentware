@@ -179,6 +179,120 @@ def build_synthetic_kb(root, entries=None):
     return data
 
 
+def build_large_loop_kb(root, n_features=40, sessions_per_feature=3,
+                        turns_per_session=6, filler_chars=0):
+    """Materialize a REALISTICALLY LARGE synthetic loop KB for perf benchmarks.
+
+    Creates `n_features` work features (each: plan.md with markers + .loop state +
+    a metrics.jsonl emission), a shared logs/metrics.jsonl, and per-feature session
+    transcripts (logs/sessions/<sid>/main.jsonl + a subagent) that REFERENCE the
+    feature work dir so collect_sessions(feature=…) matches them. This reproduces
+    the O(features × sessions × file) hot path the loop endpoints exercise.
+
+    Synthetic only (R-LOC-03) — never the operator KB. Returns the feature list.
+    """
+    import json
+    build_synthetic_kb(root)
+    os.makedirs(os.path.join(root, "logs"), exist_ok=True)
+    sessions_root = os.path.join(root, "logs", "sessions")
+    os.makedirs(sessions_root, exist_ok=True)
+    metrics_path = os.path.join(root, "logs", "metrics.jsonl")
+
+    features = ["2601%02d-bench-feature-%02d" % (i % 100, i)
+                for i in range(n_features)]
+
+    metrics_lines = []
+    for fi, feature in enumerate(features):
+        fdir = os.path.join(root, "work", feature)
+        os.makedirs(os.path.join(fdir, ".loop"), exist_ok=True)
+        # A plan with a handful of markers (some done, some open).
+        plan = ["# Plan — %s\n" % feature, "\n"]
+        for t in range(1, 9):
+            mark = "✅" if t <= 5 else ("🟡" if t == 6 else "⬜")
+            plan.append("- %s **%d** task %d\n" % (mark, t, t))
+        plan.append("\n<promise>%s_DONE</promise>\n" % feature.upper())
+        with open(os.path.join(fdir, "plan.md"), "w", encoding="utf-8") as f:
+            f.write("".join(plan))
+        with open(os.path.join(fdir, ".loop", ".iteration"), "w") as f:
+            f.write("%d\n" % (fi % 7 + 1))
+        # Per-feature metrics.jsonl emission: a few iterations + transitions + terminal.
+        base_ss = "%02d" % (fi % 60)
+        for it in range(1, 6):
+            metrics_lines.append({
+                "ts": "2026-02-%02dT00:%s:%02dZ" % (fi % 28 + 1, base_ss, it),
+                "feature": feature, "stage": "loop-main", "phase": "main",
+                "iteration": it, "max": 45, "tasks_total": 8,
+                "tasks_remaining": max(0, 8 - it), "tasks_done_delta": 1,
+                "self_heal_count": fi % 3,
+                "input_tokens": 1000 + it, "output_tokens": 500 + it,
+            })
+            metrics_lines.append({
+                "event": "task_transition", "feature": feature, "iteration": it,
+                "ts": "2026-02-%02dT00:%s:%02dZ" % (fi % 28 + 1, base_ss, it + 30),
+                "task": str(it), "from": "open", "to": "done", "approx": False,
+            })
+        metrics_lines.append({
+            "event": "terminal", "feature": feature, "outcome": "completed",
+            "ts": "2026-02-%02dT01:00:00Z" % (fi % 28 + 1),
+            "iterations_used": 5, "max": 45, "self_heal_count": fi % 3,
+            "tasks_total": 8, "tasks_done": 5, "promise_status": "signalled",
+        })
+
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        for o in metrics_lines:
+            f.write(json.dumps(o) + "\n")
+
+    # Per-feature sessions: each main.jsonl references work/<feature> so the
+    # substring feature-match folds it in. Several assistant turns w/ usage + a
+    # tool_use, plus one subagent transcript, to mirror real transcript weight.
+    sidx = 0
+    for fi, feature in enumerate(features):
+        for s in range(sessions_per_feature):
+            sid = "2026-02-%02d_%06d" % (fi % 28 + 1, sidx)
+            sidx += 1
+            sdir = os.path.join(sessions_root, sid)
+            os.makedirs(os.path.join(sdir, "subagents"), exist_ok=True)
+            lines = []
+            lines.append({"type": "user", "ts": "2026-02-01T00:00:00Z",
+                          "timestamp": "2026-02-%02dT00:00:00Z" % (fi % 27 + 1),
+                          "message": {"content":
+                                      "AGENTWARE_STAGE=loop-main work on "
+                                      "work/%s" % feature}})
+            filler = ("x" * filler_chars) if filler_chars else ""
+            for turn in range(turns_per_session):
+                lines.append({
+                    "type": "assistant",
+                    "ts": "2026-02-01T00:00:%02dZ" % (turn % 59 + 1),
+                    "timestamp": "2026-02-%02dT00:%02d:00Z" % (
+                        fi % 27 + 1, turn % 59),
+                    "agentware_stage": "loop-main",
+                    "message": {
+                        "model": "claude-sonnet-4-20250514",
+                        "usage": {"input_tokens": 2000 + turn,
+                                  "output_tokens": 800 + turn,
+                                  "cache_read_input_tokens": 100},
+                        "content": [
+                            {"type": "text",
+                             "text": "Editing work/%s %s" % (feature, filler)},
+                            {"type": "tool_use", "name": "Edit",
+                             "input": {"file_path": "work/%s/x" % feature}},
+                        ],
+                    }})
+            with open(os.path.join(sdir, "main.jsonl"), "w",
+                      encoding="utf-8") as f:
+                for o in lines:
+                    f.write(json.dumps(o) + "\n")
+            with open(os.path.join(sdir, "subagents", "a.jsonl"), "w",
+                      encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "type": "assistant", "ts": "2026-02-01T00:00:30Z",
+                    "message": {"model": "claude-sonnet-4-20250514",
+                                "usage": {"input_tokens": 500,
+                                          "output_tokens": 200},
+                                "content": [{"type": "text", "text": "sub"}]}}) + "\n")
+    return features
+
+
 class SyntheticKBTestCase(unittest.TestCase):
     """Base TestCase that stands up a fresh synthetic KB per test."""
 

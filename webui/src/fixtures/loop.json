@@ -1,0 +1,139 @@
+{
+  "features": [
+    {
+      "feature": "260101-observability-demo",
+      "iteration": 2,
+      "done": true,
+      "tasks_open": 0,
+      "tasks_done": 3,
+      "tasks_total": 3,
+      "outcome": {
+        "outcome": "completed",
+        "source": "metrics.jsonl",
+        "iterations_used": 2,
+        "self_heal_count": 1,
+        "signals": {
+          "terminal_events": 1
+        }
+      },
+      "event_count": 8,
+      "last_event": {
+        "event": "terminal",
+        "ts": "2026-01-02T10:12:00Z",
+        "feature": "260101-observability-demo",
+        "outcome": "completed",
+        "iterations_used": 2,
+        "max": 10,
+        "self_heal_count": 1,
+        "tasks_total": 3,
+        "tasks_done": 3,
+        "promise_status": "emitted"
+      },
+      "last_ts": "2026-01-02T10:12:00Z"
+    }
+  ],
+  "active": null,
+  "recent_events": [
+    {
+      "ts": "2026-01-02T10:00:05Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-pre",
+      "phase": "pre",
+      "iteration": 1,
+      "max": 10,
+      "tasks_total": 3,
+      "tasks_remaining": 3,
+      "tasks_done_delta": 0,
+      "promise_status": "none",
+      "result": "ok",
+      "phase_wall_s": 4.2,
+      "self_heal_count": 0
+    },
+    {
+      "ts": "2026-01-02T10:01:00Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "phase": "main",
+      "iteration": 1,
+      "max": 10,
+      "tasks_total": 3,
+      "tasks_remaining": 2,
+      "tasks_done_delta": 1,
+      "promise_status": "none",
+      "result": "ok",
+      "phase_wall_s": 55.0,
+      "self_heal_count": 0
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:00:30Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 1,
+      "task": "1",
+      "from": "open",
+      "to": "in_progress",
+      "approx": false
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:00:55Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 1,
+      "task": "1",
+      "from": "in_progress",
+      "to": "done",
+      "approx": false
+    },
+    {
+      "ts": "2026-01-02T10:11:00Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "phase": "main",
+      "iteration": 2,
+      "max": 10,
+      "tasks_total": 3,
+      "tasks_remaining": 0,
+      "tasks_done_delta": 2,
+      "promise_status": "emitted",
+      "result": "ok",
+      "phase_wall_s": 60.0,
+      "self_heal_count": 1
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:10:30Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 2,
+      "task": "2",
+      "from": "open",
+      "to": "done",
+      "approx": true
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:10:45Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 2,
+      "task": "3",
+      "from": "open",
+      "to": "done",
+      "approx": true
+    },
+    {
+      "event": "terminal",
+      "ts": "2026-01-02T10:12:00Z",
+      "feature": "260101-observability-demo",
+      "outcome": "completed",
+      "iterations_used": 2,
+      "max": 10,
+      "self_heal_count": 1,
+      "tasks_total": 3,
+      "tasks_done": 3,
+      "promise_status": "emitted"
+    }
+  ]
+}

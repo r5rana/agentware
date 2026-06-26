@@ -1,0 +1,76 @@
+{
+  "scope": "feature",
+  "session": null,
+  "feature": "260101-observability-demo",
+  "sessions": [{ "session_id": "sess-demo", "step_count": 3 }],
+  "step_count": 3,
+  "err_count": 1,
+  "tool_summary": { "Read": 1, "Bash": 1, "Edit": 1 },
+  "truncated": false,
+  "iterations": [
+    {
+      "iteration": 1,
+      "step_count": 2,
+      "steps": [
+        {
+          "index": 0,
+          "session_id": "sess-demo",
+          "ts": "2026-01-01T00:01:00Z",
+          "tool": "Read",
+          "status": "ok",
+          "args": "{\"file_path\": \"/repo/plan.md\"}",
+          "args_truncated": false,
+          "result": "{\"content\": \"# Plan\"}",
+          "result_truncated": false,
+          "tokens": 18,
+          "duration_s": 1.2,
+          "iteration": 1
+        },
+        {
+          "index": 1,
+          "session_id": "sess-demo",
+          "ts": "2026-01-01T00:01:02Z",
+          "tool": "Bash",
+          "status": "ERR",
+          "args": "{\"command\": \"npm run build\"}",
+          "args_truncated": false,
+          "result": "{\"error\": \"exit 1: type error\"}",
+          "result_truncated": false,
+          "tokens": 40,
+          "duration_s": 5.4,
+          "iteration": 1
+        }
+      ],
+      "transitions": []
+    },
+    {
+      "iteration": 2,
+      "step_count": 1,
+      "steps": [
+        {
+          "index": 2,
+          "session_id": "sess-demo",
+          "ts": "2026-01-01T00:02:10Z",
+          "tool": "Edit",
+          "status": "ok",
+          "args": "{\"file_path\": \"/repo/src/app.ts\"}",
+          "args_truncated": false,
+          "result": "{\"ok\": true}",
+          "result_truncated": false,
+          "tokens": 22,
+          "duration_s": 0.8,
+          "iteration": 2
+        }
+      ],
+      "transitions": [
+        {
+          "ts": "2026-01-01T00:02:20Z",
+          "task": "1",
+          "from": "in_progress",
+          "to": "done",
+          "approx": false
+        }
+      ]
+    }
+  ]
+}

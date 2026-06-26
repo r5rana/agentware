@@ -1,0 +1,17 @@
+{
+  "features": [
+    {
+      "outcome": "completed",
+      "source": "metrics.jsonl",
+      "iterations_used": 2,
+      "self_heal_count": 1,
+      "signals": {
+        "terminal_events": 1
+      },
+      "feature": "260101-observability-demo"
+    }
+  ],
+  "summary": {
+    "completed": 1
+  }
+}

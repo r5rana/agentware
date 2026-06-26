@@ -1,0 +1,137 @@
+{
+  "alerts": [
+    {
+      "id": "regression",
+      "category": "regression",
+      "severity": "critical",
+      "title": "Reliability regression",
+      "detail": "reliability fell 12.0 pts (82.0 -> 70.0) vs the prior eval",
+      "feature": null,
+      "deep_link": "/health/quality",
+      "metric": "reliability",
+      "from": 82.0,
+      "to": 70.0,
+      "commit": "c0ffee2",
+      "prev_commit": "c0ffee1"
+    },
+    {
+      "id": "loop:260101-observability-demo",
+      "category": "loop",
+      "severity": "critical",
+      "title": "Loop-health: critical",
+      "detail": "Bash repeated 5x at iteration 1 (dead loop)",
+      "feature": "260101-observability-demo",
+      "deep_link": "/loops/health",
+      "flagged_checks": ["duplicate_tool_calls"],
+      "offender": {
+        "check": "duplicate_tool_calls",
+        "tool": "Bash",
+        "iteration": 1,
+        "detail": "Bash repeated 5x at iteration 1 (dead loop)"
+      }
+    },
+    {
+      "id": "regression:ndcg",
+      "category": "regression",
+      "severity": "warning",
+      "title": "nDCG regression",
+      "detail": "nDCG@k fell 0.060 (0.700 -> 0.640) vs the prior eval",
+      "feature": null,
+      "deep_link": "/health/quality",
+      "metric": "ndcg_at_k",
+      "from": 0.7,
+      "to": 0.64,
+      "commit": "c0ffee2",
+      "prev_commit": "c0ffee1"
+    },
+    {
+      "id": "scaling",
+      "category": "scaling",
+      "severity": "warning",
+      "title": "Retrieval scaling degradation",
+      "detail": "recall@k slope vs corpus size is -0.002000 (< 0.000000) over 3 measured runs",
+      "feature": null,
+      "deep_link": "/memory/scaling",
+      "slope": -0.002,
+      "measured": 3
+    },
+    {
+      "id": "cost",
+      "category": "cost",
+      "severity": "warning",
+      "title": "Cost spike",
+      "detail": "1 day(s) exceeded the trailing-median cost: 2026-06-25",
+      "feature": null,
+      "deep_link": "/cost",
+      "dates": ["2026-06-25"]
+    },
+    {
+      "id": "kb_conflict",
+      "category": "kb_conflict",
+      "severity": "warning",
+      "title": "Possible duplicate/conflicting entries",
+      "detail": "1 high-overlap entry pair(s) may duplicate or conflict",
+      "feature": null,
+      "deep_link": "/health",
+      "count": 1,
+      "pairs": [
+        {
+          "a": "learn-geofence-reminders",
+          "b": "learn-geofence-v2",
+          "category": "learnings",
+          "jaccard": 0.72
+        }
+      ]
+    },
+    {
+      "id": "unpromoted:260101-observability-demo",
+      "category": "unpromoted",
+      "severity": "warning",
+      "title": "Unpromoted learnings at finish",
+      "detail": "1 marker(s) still unpromoted in a completed run",
+      "feature": "260101-observability-demo",
+      "deep_link": "/loops/outcomes",
+      "count": 1,
+      "markers": [
+        { "line": 42, "text": "ledger SHAs make great commit markers", "kind": "learned" }
+      ]
+    },
+    {
+      "id": "kb_stale",
+      "category": "kb_stale",
+      "severity": "info",
+      "title": "Stale knowledge entries",
+      "detail": "2 entries past the 120-day freshness window",
+      "feature": null,
+      "deep_link": "/health",
+      "count": 2,
+      "ids": ["learn-old-config", "learn-legacy-setup"]
+    }
+  ],
+  "summary": { "critical": 2, "warning": 5, "info": 1 },
+  "open_count": 8,
+  "status": "critical",
+  "commit_markers": [
+    {
+      "commit": "c0ffee0",
+      "run": "2026-06-23T10:00:00Z",
+      "strategy": "bm25",
+      "reliability": 78.0,
+      "recall_at_k": 0.4
+    },
+    {
+      "commit": "c0ffee1",
+      "run": "2026-06-24T10:00:00Z",
+      "strategy": "bm25",
+      "reliability": 82.0,
+      "recall_at_k": 0.55
+    },
+    {
+      "commit": "c0ffee2",
+      "run": "2026-06-25T10:00:00Z",
+      "strategy": "bm25",
+      "reliability": 70.0,
+      "recall_at_k": 0.52
+    }
+  ]
+}

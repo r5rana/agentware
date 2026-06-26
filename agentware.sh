@@ -217,9 +217,28 @@ cleanup() {
 }
 
 trap cleanup INT TERM
-# Separate trap slot for the normal-completion path: reap the follower on EXIT so
-# no orphan `tail -F` survives the run. Coexists with the INT/TERM trap above.
-trap '[[ -n "${TAIL_PID:-}" ]] && kill "$TAIL_PID" 2>/dev/null || true' EXIT
+
+# ---- TERMINAL RUN OUTCOME (Task 7) ----
+# The loop can end in one of four terminal states (_TERMINAL_OUTCOMES, mirrored in
+# scripts/agentware): completed / hit_max_iterations / post_hook_failure /
+# pre_hook_abort. We track the current intent in LOOP_OUTCOME and emit ONE terminal
+# event on loop exit (see emit_terminal_metric). LOOP_STARTED gates emission to
+# real runs only (never on --help/--dry-run/preflight-dep failures, which exit
+# before the run begins). LOOP_OUTCOME defaults to "unknown" — a value the consumer
+# (derive_outcome) deliberately IGNORES — so an abnormal/interrupted exit never
+# fabricates a definite outcome; only the explicit set-points below assert one.
+LOOP_STARTED=false
+LOOP_OUTCOME="unknown"
+LOOP_ITERATIONS_USED=0
+
+# Single EXIT handler: reap the live-stream follower (as before) AND, once a real
+# run has begun, append the terminal outcome event. Best-effort — never blocks the
+# exit path (emit_terminal_metric swallows every failure).
+loop_on_exit() {
+  [[ -n "${TAIL_PID:-}" ]] && kill "$TAIL_PID" 2>/dev/null || true
+  [[ "$LOOP_STARTED" == true ]] && emit_terminal_metric || true
+}
+trap 'loop_on_exit' EXIT
 
 log "Starting agentware loop for '$FEATURE_NAME'"
 log "Docs: $DOCS_DIR"
@@ -457,6 +476,186 @@ learnings_promoted() {
   [[ -n "$kdir" && -f "$kdir/.initialized" ]] || return 0
   [[ -f "$DOCS_DIR/worklog.md" ]] || return 0
   scripts/agentware worklog scan --path "$DOCS_DIR/worklog.md" >/dev/null 2>&1
+}
+
+# ---- LOOP METRICS EMISSION (best-effort, opt-out, NEVER blocks) ----
+#
+# Append ONE structured JSON event per phase/iteration to <kdir>/logs/metrics.jsonl
+# (feature 260626-observability-suite, Task 6). This makes the LOOP ITSELF
+# observable — agentware IS the loop. The channel is READ-ONLY consumed by
+# `scripts/agentware metrics` (_read_metrics_jsonl / derive_iteration_costs /
+# derive_outcome). Design invariants:
+#   - BEST-EFFORT: every write is guarded (`>> … 2>/dev/null || true`); a missing
+#     dir, full disk, or any failure NEVER blocks or fails the loop.
+#   - OPT-OUT: AGENTWARE_METRICS_EMIT=0 disables emission (default ON, mirroring
+#     KB autocommit's opt-in/opt-out posture).
+#   - ADDITIVE + gitignored: logs/ is already excluded; no existing telemetry is
+#     touched. Field names lean on OpenTelemetry GenAI conventions (gen_ai.*)
+#     where natural so the channel is later exportable.
+#
+# Path: lives under the knowledge dir's logs/ (the SAME tree `metrics` reads, i.e.
+# os.path.join(kdir, "logs", "metrics.jsonl")). Falls back to the in-repo docs
+# dir's .loop/ when no knowledge dir is configured (agentware self-development).
+if [[ -n "$KDIR" ]]; then
+  METRICS_LOG="$KDIR/logs/metrics.jsonl"
+else
+  METRICS_LOG="$DOCS_DIR/.loop/metrics.jsonl"
+fi
+
+metrics_emit_enabled() {
+  # Opt-in/opt-out, default ON (mirrors KB autocommit). Per-run env override
+  # AGENTWARE_METRICS_EMIT=0 disables emission. Best-effort observability only.
+  [[ "${AGENTWARE_METRICS_EMIT:-1}" != "0" ]]
+}
+
+# emit_metric <phase> <iteration> <max> <tasks_remaining> <tasks_done_delta> \
+#             <promise_status> <result> <phase_wall_s> <self_heal_count>
+# Appends ONE JSON line built by jq (a hard preflight dep) so every value is
+# correctly typed + escaped. Best-effort: any failure is swallowed (|| true) so
+# emission never becomes the loop's concern.
+emit_metric() {
+  metrics_emit_enabled || return 0
+  local phase="$1" iteration="$2" max="$3" tasks_remaining="$4" \
+        tasks_done_delta="$5" promise_status="$6" result="$7" \
+        phase_wall_s="$8" self_heal_count="$9"
+  local ts tasks_total done_n
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  # Total plan tasks (any status) = open (the canonical open_markers count, the
+  # SOLE ⬜|🟡 grep — see the loop<->linter byte-identity contract) + done (a
+  # ✅-only count). Deriving total this way keeps emit_metric off that contract.
+  done_n=$(grep -cE '^[[:space:]]*-[[:space:]]*✅[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)
+  tasks_total=$(( $(open_markers) + ${done_n:-0} ))
+  mkdir -p "$(dirname "$METRICS_LOG")" 2>/dev/null || true
+  jq -cn \
+    --arg ts "$ts" \
+    --arg feature "$FEATURE_NAME" \
+    --arg stage "loop-$phase" \
+    --arg phase "$phase" \
+    --arg promise_status "$promise_status" \
+    --arg result "$result" \
+    --argjson iteration "${iteration:-0}" \
+    --argjson max "${max:-0}" \
+    --argjson tasks_total "${tasks_total:-0}" \
+    --argjson tasks_remaining "${tasks_remaining:-0}" \
+    --argjson tasks_done_delta "${tasks_done_delta:-0}" \
+    --argjson phase_wall_s "${phase_wall_s:-0}" \
+    --argjson self_heal_count "${self_heal_count:-0}" \
+    '{ts:$ts, feature:$feature, stage:$stage, phase:$phase,
+      iteration:$iteration, max:$max, tasks_total:$tasks_total,
+      tasks_remaining:$tasks_remaining, tasks_done_delta:$tasks_done_delta,
+      promise_status:$promise_status, result:$result,
+      phase_wall_s:$phase_wall_s, self_heal_count:$self_heal_count,
+      "gen_ai.operation.name":"agentware.loop", "gen_ai.system":"agentware"}' \
+    >> "$METRICS_LOG" 2>/dev/null || true
+}
+
+# ---- PER-TASK TRANSITION EVENTS + TERMINAL OUTCOME (Task 7) ----
+#
+# Beyond the per-iteration emission (Task 6), Task 7 makes individual TASK lifecycle
+# visible: it snapshots plan.md's marker states each iteration and appends a
+# `task_transition` event for every task whose state CHANGED, plus ONE `terminal`
+# event on loop exit. All events carry an `event` discriminator so the per-iteration
+# consumer (derive_iteration_costs) skips them — the Task 6 emission is unchanged.
+#
+# A small persisted snapshot (`.task_states`) records the last-seen state of each
+# task id so transitions are diffed deterministically across iterations. Same
+# best-effort / opt-out posture as emit_metric — never blocks the loop.
+SNAPSHOT_FILE="$STATE_DIR/.task_states"
+
+# snapshot_task_states — print "<task_id> <state>" lines for EVERY plan.md task
+# marker, where state ∈ {open(⬜), started(🟡), done(✅)}. Reuses the SAME canonical
+# marker shape as open_markers / the linter (a `- <emoji> **<id>**` line) so the id
+# set stays consistent. Pure read-only; empty output on an unreadable plan.
+snapshot_task_states() {
+  grep -E '^[[:space:]]*-[[:space:]]*(⬜|🟡|✅)[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null \
+    | sed -E 's/^[[:space:]]*-[[:space:]]*(⬜|🟡|✅)[[:space:]]*\*\*([0-9][0-9.]*)\*\*.*/\2 \1/' \
+    | sed -e 's/ ⬜$/ open/' -e 's/ 🟡$/ started/' -e 's/ ✅$/ done/' \
+    || true
+}
+
+# emit_task_transition <stage> <iteration> <task> <from> <to> <approx>
+# Appends ONE `task_transition` JSON event (best-effort, typed via jq).
+emit_task_transition() {
+  local stage="$1" iteration="$2" task="$3" from="$4" to="$5" approx="$6"
+  local ts
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  mkdir -p "$(dirname "$METRICS_LOG")" 2>/dev/null || true
+  jq -cn \
+    --arg ts "$ts" \
+    --arg feature "$FEATURE_NAME" \
+    --arg stage "$stage" \
+    --arg task "$task" \
+    --arg from "$from" \
+    --arg to "$to" \
+    --argjson iteration "${iteration:-0}" \
+    --argjson approx "${approx:-false}" \
+    '{event:"task_transition", ts:$ts, feature:$feature, stage:$stage,
+      iteration:$iteration, task:$task, from:$from, to:$to, approx:$approx,
+      "gen_ai.operation.name":"agentware.loop.task", "gen_ai.system":"agentware"}' \
+    >> "$METRICS_LOG" 2>/dev/null || true
+}
+
+# emit_task_transitions <stage> <iteration>
+# Diff the CURRENT plan.md marker states against the persisted snapshot and emit a
+# transition for each task whose state changed (⬜->🟡 start, 🟡->✅ / ⬜->✅ complete).
+# An ⬜->✅ jump (the start was never observed in a snapshot) is flagged `approx:true`.
+# Tasks absent from the prior snapshot (newly added mid-run) are recorded SILENTLY —
+# no absent->X noise event. Then the snapshot is refreshed. Best-effort throughout.
+emit_task_transitions() {
+  metrics_emit_enabled || return 0
+  local stage="$1" iteration="$2"
+  local cur id state prev_state id_re approx
+  cur="$(snapshot_task_states)"
+  while IFS=' ' read -r id state; do
+    [[ -z "$id" ]] && continue
+    prev_state=""
+    if [[ -f "$SNAPSHOT_FILE" ]]; then
+      # Anchor on "<id> " (dots in phased ids escaped) so id 1 never matches 1.1.
+      id_re="^$(printf '%s' "$id" | sed 's/[.]/\\./g') "
+      prev_state="$(grep -E "$id_re" "$SNAPSHOT_FILE" 2>/dev/null | head -1 | awk '{print $2}' || true)"
+    fi
+    [[ -z "$prev_state" ]] && continue          # new/absent task: record silently
+    [[ "$prev_state" == "$state" ]] && continue # unchanged
+    approx="false"
+    [[ "$prev_state" == "open" && "$state" == "done" ]] && approx="true"
+    emit_task_transition "$stage" "$iteration" "$id" "$prev_state" "$state" "$approx"
+  done <<< "$cur"
+  printf '%s\n' "$cur" > "$SNAPSHOT_FILE" 2>/dev/null || true
+}
+
+# emit_terminal_metric — append ONE `terminal` outcome event on loop exit (called
+# from loop_on_exit). Schema: {ts, feature, outcome, iterations_used, max,
+# self_heal_count, tasks_total, tasks_done, promise_status}. outcome is the tracked
+# LOOP_OUTCOME (the consumer ignores "unknown", so only the four definite states
+# ever assert an outcome). Read-only over plan.md for the task tallies. Best-effort.
+emit_terminal_metric() {
+  metrics_emit_enabled || return 0
+  local ts open_n done_n tasks_total promise_status
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  open_n="$(open_markers)"
+  done_n=$(grep -cE '^[[:space:]]*-[[:space:]]*✅[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)
+  tasks_total=$(( open_n + ${done_n:-0} ))
+  if [[ -f "$STATE_DIR/.done" ]] || [[ "$open_n" -eq 0 ]]; then
+    promise_status="signalled"
+  else
+    promise_status="pending"
+  fi
+  mkdir -p "$(dirname "$METRICS_LOG")" 2>/dev/null || true
+  jq -cn \
+    --arg ts "$ts" \
+    --arg feature "$FEATURE_NAME" \
+    --arg outcome "$LOOP_OUTCOME" \
+    --arg promise_status "$promise_status" \
+    --argjson iterations_used "${LOOP_ITERATIONS_USED:-0}" \
+    --argjson max "${MAX_ITERATIONS:-0}" \
+    --argjson self_heal_count "${promote_retries:-0}" \
+    --argjson tasks_total "${tasks_total:-0}" \
+    --argjson tasks_done "${done_n:-0}" \
+    '{event:"terminal", ts:$ts, feature:$feature, outcome:$outcome,
+      iterations_used:$iterations_used, max:$max, self_heal_count:$self_heal_count,
+      tasks_total:$tasks_total, tasks_done:$tasks_done, promise_status:$promise_status,
+      "gen_ai.operation.name":"agentware.loop.terminal", "gen_ai.system":"agentware"}' \
+    >> "$METRICS_LOG" 2>/dev/null || true
 }
 
 # ---- TOOLKIT HOOKS (deterministic gates around the main phase) ----
@@ -733,17 +932,32 @@ run_phase() {
 
   log "=== Starting $phase_name phase ($max_iter tasks) ==="
 
+  # Stage propagation (Task 7): every CLI spawned in this phase inherits the loop
+  # stage so its session is attributed to loop-pre / loop-post (the main loop sets
+  # loop-main). Read by the metrics stage classifier (_STAGE_TO_PHASE).
+  export AGENTWARE_STAGE="loop-$phase_name"
+
   for i in $(seq 1 "$max_iter"); do
     echo "$i" > "$STATE_DIR/.${phase_name}_iteration"
     log "--- $phase_name task $i/$max_iter ---"
 
     MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
+    local it_t0 it_wall rem
+    it_t0=$(date +%s)
     output=$(CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$prompt" 2>&1 | tee /dev/tty) || true
+    it_wall=$(( $(date +%s) - it_t0 ))
+    rem=$(open_markers)
+    # Per-task transition events (Task 7): diff plan.md marker states vs the prior
+    # snapshot and emit one event per changed task (best-effort, never blocks).
+    emit_task_transitions "loop-$phase_name" "$i"
 
     if echo "$output" | grep -q "<promise>$completion_marker</promise>"; then
+      # Per-phase/iteration observability event (best-effort, never blocks).
+      emit_metric "$phase_name" "$i" "$max_iter" "$rem" 0 "signalled" "complete" "$it_wall" 0
       log "✓ $phase_name complete at task $i"
       return 0
     fi
+    emit_metric "$phase_name" "$i" "$max_iter" "$rem" 0 "pending" "continue" "$it_wall" 0
     sleep 2
   done
 
@@ -751,8 +965,21 @@ run_phase() {
   return 0
 }
 
+# ---- RUN BEGINS (Task 7 terminal-outcome tracking) ----
+# Arm terminal-event emission now that a real run is starting (gates loop_on_exit).
+# If a pre-hook gate aborts below, the EXIT handler records `pre_hook_abort`.
+# Seed the task-state snapshot from the INITIAL plan.md so the first observed
+# transition diffs against the true starting state (no absent->open noise).
+LOOP_STARTED=true
+LOOP_OUTCOME="pre_hook_abort"
+snapshot_task_states > "$SNAPSHOT_FILE" 2>/dev/null || true
+
 # ---- PRE-HOOK ----
 run_pre_hooks
+
+# Pre-hook gates passed — no definite terminal yet (the consumer ignores "unknown"
+# until an explicit set-point below asserts completed / hit_max_iterations / etc.).
+LOOP_OUTCOME="unknown"
 
 # Pre phase (3 tasks max).
 if [[ "$SKIP_PRE" != true ]]; then
@@ -788,19 +1015,46 @@ fi
 # but learnings are unpromoted, switch to PROMOTE_PROMPT and count bounded retries.
 CURRENT_PROMPT="$MAIN_PROMPT"
 promote_retries=0
+# Track task burndown across iterations for the per-iteration emission (Task 6).
+prev_remaining=$(open_markers)
+
+# Stage propagation (Task 7): main-loop spawns are attributed to loop-main.
+export AGENTWARE_STAGE="loop-main"
 
 for i in $(seq 1 "$MAX_ITERATIONS"); do
   echo "$i" > "$STATE_DIR/.iteration"
+  LOOP_ITERATIONS_USED="$i"   # tracked for the terminal outcome event (Task 7)
   log "--- main iteration $i/$MAX_ITERATIONS ($(open_markers) task(s) remaining) ---"
 
   MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
+  it_t0=$(date +%s)
   CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$CURRENT_PROMPT" || true
+  it_wall=$(( $(date +%s) - it_t0 ))
+
+  # Per-task transition events (Task 7): diff plan.md marker states vs the prior
+  # snapshot and emit one event per changed task (⬜->🟡 start, ->✅ complete).
+  emit_task_transitions "loop-main" "$i"
+
+  # Per-iteration observability event (best-effort, never blocks). Capture the
+  # task burndown (delta vs the prior iteration), whether completion is signalled,
+  # and the self-heal re-engagement count (promote_retries) so the LOOP itself is
+  # fully observable. tasks_done_delta is clamped at >=0 (markers never un-flip).
+  cur_remaining=$(open_markers)
+  done_delta=$(( prev_remaining - cur_remaining )); [[ $done_delta -lt 0 ]] && done_delta=0
+  if [[ -f "$STATE_DIR/.done" ]] || [[ "$cur_remaining" -eq 0 ]]; then
+    iter_promise="signalled"
+  else
+    iter_promise="pending"
+  fi
+  emit_metric "main" "$i" "$MAX_ITERATIONS" "$cur_remaining" "$done_delta" "$iter_promise" "iteration" "$it_wall" "$promote_retries"
+  prev_remaining="$cur_remaining"
 
   # Completion is accepted ONLY when the feature signals done (.done or no open
   # markers) AND every '> LEARNED:' marker has been promoted (zero knowledge loss).
   if [[ -f "$STATE_DIR/.done" ]] || [[ "$(open_markers)" -eq 0 ]]; then
     if learnings_promoted; then
       log "✓ Main phase complete at iteration $i (open markers: $(open_markers); learnings promoted)"
+      LOOP_OUTCOME="completed"   # terminal outcome (Task 7); emitted by loop_on_exit
       break
     fi
 
@@ -828,6 +1082,7 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
 
   if [[ $i -eq $MAX_ITERATIONS ]]; then
     log "⚠ Reached max iterations ($MAX_ITERATIONS) without completion"
+    LOOP_OUTCOME="hit_max_iterations"   # terminal outcome (Task 7)
     notify "max iterations reached"
     exit 1
   fi
@@ -835,7 +1090,11 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
 done
 
 # ---- POST-HOOK ----
+# A post-hook gate (features/index/lint/scan) aborts via exit 1; record that the
+# terminal outcome is post_hook_failure until the gates pass (Task 7).
+LOOP_OUTCOME="post_hook_failure"
 run_post_hooks
+LOOP_OUTCOME="completed"
 
 # Post phase (1 task).
 if [[ "$SKIP_POST" != true ]]; then

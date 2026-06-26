@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "name": "index_validate",
+      "ok": true,
+      "details": []
+    },
+    {
+      "name": "filesystem_sync",
+      "ok": true,
+      "details": []
+    },
+    {
+      "name": "tag_consistency",
+      "ok": true,
+      "details": []
+    },
+    {
+      "name": "template_conformance",
+      "ok": true,
+      "details": []
+    },
+    {
+      "name": "orphaned_learnings",
+      "ok": true,
+      "details": []
+    },
+    {
+      "name": "steering_lint",
+      "ok": true,
+      "details": [
+        "DSF-clean: 14974/25000 chars"
+      ]
+    },
+    {
+      "name": "personal_data",
+      "ok": true,
+      "details": [
+        "clean: no operator identity in package tree (1 needle(s) checked)"
+      ]
+    }
+  ]
+}

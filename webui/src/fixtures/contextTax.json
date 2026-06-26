@@ -1,0 +1,31 @@
+{
+  "context_tax": {
+    "injected_tokens": 671,
+    "main_md_bytes": 2681,
+    "cache_read_per_turn": 23250.0,
+    "context_window": 200000,
+    "truncation_threshold": 0.9,
+    "peak_input_tokens": 47500,
+    "context_window_pct": 0.2375,
+    "truncation_risk": false,
+    "by_day": {
+      "2026-01-01": {
+        "turns": 2,
+        "cache_read_input_tokens": 18000,
+        "peak_input_tokens": 13500,
+        "cache_read_per_turn": 9000.0,
+        "context_window_pct": 0.0675,
+        "truncation_risk": false
+      },
+      "2026-01-02": {
+        "turns": 2,
+        "cache_read_input_tokens": 75000,
+        "peak_input_tokens": 47500,
+        "cache_read_per_turn": 37500.0,
+        "context_window_pct": 0.2375,
+        "truncation_risk": false
+      }
+    }
+  },
+  "session_count": 2
+}

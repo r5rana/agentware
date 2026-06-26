@@ -1,0 +1,6 @@
+node_modules
+coverage
+*.local
+.DS_Store
+# NOTE: dist/ is intentionally NOT ignored — the built bundle is committed
+# (Task 23) so a fresh clone runs the dashboard without node.

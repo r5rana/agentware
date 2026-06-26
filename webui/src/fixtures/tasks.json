@@ -1,0 +1,55 @@
+{
+  "feature": "260101-observability-demo",
+  "transitions": [
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:00:30Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 1,
+      "task": "1",
+      "from": "open",
+      "to": "in_progress",
+      "approx": false
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:00:55Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 1,
+      "task": "1",
+      "from": "in_progress",
+      "to": "done",
+      "approx": false
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:10:30Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 2,
+      "task": "2",
+      "from": "open",
+      "to": "done",
+      "approx": true
+    },
+    {
+      "event": "task_transition",
+      "ts": "2026-01-02T10:10:45Z",
+      "feature": "260101-observability-demo",
+      "stage": "loop-main",
+      "iteration": 2,
+      "task": "3",
+      "from": "open",
+      "to": "done",
+      "approx": true
+    }
+  ],
+  "transition_count": 4,
+  "plan": {
+    "open": 0,
+    "done": 3,
+    "total": 3
+  }
+}
