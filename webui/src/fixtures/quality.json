@@ -1,0 +1,73 @@
+{
+  "ledger": [
+    {
+      "schema": "ledger/v1",
+      "run": "2026-01-01T00:00:00Z",
+      "commit": "a1b2c3",
+      "strategy": "bm25",
+      "suite": null,
+      "corpus_size": 12,
+      "metrics": {
+        "recall_at_k": 0.42,
+        "ndcg_at_k": 0.55,
+        "mrr": 0.48
+      },
+      "reliability": 76.0
+    },
+    {
+      "schema": "ledger/v1",
+      "run": "2026-01-02T00:00:00Z",
+      "commit": "d4e5f6",
+      "strategy": "bm25",
+      "suite": null,
+      "corpus_size": 24,
+      "metrics": {
+        "recall_at_k": 0.61,
+        "ndcg_at_k": 0.68,
+        "mrr": 0.59
+      },
+      "reliability": 83.0
+    }
+  ],
+  "series": [
+    {
+      "run": "2026-01-01T00:00:00Z",
+      "commit": "a1b2c3",
+      "strategy": "bm25",
+      "suite": null,
+      "reliability": 76.0,
+      "metrics": {
+        "recall_at_k": 0.42,
+        "ndcg_at_k": 0.55,
+        "mrr": 0.48
+      }
+    },
+    {
+      "run": "2026-01-02T00:00:00Z",
+      "commit": "d4e5f6",
+      "strategy": "bm25",
+      "suite": null,
+      "reliability": 83.0,
+      "metrics": {
+        "recall_at_k": 0.61,
+        "ndcg_at_k": 0.68,
+        "mrr": 0.59
+      }
+    }
+  ],
+  "count": 2,
+  "latest": {
+    "schema": "ledger/v1",
+    "run": "2026-01-02T00:00:00Z",
+    "commit": "d4e5f6",
+    "strategy": "bm25",
+    "suite": null,
+    "corpus_size": 24,
+    "metrics": {
+      "recall_at_k": 0.61,
+      "ndcg_at_k": 0.68,
+      "mrr": 0.59
+    },
+    "reliability": 83.0
+  }
+}

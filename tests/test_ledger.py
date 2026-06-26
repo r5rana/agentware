@@ -107,6 +107,34 @@ class BuildRowTest(SyntheticKBTestCase):
         self.assertEqual(row["ablation"]["baseline"], "tag")
         self.assertEqual(row["ablation"]["delta"]["recall_at_k"], 0.40)
 
+    def test_corpus_size_passes_through_both_builders(self):
+        # Task 10: corpus_size is an additive seam mirroring corpus_fingerprint —
+        # both row builders surface result["corpus_size"] so /api/scaling can plot
+        # Recall@k vs corpus size; legacy rows lacking it report None (N unknown).
+        eval_result = {"strategy": "bm25", "top_k": 5, "num_queries": 3,
+                       "gold_path": "/x/gold.json", "corpus_size": 42,
+                       "metrics": dict(_METRICS)}
+        eval_row = CLI.build_ledger_row(eval_result, _GIT,
+                                        "2026-06-24T12:00:00Z", self._checks())
+        self.assertEqual(eval_row["corpus_size"], 42)
+
+        acr_result = {
+            "top_k": 5, "num_queries": 3, "gold_path": "/x/gold.json",
+            "corpus_size": 7, "baseline": "bm25", "treatment": "bm25+acr",
+            "strategies": {"bm25": {"recall_at_k": 0.5},
+                           "bm25+acr": dict(_METRICS)},
+            "delta": {"recall_at_k": 0.40},
+        }
+        acr_row = CLI.build_acr_gate_row(acr_result, {"passed": True}, _GIT,
+                                         "2026-06-24T12:00:00Z", self._checks())
+        self.assertEqual(acr_row["corpus_size"], 7)
+
+        # Legacy result (no corpus_size key) → None, not a KeyError.
+        legacy = CLI.build_ledger_row(
+            {"strategy": "bm25", "metrics": dict(_METRICS)}, _GIT,
+            "2026-06-24T12:00:00Z", self._checks())
+        self.assertIsNone(legacy["corpus_size"])
+
     def test_row_serializes_byte_identically_for_fixed_inputs(self):
         result = {"strategy": "bm25", "top_k": 5, "num_queries": 3,
                   "gold_path": "/x/gold.json", "metrics": dict(_METRICS)}
@@ -210,6 +238,12 @@ class RecordEndToEndTest(SyntheticKBTestCase):
         self.assertIsInstance(row["reliability"], (int, float))
         self.assertGreaterEqual(row["reliability"], 0.0)
         self.assertLessEqual(row["reliability"], 100.0)
+        # Task 10: a newly recorded row carries a numeric corpus_size = the count
+        # of scored corpus entries (> 0 for the synthetic KB), so /api/scaling's
+        # slope becomes meaningful on live rows.
+        self.assertIn("corpus_size", row)
+        self.assertIsInstance(row["corpus_size"], int)
+        self.assertGreater(row["corpus_size"], 0)
 
     def test_second_record_appends_without_mutating_first(self):
         gold = self._write_gold([

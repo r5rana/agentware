@@ -1,0 +1,33 @@
+{
+  "category": "learnings",
+  "count": 2,
+  "entries": [
+    {
+      "id": "learn-geofence-reminders",
+      "title": "Geofence Reminders Not Firing",
+      "category": "learnings",
+      "path": "learnings/geofence-reminders.md",
+      "tags": [
+        "geofence",
+        "ios",
+        "reminders",
+        "expo"
+      ],
+      "created": "2026-01-02",
+      "summary": "Why arrival geofence reminders never fired and the fixes."
+    },
+    {
+      "id": "learn-macos-no-timeout",
+      "title": "macOS Ships No Timeout Command",
+      "category": "learnings",
+      "path": "learnings/macos-no-timeout.md",
+      "tags": [
+        "macos",
+        "shell",
+        "timeout"
+      ],
+      "created": "2026-01-03",
+      "summary": "macOS has no timeout/gtimeout; do not rely on it in scripts."
+    }
+  ]
+}

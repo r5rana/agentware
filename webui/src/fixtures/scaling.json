@@ -1,0 +1,21 @@
+{
+  "points": [
+    {
+      "corpus_size": 12,
+      "recall_at_k": 0.42,
+      "commit": "a1b2c3",
+      "run": "2026-01-01T00:00:00Z",
+      "strategy": "bm25"
+    },
+    {
+      "corpus_size": 24,
+      "recall_at_k": 0.61,
+      "commit": "d4e5f6",
+      "run": "2026-01-02T00:00:00Z",
+      "strategy": "bm25"
+    }
+  ],
+  "slope": 0.01583333333333334,
+  "count": 2,
+  "measured": 2
+}

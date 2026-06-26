@@ -1,0 +1,62 @@
+{
+  "entry_count": 4,
+  "categories": {
+    "learnings": 2,
+    "configurations": 1,
+    "references": 1
+  },
+  "category_count": 3,
+  "tag_count": 14,
+  "entries": [
+    {
+      "id": "learn-geofence-reminders",
+      "title": "Geofence Reminders Not Firing",
+      "category": "learnings",
+      "path": "learnings/geofence-reminders.md",
+      "summary": "Why arrival geofence reminders never fired and the fixes.",
+      "tags": [
+        "geofence",
+        "ios",
+        "reminders",
+        "expo"
+      ]
+    },
+    {
+      "id": "learn-macos-no-timeout",
+      "title": "macOS Ships No Timeout Command",
+      "category": "learnings",
+      "path": "learnings/macos-no-timeout.md",
+      "summary": "macOS has no timeout/gtimeout; do not rely on it in scripts.",
+      "tags": [
+        "macos",
+        "shell",
+        "timeout"
+      ]
+    },
+    {
+      "id": "config-python-runtime",
+      "title": "Python Runtime Conventions",
+      "category": "configurations",
+      "path": "configurations/python-runtime.md",
+      "summary": "Pure python3 stdlib only; pin dependency versions.",
+      "tags": [
+        "python",
+        "runtime",
+        "stdlib"
+      ]
+    },
+    {
+      "id": "ref-bm25-ranking",
+      "title": "BM25 Deterministic Ranking",
+      "category": "references",
+      "path": "references/bm25-ranking.md",
+      "summary": "Hand-rolled BM25 lexical ranking for deterministic recall.",
+      "tags": [
+        "retrieval",
+        "ranking",
+        "bm25",
+        "search"
+      ]
+    }
+  ]
+}

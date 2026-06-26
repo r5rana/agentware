@@ -1,0 +1,168 @@
+/*
+ * agentware dashboard — design system foundation (Task 15).
+ *
+ * Tailwind v4 (loaded via the @tailwindcss/vite plugin) + a SEMANTIC design-token
+ * palette benchmarked to Linear / Vercel / Stripe:
+ *   - a NEUTRAL canvas (greys carry the layout); color carries MEANING only
+ *     (--success = green / healthy, --warning = amber / at-risk, --danger = red /
+ *     failing). No decorative color.
+ *   - dark-mode-by-default (the ThemeProvider sets `.dark` on <html> on first
+ *     paint) + a light theme; both expose the SAME token names so components are
+ *     theme-agnostic.
+ *   - Inter type scale with strong numeric hierarchy (tabular-nums for metrics).
+ *   - the subtle "Vercel grid" blueprint texture + crisp 1px borders.
+ */
+@import 'tailwindcss';
+
+/* Class-based dark mode (the ThemeProvider toggles `.dark` on <html>) instead of
+   Tailwind v4's default prefers-color-scheme, so the in-app theme toggle wins. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light theme tokens (the `.dark` block below overrides for dark-default). */
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;
+
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #2563eb;
+
+  --primary: #0a0a0a;
+  --primary-foreground: #fafafa;
+
+  --sidebar: #fafafa;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-border: #e5e5e5;
+
+  /* Semantic status — the ONLY non-neutral hues, each meaning a state. */
+  --success: #16a34a;
+  --success-foreground: #ffffff;
+  --warning: #d97706;
+  --warning-foreground: #ffffff;
+  --danger: #dc2626;
+  --danger-foreground: #ffffff;
+
+  /* The Vercel-grid blueprint line color (very low contrast on the canvas). */
+  --grid-line: rgba(0, 0, 0, 0.04);
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  --card: #111111;
+  --card-foreground: #ededed;
+
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1a1;
+
+  --border: #262626;
+  --input: #262626;
+  --ring: #3b82f6;
+
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+
+  --sidebar: #0c0c0c;
+  --sidebar-foreground: #ededed;
+  --sidebar-border: #1f1f1f;
+
+  --success: #22c55e;
+  --success-foreground: #052e16;
+  --warning: #f59e0b;
+  --warning-foreground: #271800;
+  --danger: #ef4444;
+  --danger-foreground: #2a0606;
+
+  --grid-line: rgba(255, 255, 255, 0.04);
+}
+
+/* Bind the CSS variables to Tailwind utility namespaces so `bg-background`,
+   `text-muted-foreground`, `border-border`, `bg-success`, etc. are available. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+
+  --font-sans:
+    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* A refined type scale (major-third-ish) for strong metric hierarchy. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: dark;
+    /* Paint the root (not just <body>) so the canvas is never transparent —
+       prevents a white flash on overscroll/rubber-band and on full-page
+       screenshots (the root would otherwise composite to white). */
+    background-color: var(--color-background);
+  }
+  html:not(.dark) {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Metrics read as numbers, not prose: tabular figures everywhere they appear. */
+  .tabular-metric {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  /* The subtle "Vercel grid" blueprint texture — a 1px line every 32px, kept at
+     very low contrast so it reads as paper, never as decoration. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}

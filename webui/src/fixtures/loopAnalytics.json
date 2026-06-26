@@ -1,0 +1,51 @@
+{
+  "features": [
+    {
+      "feature": "260101-observability-demo",
+      "outcome": "completed",
+      "iterations_to_completion": 3,
+      "max_iterations": 10,
+      "max_iteration_utilization": 0.3,
+      "iteration_efficiency": 1.0,
+      "tasks_closed": 3,
+      "tasks_total": 3,
+      "tasks_done": 3,
+      "self_heal_count": 1,
+      "promise_status": "signalled",
+      "latency_s": 360.0,
+      "burndown": [
+        { "iteration": 1, "tasks_remaining": 3, "tasks_done_delta": 0 },
+        { "iteration": 2, "tasks_remaining": 2, "tasks_done_delta": 1 },
+        { "iteration": 3, "tasks_remaining": 0, "tasks_done_delta": 2 }
+      ],
+      "phase_wall_s": { "pre": 6.0, "main": 48.0, "post": 5.0 },
+      "phase_tokens": { "pre": 1200, "main": 9800, "post": 900 },
+      "gates": {
+        "pre": [
+          {
+            "iteration": 1,
+            "result": "complete",
+            "promise_status": "signalled",
+            "ts": "2026-01-01T00:00:00Z",
+            "ok": true
+          }
+        ],
+        "post": [
+          {
+            "iteration": 1,
+            "result": "complete",
+            "promise_status": "signalled",
+            "ts": "2026-01-01T00:06:00Z",
+            "ok": true
+          }
+        ]
+      },
+      "event_count": 8
+    }
+  ],
+  "throughput": {
+    "by_day": { "2026-01-01": 1 },
+    "by_week": { "2026-W01": 1 },
+    "completed_total": 1
+  }
+}

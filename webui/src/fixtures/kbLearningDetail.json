@@ -1,0 +1,17 @@
+{
+  "entry": {
+    "id": "learn-geofence-reminders",
+    "title": "Geofence Reminders Not Firing",
+    "category": "learnings",
+    "path": "learnings/geofence-reminders.md",
+    "tags": [
+      "geofence",
+      "ios",
+      "reminders",
+      "expo"
+    ],
+    "created": "2026-01-02",
+    "summary": "Why arrival geofence reminders never fired and the fixes."
+  },
+  "body": "# Geofence Reminders Not Firing\n\nGeofence-based 'remind me when I arrive' reminders never fired on iOS because defineTask was nested instead of top-level, the background location task was never registered at startup, and the expo-location config plugin plus UIBackgroundModes were missing. Register geofences with syncGeofences at app launch.\n"
+}

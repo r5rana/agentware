@@ -264,6 +264,103 @@ GOOD_R9_CARVEOUT = """\
 """
 
 
+# (k) Phased `**N.M**` markers (the documented form in docs/loop.md) — PASSES.
+# Today's flat-only `_PLAN_TASK_LINE_RE` rejected these; Task 1 broadens it.
+GOOD_PHASED = """\
+# Plan — phased sample
+
+> A phased plan used to prove the linter accepts `**N.M**` markers.
+
+## Tasks
+
+### Phase 1: Foundation
+
+- ⬜ **1.1** Implement the first thing deterministically.
+  *Verify:* `python3 -m unittest tests.test_sample` passes.
+
+- ⬜ **1.2** Update the knowledge base after building (`R-KB-*`).
+  Run `scripts/agentware learn` then `scripts/agentware index validate`.
+  *Verify:* `scripts/agentware index validate` exits 0.
+
+### Phase 2: Verification
+
+- ⬜ **2.1** [e2e] Run the end-to-end regression against the real loop.
+  *Verify:* `./agentware.sh sample` aborts/passes as expected.
+
+## Acceptance criteria
+
+- [ ] The phased feature works end to end.
+
+<promise>PHASED_FEATURE_COMPLETE</promise>
+"""
+
+# (l) Ordinary PROSE bullets (`- **Word:** …`) inside the Tasks section must NOT
+# be flagged as malformed task markers (the narrowed `_PLAN_LETTERED_RE`).
+GOOD_PROSE_BULLETS = """\
+# Plan — prose bullets inside tasks
+
+## Tasks
+
+- ⬜ **1** Implement the thing; update KB via `learn` + `index validate`.
+  - **Note:** this sub-bullet is prose, not a task marker.
+  - **Foundation first:** another prose bullet that must not trip R3.
+  *Verify:* `scripts/agentware index validate` exits 0.
+
+- ⬜ **2** [e2e] End-to-end regression.
+  *Verify:* loop passes.
+
+## Acceptance criteria
+
+- [ ] Works.
+
+<promise>PROSE_BULLETS_COMPLETE</promise>
+"""
+
+# (m) Bare LETTERED task ids (`- **T1**`, no emoji) — the real mistake the loop's
+# grep silently no-ops on; MUST still hard-fail R3.
+BAD_R3_LETTERED = """\
+# Plan — lettered task ids
+
+## Tasks
+
+- **T1** Lettered id instead of a number; update KB via `learn` + `index validate`.
+  *Verify:* `scripts/agentware index validate` exits 0.
+
+- **T2** [e2e] End-to-end regression.
+  *Verify:* loop passes.
+
+## Acceptance criteria
+
+- [ ] Works.
+
+<promise>LETTERED_IDS_COMPLETE</promise>
+"""
+
+# (n) Phased markers with a GAP in the minors (1.1 then 1.3) — MUST fail R4.
+BAD_R4_PHASED_GAP = """\
+# Plan — bad phased numbering
+
+## Tasks
+
+### Phase 1
+
+- ⬜ **1.1** First; update KB via `learn` + `index validate`.
+  *Verify:* `scripts/agentware index validate` exits 0.
+
+- ⬜ **1.3** Gap in the minors (no 1.2).
+  *Verify:* something is checked.
+
+- ⬜ **2.1** [e2e] End-to-end regression.
+  *Verify:* loop passes.
+
+## Acceptance criteria
+
+- [ ] Works.
+
+<promise>BAD_PHASED_COMPLETE</promise>
+"""
+
+
 # --- Harness -----------------------------------------------------------------
 class PlanLintTestCase(unittest.TestCase):
     """Drives the real CLI `plan lint` against plan files written to a tempdir.
@@ -418,6 +515,40 @@ class PlanLintTestCase(unittest.TestCase):
                          payload["errors"])
         self.assertFalse(any(w["rule"] == "R9" for w in payload["warnings"]),
                          payload["warnings"])
+
+    # --- (k) phased `**N.M**` markers lint clean (Task 1 compat) -----------
+    def test_phased_markers_pass(self):
+        code, out, err = self.lint(GOOD_PHASED)
+        self.assertEqual(code, 0, "phased plan should pass: %s %s" % (out, err))
+
+    def test_phased_markers_json_ok_true(self):
+        code, payload = self.errors_of(GOOD_PHASED)
+        self.assertEqual(code, 0, payload)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["errors"], [])
+
+    # --- (l) prose bullets inside Tasks are NOT flagged --------------------
+    def test_prose_bullets_not_flagged(self):
+        code, payload = self.errors_of(GOOD_PROSE_BULLETS)
+        self.assertEqual(code, 0, payload)
+        self.assertTrue(payload["ok"])
+        self.assertFalse(any(e["rule"] == "R3" for e in payload["errors"]),
+                         payload["errors"])
+
+    # --- (m) bare lettered task ids STILL fail R3 (regression guard) -------
+    def test_r3_lettered_task_ids_fail(self):
+        code, payload = self.errors_of(BAD_R3_LETTERED)
+        self.assertNotEqual(code, 0)
+        self.assertFalse(payload["ok"])
+        self.assertTrue(any(e["rule"] == "R3" for e in payload["errors"]),
+                        payload["errors"])
+
+    # --- (n) phased numbering with a gap fails R4 --------------------------
+    def test_r4_phased_gap_fails(self):
+        code, payload = self.errors_of(BAD_R4_PHASED_GAP)
+        self.assertNotEqual(code, 0)
+        self.assertTrue(any(e["rule"] == "R4" for e in payload["errors"]),
+                        payload["errors"])
 
     # --- R1 file ------------------------------------------------------------
     def test_r1_missing_file_fails(self):

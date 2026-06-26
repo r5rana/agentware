@@ -1,0 +1,20 @@
+{
+  "tag": "geofence",
+  "count": 1,
+  "entries": [
+    {
+      "id": "learn-geofence-reminders",
+      "title": "Geofence Reminders Not Firing",
+      "category": "learnings",
+      "path": "learnings/geofence-reminders.md",
+      "tags": [
+        "geofence",
+        "ios",
+        "reminders",
+        "expo"
+      ],
+      "created": "2026-01-02",
+      "summary": "Why arrival geofence reminders never fired and the fixes."
+    }
+  ]
+}
