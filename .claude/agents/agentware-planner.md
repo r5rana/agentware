@@ -65,8 +65,24 @@ criteria; (4) show the user what already exists.
    Retrieval only — you still never execute.
 4. Draft the plan following `docs/loop.md` (Context → Tasks → Acceptance Criteria).
 5. Review with the user, iterate.
-6. Save to `<knowledge-dir>/work/<YYMMDD-feature-name>/plan.md`.
-7. Hand off — tell the user to run `./agentware.sh <feature>`.
+6. Scaffold the plan with the deterministic emitter so the FORM is correct by
+   construction — do NOT hand-write task markers. Run
+   `scripts/agentware plan new <feature> --title "<t>" [--max-iterations N]
+   [--self-extension]` (seeds the mandatory `[e2e]`+`[kb]` trailing pair and the
+   derived `<promise>` tag), then add each substantive task with
+   `scripts/agentware plan add-task <feature> "<desc>" --verify "<cmd>"` (inserts
+   before the trailing pair and renumbers 1..N). Fill in the `## Context` /
+   `## Acceptance criteria` stubs and task bodies with your judgment. This writes
+   `<knowledge-dir>/work/<feature>/plan.md`.
+7. **Self-check the plan format BEFORE handoff.** Run
+   `scripts/agentware plan lint --path <knowledge-dir>/work/<feature>/plan.md --strict`
+   and FIX any reported violation before handing off — this is the loop's own
+   pre-hook gate (`run_pre_hooks`), so a plan that fails it will abort the run.
+   It enforces the structural contract R1–R9 documented in `docs/loop.md` (canonical
+   task markers `- ⬜ **N**`, required sections, monotonic numbering, per-task
+   `*Verify:*`, an `[e2e]` task, a KB-update task, exactly one `<promise>` tag, and
+   the autonomy check). Do NOT hand off a plan that does not lint clean.
+8. Hand off — tell the user to run `./agentware.sh <feature>`.
 
 ## Plan quality checklist
 - [ ] Every task has verifiable completion criteria in the project's own commands
@@ -76,6 +92,13 @@ criteria; (4) show the user what already exists.
 - [ ] Max iterations is set (typically 30–100)
 - [ ] Promise tag is set: `<promise>YYMMDD_FEATURE_NAME_COMPLETE</promise>`
 - [ ] Pitfalls from prior plans/learnings are referenced where relevant
+- [ ] Plan was scaffolded via `scripts/agentware plan new|add-task` (the emitter
+      guarantees lint-passing structure) — NOT hand-written markers
+- [ ] Task markers are the canonical `- ⬜ **N**` form (emoji + digit) — NOT
+      GitHub checkboxes (`- [ ]`) or letter ids (`**T1**`), or the loop counts 0
+      open tasks and no-ops
+- [ ] The plan lints clean: `scripts/agentware plan lint --path <plan.md> --strict`
+      exits 0 (run it before handoff — this is the loop's pre-hook gate)
 
 ## Path discovery
 NEVER assume hardcoded paths. Run `pwd` first and use relative paths.

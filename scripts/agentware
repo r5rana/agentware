@@ -88,6 +88,7 @@ EMBED_MODEL_DEFAULT = "nomic-embed-text"
 # Knowledge-dir-relative locations (joined with the resolved knowledge dir).
 INDEX_REL = "index.json"
 LEARNINGS_REL = "learnings"
+DECISIONS_REL = "decisions"
 FEATURES_REL = "FEATURES.md"
 SENTINEL_REL = ".initialized"
 
@@ -144,6 +145,7 @@ NON_INDEXED_DIRS = ("work", "logs", os.path.join("logs", "sessions"))
 # the repo and are documented in README/FEATURES, not in the per-user index.
 CATEGORIES = (
     "learnings",
+    "decisions",
     "projects",
     "configurations",
     "prompts",
@@ -159,6 +161,7 @@ SYNC_EXCLUDE_BASENAMES = ("MAIN.md", "FEATURES.md", "README.md")
 # --fix` assigns to a newly discovered file.
 SYNC_CATEGORY_RULES = (
     ("learnings/", "learnings", "learn"),
+    ("decisions/", "decisions", "decide"),
     ("projects/", "projects", "project"),
     ("configurations/", "configurations", "config"),
     ("prompts/", "prompts", "prompt"),
@@ -180,7 +183,7 @@ DSF_BANNED_WORDS = (
 )
 
 # Total character budget for always-loaded steering (DSF-budget).
-STEERING_CHAR_BUDGET = 15000
+STEERING_CHAR_BUDGET = 25000
 
 # Always-loaded steering set under Claude Code: `CLAUDE.md` is auto-loaded and
 # imports `@AGENTS.md` plus the files in `steering/`. The linter lints all of
@@ -686,6 +689,10 @@ def features_path(kdir):
 
 def learnings_dir(kdir):
     return os.path.join(kdir, LEARNINGS_REL)
+
+
+def decisions_dir(kdir):
+    return os.path.join(kdir, DECISIONS_REL)
 
 
 # --- Shared index helpers ----------------------------------------------------
@@ -2118,12 +2125,14 @@ def ensure_entry_frontmatter(kdir, entry, author=None,
     return True
 
 
-def _render_learning(fields, body):
+def _render_learning(fields, body, back_label="Learnings"):
     """Render a learning entry: machine frontmatter + human header + body.
 
     `fields` is the 9-field frontmatter dict (source of truth); the human
     blockquote header below it is for readability and is regenerated from the
-    same fields, so the two never drift.
+    same fields, so the two never drift. `back_label` names the category roster
+    the footer links back to (the `./index.md` path is the same relative roster
+    for every category), so `decide` reuses this renderer verbatim.
     """
     tag_list = fields.get("tags") or []
     tags_str = ", ".join("`%s`" % t for t in tag_list) if tag_list else "_(none)_"
@@ -2136,10 +2145,10 @@ def _render_learning(fields, body):
         "---\n\n"
         "%s\n\n"
         "---\n\n"
-        "[← Back to Learnings](./index.md) | [← Back to Main](../MAIN.md)\n"
+        "[← Back to %s](./index.md) | [← Back to Main](../MAIN.md)\n"
         % (render_frontmatter(fields), fields.get("title") or "",
            fields.get("created") or "", tags_str,
-           fields.get("category") or "learnings", body.rstrip("\n"))
+           fields.get("category") or "learnings", body.rstrip("\n"), back_label)
     )
 
 
@@ -2210,6 +2219,97 @@ def cmd_learn(args):
     return 0
 
 
+def _render_decision_body(summary, options, choice, rationale, reversible):
+    """Compose a decision entry body from its structured fields.
+
+    Mirrors how `learn` takes free-form `--content`, but `decide` enforces the
+    accountability fields R-AUTO-03 requires (options, choice, rationale,
+    reversibility) so every recorded autonomous decision is auditable.
+    """
+    return (
+        "## Decision\n\n%s\n\n"
+        "## Options\n\n%s\n\n"
+        "## Choice\n\n%s\n\n"
+        "## Rationale\n\n%s\n\n"
+        "## Reversibility\n\n%s\n"
+        % (summary.strip(), options.strip(), choice.strip(),
+           rationale.strip(), reversible.strip())
+    )
+
+
+def cmd_decide(args):
+    """Write + register a `decisions/`-category entry (auto-tagged `decision`).
+
+    A near-clone of `cmd_learn` that reuses the same index plumbing (NEVER hand-
+    edits index.json) and the same renderer; the only differences are the
+    category, the auto `decision` tag, and the structured decision body.
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, err = load_index(kdir)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+
+    topic = (args.topic or "").strip()
+    if not topic:
+        sys.stderr.write("agentware: --topic must not be empty\n")
+        return 1
+
+    eid = "decide-%s" % topic
+    rel_path = "%s/%s.md" % (DECISIONS_REL, topic)
+    abs_path = os.path.join(kdir, rel_path)
+    tag_list = parse_tags(args.tags) if getattr(args, "tags", None) else []
+    if "decision" not in tag_list:
+        tag_list = ["decision"] + tag_list
+    title = _topic_to_title(topic)
+    created = _today()
+
+    entries = data.get("entries") or []
+    if any(e.get("id") == eid for e in entries):
+        sys.stderr.write("agentware: duplicate id '%s'\n" % eid)
+        return 1
+    if any(e.get("path") == rel_path for e in entries):
+        sys.stderr.write("agentware: path already indexed: %s\n" % rel_path)
+        return 1
+    if os.path.exists(abs_path):
+        sys.stderr.write(
+            "agentware: decision file already exists (refusing to overwrite): "
+            "%s\n" % abs_path)
+        return 1
+
+    body = _render_decision_body(args.summary, args.options, args.choice,
+                                 args.rationale, args.reversible)
+    fm = build_entry_frontmatter(
+        {"id": eid, "title": title, "category": "decisions", "tags": tag_list,
+         "created": created, "summary": args.summary},
+        kdir, source=DEFAULT_ENTRY_SOURCE)
+    os.makedirs(decisions_dir(kdir), exist_ok=True)
+    with open(abs_path, "w", encoding="utf-8") as f:
+        f.write(_render_learning(fm, body, back_label="Decisions"))
+
+    entry, add_err = _do_add(
+        kdir, data, eid, title, "decisions", rel_path, tag_list,
+        args.summary, created)
+    if add_err is not None:
+        try:
+            os.remove(abs_path)
+        except OSError:
+            pass
+        sys.stderr.write("agentware: %s\n" % add_err)
+        return 1
+
+    save_index(kdir, data)
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "decision": entry}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("DECISION entry '%s' -> %s (registered in index)" % (eid, abs_path))
+    return 0
+
+
 def _render_features(data):
     markdown = "# Knowledge Base — Features & Capabilities\n\n"
     markdown += ("> **NOTICE:** Auto-generated from this knowledge base's "
@@ -2260,29 +2360,43 @@ def cmd_features(args):
 
 
 LEARNED_RE = re.compile(r"^\s*>?\s*LEARNED:\s*(.*?)\s*$")
+DECISION_RE = re.compile(r"^\s*>?\s*DECISION:\s*(.*?)\s*$")
 
 
 def _slugify(text):
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
 
 
-def learning_stems(kdir, data):
+def _category_stems(kdir, data, category, id_prefix, subdir):
+    """Filename/id stems of every entry in `category` (for promotion checks).
+
+    Generic over the marker family so `> LEARNED:` (learnings) and `> DECISION:`
+    (decisions) share one implementation.
+    """
     stems = set()
     for e in (data.get("entries") or []):
-        if not isinstance(e, dict) or e.get("category") != "learnings":
+        if not isinstance(e, dict) or e.get("category") != category:
             continue
         base = os.path.basename(e.get("path") or "")
         if base.endswith(".md"):
             stems.add(base[:-3].lower())
         eid = e.get("id") or ""
-        if eid.startswith("learn-"):
-            stems.add(eid[len("learn-"):].lower())
-    ldir = learnings_dir(kdir)
-    if os.path.isdir(ldir):
-        for fn in os.listdir(ldir):
+        if eid.startswith(id_prefix):
+            stems.add(eid[len(id_prefix):].lower())
+    d = os.path.join(kdir, subdir)
+    if os.path.isdir(d):
+        for fn in os.listdir(d):
             if fn.endswith(".md") and fn != "index.md":
                 stems.add(fn[:-3].lower())
     return {s for s in stems if s}
+
+
+def learning_stems(kdir, data):
+    return _category_stems(kdir, data, "learnings", "learn-", LEARNINGS_REL)
+
+
+def decision_stems(kdir, data):
+    return _category_stems(kdir, data, "decisions", "decide-", DECISIONS_REL)
 
 
 def _is_promoted(marker_text, stems):
@@ -2296,19 +2410,31 @@ def _is_promoted(marker_text, stems):
 
 
 def scan_worklog(path, kdir, data):
-    stems = learning_stems(kdir, data)
+    """Scan a worklog for unpromoted `> LEARNED:` and `> DECISION:` markers.
+
+    Both families gate completion (R-SI-03 / R-AUTO-05). The combined top-level
+    `unpromoted` list keeps the original exit semantics (non-empty -> fail);
+    each item carries a `kind` ("learned"|"decision") so callers can label it.
+    """
+    kinds = (
+        ("learned", LEARNED_RE, learning_stems(kdir, data)),
+        ("decision", DECISION_RE, decision_stems(kdir, data)),
+    )
     unpromoted, total = [], 0
     with open(path, "r", encoding="utf-8") as f:
         for lineno, line in enumerate(f, start=1):
-            m = LEARNED_RE.match(line)
-            if not m:
-                continue
-            text = m.group(1).strip()
-            if not text:
-                continue
-            total += 1
-            if not _is_promoted(text, stems):
-                unpromoted.append({"line": lineno, "text": text})
+            for kind, rx, stems in kinds:
+                m = rx.match(line)
+                if not m:
+                    continue
+                text = m.group(1).strip()
+                if not text:
+                    continue
+                total += 1
+                if not _is_promoted(text, stems):
+                    unpromoted.append({"line": lineno, "text": text,
+                                       "kind": kind})
+                break
     return unpromoted, total
 
 
@@ -2332,12 +2458,13 @@ def cmd_worklog_scan(args):
         sys.stdout.write("\n")
     else:
         if ok:
-            print("WORKLOG SCAN PASSED: %d LEARNED marker(s), all promoted." % total)
+            print("WORKLOG SCAN PASSED: %d marker(s), all promoted." % total)
         else:
-            print("WORKLOG SCAN FAILED: %d of %d LEARNED marker(s) unpromoted:"
+            print("WORKLOG SCAN FAILED: %d of %d marker(s) unpromoted:"
                   % (len(unpromoted), total))
             for item in unpromoted:
-                print("  line %d: %s" % (item["line"], item["text"]))
+                print("  line %d [%s]: %s"
+                      % (item["line"], item.get("kind", "learned"), item["text"]))
     return 0 if ok else 1
 
 
@@ -4321,8 +4448,12 @@ def cmd_recall(args):
 
     Returns the highest-ranked entries (id, path, score, summary) trimmed so the
     cumulative estimated token footprint stays <= --token-budget. The greedy pass
-    walks ranked order and STOPS at the first entry that would exceed the budget,
-    preserving rank order (INV-5: reduce injected context, never increase it).
+    walks ranked order and SKIPS (continue, not break) any entry that would exceed
+    the budget, so smaller lower-ranked entries still fill the remaining budget
+    (graceful degradation), preserving rank order among included entries (INV-5:
+    reduce injected context, never increase it). Each skipped entry is recorded in
+    an `overflow` pointer list (id/path/category/score/estimated_tokens — never a
+    body) so a count=0 or partial result is actionable instead of a silent miss.
     Read-only (INV-2). --format json emits a stable schema for the loop.
     """
     kdir = require_knowledge_dir()
@@ -4359,11 +4490,24 @@ def cmd_recall(args):
     ranked = recall_ranked(kdir, data, args.query, top_k=args.top_k,
                            category=args.category, strategy=strategy, as_of=as_of)
     results = []
+    overflow = []
     used = 0
     for entry, score, doc_text in ranked:
         cost = estimate_tokens(doc_text)
         if used + cost > args.token_budget:
-            break  # budget exhausted; keep rank order, drop the rest
+            # Skip this over-budget entry but KEEP filling from smaller,
+            # lower-ranked entries (graceful degradation: `continue`, not
+            # `break`). Record a body-free pointer so a count=0 (or partial)
+            # result is actionable instead of a silent miss (INV-5: pointers
+            # only, never the entry body).
+            overflow.append({
+                "id": entry.get("id"),
+                "path": entry.get("path"),
+                "category": entry.get("category"),
+                "score": round(score, 6),
+                "estimated_tokens": cost,
+            })
+            continue
         used += cost
         results.append({
             "id": entry.get("id"),
@@ -4385,6 +4529,8 @@ def cmd_recall(args):
             "context_tokens": used,
             "count": len(results),
             "results": results,
+            "overflow": overflow,
+            "overflow_count": len(overflow),
         }
         json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
@@ -4400,6 +4546,14 @@ def cmd_recall(args):
         print("    %s" % r["path"])
         if r["summary"]:
             print("    %s" % r["summary"])
+    if overflow:
+        print("  note: %d ranked entr%s exceeded the token budget and %s skipped "
+              "(pointers only) — inspect with `agentware query --id <id>`:"
+              % (len(overflow), "y" if len(overflow) == 1 else "ies",
+                 "was" if len(overflow) == 1 else "were"))
+        for o in overflow:
+            print("    [%.4f] %s (~%d tokens) %s"
+                  % (o["score"], o["id"], o["estimated_tokens"], o["path"]))
     return 0
 
 
@@ -5104,6 +5258,458 @@ def cmd_steering_lint(args):
             print("  [DSF-5] %s:%d  banned %r in: %s" % (
                 b["file"], b["line"], b["word"], b["text"]))
     return 0 if result["ok"] else 1
+
+
+# --- Plan lint (feature 260625-plan-lint-gate) -------------------------------
+# Canonical task-marker regex — the SINGLE SOURCE OF TRUTH for "what counts as an
+# open task marker" in a feature plan. Its bytes MUST stay byte-identical to the
+# `grep -cE '…'` pattern in agentware.sh:open_markers() (pinned by the contract
+# test in tests/test_plan_lint.py). This is the POSIX-ERE form exactly as grep
+# consumes it; Python's `re` does NOT honour POSIX `[[:class:]]` syntax, so the
+# linter derives a Python-usable pattern via _posix_ere_to_python() at load time
+# rather than feeding these bytes to re.compile directly.
+PLAN_TASK_MARKER_RE = r"^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]"
+
+
+def _posix_ere_to_python(pattern):
+    """Deterministically translate the POSIX-ERE classes we use into Python re.
+
+    grep's POSIX bracket classes (`[[:space:]]`, `[[:digit:]]`, `[[:alpha:]]`)
+    are not honoured by Python's `re`; translate the ones the canonical marker
+    regex uses so the linter and the loop derive from the same source string.
+    """
+    return (pattern
+            .replace("[[:space:]]", r"\s")
+            .replace("[[:digit:]]", r"\d")
+            .replace("[[:alpha:]]", "[A-Za-z]"))
+
+
+# Open-marker matcher (⬜/🟡), derived from the canonical constant so it can never
+# drift from the loop. Used only to assert the translation round-trips.
+_PLAN_OPEN_MARKER_PY = re.compile(_posix_ere_to_python(PLAN_TASK_MARKER_RE))
+
+# Well-formed task marker of ANY status. Extends the open-marker form with the
+# done glyph ✅, since a complete plan's tasks are legitimately well-formed and
+# must still lint clean (all-✅ plans). Captures the task number.
+_PLAN_TASK_LINE_RE = re.compile(r"^\s*-\s*(⬜|🟡|✅)\s*\*\*(\d+)\*\*")
+# Malformed task-like lines we flag with a specific fix hint (R3).
+_PLAN_CHECKBOX_RE = re.compile(r"^\s*-\s*\[[ xX]?\]")        # GitHub `- [ ]`
+_PLAN_LETTERED_RE = re.compile(r"^\s*-\s*\*\*[A-Za-z]")       # `- **T1**`
+_PLAN_HEADING_RE = re.compile(r"^##\s+(.*\S)\s*$")
+_PLAN_VERIFY_RE = re.compile(r"\*Verify:\*")
+_PLAN_VERIFY_NONEMPTY_RE = re.compile(r"\*Verify:\*\s*\S")
+_PLAN_PROMISE_RE = re.compile(r"<promise>[A-Z0-9_]+</promise>")
+
+_PLAN_MARKER_HINT = ("expected a well-formed marker like `- ⬜ **N**` "
+                     "(emoji ⬜/🟡/✅ + bold digit)")
+_PLAN_R7_TOKENS = ("R-KB", "index validate", "learn", "features")
+_PLAN_R9_BLOCKING = ("stop and ask", "operator decision required",
+                     "await confirmation", "ask the user", "ask the operator")
+_PLAN_R9_CARVEOUT = ("r-pkg-03", "r-exec-06", "pre-decided",
+                     "proceed deterministically", "deterministic resolution",
+                     "carve-out", "carveout")
+
+
+def lint_plan(text, strict=False):
+    """Apply the structural plan-format rules R1–R9 to `text`.
+
+    Returns (errors, warnings); each is a list of {rule, line, message}. R1 (file
+    existence) is handled by the caller before this runs. Read-only (INV-2): never
+    mutates anything. R9 is a warning by default and an error under `strict`.
+    """
+    errors, warnings = [], []
+
+    def add(bucket, rule, line, message):
+        bucket.append({"rule": rule, "line": int(line), "message": message})
+
+    lines = text.splitlines()
+
+    # Locate the required sections (R2) and the Tasks-section line range.
+    tasks_start = accept_start = None
+    headings = []
+    for i, ln in enumerate(lines):
+        m = _PLAN_HEADING_RE.match(ln)
+        if not m:
+            continue
+        title = m.group(1).strip().lower()
+        headings.append(i)
+        if title == "tasks" and tasks_start is None:
+            tasks_start = i
+        elif title.startswith("acceptance criteria") and accept_start is None:
+            accept_start = i
+
+    if tasks_start is None:
+        add(errors, "R2", 0, "missing required section '## Tasks'")
+    if accept_start is None:
+        add(errors, "R2", 0, "missing required section '## Acceptance criteria'")
+
+    # Tasks section spans from just after '## Tasks' to the next '##' heading.
+    if tasks_start is not None:
+        tasks_end = len(lines)
+        for idx in headings:
+            if idx > tasks_start:
+                tasks_end = idx
+                break
+        scan_range = range(tasks_start + 1, tasks_end)
+    else:
+        tasks_end = len(lines)
+        scan_range = range(len(lines))
+
+    # Find well-formed markers and malformed task-like lines within Tasks only
+    # (so legit `- [ ]` checkboxes under '## Acceptance criteria' are NOT flagged).
+    markers = []   # (idx, number)
+    for i in scan_range:
+        ln = lines[i]
+        m = _PLAN_TASK_LINE_RE.match(ln)
+        if m:
+            markers.append((i, int(m.group(2))))
+        elif _PLAN_CHECKBOX_RE.match(ln) or _PLAN_LETTERED_RE.match(ln):
+            add(errors, "R3", i + 1,
+                "malformed task marker: %r — %s" % (ln.strip(), _PLAN_MARKER_HINT))
+
+    # R3 — at least one well-formed marker.
+    if not markers:
+        add(errors, "R3", (tasks_start or 0) + 1,
+            "no well-formed task markers found in '## Tasks' — %s"
+            % _PLAN_MARKER_HINT)
+
+    # R4 — task numbers monotonic from 1, no gaps/dups.
+    if markers:
+        nums = [n for (_, n) in markers]
+        expected = list(range(1, len(nums) + 1))
+        if nums != expected:
+            add(errors, "R4", markers[0][0] + 1,
+                "task numbers must increase monotonically from 1 with no gaps or "
+                "duplicates; found %s, expected %s" % (nums, expected))
+
+    # Build per-task bodies (marker line .. next marker / section end).
+    tasks = []
+    for k, (idx, num) in enumerate(markers):
+        body_end = markers[k + 1][0] if k + 1 < len(markers) else tasks_end
+        tasks.append({
+            "line": idx + 1, "num": num,
+            "body": "\n".join(lines[idx:body_end]),
+        })
+
+    # R5 — every task has a `*Verify:*` line.
+    for t in tasks:
+        if not _PLAN_VERIFY_RE.search(t["body"]):
+            add(errors, "R5", t["line"],
+                "task %d (line %d) has no `*Verify:*` line (every task must be "
+                "independently verifiable — R-VERIFY-01)" % (t["num"], t["line"]))
+
+    # R6 — at least one `[e2e]` task with a non-empty Verify line.
+    if tasks and not any("[e2e]" in t["body"]
+                         and _PLAN_VERIFY_NONEMPTY_RE.search(t["body"])
+                         for t in tasks):
+        add(errors, "R6", (tasks_start or 0) + 1,
+            "no task carries an `[e2e]` token with a non-empty `*Verify:*` line "
+            "(the plan must verify end-to-end before completion)")
+
+    # R7 — at least one task references a knowledge-base update.
+    tasks_text = "\n".join(lines[(tasks_start or 0):tasks_end])
+    if tasks and not any(tok in tasks_text for tok in _PLAN_R7_TOKENS):
+        add(errors, "R7", (tasks_start or 0) + 1,
+            "no task references a knowledge-base update (expected one of: "
+            "R-KB, `index validate`, `learn`, `features` — R-KB-*/R-SI-02)")
+
+    # R8 — exactly one <promise>CONTENT</promise> tag.
+    promises = _PLAN_PROMISE_RE.findall(text)
+    if len(promises) != 1:
+        add(errors, "R8", 0,
+            "expected exactly one <promise>CONTENT</promise> tag, found %d"
+            % len(promises))
+
+    # R9 — blocking/interactive phrasing without a deterministic resolution.
+    for t in tasks:
+        low = t["body"].lower()
+        if any(p in low for p in _PLAN_R9_BLOCKING) and \
+                not any(c in low for c in _PLAN_R9_CARVEOUT):
+            bucket = errors if strict else warnings
+            add(bucket, "R9", t["line"],
+                "task %d (line %d) uses blocking/interactive phrasing without a "
+                "deterministic resolution or a cited R-PKG-03/R-EXEC-06 carve-out "
+                "(plans must execute autonomously)" % (t["num"], t["line"]))
+
+    return errors, warnings
+
+
+def _emit_plan_lint(result, as_json):
+    if as_json:
+        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("PLAN LINT %s" % ("PASSED" if result["ok"] else "FAILED"))
+        for e in result["errors"]:
+            print("  [%s] line %d: %s" % (e["rule"], e["line"], e["message"]))
+        for w in result["warnings"]:
+            print("  [warn %s] line %d: %s" % (w["rule"], w["line"], w["message"]))
+    return 0 if result["ok"] else 1
+
+
+def cmd_plan_lint(args):
+    path = args.path
+    strict = bool(getattr(args, "strict", False))
+    as_json = getattr(args, "format", "text") == "json"
+
+    # R1 — the file exists and is readable.
+    if not os.path.isfile(path):
+        return _emit_plan_lint(
+            {"ok": False, "warnings": [],
+             "errors": [{"rule": "R1", "line": 0,
+                         "message": "plan file not found or not readable: %s"
+                                    % path}]}, as_json)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError as exc:
+        return _emit_plan_lint(
+            {"ok": False, "warnings": [],
+             "errors": [{"rule": "R1", "line": 0,
+                         "message": "cannot read plan file %s: %s" % (path, exc)}]},
+            as_json)
+
+    errors, warnings = lint_plan(text, strict=strict)
+    result = {"ok": len(errors) == 0, "errors": errors, "warnings": warnings}
+    return _emit_plan_lint(result, as_json)
+
+
+# --- Plan authoring (feature 260625-plan-authoring-toolkit) -------------------
+# The GENERATION half of the generation/enforcement split: deterministic writers
+# that produce lint-passing plan structure BY CONSTRUCTION. The LLM planner
+# decides WHAT the tasks are; these commands guarantee the FORM (markers,
+# numbering, required sections, the <promise> tag, and the mandatory trailing
+# [e2e]+[kb] pair). They reuse the SINGLE marker source-of-truth from the
+# lint gate (_PLAN_TASK_LINE_RE, any-status) — no second pattern.
+
+# Maps the CLI status word to the canonical marker glyph.
+_PLAN_STATUS_GLYPH = {"todo": "⬜", "wip": "🟡", "done": "✅"}
+
+
+def _atomic_write(path, text):
+    """Write `text` to `path` atomically (temp sibling + os.replace rename).
+
+    The single writer all three emitter commands route through, so a crash mid-
+    write can never leave a half-written plan.md.
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = "%s.tmp.%d" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def _plan_promise(feature):
+    """Derive the deterministic <promise> content from a feature name.
+
+    `260625-plan-authoring-toolkit` -> `260625_PLAN_AUTHORING_TOOLKIT_COMPLETE`.
+    """
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", feature).strip("_").upper()
+    return "%s_COMPLETE" % slug
+
+
+def _plan_path(kdir, feature):
+    return os.path.join(kdir, "work", feature, "plan.md")
+
+
+def _plan_skeleton(feature, title, max_iterations, self_extension):
+    """Build the canonical, lint-passing plan skeleton.
+
+    ALWAYS seeds the mandatory trailing pair: a penultimate `[e2e]` task (literal
+    token + non-empty Verify -> R6) and a final `[kb]` task embedding an R7 token
+    (`index validate`/`learn`/`features` -> R7). There is no flag to omit them.
+    """
+    warning = ""
+    if self_extension:
+        warning = (
+            "## ‼️ Self-extension warning (read before executing)\n\n"
+            "This plan edits agentware **package** files (`R-PKG-01`). Per the "
+            "reinterpreted `R-PKG-03`, approving and running this prominently-"
+            "warned plan IS the confirmation — the loop RECORDS it and proceeds "
+            "(no mid-run stop). Per `R-PKG-04`/`R-PKG-05`, run `scripts/agentware "
+            "steering lint` and `scripts/agentware eval --record --gate` after "
+            "editing; a reliability-neutral-or-better A/B passes, a pre-existing-"
+            "drift FAIL is a recorded `> DECISION:` known-issue, and a genuine "
+            "diff-caused regression stops.\n\n---\n\n")
+    selfext_line = "YES (`R-PKG-03` record-and-proceed)" if self_extension else "NO"
+    return (
+        "# Plan — %s\n\n"
+        "> Feature: `%s`\n"
+        "> Created: %s\n"
+        "> Type: %s\n\n"
+        "---\n\n"
+        "%s"
+        "## Context\n\n"
+        "_TODO: problem, goal, design, constraints, environment, pitfalls._\n\n"
+        "---\n\n"
+        "## Tasks\n\n"
+        "- ⬜ **1** [e2e] End-to-end verification of the feature.\n"
+        "  *Verify:* TODO — exercise the feature end-to-end and capture the outcome.\n"
+        "- ⬜ **2** [kb] Knowledge-base update.\n"
+        "  Run `scripts/agentware audit --stale`, add a learning via "
+        "`scripts/agentware learn`, then `scripts/agentware features`.\n"
+        "  *Verify:* `scripts/agentware index validate` exits 0; "
+        "`scripts/agentware worklog scan` reports 0 unpromoted markers.\n\n"
+        "---\n\n"
+        "## Acceptance criteria\n\n"
+        "- [ ] TODO: define the verifiable acceptance criteria.\n\n"
+        "---\n\n"
+        "## Operational\n\n"
+        "- **Max iterations:** %d\n"
+        "- **Self-extension:** %s\n\n"
+        "<promise>%s</promise>\n"
+        % (title, feature, _today(),
+           "**self-extension (package change)**" if self_extension
+           else "feature work",
+           warning, int(max_iterations), selfext_line, _plan_promise(feature))
+    )
+
+
+def _plan_renumber(lines):
+    """Rewrite ONLY the `**N**` token of each task marker to a monotonic 1..N.
+
+    Uses the any-status matcher so ✅ tasks are renumbered too (never skipped).
+    """
+    out, n = [], 0
+    for ln in lines:
+        if _PLAN_TASK_LINE_RE.match(ln):
+            n += 1
+            ln = re.sub(r"(\*\*)\d+(\*\*)", r"\g<1>%d\g<2>" % n, ln, count=1)
+        out.append(ln)
+    return out
+
+
+def _plan_marker_indices(lines):
+    """Indices of every task-marker line, in file order."""
+    return [i for i, ln in enumerate(lines) if _PLAN_TASK_LINE_RE.match(ln)]
+
+
+def _load_plan_for_edit(kdir, feature):
+    """Read a plan for mutation, refusing if it is missing or fails lint.
+
+    Returns (text, None) on success or (None, error_message). The read-modify-
+    write guard: never edit (and so never corrupt) a plan that does not already
+    satisfy the structural contract.
+    """
+    path = _plan_path(kdir, feature)
+    if not os.path.isfile(path):
+        return None, "no plan at %s (run `plan new %s` first)" % (path, feature)
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+    errors, _ = lint_plan(text, strict=False)
+    if errors:
+        return None, ("refusing to edit a plan that fails `plan lint` "
+                      "(%d error(s)); fix it first" % len(errors))
+    return text, None
+
+
+def cmd_plan_new(args):
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    path = _plan_path(kdir, args.feature)
+    if os.path.exists(path) and not getattr(args, "force", False):
+        sys.stderr.write(
+            "agentware: plan already exists (use --force to overwrite): %s\n"
+            % path)
+        return 1
+    text = _plan_skeleton(args.feature, args.title,
+                          getattr(args, "max_iterations", 30),
+                          bool(getattr(args, "self_extension", False)))
+    _atomic_write(path, text)
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "path": path,
+                   "promise": _plan_promise(args.feature)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("PLAN created '%s' -> %s" % (args.feature, path))
+    return 0
+
+
+def cmd_plan_add_task(args):
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    text, err = _load_plan_for_edit(kdir, args.feature)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    lines = text.splitlines()
+    markers = _plan_marker_indices(lines)
+    # Insert BEFORE the mandatory trailing [e2e]+[kb] pair (the last two tasks).
+    # With <2 tasks present the plan is non-canonical; the lint guard above would
+    # have caught a missing Tasks section, so fall back to "before the last".
+    insert_at = markers[-2] if len(markers) >= 2 else (
+        markers[-1] if markers else len(lines))
+
+    tag = ""
+    verify = (args.verify or "").strip()
+    if getattr(args, "e2e", False):
+        tag = "[e2e] "
+        verify = verify or "TODO — exercise this end-to-end and capture the outcome."
+    elif getattr(args, "kb", False):
+        tag = "[kb] "
+        verify = verify or "`scripts/agentware index validate` exits 0."
+    verify = verify or "TODO — add a verification command for this task."
+
+    block = ["- ⬜ **0** %s%s" % (tag, args.description),
+             "  *Verify:* %s" % verify]
+    new_lines = lines[:insert_at] + block + lines[insert_at:]
+    new_lines = _plan_renumber(new_lines)
+    out = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
+    _atomic_write(_plan_path(kdir, args.feature), out)
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "tasks": len(_plan_marker_indices(new_lines))},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("PLAN add-task '%s': %d task(s)"
+              % (args.feature, len(_plan_marker_indices(new_lines))))
+    return 0
+
+
+def cmd_plan_set_status(args):
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    glyph = _PLAN_STATUS_GLYPH.get(args.status)
+    if glyph is None:
+        sys.stderr.write("agentware: status must be todo|wip|done\n")
+        return 1
+    text, err = _load_plan_for_edit(kdir, args.feature)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    lines = text.splitlines()
+    target = int(args.number)
+    hit = False
+    for i, ln in enumerate(lines):
+        m = _PLAN_TASK_LINE_RE.match(ln)
+        if m and int(m.group(2)) == target:
+            lines[i] = re.sub(r"(⬜|🟡|✅)", glyph, ln, count=1)
+            hit = True
+            break
+    if not hit:
+        sys.stderr.write("agentware: no task numbered %d in plan\n" % target)
+        return 1
+    out = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+    _atomic_write(_plan_path(kdir, args.feature), out)
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "task": target, "status": args.status},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("PLAN set-status '%s': task %d -> %s"
+              % (args.feature, target, args.status))
+    return 0
 
 
 # --- KB git sync -------------------------------------------------------------
@@ -6047,6 +6653,24 @@ def build_parser():
                          help="learning body, or '-' to read from stdin")
     p_learn.set_defaults(func=cmd_learn)
 
+    # decide -----------------------------------------------------------------
+    p_decide = sub.add_parser(
+        "decide", parents=[fmt_parent],
+        help="record + register an autonomous decision (R-AUTO-03)")
+    p_decide.add_argument("--topic", required=True,
+                          help="hyphenated slug; filename stem under decisions/")
+    p_decide.add_argument("--summary", required=True, help="one-line summary")
+    p_decide.add_argument("--options", required=True,
+                          help="options that were weighed")
+    p_decide.add_argument("--choice", required=True, help="the option chosen")
+    p_decide.add_argument("--rationale", required=True,
+                          help="why this choice, in-scope per R-AUTO-01")
+    p_decide.add_argument("--reversible", required=True,
+                          help="how reversible the decision is")
+    p_decide.add_argument("--tags", default=None,
+                          help="comma-separated extra tags ('decision' auto-added)")
+    p_decide.set_defaults(func=cmd_decide)
+
     # features ---------------------------------------------------------------
     p_feat = sub.add_parser(
         "features", parents=[fmt_parent],
@@ -6276,6 +6900,55 @@ def build_parser():
     p_lint = steer_sub.add_parser(
         "lint", parents=[fmt_parent], help="enforce DSF on always-loaded steering")
     p_lint.set_defaults(func=cmd_steering_lint)
+
+    # plan -------------------------------------------------------------------
+    p_plan = sub.add_parser("plan", help="feature-plan structural tooling")
+    plan_sub = p_plan.add_subparsers(dest="plan_command", metavar="<subcommand>")
+    plan_sub.required = True
+    p_plan_lint = plan_sub.add_parser(
+        "lint", parents=[fmt_parent],
+        help="lint a feature plan against the R1–R9 structural contract")
+    p_plan_lint.add_argument("--path", required=True, help="path to a plan.md")
+    p_plan_lint.add_argument(
+        "--strict", action="store_true",
+        help="treat the R9 autonomy rule as a hard failure (used by the loop "
+             "pre-hook so a non-autonomous plan aborts before the run)")
+    p_plan_lint.set_defaults(func=cmd_plan_lint)
+
+    p_plan_new = plan_sub.add_parser(
+        "new", parents=[fmt_parent],
+        help="scaffold a lint-passing plan.md (seeds the mandatory [e2e]+[kb] pair)")
+    p_plan_new.add_argument("feature", help="feature slug; dir under work/")
+    p_plan_new.add_argument("--title", required=True, help="human plan title")
+    p_plan_new.add_argument("--max-iterations", type=int, default=30,
+                            dest="max_iterations", help="loop iteration budget")
+    p_plan_new.add_argument("--self-extension", action="store_true",
+                            dest="self_extension",
+                            help="seed the R-PKG-03 self-extension warning block")
+    p_plan_new.add_argument("--force", action="store_true",
+                            help="overwrite an existing plan.md")
+    p_plan_new.set_defaults(func=cmd_plan_new)
+
+    p_plan_add = plan_sub.add_parser(
+        "add-task", parents=[fmt_parent],
+        help="insert a task before the trailing [e2e]+[kb] pair and renumber")
+    p_plan_add.add_argument("feature", help="feature slug; dir under work/")
+    p_plan_add.add_argument("description", help="task description")
+    p_plan_add.add_argument("--verify", default=None, help="the *Verify:* command")
+    p_plan_add.add_argument("--e2e", action="store_true",
+                            help="tag this as an additional [e2e] task")
+    p_plan_add.add_argument("--kb", action="store_true",
+                            help="tag this as an additional [kb] task")
+    p_plan_add.set_defaults(func=cmd_plan_add_task)
+
+    p_plan_status = plan_sub.add_parser(
+        "set-status", parents=[fmt_parent],
+        help="flip a task marker (todo|wip|done) in place, line-local")
+    p_plan_status.add_argument("feature", help="feature slug; dir under work/")
+    p_plan_status.add_argument("number", type=int, help="task number to flip")
+    p_plan_status.add_argument("status", choices=("todo", "wip", "done"),
+                               help="new status")
+    p_plan_status.set_defaults(func=cmd_plan_set_status)
 
     return parser
 

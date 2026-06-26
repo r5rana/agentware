@@ -320,6 +320,118 @@ class Bm25AcrStrategyTest(SyntheticKBTestCase):
                          ["bbb-imported", "aaa-user"])
 
 
+class RecallBudgetOverflowTest(SyntheticKBTestCase):
+    """Graceful degradation: an over-budget high-ranked entry must NOT starve a
+    smaller, fitting lower-ranked entry (skip-and-continue, not break-and-drop).
+
+    Calibrated fixture: 'aaa-big' owns dense 'qwerty' vocabulary -> ranks #1 but
+    its corpus document is ~497 estimated tokens; 'zzz-small' mentions 'qwerty'
+    once -> ranks #2 at ~19 tokens. With a budget between the two footprints the
+    #1 entry overflows; today's `break` drops EVERYTHING after it (count=0), even
+    though the #2 entry fits comfortably. The fix (`continue`) must surface it.
+    """
+
+    def setUp(self):
+        big_body = (
+            "# Big\n\n" + ("qwerty qwerty qwerty " * 40)
+            + ("filler unrelated words here " * 40) + "\n"
+        )
+        small_body = "# Small\n\nqwerty appears once here with little else.\n"
+        entries = [
+            {
+                "id": "aaa-big",
+                "title": "Big",
+                "category": "references",
+                "path": "references/big.md",
+                "tags": ["q"],
+                "created": "2026-01-01",
+                "summary": "qwerty big",
+                "body": big_body,
+            },
+            {
+                "id": "zzz-small",
+                "title": "Small",
+                "category": "references",
+                "path": "references/small.md",
+                "tags": ["q"],
+                "created": "2026-01-02",
+                "summary": "qwerty small",
+                "body": small_body,
+            },
+        ]
+        import tempfile, shutil
+        self.kdir = tempfile.mkdtemp(prefix="agentware-test-overflow-")
+        self.addCleanup(shutil.rmtree, self.kdir, True)
+        self.index_data = build_synthetic_kb(self.kdir, entries=entries)
+
+    def test_oversized_top_rank_does_not_starve_fitting_lower_rank(self):
+        # Budget 100: 'aaa-big' (~497 tok) overflows; 'zzz-small' (~19 tok) fits.
+        # Today's `break` returns count=0 (RED); `continue` surfaces the small one.
+        import json
+        payload = json.loads(self.run_cli(
+            ["recall", "qwerty", "--token-budget", "100", "--format", "json"])[1])
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual([r["id"] for r in payload["results"]], ["zzz-small"])
+        self.assertLessEqual(payload["context_tokens"], 100)
+
+    # ----- Task 5 regression tests -----
+
+    def test_oversized_top1_reports_count_zero_with_overflow_pointer(self):
+        # (a) Budget 10: BOTH entries overflow -> count==0, but the oversized
+        # top-ranked 'aaa-big' is reported in `overflow` (actionable, not a
+        # silent miss). overflow_count must equal len(overflow).
+        import json
+        payload = json.loads(self.run_cli(
+            ["recall", "qwerty", "--token-budget", "10", "--format", "json"])[1])
+        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["results"], [])
+        overflow_ids = [o["id"] for o in payload["overflow"]]
+        self.assertIn("aaa-big", overflow_ids)
+        self.assertEqual(payload["overflow_count"], len(payload["overflow"]))
+        # Rank order preserved among overflow pointers (scores non-increasing).
+        scores = [o["score"] for o in payload["overflow"]]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_skip_and_continue_records_skipped_entry_in_overflow(self):
+        # (b) Budget 100: 'aaa-big' overflows but 'zzz-small' surfaces; the
+        # skipped high-ranked entry is recorded in `overflow`, not dropped.
+        import json
+        payload = json.loads(self.run_cli(
+            ["recall", "qwerty", "--token-budget", "100", "--format", "json"])[1])
+        self.assertEqual([r["id"] for r in payload["results"]], ["zzz-small"])
+        self.assertEqual([o["id"] for o in payload["overflow"]], ["aaa-big"])
+        self.assertEqual(payload["overflow_count"], 1)
+
+    def test_budget_zero_returns_nothing_but_lists_ranked_hits(self):
+        # (c) Budget 0: every positive-cost ranked hit overflows -> count==0
+        # with a populated overflow (consistent with the cumulative invariant).
+        import json
+        payload = json.loads(self.run_cli(
+            ["recall", "qwerty", "--token-budget", "0", "--format", "json"])[1])
+        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["results"], [])
+        self.assertEqual(payload["context_tokens"], 0)
+        self.assertGreaterEqual(payload["overflow_count"], 1)
+
+    def test_overflow_pointers_carry_no_body(self):
+        # (d) overflow entries are pointers only: id/path/category/score/
+        # estimated_tokens — NEVER a body or summary (INV-5, no context bloat).
+        import json
+        payload = json.loads(self.run_cli(
+            ["recall", "qwerty", "--token-budget", "100", "--format", "json"])[1])
+        self.assertTrue(payload["overflow"])
+        allowed = {"id", "path", "category", "score", "estimated_tokens"}
+        for o in payload["overflow"]:
+            self.assertNotIn("body", o)
+            self.assertNotIn("summary", o)
+            self.assertEqual(set(o.keys()), allowed)
+
+    def test_overflow_output_is_deterministic_across_runs(self):
+        # (e) Byte-identical JSON across runs when overflow is populated.
+        argv = ["recall", "qwerty", "--token-budget", "100", "--format", "json"]
+        self.assertEqual(self.run_cli(argv)[1], self.run_cli(argv)[1])
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

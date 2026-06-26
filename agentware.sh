@@ -296,11 +296,12 @@ If a command hangs, it is likely waiting for input — kill and retry with --yes
 7. Append an entry to $DOCS_DIR/worklog.md with timestamp, task, what you did,
    verification results, blockers, next steps
 8. If the task involves knowledge-base changes, mutate it ONLY via scripts/agentware
-9. PROMOTE BEFORE THE PROMISE (R-SI-03): run
+9. PROMOTE BEFORE THE PROMISE (R-SI-03 / R-AUTO-05): run
    \`scripts/agentware worklog scan --path $DOCS_DIR/worklog.md\`. If it reports any
-   unpromoted '> LEARNED:' markers, promote EACH now via
-   .claude/skills/self-improvement/SKILL.md (durable learnings via
-   \`scripts/agentware learn\`) and re-scan until 0. NEVER emit a <promise> while the
+   unpromoted markers, promote EACH now via
+   .claude/skills/self-improvement/SKILL.md — durable learnings ('> LEARNED:') via
+   \`scripts/agentware learn\`, and autonomous decisions ('> DECISION:') via
+   \`scripts/agentware decide\` — and re-scan until 0. NEVER emit a <promise> while the
    scan reports unpromoted markers.
 10. Output <promise>TASK_COMPLETE</promise> when the task is done AND step 9 is clean
 
@@ -317,7 +318,8 @@ critical rules. When the knowledge base changes, mutate it only via scripts/agen
   (advisory only — the loop decides completion from plan.md markers)
 - If ALL tasks in plan.md are ✅, FIRST confirm \`scripts/agentware worklog scan
   --path $DOCS_DIR/worklog.md\` reports 0 unpromoted markers (promote any that
-  remain), THEN do BOTH:
+  remain), and in your final summary ENUMERATE every autonomous decision
+  ('> DECISION:') taken this run (R-AUTO-04), THEN do BOTH:
   1. Write the file $STATE_DIR/.done (use the write tool) as the explicit
      feature-complete signal the loop checks
   2. Output <promise>${FEATURE_UPPER}_COMPLETE</promise> on a single line"
@@ -325,19 +327,22 @@ critical rules. When the knowledge base changes, mutate it only via scripts/agen
 # PROMOTE_PROMPT — used by the main-phase self-heal when all tasks are ✅ but the
 # worklog still has unpromoted '> LEARNED:' markers. Promotion ONLY; no feature work.
 PROMOTE_PROMPT="All implementation tasks for $FEATURE_NAME are complete, but the
-zero-knowledge-loss gate found unpromoted '> LEARNED:' markers in
+zero-knowledge-loss gate found unpromoted '> LEARNED:' / '> DECISION:' markers in
 $DOCS_DIR/worklog.md. Your ONLY job this iteration is to promote them — do NOT
 implement features, edit plan.md tasks, or write $STATE_DIR/.done yet.
 
 ## Steps
 1. Run \`scripts/agentware worklog scan --path $DOCS_DIR/worklog.md\` to list the
    unpromoted markers.
-2. For EACH unpromoted '> LEARNED:' marker, follow
-   .claude/skills/self-improvement/SKILL.md: classify it (durable learning vs skill
-   candidate vs steering candidate). Promote durable learnings via
-   \`scripts/agentware learn --topic <T> --summary <S> --tags <A,B> --content <...>\`
-   (the ONLY writer of the knowledge index — never hand-edit index.json). Append the
-   promotion reference back into the worklog line per the skill so the scan sees it.
+2. For EACH unpromoted marker, follow .claude/skills/self-improvement/SKILL.md.
+   For '> LEARNED:' markers: classify (durable learning vs skill vs steering
+   candidate) and promote durable learnings via
+   \`scripts/agentware learn --topic <T> --summary <S> --tags <A,B> --content <...>\`.
+   For '> DECISION:' markers: promote material ones via
+   \`scripts/agentware decide --topic <T> --summary <S> --options <...> --choice <...>
+   --rationale <...> --reversible <...>\` (R-AUTO-05). Both are the ONLY writers of
+   the knowledge index — never hand-edit index.json. Append the promotion reference
+   (\`[promoted -> <topic>]\`) back into the worklog line so the scan sees it.
 3. Re-run \`scripts/agentware worklog scan --path $DOCS_DIR/worklog.md\` and confirm
    it reports 0 unpromoted.
 4. Then run \`scripts/agentware index validate\` (must pass).
@@ -360,14 +365,20 @@ POST_PROMPT="You are assessing the completed implementation of $FEATURE_NAME.
    - Verification — all acceptance criteria actually verified
    - Documentation — knowledge base updated with what was built
    - Conventions — naming, relative paths, no leakage of personal data
-6. Write a PASS/FAIL assessment to $DOCS_DIR/assessment.md
-7. After writing the assessment, identify any new learnings or gotchas. For each,
+6. Autonomous decisions (R-AUTO-04): scan $DOCS_DIR/worklog.md for every
+   '> DECISION:' marker. Under an '## Autonomous Decisions' heading in the
+   assessment, list each one and judge whether it respected R-AUTO-02 (i.e. it did
+   NOT autonomously expand scope, change acceptance criteria, act destructively or
+   irreversibly, weaken security, change dependencies, pivot the whole approach, or
+   override a STOP gate). Flag any decision that overstepped as a FAIL.
+7. Write a PASS/FAIL assessment to $DOCS_DIR/assessment.md
+8. After writing the assessment, identify any new learnings or gotchas. For each,
    classify against the self-improvement decision tree
    (.claude/skills/self-improvement/SKILL.md) and note them under
    '## Extracted Knowledge' with: suggested ID, classification (learning /
    skill candidate / steering candidate), one-paragraph summary, suggested
    wiring location, and tags.
-8. Output <promise>POST_COMPLETE</promise> when done"
+9. Output <promise>POST_COMPLETE</promise> when done"
 
 # MERGE_PROMPT — Phase 5 of the KB git sync (feature 260625-kb-git-sync). Spawned
 # (reusing the agentware-execution agent — NO new agent) ONLY for the rare case of
@@ -424,6 +435,10 @@ $EXTRA_MAIN_PROMPT"
 $EXTRA_POST_PROMPT"
 
 # Count remaining open task markers (⬜ not-started, 🟡 in-progress) in plan.md.
+# CONTRACT: the grep -cE pattern below is the canonical task-marker regex. It MUST
+# stay byte-identical to PLAN_TASK_MARKER_RE in scripts/agentware (the linter derives
+# its Python form from those same POSIX-ERE bytes). The byte-identity is pinned by the
+# contract test in tests/test_plan_lint.py (locates this line by the `⬜|🟡` token).
 open_markers() {
   local n
   n=$(grep -cE '^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)
@@ -489,6 +504,20 @@ run_pre_hooks() {
     exit 1
   fi
 
+  # Plan-format gate (feature 260625-plan-lint-gate, Task 5). Assert the plan's
+  # STRUCTURAL contract (markers, numbering, per-task verify, sections, promise,
+  # autonomy) BEFORE the pre phase so a malformed plan fails loudly and specifically
+  # instead of silently no-op'ing at the zero-markers guard. --strict makes the R9
+  # autonomy rule a hard failure so a non-autonomous plan is caught before the run.
+  # Skip cleanly when plan.md is absent (e.g. onboarding-only runs).
+  if [[ -f "$DOCS_DIR/plan.md" ]]; then
+    log "[pre-hook] scripts/agentware plan lint --strict"
+    if ! scripts/agentware plan lint --path "$DOCS_DIR/plan.md" --strict; then
+      echo "Error: [pre-hook] plan lint failed — plan.md violates the structural contract (markers must be '- ⬜ **N** …'). Fix it (see the rule output above) before the run."
+      exit 1
+    fi
+  fi
+
   # KB pull cadence (feature 260625-kb-git-sync, Task 3.1; default-ON flip
   # 260625-kb-autocommit-default, Task 3.1). Gated on the SAME resolved setting as
   # autocommit (env → config → default ON, via kb_autocommit_enabled). Fast-forward
@@ -503,7 +532,7 @@ run_pre_hooks() {
   if [[ -f "$DOCS_DIR/worklog.md" ]]; then
     log "[pre-hook] scripts/agentware worklog scan (crash-recovery orphan check)"
     if ! scripts/agentware worklog scan --path "$DOCS_DIR/worklog.md"; then
-      log "⚠ [pre-hook] orphaned '> LEARNED:' items detected from a previous run. The post-hook enforces promotion."
+      log "⚠ [pre-hook] orphaned '> LEARNED:' / '> DECISION:' markers detected from a previous run. The post-hook enforces promotion."
     fi
   fi
 }
@@ -541,9 +570,9 @@ run_post_hooks() {
 
   log "[post-hook] scripts/agentware worklog scan (zero-knowledge-loss gate)"
   if ! scripts/agentware worklog scan --path "$DOCS_DIR/worklog.md"; then
-    echo "Error: [post-hook] unpromoted '> LEARNED:' items remain in $DOCS_DIR/worklog.md."
-    echo "Promote each via: scripts/agentware learn --topic <T> --summary <S> --tags <A,B> --content <...>"
-    echo "Zero knowledge loss is enforced — the feature is NOT complete until every LEARNED: item is promoted."
+    echo "Error: [post-hook] unpromoted '> LEARNED:' / '> DECISION:' markers remain in $DOCS_DIR/worklog.md."
+    echo "Promote each via: scripts/agentware learn ... (LEARNED) or scripts/agentware decide ... (DECISION)."
+    echo "Zero knowledge loss is enforced — the feature is NOT complete until every marker is promoted."
     exit 1
   fi
 }
@@ -588,9 +617,9 @@ run_kb_sync() {
     # clean — it delegates to the same `worklog scan` detector as run_post_hooks.
     log "[kb-sync] scripts/agentware worklog scan (re-check — promote-before-commit)"
     if ! scripts/agentware worklog scan --path "$DOCS_DIR/worklog.md"; then
-      echo "Error: [kb-sync] unpromoted '> LEARNED:' items remain in $DOCS_DIR/worklog.md"
+      echo "Error: [kb-sync] unpromoted '> LEARNED:' / '> DECISION:' markers remain in $DOCS_DIR/worklog.md"
       echo "(added after the post-hook gate — likely by the post phase)."
-      echo "Promote each via: scripts/agentware learn --topic <T> --summary <S> --tags <A,B> --content <...>"
+      echo "Promote each via: scripts/agentware learn ... (LEARNED) or scripts/agentware decide ... (DECISION)."
       echo "Nothing was committed — zero knowledge loss is enforced before the KB commit."
       exit 1
     fi
@@ -734,7 +763,24 @@ fi
 log "=== Starting main phase ($MAX_ITERATIONS iterations max) ==="
 
 if [[ "$(open_markers)" -eq 0 ]]; then
-  log "⚠ No open (⬜/🟡) task markers in plan.md — nothing to do."
+  # Disambiguate "zero open markers": this means EITHER every task is ✅ (done)
+  # OR the plan has no parseable task markers at all (malformed). Tell them apart
+  # so a one-character marker typo fails LOUDLY instead of reading as success.
+  done_markers=$(grep -cE '^[[:space:]]*-[[:space:]]*✅[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)
+  if [[ "${done_markers:-0}" -gt 0 ]]; then
+    log "✓ No open (⬜/🟡) task markers in plan.md — all ${done_markers} task(s) ✅ (nothing to do)."
+    exit 1
+  fi
+  # No well-formed markers of ANY status: look for task-LIKE-but-unparseable lines
+  # (GitHub `- [ ]` checkboxes or `- **<letter>` headings) — the marker-typo class
+  # of bug this feature exists to catch.
+  if grep -qE '^[[:space:]]*-[[:space:]]*\[[ xX]?\]|^[[:space:]]*-[[:space:]]*\*\*[A-Za-z]' "$DOCS_DIR/plan.md" 2>/dev/null; then
+    log "✗ Malformed plan.md: task-like lines present but ZERO canonical markers."
+    log "  Expected markers like: - ⬜ **N** …  (emoji ⬜/🟡/✅ + **<digit>**)."
+    log "  Diagnose: scripts/agentware plan lint --path \"$DOCS_DIR/plan.md\" --strict"
+    exit 1
+  fi
+  log "⚠ No (⬜/🟡) task markers in plan.md — nothing to do."
   exit 1
 fi
 

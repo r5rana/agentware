@@ -219,6 +219,46 @@ figures out implementation details.
 | 🟡 | In progress |
 | ✅ | Complete |
 
+## Plan-format contract (R1–R9) — enforced by `plan lint`
+
+The loop counts open tasks with ONE regex
+(`^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]`). If a plan's tasks are
+written as GitHub checkboxes (`- [ ]`) or letter ids (`**T1**`) instead of the
+canonical `- ⬜ **N**` markers, that regex matches **zero** lines and the run
+silently no-ops with "nothing to do". To make a malformed plan fail **loudly and
+specifically before any agent is spawned**, the deterministic linter
+`scripts/agentware plan lint --path <plan.md> [--strict] [--format json]` asserts
+a fixed set of **structural** invariants (NOT prose/wording — that stays the
+pre-phase agent's and planner's job). It is **read-only** and never edits the plan.
+
+`run_pre_hooks` runs `plan lint --path "$DOCS_DIR/plan.md" --strict` right after
+`index validate`, so a malformed plan aborts the run before the pre-phase (an
+absent `plan.md` skips cleanly).
+
+| Rule | Severity | Checks |
+|------|----------|--------|
+| **R1** file | hard-fail | the plan file exists and is readable |
+| **R2** sections | hard-fail | both a `## Tasks` and a `## Acceptance criteria` section are present |
+| **R3** markers | hard-fail | ≥1 task line matches the canonical marker regex, and every task marker in `## Tasks` is well-formed (`⬜`/`🟡`/`✅` + `**<digit>**`); `- [ ]` / `**<letter>` lines are flagged with the `- ⬜ **N**` fix hint |
+| **R4** numbering | hard-fail | task numbers increase monotonically from 1 (no dups, no gaps) so `set-status <N>` is unambiguous |
+| **R5** per-task verify | hard-fail | every task has a `*Verify:*` line (encodes `R-VERIFY-01`) |
+| **R6** end-to-end task | hard-fail | ≥1 task carries the literal `[e2e]` token AND its `*Verify:*` line is non-empty |
+| **R7** kb-update task | hard-fail | ≥1 task references a KB update (mentions `R-KB`, `index validate`, `learn`, or `features`) |
+| **R8** promise | hard-fail | exactly one content-form promise tag `<promise>[A-Z0-9_]+</promise>` is present (a bare/prose `<promise>` mention does not count) |
+| **R9** autonomy | warn (hard-fail under `--strict`) | flags any task whose body has BLOCKING/interactive phrasing ("STOP and ask", "await confirmation", "ask the user", …) UNLESS the same task states a deterministic resolution or cites an `R-PKG-03`/`R-EXEC-06` carve-out |
+
+Exit 0 on pass; non-zero with a precise, line-numbered, actionable message on any
+hard failure. `--format json` emits `{ok, errors[], warnings[]}` where each entry
+is `{rule, line, message}`. The R3 regex is defined ONCE as `PLAN_TASK_MARKER_RE`
+in `scripts/agentware` and pinned byte-identical to the loop's `grep` pattern by a
+contract test, so the linter and the loop can never drift.
+
+The `[e2e]` token (R6) is a literal tag the **planner** places on the final
+verification task; the linter only checks its presence + a non-empty `*Verify:*`,
+never the semantic quality of the step (that stays the agent's judgment). The
+planner runs `plan lint --strict` before handoff so format violations are caught
+at authoring time rather than at run time.
+
 ## Agent steering & rules
 
 For execution methodology, knowledge-base rules, commit behavior, and naming

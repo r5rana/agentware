@@ -28,9 +28,9 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 - ALWAYS ask "is the original goal fully achieved?" before presenting results. [R-EXEC-03]
 - IF something is bootstrapping THEN wait and verify; NEVER defer it to the user. [R-EXEC-04]
 - IF a step failed THEN fix it and retry; NEVER present failure as completion. [R-EXEC-05]
-- IF blocked by a dependency THEN document the blocker and ask the user. [R-EXEC-06]
+- IF blocked by a dependency not resolvable under R-AUTO-01 THEN document the blocker and ask the user. [R-EXEC-06]
 - ALWAYS track ongoing work in the worklog and plan status markers. [R-EXEC-07]
-- NEVER pivot to a different approach mid-task without user approval. [R-EXEC-08]
+- NEVER pivot to a different approach mid-task without user approval; in-scope judgment is licensed by R-AUTO-01. [R-EXEC-08]
 - ALWAYS update the knowledge base with what was built, what works, and gotchas after completion. [R-EXEC-09]
 
 ## Planning
@@ -50,9 +50,9 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 
 - NEVER modify orchestrator package files (AGENTS.md, CLAUDE.md, .claude/**, steering/**, agentware.sh, scripts/**) during normal task work. [R-PKG-01]
 - ALWAYS write new knowledge, learnings, skills, and work artifacts to the external knowledge dir, never into the package. [R-PKG-02]
-- IF the user EXPLICITLY asks to change agentware's own steering, skills, agents, or loop THEN STOP and present a "!! WARNING !!" that self-extension can destabilize the system for this and every future project, and edit only on explicit confirmation. [R-PKG-03]
+- IF a plan PROMINENTLY carries a self-extension warning AND the user approved and ran it THEN that approval IS the confirmation: RECORD and proceed; ELSE STOP, warn that self-extension can destabilize this and every future project, and edit only on confirmation. [R-PKG-03]
 - IF a package edit is confirmed THEN RUN scripts/agentware steering lint afterward and STOP if it fails. [R-PKG-04]
-- IF a package edit is confirmed THEN RUN scripts/agentware eval --record --gate afterward and STOP if the reliability score regresses. [R-PKG-05]
+- IF a package edit is confirmed THEN RUN scripts/agentware eval --record --gate afterward; a reliability-neutral-or-better result PASSES, a FAIL from pre-existing drift unrelated to the diff is a recorded `> DECISION:` known-issue, and a genuine diff-caused regression STOPS. [R-PKG-05]
 
 ## Drill-down architecture
 
@@ -129,6 +129,14 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 - ALWAYS mark discoveries in the worklog as `> LEARNED: <one-liner>`. [R-SI-01]
 - ALWAYS follow the self-improvement skill (.claude/skills/self-improvement/SKILL.md) at end of task to promote learnings into durable knowledge. [R-SI-02]
 - NEVER emit a task-completion promise while any `> LEARNED:` marker in the worklog is unpromoted; promote each via scripts/agentware learn first, then confirm scripts/agentware worklog scan passes. [R-SI-03]
+
+## Autonomous decisions
+
+- IF new info surfaces mid-task bearing on a choice within the plan's goal and criteria THEN weigh options and decide; NEVER stop for it. [R-AUTO-01]
+- NEVER decide autonomously to expand scope, change acceptance criteria, act destructively or irreversibly, weaken security, add or remove a dependency, pivot the whole approach, or override a STOP gate (R-PKG-05 true regression, R-EXEC-06 hard blocker); those STILL escalate. [R-AUTO-02]
+- ALWAYS record each autonomous decision in the worklog as `> DECISION:` with options, choice, rationale, and reversibility. [R-AUTO-03]
+- ALWAYS surface every `> DECISION:` in the final results AND the post-phase assessment. [R-AUTO-04]
+- NEVER emit the completion promise while any `> DECISION:` is unpromoted; RUN scripts/agentware decide to promote material ones first. [R-AUTO-05]
 
 ## Conventions
 
