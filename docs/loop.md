@@ -259,6 +259,13 @@ never the semantic quality of the step (that stays the agent's judgment). The
 planner runs `plan lint --strict` before handoff so format violations are caught
 at authoring time rather than at run time.
 
+## Running features in parallel
+
+The loop runs one feature at a time. To run **many** features at once — each in an
+isolated package + KB worktree, then integrated through a serial, gate-checked
+merge queue that never drops a feature — see [`docs/fanout.md`](./fanout.md)
+(`scripts/agentware fanout spin-up | list | merge-policy | merge-queue | teardown`).
+
 ## Agent steering & rules
 
 For execution methodology, knowledge-base rules, commit behavior, and naming
