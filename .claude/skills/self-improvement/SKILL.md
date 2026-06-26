@@ -94,8 +94,21 @@ scripts/agentware learn \
   --content "<learning body>"     # or '-' to read the body from stdin
 ```
 
-Then append a one-liner to `worklog.md`:
-`Captured learning: learnings/<topic>.md`.
+`--topic` MUST be a hyphenated lowercase slug — `learn` uses it VERBATIM for both
+the entry id (`learn-<topic>`) and the filename (`learnings/<topic>.md`).
+
+Then **amend the ORIGINAL `> LEARNED:` line in `worklog.md`** by appending the
+canonical promotion reference `(Promoted: learn-<topic>)` to it, e.g.:
+
+```
+> LEARNED: dev server takes ~8s to become ready (Promoted: learn-dev-server-warmup)
+```
+
+`worklog scan` keys on this EXPLICIT reference: it resolves the `learn-<topic>` id
+EXACTLY against the live index/files (no fuzzy substring guessing), so a real
+promotion is never missed and an un-promoted marker is never spuriously passed.
+A bare `Captured learning: learnings/<topic>.md` one-liner elsewhere is fine as a
+human note, but the reference on the marker line is what clears the gate.
 
 NEVER hand-create the learning file, NEVER hand-edit `index.json` — `learn` is
 the only writer. Do NOT ask the user; learnings belong on the record without ceremony.

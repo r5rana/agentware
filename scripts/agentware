@@ -2362,9 +2362,32 @@ def cmd_features(args):
 LEARNED_RE = re.compile(r"^\s*>?\s*LEARNED:\s*(.*?)\s*$")
 DECISION_RE = re.compile(r"^\s*>?\s*DECISION:\s*(.*?)\s*$")
 
+# Explicit, deterministic promotion reference on a marker line. The canonical
+# form is `(Promoted: <id>)`; the bracketed `[promoted -> <id>]` form is the
+# decisions convention and is accepted too so both marker families share one
+# matcher. The captured `<id>` is resolved EXACTLY against the live index/files
+# (no substring fuzz) — this is the primary signal that a marker was promoted.
+PROMOTED_RE = re.compile(
+    r"(?:\(\s*Promoted:\s*|\[\s*promoted\s*->\s*)([a-z0-9][a-z0-9-]*)", re.I)
+
 
 def _slugify(text):
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+
+def promoted_ids(marker_text):
+    """Lowercased ids referenced by an explicit promotion marker, in order."""
+    return [m.lower() for m in PROMOTED_RE.findall(marker_text or "")]
+
+
+def _real_ids(stems, id_prefix):
+    """Exact-match id set for a category: every stem in both its bare form and
+    its prefixed-id form (`learn-<stem>` / `decide-<stem>`)."""
+    ids = set()
+    for s in stems:
+        ids.add(s)
+        ids.add(id_prefix + s)
+    return ids
 
 
 def _category_stems(kdir, data, category, id_prefix, subdir):
@@ -2399,14 +2422,25 @@ def decision_stems(kdir, data):
     return _category_stems(kdir, data, "decisions", "decide-", DECISIONS_REL)
 
 
-def _is_promoted(marker_text, stems):
+def _is_promoted(marker_text, stems, real_ids):
+    """A marker is promoted iff:
+
+    * primary — it carries an explicit `(Promoted: <id>)` / `[promoted -> <id>]`
+      reference whose id resolves EXACTLY to a real entry (`real_ids`); or
+    * fallback (no reference) — its slug EQUALS a learning stem exactly.
+
+    The legacy substring branches (`stem in slug` / `slug in stem`) are gone:
+    they produced false positives (short slug inside an unrelated stem) and could
+    never be trusted. Pure string/set comparison over on-disk data -> INV-1
+    deterministic, INV-2 read-only.
+    """
+    refs = promoted_ids(marker_text)
+    if refs:
+        return any(r in real_ids for r in refs)
     slug = _slugify(marker_text)
     if not slug:
         return False
-    for stem in stems:
-        if slug == stem or stem in slug or slug in stem:
-            return True
-    return False
+    return any(slug == stem for stem in stems)
 
 
 def scan_worklog(path, kdir, data):
@@ -2416,14 +2450,16 @@ def scan_worklog(path, kdir, data):
     `unpromoted` list keeps the original exit semantics (non-empty -> fail);
     each item carries a `kind` ("learned"|"decision") so callers can label it.
     """
+    l_stems = learning_stems(kdir, data)
+    d_stems = decision_stems(kdir, data)
     kinds = (
-        ("learned", LEARNED_RE, learning_stems(kdir, data)),
-        ("decision", DECISION_RE, decision_stems(kdir, data)),
+        ("learned", LEARNED_RE, l_stems, _real_ids(l_stems, "learn-")),
+        ("decision", DECISION_RE, d_stems, _real_ids(d_stems, "decide-")),
     )
     unpromoted, total = [], 0
     with open(path, "r", encoding="utf-8") as f:
         for lineno, line in enumerate(f, start=1):
-            for kind, rx, stems in kinds:
+            for kind, rx, stems, real_ids in kinds:
                 m = rx.match(line)
                 if not m:
                     continue
@@ -2431,7 +2467,7 @@ def scan_worklog(path, kdir, data):
                 if not text:
                     continue
                 total += 1
-                if not _is_promoted(text, stems):
+                if not _is_promoted(text, stems, real_ids):
                     unpromoted.append({"line": lineno, "text": text,
                                        "kind": kind})
                 break
