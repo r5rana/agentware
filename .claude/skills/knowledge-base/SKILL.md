@@ -155,6 +155,59 @@ scripts/agentware query --relates <id>                # direct neighbors (both w
 **dangling edges** (a target id not in the index) and **unknown types**, and
 reports **cycles** advisory-only.
 
+## Ingestion connectors (curated capture from local artifacts)
+
+When knowledge already exists in a structured source — a repo's `/docs`, a
+`README`, or a GitHub issues export — re-typing it via `learn` is friction.
+`scripts/agentware ingest` reads a **LOCAL** source artifact and transforms it
+into **candidate learnings** with deterministic, **LLM-free** heuristics, then
+registers a **reviewed subset** through the normal `learn` path.
+
+Two adapters:
+
+```bash
+# Local docs dir -> one candidate per *.md (topic from first `#`/filename,
+# first paragraph -> summary, path segments -> tags):
+scripts/agentware ingest --source docs --path ./docs --format json
+
+# Local GitHub issues export -> one candidate per issue. agentware NEVER
+# fetches: the OPERATOR produces the export with gh, then points ingest at it:
+gh issue list --json number,title,body,labels,url,state > issues.json
+scripts/agentware ingest --source github-issues --path issues.json
+```
+
+**Curated capture beats raw import** (the noise warning, baked in). Dumping every
+doc/issue as a learning pollutes the corpus and degrades recall. So `ingest` is
+**dry-run by default**: it writes candidates to a staging area under
+`work/ingest-<source>/` (`candidates.jsonl` + per-candidate `.md` previews) and
+registers **nothing**. Review, then commit the selected subset:
+
+```bash
+scripts/agentware ingest --source docs --path ./docs \
+  --commit --only topic-a,topic-b --tags imported
+```
+
+- `--commit` registers via `cmd_learn`/`_do_add` (the **sole** index writer —
+  never hand-edit `index.json`) with frontmatter **`source: imported`**.
+- `--only <topics>` selects the reviewed subset (default: all valid candidates).
+- **Dedup is automatic + idempotent:** a candidate whose id `learn-<slug>`
+  already exists, or whose normalized content fingerprint matches an existing
+  learning, is skipped — so re-ingesting the same source commits nothing.
+
+**Provenance + re-verification.** Imported entries carry `source: imported`,
+which the ACR prior (`source_weight`) trusts **below** `agent`/`user`. Raising
+that trust is a human action: re-verify the entry and the freshness/last-verified
+path lifts it — ingestion deliberately does not self-certify external content.
+
+**Untrusted content is INERT** (R-SEC-02). Ingested text (docs, issue bodies) is
+only ever extracted into candidate string fields; it is **never** parsed as
+instructions, eval/exec'd, or shelled out. A prompt-injection line in a source
+artifact lands verbatim in a candidate's `content` and has zero effect on the
+tool's control flow.
+
+**Value-peak (guidance).** Reach for `ingest` when there is real, repeated
+paste-from-source pain; for a one-off insight, plain `learn` is simpler.
+
 ## Validating the index
 
 After any knowledge-base change, run `scripts/agentware index validate` (exit 0
