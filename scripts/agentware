@@ -101,6 +101,18 @@ SENTINEL_REL = ".initialized"
 # INV-2). Absence => graceful fallback to Mode A.
 VECTOR_CACHE_DIR_REL = os.path.join(".cache", "vectors")
 VECTOR_CACHE_VERSION = 1
+
+# Derived BM25 postings cache (feature 260625-kb-cached-inverted-index): a
+# gitignored, regenerable inverted index — NEVER source of truth, exactly like
+# index.json / the vector cache. A single JSON file under `.cache/`, written ONLY
+# by `index rebuild` (rebuild_kb, the sole writer, INV-2). Lets a query touch the
+# postings for its query terms (O(Σ df(query-term))) instead of re-tokenizing the
+# whole corpus + recomputing df/avgdl every query (O(N·doc_len)). Absence /
+# corruption / version- or fingerprint-mismatch => recall silently falls back to
+# the live scan, so correctness NEVER depends on the cache being present (INV-1
+# byte-identity is enforced by a guard test, not assumed).
+BM25_CACHE_REL = os.path.join(".cache", "bm25-postings.json")
+BM25_CACHE_VERSION = 1
 LOGS_SESSIONS_REL = os.path.join("logs", "sessions")
 GITIGNORE_REL = ".gitignore"
 
@@ -1660,6 +1672,17 @@ def rebuild_kb(kdir):
                           for e in verrs]
 
     save_index(kdir, data)
+    # Derived BM25 postings cache: rebuild_kb is its SOLE writer (INV-2 — recall/
+    # eval never write it). Pure/stdlib/no-network, so this is safe even on the
+    # git-sync throwaway-clone rebuild path. Best-effort: a write failure must
+    # never block the index rebuild — the cache is regenerable and recall falls
+    # back to the live scan when it is absent. Ensure `.cache/` is gitignored
+    # before the cache is ever materialized.
+    try:
+        _ensure_kb_gitignore(kdir)
+        write_bm25_cache(kdir, build_bm25_cache(kdir, data))
+    except OSError:
+        pass
     rosters = []
     for sub in KNOWLEDGE_SUBDIRS:
         d = os.path.join(kdir, sub)
@@ -2623,6 +2646,23 @@ def _read_entry_body(kdir, entry):
         return ""
 
 
+def _entry_doc_text(kdir, entry):
+    """The BM25 corpus document for one entry: title + summary + tags + body.
+
+    Factored out of `build_corpus` so the cache-backed recall path can reconstruct
+    the EXACT same doc_text for a surfaced top-k entry (for token estimation)
+    without rebuilding the whole corpus — guaranteeing byte-identity by sharing
+    this single join (INV-1). Read-only.
+    """
+    parts = [
+        entry.get("title") or "",
+        entry.get("summary") or "",
+        " ".join(entry.get("tags") or []),
+        _read_entry_body(kdir, entry),
+    ]
+    return "\n".join(parts)
+
+
 def build_corpus(kdir, data):
     """Return [(entry, doc_text), ...] for every dict entry, in index order.
 
@@ -2633,13 +2673,7 @@ def build_corpus(kdir, data):
     for e in data.get("entries") or []:
         if not isinstance(e, dict):
             continue
-        parts = [
-            e.get("title") or "",
-            e.get("summary") or "",
-            " ".join(e.get("tags") or []),
-            _read_entry_body(kdir, e),
-        ]
-        corpus.append((e, "\n".join(parts)))
+        corpus.append((e, _entry_doc_text(kdir, e)))
     return corpus
 
 
@@ -2754,6 +2788,192 @@ def bm25_scores(corpus, query_tokens):
     return results
 
 
+# --- Derived BM25 postings cache (feature 260625-kb-cached-inverted-index) -----
+# A persistent inverted index derived from the SAME corpus `build_corpus`/
+# `_bm25_index` produce, so the cache-backed scorer is byte-identical to
+# `bm25_scores` (INV-1). The cache is a DERIVED artifact (C-1/C-3): regenerable
+# from frontmatter+bodies, gitignored, NEVER source of truth, written ONLY by
+# `index rebuild`/`rebuild_kb` (INV-2 read-only — recall/eval never write it).
+# Missing/corrupt/stale => graceful fallback to the live scan. Schema (byte-stable,
+# sorted keys):
+#   {version, fingerprint, n, avgdl, k1, b,
+#    doc_lens:{id:len}, df:{term:df}, postings:{term:[[id,tf], ...]}}
+
+
+def bm25_cache_path(kdir):
+    """Absolute path to the derived BM25 postings cache JSON under `.cache/`."""
+    return os.path.join(kdir, BM25_CACHE_REL)
+
+
+def build_bm25_cache(kdir, data):
+    """Build the (pure) BM25 postings cache dict from the live corpus.
+
+    Derives from the IDENTICAL `build_corpus` + `_bm25_index` the live scorer uses,
+    so the persisted df/avgdl/n/doc_lens/postings reproduce `bm25_scores` exactly.
+    The `fingerprint` is the deterministic whole-corpus content hash
+    (`eval_corpus_fingerprint`) so ANY body/frontmatter/add/remove change
+    invalidates the cache. Postings are ordered by doc_id and all dict keys are
+    serialized sorted (see `write_bm25_cache`), so two builds over one KB state are
+    byte-identical. Read-only.
+    """
+    corpus = build_corpus(kdir, data)
+    docs, df, avgdl = _bm25_index(corpus)
+    fingerprint = eval_corpus_fingerprint(corpus)
+    doc_lens = {}
+    postings = {}
+    for entry, tf, dl in docs:
+        eid = entry.get("id")
+        if eid is None:
+            continue
+        doc_lens[eid] = dl
+        for term, freq in tf.items():
+            postings.setdefault(term, []).append([eid, freq])
+    for term in postings:
+        postings[term].sort(key=lambda p: p[0])  # stable: order by doc_id
+    return {
+        "version": BM25_CACHE_VERSION,
+        "fingerprint": fingerprint,
+        "n": len(docs),
+        "avgdl": avgdl,
+        "k1": _BM25_K1,
+        "b": _BM25_B,
+        "doc_lens": doc_lens,
+        "df": df,
+        "postings": postings,
+    }
+
+
+def write_bm25_cache(kdir, cache):
+    """Persist the postings cache deterministically (sorted keys, byte-stable).
+
+    The SOLE writer is `rebuild_kb` (`index rebuild`). Creates `.cache/` as needed.
+    """
+    path = bm25_cache_path(kdir)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, indent=2, sort_keys=True)
+        f.write("\n")
+    return path
+
+
+def load_bm25_cache(kdir):
+    """Load the derived postings cache, or None if unusable.
+
+    Graceful by contract: a missing file, corrupt JSON, non-dict payload, or a
+    version mismatch ALL return None so the caller falls back to the live scan.
+    Never raises, never mutates.
+    """
+    path = bm25_cache_path(kdir)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(cache, dict):
+        return None
+    if cache.get("version") != BM25_CACHE_VERSION:
+        return None
+    for key in ("fingerprint", "n", "avgdl", "doc_lens", "df", "postings"):
+        if key not in cache:
+            return None
+    if not isinstance(cache.get("postings"), dict) \
+            or not isinstance(cache.get("df"), dict) \
+            or not isinstance(cache.get("doc_lens"), dict):
+        return None
+    return cache
+
+
+def bm25_cache_is_fresh(cache, data, kdir):
+    """True iff `cache` matches the LIVE KB content (no staleness/divergence).
+
+    Re-derives the live whole-corpus fingerprint and compares it to the cached
+    one. ANY change to a scored entry's body/frontmatter (or an add/remove) flips
+    the fingerprint, so a stale cache is never trusted — the caller falls back to
+    the live scan, keeping results correct. Read-only.
+    """
+    if not isinstance(cache, dict):
+        return False
+    live_fp = eval_corpus_fingerprint(build_corpus(kdir, data))
+    return cache.get("fingerprint") == live_fp
+
+
+def bm25_scores_cached(cache, query_tokens, entries_by_id):
+    """Cache-backed BM25 scorer — byte-identical to `bm25_scores` (INV-1).
+
+    Returns [(entry, score), ...] for the docs that share >=1 query term (the same
+    positive-score subset `retrieve_bm25` keeps after its `s > 0.0` filter), scored
+    by the IDENTICAL Okapi BM25 arithmetic as `bm25_scores`:
+      idf = ln(1 + (n - df + 0.5)/(df + 0.5));  per-doc k1/b length-norm.
+    Only the query terms' postings are touched (O(Σ df(query-term))), but to keep
+    the float SUMMATION bit-for-bit identical to the live path, the per-doc inner
+    loop iterates `q_terms = set(query_tokens)` in the SAME set-iteration order as
+    `bm25_scores` (built from the same `query_tokens` in the same process) and
+    skips f==0 the same way. `n`, `df`, and `avgdl` come from the cache and equal
+    the whole-corpus values the live `_bm25_index` computes, so idf matches exactly.
+    `entries_by_id` maps doc_id -> entry; docs with no live entry are skipped. Pure.
+    """
+    df = cache["df"]
+    postings = cache["postings"]
+    doc_lens = cache["doc_lens"]
+    n = cache["n"]
+    avgdl = cache["avgdl"]
+    q_terms = set(query_tokens)
+    idf = {}
+    for t in q_terms:
+        n_t = df.get(t, 0)
+        idf[t] = math.log(1.0 + (n - n_t + 0.5) / (n_t + 0.5))
+    # Gather only the candidate docs (those in a query term's postings), with the
+    # per-doc tf for the matching query terms.
+    tf_by_doc = {}
+    for t in q_terms:
+        for doc_id, freq in postings.get(t, []):
+            tf_by_doc.setdefault(doc_id, {})[t] = freq
+    results = []
+    for doc_id, tfs in tf_by_doc.items():
+        entry = entries_by_id.get(doc_id)
+        if entry is None:
+            continue
+        dl = doc_lens.get(doc_id, 0)
+        score = 0.0
+        for t in q_terms:  # SAME order as bm25_scores' inner loop (INV-1)
+            f = tfs.get(t, 0)
+            if f == 0:
+                continue
+            norm = 1.0 - _BM25_B + _BM25_B * (dl / avgdl if avgdl else 0.0)
+            denom = f + _BM25_K1 * norm
+            score += idf[t] * (f * (_BM25_K1 + 1.0)) / denom
+        results.append((entry, score))
+    return results
+
+
+def bm25_positive_scores(kdir, data, query, category=None):
+    """Positive-score BM25 list [(entry, score>0), ...], cache-backed when safe.
+
+    Uses the fresh postings cache (O(query-terms)) iff the cache loads, is fresh,
+    AND `category is None`; otherwise the live `build_corpus` + `bm25_scores` scan.
+    A category filter is the one case the whole-corpus cache cannot serve: the live
+    path recomputes df/avgdl over the FILTERED sub-corpus, so its statistics (and
+    thus scores) differ from the whole-corpus cache — category-scoped recall always
+    uses the live scan to preserve byte-identity. The returned ordering is
+    unsorted; every caller applies the canonical tie-break sort. Read-only (INV-2).
+    """
+    q_tokens = tokenize(query)
+    if category is None:
+        cache = load_bm25_cache(kdir)
+        if cache is not None and bm25_cache_is_fresh(cache, data, kdir):
+            entries_by_id = {}
+            for e in data.get("entries") or []:
+                if isinstance(e, dict) and e.get("id") is not None:
+                    entries_by_id.setdefault(e.get("id"), e)
+            return [(e, s) for (e, s)
+                    in bm25_scores_cached(cache, q_tokens, entries_by_id)
+                    if s > 0.0]
+    corpus = build_corpus(kdir, data)
+    if category:
+        corpus = [(e, t) for (e, t) in corpus if e.get("category") == category]
+    return [(e, s) for (e, s) in bm25_scores(corpus, q_tokens) if s > 0.0]
+
+
 def retrieve_bm25(kdir, data, query, top_k=None):
     """BM25 recall strategy over title+summary+tags+body. Returns ranked ids.
 
@@ -2761,8 +2981,7 @@ def retrieve_bm25(kdir, data, query, top_k=None):
     with a positive score (sharing >=1 query term) are returned. Read-only
     (INV-2); no network/LLM/embeddings (INV-1, INV-6).
     """
-    corpus = build_corpus(kdir, data)
-    scored = [(e, s) for (e, s) in bm25_scores(corpus, tokenize(query)) if s > 0.0]
+    scored = bm25_positive_scores(kdir, data, query)
     # Stable multi-pass sort: lowest priority first, highest priority last.
     scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc
     scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)    # created desc
@@ -2783,9 +3002,8 @@ def retrieve_bm25_acr(kdir, data, query, as_of, top_k=None):
     byte-identical across runs (INV-1). Read-only (INV-2); stdlib only, no
     network/LLM/embeddings.
     """
-    corpus = build_corpus(kdir, data)
     scored = [(e, s * acr(e, as_of))
-              for (e, s) in bm25_scores(corpus, tokenize(query)) if s > 0.0]
+              for (e, s) in bm25_positive_scores(kdir, data, query)]
     # Stable multi-pass sort: lowest priority first, highest priority last.
     scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc
     scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)    # created desc
@@ -3003,11 +3221,9 @@ def recall_ranked(kdir, data, query, top_k=None, category=None,
                                             as_of=as_of)
         text_by_id = {e.get("id"): t for (e, t) in build_corpus(kdir, sub)}
         return [(e, s, text_by_id.get(e.get("id"), "")) for (e, s) in scored]
-    corpus = build_corpus(kdir, data)
-    if category:
-        corpus = [(e, t) for (e, t) in corpus if e.get("category") == category]
-    text_by_id = {e.get("id"): t for (e, t) in corpus}
-    scored = [(e, s) for (e, s) in bm25_scores(corpus, tokenize(query)) if s > 0.0]
+    # Cache-backed (O(query-terms)) when fresh + uncategorized, else the live scan;
+    # bm25_positive_scores guarantees byte-identical scores either way (INV-1).
+    scored = bm25_positive_scores(kdir, data, query, category=category)
     if strategy == "bm25+acr":
         if as_of is None:
             as_of = _today()
@@ -3018,7 +3234,9 @@ def recall_ranked(kdir, data, query, top_k=None, category=None,
     scored.sort(key=lambda es: es[1], reverse=True)                         # score desc
     if top_k is not None:
         scored = scored[:top_k]
-    return [(e, s, text_by_id.get(e.get("id"), "")) for (e, s) in scored]
+    # Reconstruct doc_text for the SURFACED entries only (token estimation), via
+    # the shared `_entry_doc_text` join so it is byte-identical to build_corpus.
+    return [(e, s, _entry_doc_text(kdir, e)) for (e, s) in scored]
 
 
 def retrieve(kdir, data, query, strategy, top_k=None, as_of=None):
@@ -8236,6 +8454,33 @@ def _audit_gate_check(kdir):
     return {"name": "benchmark_gate", "ok": ok, "details": details}
 
 
+def _audit_bm25_cache_check(kdir, data):
+    """Cache-integrity guard for the derived BM25 postings cache (Rule 7).
+
+    The cache is an OPTIMIZATION, never a correctness dependency, so ABSENCE is a
+    PASS (recall falls back to the live scan). When the cache IS present it must be
+    FRESH and derivable — a present-but-stale cache is the silent-divergence risk
+    this check surfaces so the dashboard can show cache integrity. Remedy on a FAIL
+    is always `scripts/agentware index rebuild` (the sole writer). Read-only.
+    """
+    cache = load_bm25_cache(kdir)
+    if cache is None:
+        return {"name": "bm25_cache_health", "ok": True,
+                "details": ["absent or unreadable: recall uses the live scan "
+                            "(cache is an optimization, not a dependency)"]}
+    fresh = bm25_cache_is_fresh(cache, data, kdir)
+    return {
+        "name": "bm25_cache_health",
+        "ok": fresh,
+        "details": ["fresh: postings match live KB content (%d term(s), n=%d)"
+                    % (len(cache.get("postings") or {}), cache.get("n", 0))]
+        if fresh else
+        ["STALE: postings cache diverges from live KB content — run "
+         "`scripts/agentware index rebuild` to regenerate (recall is still "
+         "correct: it ignores a stale cache and falls back to the live scan)"],
+    }
+
+
 def _audit_personal_data_check(kdir):
     """R-LOC-03 guard: the package must ship ZERO operator personal data.
 
@@ -8393,6 +8638,7 @@ def cmd_audit(args):
             {"name": "orphaned_learnings", "ok": not oe, "details": oe},
             _audit_steering_lint_check(),
             _audit_personal_data_check(kdir),
+            _audit_bm25_cache_check(kdir, data),
         ]
     if getattr(args, "with_tests", False):
         checks.append(_audit_tests_check())

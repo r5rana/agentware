@@ -119,10 +119,12 @@ class FanoutTestBase(unittest.TestCase):
         _write_fm_entry(self.cli, path, "seed-one")
         data, _rosters, errors = self.cli.rebuild_kb(path)
         self.assertEqual(errors, [], "seed rebuild must be clean")
-        # Mirror the real KB: loop state is gitignored, so a finished lane's KB
-        # worktree reads CLEAN (the .loop/.done sentinel is not "dirty").
+        # Mirror the real KB: loop state AND derived caches are gitignored, so a
+        # finished lane's KB worktree reads CLEAN (the .loop/.done sentinel is not
+        # "dirty", and the derived `.cache/` postings/vector caches that rebuild_kb
+        # writes are never tracked/committed — machine-local, regenerable).
         with open(os.path.join(path, ".gitignore"), "w", encoding="utf-8") as f:
-            f.write(".loop/\nlogs/\n")
+            f.write(".loop/\nlogs/\n.cache/\n")
         # An append-only ledger (like benchmarks/history.jsonl) so concurrent-lane
         # EOF-append conflicts can be exercised.
         os.makedirs(os.path.join(path, "benchmarks"), exist_ok=True)
