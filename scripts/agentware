@@ -130,6 +130,22 @@ _DREAM_ON_TOKENS = ("1", "on", "yes", "true", "enable", "enabled")
 # operator sets one. Resolution: AGENTWARE_DREAM_SCHEDULE env -> config.env -> None.
 DREAM_SCHEDULE_KEY = "AGENTWARE_DREAM_SCHEDULE"
 
+# Dream concurrency + idle-gate tunables (feature 260627-dream-mode, Task 3).
+# The dream lockfile lives under the KB `.cache/` dir — ALREADY gitignored by
+# `_ensure_kb_gitignore` so step f (kb-git commit) never stages it. It holds the
+# owning pid + a monotonic-ish wall timestamp; a lock is reclaimable when its pid
+# is dead OR its timestamp is older than DREAM_LOCK_TTL_SEC (a crashed dream must
+# never wedge the next one forever). DREAM_SESSION_TTL_SEC bounds how recently a
+# loop's live-stream.log must have been touched to count the feature as a LIVE
+# session (the PostToolUse hook appends a line per tool call, so an active loop
+# keeps it fresh). DREAM_LOAD_FACTOR gates on 1-min loadavg per CPU so a dream
+# never competes with a busy machine.
+DREAM_LOCK_REL = os.path.join(".cache", "dream.lock")
+DREAM_LOCK_TTL_SEC = 1800       # 30 min: > a full cycle (audit --with-tests ~6m)
+DREAM_SESSION_TTL_SEC = 900     # 15 min of live-stream silence => loop is idle/gone
+DREAM_LOAD_FACTOR = 1.0         # skip when 1-min loadavg > ncpu * factor
+DREAM_NICE_INCREMENT = 10       # lower priority so the cycle never competes
+
 # Knowledge-dir-relative locations (joined with the resolved knowledge dir).
 INDEX_REL = "index.json"
 LEARNINGS_REL = "learnings"
@@ -561,6 +577,183 @@ def resolve_dream_schedule():
         if norm is not None:
             return norm
     return None
+
+
+# --- Dream idle-gate + concurrency-lock primitives (260627-dream-mode, Task 3) -
+# All deterministic + stdlib-only. Wall-clock + pid are INJECTABLE (now=, pid=)
+# so the gate/lock logic is unit-testable without real processes or sleeping.
+
+def _pid_alive(pid):
+    """True if `pid` names a live process (best-effort, POSIX `kill -0`).
+
+    A None/<=0 pid is never alive. EPERM means the pid exists but is owned by
+    another user — still ALIVE (we must not reclaim its lock). ESRCH => dead.
+    On platforms without os.kill semantics, default to ALIVE (never steal a lock
+    we cannot prove is dead).
+    """
+    if not pid or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return True
+    return True
+
+
+def is_session_active(kdir, now=None, ttl=DREAM_SESSION_TTL_SEC):
+    """Return the name of a LIVE agentware loop feature, or None if all idle.
+
+    The loop keeps PER-FEATURE state under `work/<feature>/.loop` (agentware.sh
+    STATE_DIR): a `.done` sentinel marks a finished feature, and `live-stream.log`
+    is appended to on every tool call so an ACTIVE loop keeps its mtime fresh. A
+    feature counts as live when `.done` is ABSENT and `live-stream.log` (or the
+    `.iteration` counter) was touched within `ttl` seconds. Scans ALL features
+    (loop state is per-feature, not global) and returns the first live one found
+    (sorted for determinism) so the result is a stable, testable signal.
+    """
+    if not kdir:
+        return None
+    now = time.time() if now is None else now
+    work = os.path.join(kdir, "work")
+    if not os.path.isdir(work):
+        return None
+    for loop_dir in sorted(glob.glob(os.path.join(work, "*", ".loop"))):
+        if os.path.isfile(os.path.join(loop_dir, ".done")):
+            continue
+        fresh = False
+        for marker in ("live-stream.log", ".iteration"):
+            p = os.path.join(loop_dir, marker)
+            try:
+                if now - os.path.getmtime(p) <= ttl:
+                    fresh = True
+                    break
+            except OSError:
+                continue
+        if fresh:
+            return os.path.basename(os.path.dirname(loop_dir))
+    return None
+
+
+def _load_is_high(threshold=None, ncpu=None):
+    """(is_high, load1, threshold): is the 1-min loadavg above the per-CPU bound?
+
+    Uses os.getloadavg (stdlib, POSIX). Where it is unavailable (e.g. some
+    Windows), load is unknowable => NEVER block (returns is_high=False). The
+    threshold defaults to ncpu * DREAM_LOAD_FACTOR.
+    """
+    if ncpu is None:
+        ncpu = os.cpu_count() or 1
+    if threshold is None:
+        threshold = ncpu * DREAM_LOAD_FACTOR
+    try:
+        load1 = os.getloadavg()[0]
+    except (OSError, AttributeError):
+        return (False, None, threshold)
+    return (load1 > threshold, load1, threshold)
+
+
+def dream_gate_reason(kdir, force=False, now=None, load=None):
+    """Pure idle-gate decision: a SKIP reason string when busy, else None.
+
+    `force` bypasses the IDLE checks (an operator's manual run) but NEVER the
+    concurrency lock (handled separately by dream_acquire_lock). `load` may be
+    injected as a (is_high, load1, threshold) tuple for testing; otherwise it is
+    sampled live. Returns None when the cycle may proceed.
+    """
+    if force:
+        return None
+    feature = is_session_active(kdir, now=now)
+    if feature:
+        return ("a loop session is active (feature %r) — deferring so the dream "
+                "never competes with interactive work" % feature)
+    is_high, load1, threshold = _load_is_high() if load is None else load
+    if is_high:
+        return ("system load is high (1-min loadavg %.2f > %.2f) — deferring the "
+                "dream to stay off the hot path" % (load1, threshold))
+    return None
+
+
+def _dream_lock_path(kdir):
+    return os.path.join(kdir, DREAM_LOCK_REL)
+
+
+def _read_dream_lock(path):
+    """Return the lock record dict ({'pid':int,'ts':float}) or None if absent/garbage."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            rec = json.load(f)
+        if isinstance(rec, dict):
+            return rec
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def dream_acquire_lock(kdir, now=None, ttl=DREAM_LOCK_TTL_SEC, pid=None):
+    """Acquire the dream lock; True on success, False if another LIVE dream holds it.
+
+    The lock is a JSON {pid, ts} file under the gitignored KB `.cache/`. A held
+    lock is RECLAIMED (stolen) when its owner pid is dead OR its ts is older than
+    `ttl` (a crashed dream must never wedge the next). Otherwise acquisition
+    fails. Best-effort + deterministic given injected now/pid. Returns False on a
+    write error (never crash the caller).
+    """
+    if not kdir:
+        return False
+    now = time.time() if now is None else now
+    pid = os.getpid() if pid is None else pid
+    path = _dream_lock_path(kdir)
+    existing = _read_dream_lock(path)
+    if existing is not None:
+        opid = existing.get("pid")
+        ots = existing.get("ts")
+        live_pid = _pid_alive(opid) and opid != pid
+        fresh = isinstance(ots, (int, float)) and (now - ots) < ttl
+        if live_pid and fresh:
+            return False  # another live, non-stale dream holds it
+        # else: dead-pid OR expired-mtime => reclaim below
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = "%s.tmp.%d" % (path, pid)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"pid": pid, "ts": now}, f, sort_keys=True)
+        os.replace(tmp, path)
+    except OSError:
+        return False
+    return True
+
+
+def dream_release_lock(kdir, pid=None):
+    """Release the dream lock IFF we own it (pid match). No-op otherwise.
+
+    Never raises: a missing/foreign lock just returns without error so the
+    try/finally cleanup in the dream command is always safe.
+    """
+    if not kdir:
+        return
+    pid = os.getpid() if pid is None else pid
+    path = _dream_lock_path(kdir)
+    rec = _read_dream_lock(path)
+    if rec is not None and rec.get("pid") not in (pid, None):
+        return  # owned by another live dream; do not remove it
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _dream_lower_priority(increment=DREAM_NICE_INCREMENT):
+    """Best-effort lower this process's scheduling priority (os.nice). Returns the
+    new niceness or None where unsupported. Never raises (a failed nice must not
+    abort the cycle)."""
+    try:
+        return os.nice(increment)
+    except (OSError, AttributeError):
+        return None
 
 
 def _normalize_user_handle(raw):
@@ -10148,6 +10341,7 @@ def cmd_audit(args):
             _audit_mode_b_health_check(kdir, data),
             _audit_graph_integrity_check(kdir, data),
             _audit_provenance_coverage_check(kdir, data),
+            _audit_dream_health_check(kdir),
         ]
         # Rule-7 observability: advisory graph-health signal (append-only,
         # gitignored, read-only w.r.t. the KB/index).
@@ -12822,6 +13016,744 @@ def cmd_mcp(args):
     return 0
 
 
+# --- Dream mode (feature 260627-dream-mode, Phase 1) --------------------------
+# A scheduled, idle-gated, unattended DETERMINISTIC maintenance cycle ("a dream")
+# that moves all size-scaling KB maintenance OFF the interactive hot path. It
+# ORCHESTRATES the already-sanctioned writers ONLY (index rebuild / bench redact /
+# eval --record / kb-git commit) and adds NO new maintenance logic. stdlib-only,
+# non-interactive, default OFF. NO LLM, NO destructive deletes/merges, NO
+# auto-promotion (those are Phase 2, behind a future review queue).
+
+# Lockfile + journal live under KB paths ALREADY gitignored by _ensure_kb_gitignore
+# (.cache/, logs/), so the git-sync step never stages them. The journal is run-
+# state (machine-local), NOT durable knowledge — durable reliability history is
+# the tracked eval ledger (benchmarks/history.jsonl). See the Task-8 `> DECISION:`.
+DREAM_LOCK_REL = os.path.join(".cache", "dream.lock")
+DREAM_JOURNAL_REL = os.path.join("logs", "dream-journal.md")
+DREAM_LOCK_TTL_S = 3600          # a held lock older than this is reclaimable (stale)
+DREAM_SESSION_TTL_S = 1800       # a .loop whose liveness file is fresher = active
+DREAM_LOAD_RATIO = 4.0           # skip when 1-min loadavg > ratio * cpu_count
+DREAM_NICE = 10                  # run the cycle at low priority (never compete)
+DREAM_STALE_HOURS = 48           # dream_health warns when last dream older than this
+
+# Ordered, fixed cycle (each step idempotent + individually skippable via --steps).
+DREAM_STEP_FUNCS = ()  # populated below once the step fns are defined
+
+
+def dream_active_sessions(kdir, now=None):
+    """Return sorted feature names with a LIVE agentware loop session.
+
+    Loop state is PER-FEATURE: agentware.sh keeps `work/<feature>/.loop` with a
+    `.done` sentinel + a `live-stream.log` it touches each tool call. A feature is
+    LIVE when its `.loop` exists, `.done` is ABSENT, and a liveness file
+    (live-stream.log, else .iteration) was modified within DREAM_SESSION_TTL_S.
+    Read-only; `now` is overridable for deterministic tests.
+    """
+    now = now if now is not None else time.time()
+    live = []
+    work = os.path.join(kdir, "work")
+    if not os.path.isdir(work):
+        return live
+    try:
+        feats = sorted(os.listdir(work))
+    except OSError:
+        return live
+    for feat in feats:
+        loop = os.path.join(work, feat, ".loop")
+        if not os.path.isdir(loop):
+            continue
+        if os.path.exists(os.path.join(loop, ".done")):
+            continue
+        mtime = None
+        for name in ("live-stream.log", ".iteration"):
+            try:
+                mtime = os.path.getmtime(os.path.join(loop, name))
+                break
+            except OSError:
+                continue
+        if mtime is not None and (now - mtime) <= DREAM_SESSION_TTL_S:
+            live.append(feat)
+    return live
+
+
+def is_session_active(kdir, now=None):
+    """True iff any agentware loop session is currently live (idle-gate signal)."""
+    return bool(dream_active_sessions(kdir, now=now))
+
+
+def _dream_lock_path(kdir):
+    return os.path.join(kdir, DREAM_LOCK_REL)
+
+
+def _dream_read_lock(path):
+    """Parse the dream lockfile into a dict, or None if absent/unreadable."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            rec = json.load(f)
+        return rec if isinstance(rec, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _dream_pid_alive(pid):
+    """True iff `pid` is a live process on this host (signal-0 probe, stdlib)."""
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True   # exists but owned by another user
+    except OSError:
+        return False
+    return True
+
+
+def dream_lock_is_stale(rec, now=None, ttl=DREAM_LOCK_TTL_S):
+    """A lock is STALE (reclaimable) when its pid is dead OR its mtime is older
+    than `ttl`. Pure given `rec`; `now` overridable for tests."""
+    now = now if now is not None else time.time()
+    if not isinstance(rec, dict):
+        return True
+    if not _dream_pid_alive(rec.get("pid")):
+        return True
+    ts = rec.get("mtime")
+    if not isinstance(ts, (int, float)) or (now - ts) > ttl:
+        return True
+    return False
+
+
+def dream_acquire_lock(kdir, now=None, ttl=DREAM_LOCK_TTL_S):
+    """Acquire the single-writer dream lock under .cache/ (gitignored).
+
+    Returns (True, path) on success, or (False, reason) when a FRESH lock is held.
+    Reclaims a STALE lock (dead pid / expired mtime). Reads the existing lock
+    BEFORE writing anything, so a held-lock refusal mutates NOTHING.
+    """
+    now = now if now is not None else time.time()
+    path = _dream_lock_path(kdir)
+    existing = _dream_read_lock(path)
+    if existing is not None and not dream_lock_is_stale(existing, now=now, ttl=ttl):
+        return False, "held by pid %s since %s" % (
+            existing.get("pid"), existing.get("mtime"))
+    rec = {"pid": os.getpid(), "mtime": now}
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        _ensure_kb_gitignore(kdir)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(rec, f, sort_keys=True)
+    except OSError as exc:
+        return False, "could not write lockfile: %s" % exc
+    return True, path
+
+
+def dream_release_lock(kdir):
+    """Release the dream lock IFF this process owns it (best-effort)."""
+    path = _dream_lock_path(kdir)
+    rec = _dream_read_lock(path)
+    if rec is not None and rec.get("pid") == os.getpid():
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def dream_load_skip_reason(load1, ncpu, ratio=DREAM_LOAD_RATIO):
+    """SKIP reason string when 1-min loadavg exceeds ratio*ncpu, else None. Pure."""
+    if load1 is None or not ncpu:
+        return None
+    ceiling = ratio * ncpu
+    if load1 > ceiling:
+        return ("system load high (loadavg1=%.2f > %.2f = %.1f*%d cpu)"
+                % (load1, ceiling, ratio, ncpu))
+    return None
+
+
+def dream_idle_skip_reason(kdir, force=False, now=None, load1=None, ncpu=None):
+    """Idle-gate decision: a SKIP reason string, or None to proceed.
+
+    With `force=True` the idle signals are bypassed (the concurrency lock still
+    applies elsewhere). Pure-ish: `now`/`load1`/`ncpu` are injectable so the gate
+    is testable without real processes/load.
+    """
+    if force:
+        return None
+    active = dream_active_sessions(kdir, now=now)
+    if active:
+        return "agentware loop session active: %s" % ", ".join(active)
+    if load1 is None:
+        try:
+            load1 = os.getloadavg()[0]
+        except (OSError, AttributeError):
+            load1 = None
+    if ncpu is None:
+        ncpu = os.cpu_count() or 1
+    return dream_load_skip_reason(load1, ncpu)
+
+
+def _dream_perf():
+    return time.perf_counter()
+
+
+def _dream_file_fp(path):
+    """sha256 of a file's bytes, or None if absent. For cache-delta detection."""
+    import hashlib  # stdlib, lazy
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def _dream_capture(fn, *a, **k):
+    """Call `fn` with stdout/stderr captured; return (rc, stdout_text)."""
+    import io          # stdlib, lazy
+    import contextlib  # stdlib, lazy
+    buf, errbuf = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(errbuf):
+        rc = fn(*a, **k)
+    return rc, buf.getvalue()
+
+
+def _dream_step_index_rebuild(kdir, dry_run):
+    """Step a — refresh derived caches via rebuild_kb (the SOLE cache writer)."""
+    if dry_run:
+        return {"status": "planned",
+                "would": "index rebuild (index.json + rosters + FEATURES + BM25 cache)"}
+    idx, bm = os.path.join(kdir, INDEX_REL), os.path.join(kdir, BM25_CACHE_REL)
+    before = (_dream_file_fp(idx), _dream_file_fp(bm))
+    data, rosters, errors = rebuild_kb(kdir)
+    if errors:
+        return {"status": "error", "errors": errors}
+    after = (_dream_file_fp(idx), _dream_file_fp(bm))
+    return {"status": "ok", "entries": len(data["entries"]),
+            "rosters": len(rosters),
+            "index_changed": before[0] != after[0],
+            "bm25_changed": before[1] != after[1]}
+
+
+def _dream_step_bench_redact(kdir, dry_run):
+    """Step b — scrub operator HOME from the ledger gold_path (only mutation)."""
+    ledger = os.path.join(kdir, HISTORY_REL)
+    if dry_run:
+        return {"status": "planned", "would": "bench redact (scrub gold_path)"}
+    if not os.path.isfile(ledger):
+        return {"status": "skipped", "reason": "no ledger"}
+    before = _dream_file_fp(ledger)
+    total, changed = redact_ledger_gold_paths(ledger)
+    try:
+        rows = _read_ledger(ledger)
+        scorecard = os.path.join(os.path.dirname(ledger),
+                                 os.path.basename(SCORECARD_REL))
+        with open(scorecard, "w", encoding="utf-8") as f:
+            f.write(render_scorecard(rows))
+    except OSError:
+        pass
+    return {"status": "ok", "rows": total, "scrubbed": changed,
+            "ledger_changed": before != _dream_file_fp(ledger)}
+
+
+def _dream_step_audit(kdir, dry_run):
+    """Step c — health check. Mirrors `audit --with-tests`; the suite-shell is
+    skipped under the nested-unittest guard so the cycle never recurses."""
+    with_tests = os.environ.get("AGENTWARE_NESTED_UNITTEST") != "1"
+    if dry_run:
+        return {"status": "planned",
+                "would": "audit%s" % (" --with-tests" if with_tests else "")}
+    ns = argparse.Namespace(format="json", with_tests=with_tests, stale=False,
+                            max_age_days=120)
+    rc, out = _dream_capture(cmd_audit, ns)
+    failed = []
+    try:
+        payload = json.loads(out)
+        failed = sorted(c["name"] for c in payload.get("checks", [])
+                        if not c.get("ok"))
+    except ValueError:
+        pass
+    return {"status": "ok" if rc == 0 else "fail", "audit_ok": rc == 0,
+            "with_tests": with_tests, "failed_checks": ",".join(failed) or "-"}
+
+
+def _dream_step_eval_record(kdir, dry_run):
+    """Step d — append ONE reliability row (eval --record), then redact it."""
+    gold = os.path.join(kdir, "benchmarks", "recall-gold.json")
+    if dry_run:
+        return {"status": "planned",
+                "would": "eval --strategy bm25 --record, then bench redact"}
+    if not os.path.isfile(gold):
+        return {"status": "skipped", "reason": "no gold set"}
+    ledger = os.path.join(kdir, HISTORY_REL)
+    before = len(_read_ledger(ledger)) if os.path.isfile(ledger) else 0
+    ns = argparse.Namespace(
+        format="json", gold=None, suite=None, dataset=None, limit=None,
+        top_k=5, strategy="bm25", ablate=False, baseline="tag", treatment="bm25",
+        record=True, gate=False, ab=False, tolerance=0.02, as_of=None,
+        acr_gate=False, acr_margin=ACR_GATE_MARGIN, acr_alpha=ACR_GATE_ALPHA)
+    rc, out = _dream_capture(cmd_eval, ns)
+    reliability = None
+    try:
+        reliability = (json.loads(out).get("recorded") or {}).get("reliability")
+    except ValueError:
+        pass
+    after = len(_read_ledger(ledger)) if os.path.isfile(ledger) else 0
+    redact = _dream_step_bench_redact(kdir, dry_run=False)
+    return {"status": "ok" if rc == 0 else "fail",
+            "rows_added": after - before, "reliability": reliability,
+            "post_redact_scrubbed": redact.get("scrubbed", 0)}
+
+
+def _dream_step_detect_report(kdir, dry_run):
+    """Step e — DETECT-AND-REPORT only (Phase 1): stale/duplicate learnings +
+    unpromoted markers across work/*/worklog.md. READ-ONLY (INV-2): never
+    promotes, deletes, or merges (that is Phase 2)."""
+    if dry_run:
+        return {"status": "planned",
+                "would": "audit --stale + worklog scan (REPORT only, no mutation)"}
+    data, err = load_index(kdir)
+    if err is not None:
+        return {"status": "error", "errors": [err]}
+    report = build_stale_report(kdir, data, 120)
+    unpromoted, scanned = 0, 0
+    work = os.path.join(kdir, "work")
+    if os.path.isdir(work):
+        for feat in sorted(os.listdir(work)):
+            wl = os.path.join(work, feat, "worklog.md")
+            if os.path.isfile(wl):
+                scanned += 1
+                up, _tot = scan_worklog(wl, kdir, data)
+                unpromoted += len(up)
+    return {"status": "ok", "stale": len(report["stale"]),
+            "duplicates": len(report["conflicts"]),
+            "worklogs_scanned": scanned, "unpromoted_markers": unpromoted}
+
+
+def _dream_step_kb_git(kdir, dry_run):
+    """Step f — nightly backup: kb-git commit (+ optional push), gated on
+    autocommit. A non-tracked KB / autocommit OFF / no upstream degrades to a
+    clean no-op. NEVER stages the package repo (the helper refuses, C-3)."""
+    if resolve_kb_autocommit() != "1":
+        return {"status": "skipped", "reason": "kb autocommit OFF"}
+    if not git_is_work_tree(kdir):
+        return {"status": "skipped", "reason": "KB not a git work tree"}
+    if dry_run:
+        return {"status": "planned", "would": "kb-git commit (+ optional push)"}
+    head0 = _git(kdir, "rev-parse", "HEAD")
+    sha0 = head0.stdout.strip() if head0.returncode == 0 else None
+    ns = argparse.Namespace(path=None, tag="dream", type="chore", message=None)
+    rc, _out = _dream_capture(cmd_kb_git_commit, ns)
+    head1 = _git(kdir, "rev-parse", "HEAD")
+    sha1 = head1.stdout.strip() if head1.returncode == 0 else None
+    committed = bool(sha1) and sha1 != sha0
+    result = {"status": "ok" if rc == 0 else "fail", "committed": committed,
+              "sha": sha1[:9] if committed else "-"}
+    if committed and git_has_upstream(kdir):
+        push_ns = argparse.Namespace(path=None, on_prose_conflict="abort",
+                                     max_retries=3, format="text")
+        prc, _ = _dream_capture(cmd_kb_git_push, push_ns)
+        result["pushed"] = prc == 0
+    else:
+        result["pushed"] = False
+    return result
+
+
+DREAM_STEP_FUNCS = (
+    ("a", "index-rebuild", _dream_step_index_rebuild),
+    ("b", "bench-redact", _dream_step_bench_redact),
+    ("c", "audit", _dream_step_audit),
+    ("d", "eval-record", _dream_step_eval_record),
+    ("e", "detect-report", _dream_step_detect_report),
+    ("f", "kb-git-commit", _dream_step_kb_git),
+)
+
+
+def _dream_parse_steps(raw):
+    """Parse --steps 'a,c,f' into an ordered validated subset. Returns
+    (steps_list, None) or (None, error)."""
+    valid = [s for s, _, _ in DREAM_STEP_FUNCS]
+    if not raw:
+        return valid, None
+    want = {t.strip().lower() for t in raw.split(",") if t.strip()}
+    bad = sorted(t for t in want if t not in set(valid))
+    if bad:
+        return None, ("unknown dream step(s): %s (valid: %s)"
+                      % (", ".join(bad), ", ".join(valid)))
+    return [s for s in valid if s in want], None
+
+
+def _dream_step_summary(r):
+    """Stable ' k=v k=v' for the journal/text output (sorted keys; metadata out)."""
+    skip = {"step", "label", "status"}
+    parts = ["%s=%s" % (k, r[k]) for k in sorted(r) if k not in skip]
+    return ("  " + " ".join(parts)) if parts else ""
+
+
+def _dream_render_journal_entry(cycle):
+    """Deterministic, diff-friendly journal entry (fixed field order)."""
+    lines = ["## dream %s" % cycle["started"], "",
+             "- finished: %s" % cycle["finished"],
+             "- duration_s: %s" % cycle["duration_s"],
+             "- force: %s" % cycle["force"]]
+    for r in cycle["steps"]:
+        lines.append("- step %s (%s): %s%s"
+                     % (r["step"], r["label"], r["status"], _dream_step_summary(r)))
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def _dream_write_journal(kdir, cycle):
+    """Append one entry to logs/dream-journal.md (gitignored; best-effort)."""
+    try:
+        path = os.path.join(kdir, DREAM_JOURNAL_REL)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        new = not os.path.exists(path)
+        with open(path, "a", encoding="utf-8") as f:
+            if new:
+                f.write("# Dream Journal\n\n> Deterministic append-only "
+                        "maintenance log (machine-local; gitignored via logs/). "
+                        "One entry per cycle.\n\n")
+            f.write(_dream_render_journal_entry(cycle))
+    except OSError:
+        pass
+
+
+def _dream_emit_metric(kdir, cycle):
+    """Rule-7 observability: ONE `dream` event to logs/metrics.jsonl. Best-effort
+    + read-only w.r.t. the KB/index; a write failure never blocks (mirrors the
+    ingestion-event shape: sorted-keys append)."""
+    try:
+        rec = {"event": "dream", "ts": cycle["started"],
+               "finished": cycle["finished"], "duration_s": cycle["duration_s"],
+               "force": cycle["force"],
+               "steps": [{"step": r["step"], "status": r["status"],
+                          "duration_s": r["duration_s"]} for r in cycle["steps"]]}
+        logs = os.path.join(kdir, "logs")
+        os.makedirs(logs, exist_ok=True)
+        with open(os.path.join(logs, "metrics.jsonl"), "a",
+                  encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
+    except OSError:
+        pass
+
+
+def _dream_output(cycle, as_json, dry_run):
+    """Render the cycle result; return the process exit code (0 unless a step
+    failed/errored — a SKIP is not a failure)."""
+    if as_json:
+        json.dump(cycle, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        print("DREAM %s%s" % ("(dry-run) " if dry_run else "", cycle["started"]))
+        for r in cycle["steps"]:
+            print("  [%s] %s (%s)%s" % (r["status"], r["step"], r["label"],
+                                        _dream_step_summary(r)))
+        print("  duration_s: %s" % cycle["duration_s"])
+    ok = all(r["status"] in ("ok", "skipped", "planned") for r in cycle["steps"])
+    return 0 if ok else 1
+
+
+def _dream_skip_output(kind, reason, as_json):
+    """Render a skipped cycle (idle-gate or lock). Mutates NOTHING. rc 0."""
+    if as_json:
+        json.dump({"event": "dream", "skipped": True, "skip_kind": kind,
+                   "skip_reason": reason, "ts": utc_now_iso()},
+                  sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+    else:
+        print("DREAM SKIPPED (%s): %s" % (kind, reason))
+    return 0
+
+
+def cmd_dream(args):
+    """Run ONE deterministic, idle-gated KB-maintenance cycle (Phase 1).
+
+    Orchestrates the sanctioned writers in fixed order a-f; each step is
+    idempotent + skippable (--steps). --dry-run reports the plan and mutates
+    NOTHING. The idle-gate skips (with a logged reason) when a loop session is
+    active or load is high (bypass with --force); the concurrency lock is ALWAYS
+    honored. Non-interactive (R-SHELL-01).
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    as_json = getattr(args, "format", "text") == "json"
+
+    if getattr(args, "install_schedule", False):
+        return _dream_install_schedule(kdir, as_json)
+    if getattr(args, "uninstall_schedule", False):
+        return _dream_uninstall_schedule(as_json)
+
+    dry_run = getattr(args, "dry_run", False)
+    force = getattr(args, "force", False)
+    steps, err = _dream_parse_steps(getattr(args, "steps", None))
+    if err:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 2
+
+    def _run_cycle():
+        started, wall0 = utc_now_iso(), _dream_perf()
+        results = []
+        for s, label, fn in DREAM_STEP_FUNCS:
+            if s not in steps:
+                continue
+            t0 = _dream_perf()
+            try:
+                r = fn(kdir, dry_run)
+            except Exception as exc:   # one bad step never aborts the cycle
+                r = {"status": "error", "error": "%s: %s" % (type(exc).__name__, exc)}
+            r["step"], r["label"] = s, label
+            r["duration_s"] = round(_dream_perf() - t0, 4)
+            results.append(r)
+        return {"event": "dream", "started": started, "finished": utc_now_iso(),
+                "duration_s": round(_dream_perf() - wall0, 4), "dry_run": dry_run,
+                "force": force, "skipped": False, "steps": results}
+
+    # --dry-run: pure report — no lock, no idle-gate writes, no journal/metric.
+    if dry_run:
+        return _dream_output(_run_cycle(), as_json, True)
+
+    # Idle-gate FIRST (reads only) so an active-session skip mutates nothing.
+    skip = dream_idle_skip_reason(kdir, force=force)
+    if skip:
+        return _dream_skip_output("idle-gate", skip, as_json)
+
+    # Single-writer concurrency lock (honored even with --force).
+    acquired, info = dream_acquire_lock(kdir)
+    if not acquired:
+        return _dream_skip_output("lock", info, as_json)
+    try:
+        if os.environ.get("AGENTWARE_NESTED_UNITTEST") != "1":
+            try:
+                os.nice(DREAM_NICE)   # low priority; best-effort
+            except (OSError, AttributeError):
+                pass
+        cycle = _run_cycle()
+        _dream_write_journal(kdir, cycle)
+        _dream_emit_metric(kdir, cycle)
+        return _dream_output(cycle, as_json, False)
+    finally:
+        dream_release_lock(kdir)
+
+
+def _dream_last_cycle_ts(kdir):
+    """Timestamp (ISO 'Z') of the most recent dream from logs/metrics.jsonl, or
+    None. Read-only; tolerant of a missing/garbled log."""
+    path = os.path.join(kdir, "logs", "metrics.jsonl")
+    last = None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or '"event": "dream"' not in line and \
+                        '"event":"dream"' not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if rec.get("event") == "dream" and rec.get("ts"):
+                    last = rec["ts"]
+    except OSError:
+        return None
+    return last
+
+
+def _dream_age_hours(ts):
+    """Hours between an ISO 'Z' timestamp and now (UTC), or None if unparseable."""
+    try:
+        when = datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=datetime.timezone.utc)
+    except (ValueError, TypeError):
+        return None
+    return (datetime.datetime.now(datetime.timezone.utc) - when).total_seconds() / 3600.0
+
+
+def _audit_dream_health_check(kdir):
+    """Rule-7 last-dream freshness. INERT when dream is OFF (the opt-in default);
+    when ON it FAILs if no cycle ran yet or the last one is stale (> DREAM_STALE_
+    HOURS). Read-only (reads logs/metrics.jsonl only)."""
+    if resolve_dream() != "1":
+        return {"name": "dream_health", "ok": True,
+                "details": ["inert: dream mode OFF (opt-in; enable with "
+                            "`scripts/agentware config --set-dream on`)"]}
+    last = _dream_last_cycle_ts(kdir)
+    if last is None:
+        return {"name": "dream_health", "ok": False,
+                "details": ["dream is ON but no cycle has run yet — run "
+                            "`scripts/agentware dream` or install the schedule"]}
+    age = _dream_age_hours(last)
+    if age is not None and age > DREAM_STALE_HOURS:
+        return {"name": "dream_health", "ok": False,
+                "details": ["last dream %s is stale (%.1fh > %dh budget)"
+                            % (last, age, DREAM_STALE_HOURS)]}
+    return {"name": "dream_health", "ok": True,
+            "details": ["fresh: last dream %s" % last]}
+
+
+# --- Dream scheduler installer (Task 10; OS-agnostic, opt-in) -----------------
+# The PORTABLE artifact is the `dream` command. The installer is a thin, fully
+# non-interactive wrapper that writes ONLY into the operator's HOME (launchd on
+# macOS, a crontab fragment elsewhere) so it is testable under a patched HOME and
+# never mutates the package. Default OFF: nothing is installed unless the operator
+# opts in (`config --set-dream on` + a schedule, then `dream --install-schedule`).
+DREAM_LAUNCHD_LABEL = "com.agentware.dream"
+DREAM_CRON_REL = os.path.join(".agentware", "dream.cron")
+
+
+def _dream_cli_path():
+    """Absolute path to this CLI (the schedule invokes it directly)."""
+    return os.path.join(REPO_ROOT, "scripts", "agentware")
+
+
+def _dream_schedule_hm(schedule):
+    """(hour, minute) ints from an HH:MM or 5-field cron token, or None.
+
+    For a cron expression, uses the first two fields when both are plain integers
+    (minute, hour); a wildcard/range/list yields None (launchd needs concretes)."""
+    m = re.match(r"^([01]?\d|2[0-3]):([0-5]\d)$", schedule or "")
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    fields = (schedule or "").split()
+    if len(fields) == 5 and fields[0].isdigit() and fields[1].isdigit():
+        return int(fields[1]), int(fields[0])
+    return None
+
+
+def _dream_launchd_plist(schedule, cli_path):
+    """Deterministic LaunchAgent plist string for a nightly low-priority dream."""
+    hm = _dream_schedule_hm(schedule)
+    hour, minute = hm if hm else (3, 0)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+        '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+        '<plist version="1.0">\n'
+        '<dict>\n'
+        '  <key>Label</key>\n  <string>%s</string>\n'
+        '  <key>ProgramArguments</key>\n'
+        '  <array>\n'
+        '    <string>/usr/bin/nice</string>\n'
+        '    <string>-n</string>\n    <string>%d</string>\n'
+        '    <string>%s</string>\n'
+        '    <string>dream</string>\n'
+        '  </array>\n'
+        '  <key>StartCalendarInterval</key>\n'
+        '  <dict>\n'
+        '    <key>Hour</key>\n    <integer>%d</integer>\n'
+        '    <key>Minute</key>\n    <integer>%d</integer>\n'
+        '  </dict>\n'
+        '  <key>RunAtLoad</key>\n  <false/>\n'
+        '</dict>\n</plist>\n'
+        % (DREAM_LAUNCHD_LABEL, DREAM_NICE, cli_path, hour, minute))
+
+
+def _dream_cron_line(schedule, cli_path):
+    """Deterministic crontab line for a nightly low-priority dream."""
+    fields = (schedule or "").split()
+    if len(fields) == 5:
+        spec = " ".join(fields)
+    else:
+        hm = _dream_schedule_hm(schedule) or (0, 3)  # (minute_src) -> rebuild
+        hour, minute = hm
+        spec = "%d %d * * *" % (minute, hour)
+    return "%s nice -n %d %s dream >/dev/null 2>&1\n" % (
+        spec, DREAM_NICE, cli_path)
+
+
+def _dream_launchd_plist_path():
+    return os.path.join(os.path.expanduser("~"), "Library", "LaunchAgents",
+                        "%s.plist" % DREAM_LAUNCHD_LABEL)
+
+
+def _dream_install_schedule(kdir, as_json):
+    """Install the nightly schedule into the operator's HOME (opt-in). Requires
+    dream ON + a configured schedule. macOS -> launchd plist; else -> crontab
+    fragment. Fully non-interactive; writes ONLY under HOME."""
+    if resolve_dream() != "1":
+        sys.stderr.write("agentware: dream is OFF — enable it first "
+                         "(`scripts/agentware config --set-dream on`).\n")
+        return 2
+    schedule = resolve_dream_schedule()
+    if not schedule:
+        sys.stderr.write("agentware: no dream schedule configured "
+                         "(`scripts/agentware config --set-dream-schedule HH:MM`).\n")
+        return 2
+    cli = _dream_cli_path()
+    if sys.platform == "darwin":
+        path = _dream_launchd_plist_path()
+        content = _dream_launchd_plist(schedule, cli)
+        platform = "launchd"
+    else:
+        path = os.path.join(os.path.expanduser("~"), DREAM_CRON_REL)
+        content = _dream_cron_line(schedule, cli)
+        platform = "cron"
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except OSError as exc:
+        sys.stderr.write("agentware: could not write schedule %s: %s\n" % (path, exc))
+        return 1
+    # Best-effort activation (skipped under the test guard; never fatal).
+    if os.environ.get("AGENTWARE_NESTED_UNITTEST") != "1":
+        try:
+            if platform == "launchd":
+                subprocess.run(["launchctl", "load", "-w", path],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               check=False)
+            else:
+                existing = subprocess.run(["crontab", "-l"], stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE, check=False)
+                base = existing.stdout.decode("utf-8", "replace") \
+                    if existing.returncode == 0 else ""
+                base = "".join(l for l in base.splitlines(keepends=True)
+                               if "agentware" not in l or "dream" not in l)
+                subprocess.run(["crontab", "-"], input=(base + content).encode(),
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               check=False)
+        except (OSError, ValueError):
+            pass
+    if as_json:
+        json.dump({"ok": True, "platform": platform, "path": path,
+                   "schedule": schedule}, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("DREAM schedule installed (%s): %s @ %s" % (platform, path, schedule))
+    return 0
+
+
+def _dream_uninstall_schedule(as_json):
+    """Remove an installed schedule from HOME (idempotent; clean no-op if absent)."""
+    if sys.platform == "darwin":
+        path, platform = _dream_launchd_plist_path(), "launchd"
+    else:
+        path = os.path.join(os.path.expanduser("~"), DREAM_CRON_REL)
+        platform = "cron"
+    removed = False
+    if os.path.isfile(path):
+        if os.environ.get("AGENTWARE_NESTED_UNITTEST") != "1":
+            try:
+                if platform == "launchd":
+                    subprocess.run(["launchctl", "unload", "-w", path],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   check=False)
+            except OSError:
+                pass
+        try:
+            os.remove(path)
+            removed = True
+        except OSError:
+            pass
+    if as_json:
+        json.dump({"ok": True, "platform": platform, "path": path,
+                   "removed": removed}, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("DREAM schedule %s (%s): %s"
+              % ("removed" if removed else "not present", platform, path))
+    return 0
+
+
 def build_parser():
     fmt_parent = argparse.ArgumentParser(add_help=False)
     fmt_parent.add_argument("--format", choices=("text", "json"), default="text",
@@ -13262,6 +14194,31 @@ def build_parser():
     p_dash.add_argument("--no-open", dest="no_open", action="store_true",
                         help="do not open a browser window")
     p_dash.set_defaults(func=cmd_dashboard)
+
+    # dream ------------------------------------------------------------------
+    p_dream = sub.add_parser(
+        "dream", parents=[fmt_parent],
+        help="run ONE deterministic, idle-gated KB-maintenance cycle (Phase 1)")
+    p_dream.add_argument(
+        "--dry-run", action="store_true", dest="dry_run",
+        help="report the ordered step plan; mutate NOTHING")
+    p_dream.add_argument(
+        "--steps", default=None, metavar="a,b,…",
+        help="run only this comma-separated subset of steps a-f "
+             "(a index-rebuild, b bench-redact, c audit, d eval-record, "
+             "e detect-report, f kb-git-commit)")
+    p_dream.add_argument(
+        "--force", action="store_true",
+        help="bypass the idle-gate for a manual run (the concurrency lock is "
+             "STILL honored)")
+    p_dream.add_argument(
+        "--install-schedule", action="store_true", dest="install_schedule",
+        help="install the nightly schedule into HOME (launchd/cron) — requires "
+             "dream ON + a configured --set-dream-schedule")
+    p_dream.add_argument(
+        "--uninstall-schedule", action="store_true", dest="uninstall_schedule",
+        help="remove an installed nightly schedule (idempotent)")
+    p_dream.set_defaults(func=cmd_dream)
 
     # kb-git -----------------------------------------------------------------
     p_kbgit = sub.add_parser(
