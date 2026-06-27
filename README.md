@@ -92,6 +92,17 @@ scripts/agentware bench scorecard     # regenerate the human-readable scorecard 
 
 > **Honest framing — read this.** ① 0.9554 is our **own 56-pair gold set**, not LongMemEval — not apples-to-apples. ② Recall@5 on LongMemEval-S is comparable **only** to systems measured on the same setup (agentmemory: 86.2% BM25-only / 95.2% hybrid; MemPalace 96.6% vector-only). The LongMemEval *paper's* numbers are on the larger `-M` variant with a dense embedder — **not** comparable, so we don't put them head-to-head. ③ Most memory layers headline **QA-accuracy**, a different metric — we compare on capabilities, not forced numbers. ④ agentware is **new**; the projects compared above are far more adopted.
 
+### Optional Mode B (local semantic) — measured A/B, with the honest verdict
+
+Mode A (BM25) is the **default**. Mode B adds an optional local embedding model (`fastembed`, pinned, on-device, no PyTorch) and retrieves with hybrid `bm25+embed`. We A/B'd them on the same data — every cell is a real recorded ledger row:
+
+| Benchmark | Mode A — BM25 (Recall@5 / nDCG@5 / MRR) | Mode B — BM25+embed | Δ Recall@5 | Latency / query | Slowdown |
+|---|---|---|---|---|---|
+| **LongMemEval-S (470q, public)** | 0.9140 / 0.8831 / 0.9104 | 0.9223 / 0.8806 / 0.8974 | **+0.0083** (noise; nDCG/MRR regress) | **16.5 ms → 1830 ms** | **~111×** |
+| Own 56-pair gold (lexically aligned) | 0.9554 / 0.9285 / 0.9326 | 0.9911 / 0.9678 / 0.9673 | **+0.0357** | **10.5 ms → 29.5 ms** | **~2.8×** |
+
+> **Recommendation: keep Mode A (BM25) — the fast, zero-install default (this is what onboarding recommends).** On the comparable *public* benchmark, embeddings are a **wash-to-slight-loss at ~111× the latency** (1830 ms vs 16.5 ms per query); the only measured win is on a small, lexically-aligned own set. Mode B is worth it **only** for paraphrase-heavy KBs where BM25 genuinely underperforms — opt in at onboarding or any time via `scripts/agentware config --set-retrieval semantic` (and back with `--set-retrieval bm25`). Embeddings only **rank**; they never author memory, so Mode B stays non-hallucinated and deterministic (pinned model + cached vectors).
+
 ---
 
 ## 🧠 Why the numbers are that good — agentware loops don't hallucinate
@@ -161,10 +172,11 @@ Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](
 
 agentware is honest about where it's *not yet* industry-standard:
 
-- **Mode B — local semantic retrieval** *(next)*: BM25 + a **local, rank-only** embedding model fused via RRF (no LLM, no cloud, no data leaving the machine) to close the semantic-recall gap. Mode A stays the byte-identical, zero-install default. *(Code is built behind the `bm25+embed` strategy; it needs a local embedder installed to score.)*
-- **Observability dashboard** — live, tail-able loop + benchmark health.
-- **Knowledge-graph / multi-hop** retrieval (deterministic).
+- **🌙 Dream mode** *(next)* — idle-time background maintenance ("dreams"). **The fundamental:** in agentware the *interactive* path stays flat as the KB grows — retrieval is ranked + **token-budgeted**, so each loop injects a bounded, relevant slice no matter how large the KB gets. The **only** work that scales with size is *maintenance*: re-indexing, re-embedding, audit, dedup, PII-redaction, git-sync. Dream mode moves all of it **off the hot path** — a scheduled, idle-gated job that rebuilds the BM25/vector caches, runs the health + benchmark gates, promotes pending learnings, scrubs the ledger, dedups/compacts entries, syncs the KB to git, and leaves a "dream journal" for the morning. You wake to a fresh, compacted, backed-up KB and never feel the maintenance cost. *Phase 1 = deterministic ops (safe, unattended); Phase 2 = LLM-assisted curation behind a review queue.*
+- **Knowledge-graph / multi-hop** retrieval — deeper traversal over the shipped deterministic dependency graph.
 - **Broader runtime support** (native Windows; more agent CLIs).
+
+**Shipped since this list started:** **Mode B** local semantic retrieval (optional/opt-in — see the measured A/B above; BM25 stays default), the **observability dashboard** (live loop + benchmark health), and a deterministic **KB dependency graph**.
 
 **Deliberately *not* on the roadmap (the moat line):** an LLM in the retrieval or write path. That is exactly where determinism and non-hallucination break — and it's our whole point.
 

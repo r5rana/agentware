@@ -364,12 +364,17 @@ answer. The setting resolves env → config → **default `deterministic` (Mode 
 - **Mode A — "Pure Deterministic" (DEFAULT, recommended):** BM25 (+ACR), pure
   Python stdlib, **zero install**, byte-identical forever — maximum auditability
   and portability. Works with nothing installed.
-- **Mode B — "Local Semantic" (opt-in, for max accuracy):** BM25 **+ a LOCAL
+- **Mode B — "Local Semantic" (opt-in, niche):** BM25 **+ a LOCAL
   embedding model you install** (hybrid BM25+embed) to catch paraphrased matches
   BM25 misses. Still deterministic (pinned model + cached vectors) and still
-  non-hallucinated (embeddings only RANK; they never author memory). Its only
-  costs: it needs a local model (breaks zero-install) and reproducibility is
-  pinned to that model version. **No cloud, no LLM in the retrieval path.**
+  non-hallucinated (embeddings only RANK; they never author memory). Costs: a
+  local model (breaks zero-install) + reproducibility pinned to that model version.
+  **Measured trade-off (tell the user honestly):** on the public LongMemEval
+  benchmark Mode B is a **wash-to-slight-loss** (Recall@5 +0.008 within noise;
+  nDCG/MRR slightly down) at **~111× the latency (16.5 ms → 1830 ms per query)**;
+  the only measured win was +0.0357 Recall@5 on a small lexically-aligned set.
+  **Recommend Mode A unless the KB is paraphrase-heavy and BM25 underperforms.**
+  No cloud, no LLM in the retrieval path.
 
 1. Ask: **"Retrieval mode — A (deterministic, zero-install, recommended) or B
    (local semantic, higher accuracy, needs a local model)? [recommended: A]"**
