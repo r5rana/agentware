@@ -130,22 +130,6 @@ _DREAM_ON_TOKENS = ("1", "on", "yes", "true", "enable", "enabled")
 # operator sets one. Resolution: AGENTWARE_DREAM_SCHEDULE env -> config.env -> None.
 DREAM_SCHEDULE_KEY = "AGENTWARE_DREAM_SCHEDULE"
 
-# Dream concurrency + idle-gate tunables (feature 260627-dream-mode, Task 3).
-# The dream lockfile lives under the KB `.cache/` dir — ALREADY gitignored by
-# `_ensure_kb_gitignore` so step f (kb-git commit) never stages it. It holds the
-# owning pid + a monotonic-ish wall timestamp; a lock is reclaimable when its pid
-# is dead OR its timestamp is older than DREAM_LOCK_TTL_SEC (a crashed dream must
-# never wedge the next one forever). DREAM_SESSION_TTL_SEC bounds how recently a
-# loop's live-stream.log must have been touched to count the feature as a LIVE
-# session (the PostToolUse hook appends a line per tool call, so an active loop
-# keeps it fresh). DREAM_LOAD_FACTOR gates on 1-min loadavg per CPU so a dream
-# never competes with a busy machine.
-DREAM_LOCK_REL = os.path.join(".cache", "dream.lock")
-DREAM_LOCK_TTL_SEC = 1800       # 30 min: > a full cycle (audit --with-tests ~6m)
-DREAM_SESSION_TTL_SEC = 900     # 15 min of live-stream silence => loop is idle/gone
-DREAM_LOAD_FACTOR = 1.0         # skip when 1-min loadavg > ncpu * factor
-DREAM_NICE_INCREMENT = 10       # lower priority so the cycle never competes
-
 # Knowledge-dir-relative locations (joined with the resolved knowledge dir).
 INDEX_REL = "index.json"
 LEARNINGS_REL = "learnings"
@@ -577,183 +561,6 @@ def resolve_dream_schedule():
         if norm is not None:
             return norm
     return None
-
-
-# --- Dream idle-gate + concurrency-lock primitives (260627-dream-mode, Task 3) -
-# All deterministic + stdlib-only. Wall-clock + pid are INJECTABLE (now=, pid=)
-# so the gate/lock logic is unit-testable without real processes or sleeping.
-
-def _pid_alive(pid):
-    """True if `pid` names a live process (best-effort, POSIX `kill -0`).
-
-    A None/<=0 pid is never alive. EPERM means the pid exists but is owned by
-    another user — still ALIVE (we must not reclaim its lock). ESRCH => dead.
-    On platforms without os.kill semantics, default to ALIVE (never steal a lock
-    we cannot prove is dead).
-    """
-    if not pid or pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return True
-    return True
-
-
-def is_session_active(kdir, now=None, ttl=DREAM_SESSION_TTL_SEC):
-    """Return the name of a LIVE agentware loop feature, or None if all idle.
-
-    The loop keeps PER-FEATURE state under `work/<feature>/.loop` (agentware.sh
-    STATE_DIR): a `.done` sentinel marks a finished feature, and `live-stream.log`
-    is appended to on every tool call so an ACTIVE loop keeps its mtime fresh. A
-    feature counts as live when `.done` is ABSENT and `live-stream.log` (or the
-    `.iteration` counter) was touched within `ttl` seconds. Scans ALL features
-    (loop state is per-feature, not global) and returns the first live one found
-    (sorted for determinism) so the result is a stable, testable signal.
-    """
-    if not kdir:
-        return None
-    now = time.time() if now is None else now
-    work = os.path.join(kdir, "work")
-    if not os.path.isdir(work):
-        return None
-    for loop_dir in sorted(glob.glob(os.path.join(work, "*", ".loop"))):
-        if os.path.isfile(os.path.join(loop_dir, ".done")):
-            continue
-        fresh = False
-        for marker in ("live-stream.log", ".iteration"):
-            p = os.path.join(loop_dir, marker)
-            try:
-                if now - os.path.getmtime(p) <= ttl:
-                    fresh = True
-                    break
-            except OSError:
-                continue
-        if fresh:
-            return os.path.basename(os.path.dirname(loop_dir))
-    return None
-
-
-def _load_is_high(threshold=None, ncpu=None):
-    """(is_high, load1, threshold): is the 1-min loadavg above the per-CPU bound?
-
-    Uses os.getloadavg (stdlib, POSIX). Where it is unavailable (e.g. some
-    Windows), load is unknowable => NEVER block (returns is_high=False). The
-    threshold defaults to ncpu * DREAM_LOAD_FACTOR.
-    """
-    if ncpu is None:
-        ncpu = os.cpu_count() or 1
-    if threshold is None:
-        threshold = ncpu * DREAM_LOAD_FACTOR
-    try:
-        load1 = os.getloadavg()[0]
-    except (OSError, AttributeError):
-        return (False, None, threshold)
-    return (load1 > threshold, load1, threshold)
-
-
-def dream_gate_reason(kdir, force=False, now=None, load=None):
-    """Pure idle-gate decision: a SKIP reason string when busy, else None.
-
-    `force` bypasses the IDLE checks (an operator's manual run) but NEVER the
-    concurrency lock (handled separately by dream_acquire_lock). `load` may be
-    injected as a (is_high, load1, threshold) tuple for testing; otherwise it is
-    sampled live. Returns None when the cycle may proceed.
-    """
-    if force:
-        return None
-    feature = is_session_active(kdir, now=now)
-    if feature:
-        return ("a loop session is active (feature %r) — deferring so the dream "
-                "never competes with interactive work" % feature)
-    is_high, load1, threshold = _load_is_high() if load is None else load
-    if is_high:
-        return ("system load is high (1-min loadavg %.2f > %.2f) — deferring the "
-                "dream to stay off the hot path" % (load1, threshold))
-    return None
-
-
-def _dream_lock_path(kdir):
-    return os.path.join(kdir, DREAM_LOCK_REL)
-
-
-def _read_dream_lock(path):
-    """Return the lock record dict ({'pid':int,'ts':float}) or None if absent/garbage."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            rec = json.load(f)
-        if isinstance(rec, dict):
-            return rec
-    except (OSError, ValueError):
-        pass
-    return None
-
-
-def dream_acquire_lock(kdir, now=None, ttl=DREAM_LOCK_TTL_SEC, pid=None):
-    """Acquire the dream lock; True on success, False if another LIVE dream holds it.
-
-    The lock is a JSON {pid, ts} file under the gitignored KB `.cache/`. A held
-    lock is RECLAIMED (stolen) when its owner pid is dead OR its ts is older than
-    `ttl` (a crashed dream must never wedge the next). Otherwise acquisition
-    fails. Best-effort + deterministic given injected now/pid. Returns False on a
-    write error (never crash the caller).
-    """
-    if not kdir:
-        return False
-    now = time.time() if now is None else now
-    pid = os.getpid() if pid is None else pid
-    path = _dream_lock_path(kdir)
-    existing = _read_dream_lock(path)
-    if existing is not None:
-        opid = existing.get("pid")
-        ots = existing.get("ts")
-        live_pid = _pid_alive(opid) and opid != pid
-        fresh = isinstance(ots, (int, float)) and (now - ots) < ttl
-        if live_pid and fresh:
-            return False  # another live, non-stale dream holds it
-        # else: dead-pid OR expired-mtime => reclaim below
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = "%s.tmp.%d" % (path, pid)
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"pid": pid, "ts": now}, f, sort_keys=True)
-        os.replace(tmp, path)
-    except OSError:
-        return False
-    return True
-
-
-def dream_release_lock(kdir, pid=None):
-    """Release the dream lock IFF we own it (pid match). No-op otherwise.
-
-    Never raises: a missing/foreign lock just returns without error so the
-    try/finally cleanup in the dream command is always safe.
-    """
-    if not kdir:
-        return
-    pid = os.getpid() if pid is None else pid
-    path = _dream_lock_path(kdir)
-    rec = _read_dream_lock(path)
-    if rec is not None and rec.get("pid") not in (pid, None):
-        return  # owned by another live dream; do not remove it
-    try:
-        os.remove(path)
-    except OSError:
-        pass
-
-
-def _dream_lower_priority(increment=DREAM_NICE_INCREMENT):
-    """Best-effort lower this process's scheduling priority (os.nice). Returns the
-    new niceness or None where unsupported. Never raises (a failed nice must not
-    abort the cycle)."""
-    try:
-        return os.nice(increment)
-    except (OSError, AttributeError):
-        return None
 
 
 def _normalize_user_handle(raw):
@@ -13030,8 +12837,8 @@ def cmd_mcp(args):
 # the tracked eval ledger (benchmarks/history.jsonl). See the Task-8 `> DECISION:`.
 DREAM_LOCK_REL = os.path.join(".cache", "dream.lock")
 DREAM_JOURNAL_REL = os.path.join("logs", "dream-journal.md")
-DREAM_LOCK_TTL_S = 3600          # a held lock older than this is reclaimable (stale)
-DREAM_SESSION_TTL_S = 1800       # a .loop whose liveness file is fresher = active
+DREAM_LOCK_TTL_SEC = 3600        # a held lock older than this is reclaimable (stale)
+DREAM_SESSION_TTL_SEC = 1800     # a .loop whose liveness file is fresher = active
 DREAM_LOAD_RATIO = 4.0           # skip when 1-min loadavg > ratio * cpu_count
 DREAM_NICE = 10                  # run the cycle at low priority (never compete)
 DREAM_STALE_HOURS = 48           # dream_health warns when last dream older than this
@@ -13040,24 +12847,24 @@ DREAM_STALE_HOURS = 48           # dream_health warns when last dream older than
 DREAM_STEP_FUNCS = ()  # populated below once the step fns are defined
 
 
-def dream_active_sessions(kdir, now=None):
-    """Return sorted feature names with a LIVE agentware loop session.
+def is_session_active(kdir, now=None):
+    """Return the feature name of a LIVE agentware loop session, or None.
 
     Loop state is PER-FEATURE: agentware.sh keeps `work/<feature>/.loop` with a
     `.done` sentinel + a `live-stream.log` it touches each tool call. A feature is
     LIVE when its `.loop` exists, `.done` is ABSENT, and a liveness file
-    (live-stream.log, else .iteration) was modified within DREAM_SESSION_TTL_S.
-    Read-only; `now` is overridable for deterministic tests.
+    (live-stream.log, else .iteration) was modified within DREAM_SESSION_TTL_SEC.
+    Read-only; `now` is overridable for deterministic tests. Returns the FIRST
+    (sorted) live feature so the idle-gate can name it in the skip reason.
     """
     now = now if now is not None else time.time()
-    live = []
     work = os.path.join(kdir, "work")
     if not os.path.isdir(work):
-        return live
+        return None
     try:
         feats = sorted(os.listdir(work))
     except OSError:
-        return live
+        return None
     for feat in feats:
         loop = os.path.join(work, feat, ".loop")
         if not os.path.isdir(loop):
@@ -13071,14 +12878,9 @@ def dream_active_sessions(kdir, now=None):
                 break
             except OSError:
                 continue
-        if mtime is not None and (now - mtime) <= DREAM_SESSION_TTL_S:
-            live.append(feat)
-    return live
-
-
-def is_session_active(kdir, now=None):
-    """True iff any agentware loop session is currently live (idle-gate signal)."""
-    return bool(dream_active_sessions(kdir, now=now))
+        if mtime is not None and (now - mtime) <= DREAM_SESSION_TTL_SEC:
+            return feat
+    return None
 
 
 def _dream_lock_path(kdir):
@@ -13110,7 +12912,7 @@ def _dream_pid_alive(pid):
     return True
 
 
-def dream_lock_is_stale(rec, now=None, ttl=DREAM_LOCK_TTL_S):
+def dream_lock_is_stale(rec, now=None, ttl=DREAM_LOCK_TTL_SEC):
     """A lock is STALE (reclaimable) when its pid is dead OR its mtime is older
     than `ttl`. Pure given `rec`; `now` overridable for tests."""
     now = now if now is not None else time.time()
@@ -13124,72 +12926,76 @@ def dream_lock_is_stale(rec, now=None, ttl=DREAM_LOCK_TTL_S):
     return False
 
 
-def dream_acquire_lock(kdir, now=None, ttl=DREAM_LOCK_TTL_S):
+def dream_acquire_lock(kdir, now=None, pid=None, ttl=DREAM_LOCK_TTL_SEC):
     """Acquire the single-writer dream lock under .cache/ (gitignored).
 
-    Returns (True, path) on success, or (False, reason) when a FRESH lock is held.
+    Returns True on success, False when a FRESH lock is held by another owner.
     Reclaims a STALE lock (dead pid / expired mtime). Reads the existing lock
-    BEFORE writing anything, so a held-lock refusal mutates NOTHING.
+    BEFORE writing anything, so a held-lock refusal mutates NOTHING. `now`/`pid`
+    are injectable for deterministic tests (no real processes needed).
     """
     now = now if now is not None else time.time()
+    pid = pid if pid is not None else os.getpid()
     path = _dream_lock_path(kdir)
     existing = _dream_read_lock(path)
     if existing is not None and not dream_lock_is_stale(existing, now=now, ttl=ttl):
-        return False, "held by pid %s since %s" % (
-            existing.get("pid"), existing.get("mtime"))
-    rec = {"pid": os.getpid(), "mtime": now}
+        return False
+    rec = {"pid": pid, "mtime": now}
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         _ensure_kb_gitignore(kdir)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(rec, f, sort_keys=True)
-    except OSError as exc:
-        return False, "could not write lockfile: %s" % exc
-    return True, path
+    except OSError:
+        return False
+    return True
 
 
-def dream_release_lock(kdir):
-    """Release the dream lock IFF this process owns it (best-effort)."""
+def dream_release_lock(kdir, pid=None):
+    """Release the dream lock IFF `pid` (default: this process) owns it."""
+    pid = pid if pid is not None else os.getpid()
     path = _dream_lock_path(kdir)
     rec = _dream_read_lock(path)
-    if rec is not None and rec.get("pid") == os.getpid():
+    if rec is not None and rec.get("pid") == pid:
         try:
             os.remove(path)
         except OSError:
             pass
 
 
-def dream_load_skip_reason(load1, ncpu, ratio=DREAM_LOAD_RATIO):
-    """SKIP reason string when 1-min loadavg exceeds ratio*ncpu, else None. Pure."""
-    if load1 is None or not ncpu:
-        return None
-    ceiling = ratio * ncpu
-    if load1 > ceiling:
-        return ("system load high (loadavg1=%.2f > %.2f = %.1f*%d cpu)"
-                % (load1, ceiling, ratio, ncpu))
-    return None
+def _dream_load_state(load=None):
+    """Return (is_high, load1, threshold). `load` overridable for tests.
+
+    threshold = DREAM_LOAD_RATIO * cpu_count. A platform without getloadavg
+    (e.g. some Windows) reports (False, None, None) — load never blocks there.
+    """
+    if load is not None:
+        return load
+    try:
+        load1 = os.getloadavg()[0]
+    except (OSError, AttributeError):
+        return (False, None, None)
+    threshold = DREAM_LOAD_RATIO * (os.cpu_count() or 1)
+    return (load1 > threshold, load1, threshold)
 
 
-def dream_idle_skip_reason(kdir, force=False, now=None, load1=None, ncpu=None):
+def dream_gate_reason(kdir, force=False, now=None, load=None):
     """Idle-gate decision: a SKIP reason string, or None to proceed.
 
-    With `force=True` the idle signals are bypassed (the concurrency lock still
-    applies elsewhere). Pure-ish: `now`/`load1`/`ncpu` are injectable so the gate
-    is testable without real processes/load.
+    With `force=True` the idle signals (active session, high load) are bypassed
+    for a manual run — the concurrency lock is enforced separately. `now`/`load`
+    are injectable so the gate is testable without real processes/load.
     """
     if force:
         return None
-    active = dream_active_sessions(kdir, now=now)
+    active = is_session_active(kdir, now=now)
     if active:
-        return "agentware loop session active: %s" % ", ".join(active)
-    if load1 is None:
-        try:
-            load1 = os.getloadavg()[0]
-        except (OSError, AttributeError):
-            load1 = None
-    if ncpu is None:
-        ncpu = os.cpu_count() or 1
-    return dream_load_skip_reason(load1, ncpu)
+        return "an agentware loop session is active (%s)" % active
+    is_high, load1, threshold = _dream_load_state(load)
+    if is_high:
+        return ("system load is high (loadavg1=%s > %s) — deferring"
+                % (load1, threshold))
+    return None
 
 
 def _dream_perf():
@@ -13332,12 +13138,15 @@ def _dream_step_kb_git(kdir, dry_run):
     """Step f — nightly backup: kb-git commit (+ optional push), gated on
     autocommit. A non-tracked KB / autocommit OFF / no upstream degrades to a
     clean no-op. NEVER stages the package repo (the helper refuses, C-3)."""
+    # Dry-run is a PURE plan: report the intended step uniformly with every other
+    # step and probe NO environment-specific state (autocommit / git work tree),
+    # so `dream --dry-run` is byte-stable regardless of the host KB's git status.
+    if dry_run:
+        return {"status": "planned", "would": "kb-git commit (+ optional push)"}
     if resolve_kb_autocommit() != "1":
         return {"status": "skipped", "reason": "kb autocommit OFF"}
     if not git_is_work_tree(kdir):
         return {"status": "skipped", "reason": "KB not a git work tree"}
-    if dry_run:
-        return {"status": "planned", "would": "kb-git commit (+ optional push)"}
     head0 = _git(kdir, "rev-parse", "HEAD")
     sha0 = head0.stdout.strip() if head0.returncode == 0 else None
     ns = argparse.Namespace(path=None, tag="dream", type="chore", message=None)
@@ -13513,14 +13322,14 @@ def cmd_dream(args):
         return _dream_output(_run_cycle(), as_json, True)
 
     # Idle-gate FIRST (reads only) so an active-session skip mutates nothing.
-    skip = dream_idle_skip_reason(kdir, force=force)
+    skip = dream_gate_reason(kdir, force=force)
     if skip:
         return _dream_skip_output("idle-gate", skip, as_json)
 
     # Single-writer concurrency lock (honored even with --force).
-    acquired, info = dream_acquire_lock(kdir)
-    if not acquired:
-        return _dream_skip_output("lock", info, as_json)
+    if not dream_acquire_lock(kdir):
+        return _dream_skip_output(
+            "lock", "another dream holds the lock (concurrency guard)", as_json)
     try:
         if os.environ.get("AGENTWARE_NESTED_UNITTEST") != "1":
             try:
