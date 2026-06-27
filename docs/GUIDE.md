@@ -461,6 +461,8 @@ flags). Every key resolves **env → `config.env` → default**:
 | `AGENTWARE_RETRIEVAL_MODE` | `config --set-retrieval bm25\|semantic` (alias of `--set-mode deterministic\|semantic`) | `config --retrieval-mode-only` (effective) | `deterministic` (Mode A) | Which retrieval mode runs |
 | `AGENTWARE_EMBEDDER_BACKEND` | `config --set-embedder <dotted-name\|path>` | `config --embedder-only` | _unset_ (no semantic backend) | The LOCAL embedder backend module |
 | `AGENTWARE_EMBED_MODEL` | `config --set-embed-model <id>` | `config --embed-model-only` | `nomic-embed-text` | The embedding model id passed to the backend |
+| `AGENTWARE_DREAM` | `config --set-dream on\|off` | `config --dream-only` | `off` (opt-in) | Enable the unattended `dream` maintenance cycle |
+| `AGENTWARE_DREAM_SCHEDULE` | `config --set-dream-schedule HH:MM\|<cron>` | `config --dream-schedule-only` | _unset_ | Nightly run time the scheduler installs |
 
 - **Resolution order** for every key: the environment variable wins (per-run
   override), then `~/.agentware/config.env` (the persisted choice), then the
@@ -476,6 +478,73 @@ flags). Every key resolves **env → `config.env` → default**:
   `--set-<flag>` / `--<flag>-only` pair in `cmd_config` mirroring
   `_set_config_value`, and surface it in `config --format json`. No new storage, no
   new file — SETTINGS_AW is the one place settings live.
+
+### Dream mode — unattended, idle-gated KB maintenance (opt-in)
+
+agentware's **interactive** path is flat as the KB grows: recall is ranked +
+token-budgeted, so a query is O(query-terms), not O(corpus). The only work that
+scales with size is **maintenance** (re-index/re-cache, PII redact, reliability
+eval, staleness detection, git backup). **Dream mode** moves all of that OFF the
+hot path into a scheduled, idle-gated, **deterministic** background cycle so the
+KB stays fresh/compacted/backed-up and you never feel the cost.
+
+**Phase 1 is strictly deterministic + sanctioned-mutation-only — no LLM, no
+destructive deletes/merges, no auto-promotion.** It runs one cycle in fixed
+order, each step idempotent and individually skippable:
+
+| Step | What it does | Mutation |
+|---|---|---|
+| **a** index rebuild | regenerate index.json + rosters + FEATURES + BM25 cache | derived caches (sole writer) |
+| **b** bench redact | scrub `gold_path` PII from the benchmark ledger | ledger `gold_path` only |
+| **c** audit `--with-tests` | full health check (incl. unittest + gate) | none (read-only) |
+| **d** eval `--record` | append ONE reliability row, then redact it | one append-only ledger row |
+| **e** detect & report | `audit --stale` + worklog scan across `work/*/worklog.md` | **none** — REPORTS only |
+| **f** kb-git commit | nightly backup (+ optional push), gated on autocommit | one KB commit |
+
+```bash
+scripts/agentware dream --dry-run            # show the ordered plan; mutate nothing
+scripts/agentware dream --steps a,b          # run a subset
+scripts/agentware dream --force              # bypass the idle-gate (lock still honored)
+scripts/agentware dream                      # one full cycle (idle-gated)
+```
+
+- **Default OFF / opt-in.** Nothing runs until you enable it:
+  `config --set-dream on`.
+- **Idle-gate.** The cycle **skips with a logged reason** when an agentware loop
+  session is active or system load is high, and runs at low priority (`nice`) so
+  it never competes with interactive work. `--force` bypasses the idle-gate for a
+  manual run; a single-writer lockfile (under the gitignored `.cache/`) is always
+  honored so two dreams never overlap.
+- **Idempotent.** Two dreams over an unchanged KB are a no-op beyond a journal
+  entry + one reliability row (index rebuild is byte-stable; redact no-ops on a
+  clean ledger).
+- **Journal + observability.** Each cycle appends a deterministic entry to
+  `logs/dream-journal.md` (machine-local, gitignored) and emits one `dream` event
+  to `logs/metrics.jsonl`. A read-only `dream_health` audit check is **inert** when
+  dream is OFF and **warns** when it is ON but the last cycle is stale.
+
+**Install the nightly schedule (opt-in).** The portable artifact is the `dream`
+command; the installer is a thin, fully non-interactive wrapper that writes ONLY
+into your `HOME`:
+
+```bash
+scripts/agentware config --set-dream on
+scripts/agentware config --set-dream-schedule 03:30   # or a 5-field cron expr
+scripts/agentware dream --install-schedule            # launchd (macOS) / cron (else)
+scripts/agentware dream --uninstall-schedule          # remove it (idempotent)
+```
+
+On macOS this writes a `LaunchAgent` plist to
+`~/Library/LaunchAgents/com.agentware.dream.plist`; elsewhere it writes a crontab
+fragment to `~/.agentware/dream.cron` and installs it. **Manual setup** on an
+unsupported platform: schedule any task runner to invoke
+`nice -n 10 <repo>/scripts/agentware dream` at your chosen time — the command is
+self-contained and non-interactive. To disable entirely:
+`config --set-dream off` then `dream --uninstall-schedule`.
+
+> **Phase 2 (deferred, NOT in Phase 1):** all LLM-driven curation lives behind a
+> future review queue — dedup-MERGE of duplicate learnings, re-summarize/compaction,
+> and AUTO-PROMOTE of `> LEARNED:`/`> DECISION:` markers. Phase 1 only REPORTS those.
 
 ### Benchmark methodology & numbers (LongMemEval)
 

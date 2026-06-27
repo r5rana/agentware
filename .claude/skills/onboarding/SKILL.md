@@ -417,6 +417,39 @@ answer. The setting resolves env → config → **default `deterministic` (Mode 
 5. Escape hatch: a per-run `AGENTWARE_RETRIEVAL_MODE=semantic ./agentware.sh …`
    overrides the persisted setting for a single run.
 
+#### Step 7b-3 — Dream mode (unattended KB maintenance, opt-in)
+
+**Dream mode** is a scheduled, idle-gated, **deterministic** background cycle that
+moves all size-scaling KB maintenance (re-index/cache, PII redact, reliability
+eval, staleness detection, git backup) OFF the interactive path — the KB stays
+fresh/compacted/backed-up and the operator never feels the cost. It is **default
+OFF / opt-in**, never runs while a loop session is active, and runs at low
+priority. Phase 1 is strictly deterministic (no LLM, no destructive
+deletes/merges, no auto-promotion). Full details live in `docs/GUIDE.md`.
+
+1. Ask once: **"Enable dream mode — nightly unattended KB maintenance (index
+   refresh, PII redact, reliability snapshot, stale report, git backup)? It's
+   default OFF and never competes with active work. [recommended: off until the
+   KB grows]"**
+2. **If they decline (default):** do NOTHING — nothing is scheduled, nothing
+   installed. They can enable it later anytime.
+3. **If they accept**, enable + install the nightly schedule, fully
+   non-interactively (flags only, no stdin — `R-SHELL-01`):
+   ```bash
+   scripts/agentware config --set-dream on
+   scripts/agentware config --set-dream-schedule 03:30   # 24h HH:MM, or a 5-field cron expr
+   scripts/agentware dream --install-schedule            # launchd (macOS) / cron (else)
+   ```
+   Confirm it resolves on and a schedule is set:
+   ```bash
+   scripts/agentware config --dream-only            # prints: on
+   scripts/agentware config --dream-schedule-only   # echoes the schedule token
+   ```
+4. They can disable + remove it anytime:
+   `scripts/agentware config --set-dream off` then
+   `scripts/agentware dream --uninstall-schedule` (both idempotent). A per-run
+   `AGENTWARE_DREAM=on` env var overrides the persisted setting for a single run.
+
 #### Step 7c — Install the two workflow aliases (and VERIFY them)
 
 These two aliases are the whole interface. Each launches the matching subagent
