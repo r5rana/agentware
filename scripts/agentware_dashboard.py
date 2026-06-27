@@ -413,6 +413,11 @@ def api_health(request):
             cli._audit_steering_lint_check(),
             cli._audit_personal_data_check(kdir),
         ]
+        # Dream-mode freshness (260627-dream-mode): inert when dream is OFF, so
+        # it never false-alarms the default; surfaces last-dream staleness on the
+        # dashboard when enabled. Tolerant of an older CLI without the check.
+        if hasattr(cli, "_audit_dream_health_check"):
+            checks.append(cli._audit_dream_health_check(kdir))
     ok = all(c["ok"] for c in checks)
     return HTTPStatus.OK, {"ok": ok, "checks": checks}
 
