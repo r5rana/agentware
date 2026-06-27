@@ -138,6 +138,40 @@ This is the defining step of agentware. Do it before anything else.
    Team-mode's shared-git setup (attach or init the shared repo) happens in
    Step 7b once versioning is configured.
 
+6. **Choose the runtime CLI (Claude Code vs OpenAI Codex).** agentware's loop is
+   runtime-agnostic: it can drive either **Claude Code** (`claude`, today's
+   default) or **OpenAI Codex** (`codex`). This decides which agent binary the
+   loop spawns and which form the Step 7c aliases take. It resolves env
+   (`AGENTWARE_CLI`) → config → **default `claude`**, so leaving it unset is
+   byte-unchanged from today.
+
+   Ask:
+   > "Which AI runtime should agentware drive — **Claude Code** (`claude`,
+   > today's default) or **OpenAI Codex** (`codex`)? Both run the same AGENTS.md
+   > methodology; the loop adapts the spawn for whichever you pick. [recommend
+   > whichever CLI you already have installed and logged in]"
+
+   - Persist the choice with the toolkit (the ONLY writer of the setting —
+     accepts only `claude|codex`, an invalid value exits 2):
+     ```bash
+     scripts/agentware config --set-cli claude   # or: codex
+     ```
+     Confirm it landed: `scripts/agentware config --cli-only` (prints `claude`
+     or `codex`).
+   - **Codex note:** Codex auto-loads `AGENTS.md` but has no `--agent` subagent
+     selector and no SessionStart hook, so the loop injects the persona +
+     session context into the prompt for you (handled in `agentware.sh` — no
+     onboarding action needed). Autonomy maps to
+     `--dangerously-bypass-approvals-and-sandbox` (the faithful analog of
+     Claude's `--dangerously-skip-permissions`), reversible per-run via
+     `AGENTWARE_CODEX_SANDBOX=1` (swaps to `--sandbox workspace-write -a never`).
+   - **If `claude` (the default)**, do nothing extra — this is today's flow,
+     byte-unchanged.
+
+   Throughout the rest of onboarding, read the chosen runtime back with
+   `scripts/agentware config --cli-only` (call it `$AW_CLI`); Step 7c's aliases
+   and the Step 7d preflight both branch on it.
+
 ### Step 3 — Interview the user
 
 Keep this concise. Ask one question at a time, or batch 2–3 related questions.
@@ -452,12 +486,18 @@ deletes/merges, no auto-promotion). Full details live in `docs/GUIDE.md`.
 
 #### Step 7c — Install the two workflow aliases (and VERIFY them)
 
-These two aliases are the whole interface. Each launches the matching subagent
-with permissions pre-granted (`--dangerously-skip-permissions`) so the user is
-never asked to approve commands mid-flow:
+These two aliases are the whole interface. Each launches the matching agent
+persona with permissions pre-granted so the user is never asked to approve
+commands mid-flow:
 
 - `PLAN_AW`   → `agentware-planner` (drafts plans, never executes)
 - `WORK_AW`   → `agentware-execution` (runs the work; the loop's POST phase self-assesses via this agent)
+
+The **exact alias body depends on the runtime CLI chosen in Step 2** — resolve it
+first with `AW_CLI=$(scripts/agentware config --cli-only)`. The Claude form uses
+native `--agent` subagent selection; the Codex form (no `--agent`, no
+SessionStart hook) bootstraps the persona via an initial prompt that tells codex
+to read the matching `.claude/agents/<persona>.md` and adopt it.
 
 **Always ask before writing to a shell rc; never append silently.** But do treat
 this as a required, verified step — don't finish onboarding until the aliases
@@ -470,26 +510,44 @@ resolve.
    `~/.bash_profile` (bash). Confirm the target with the user.
 3. Idempotency: `grep -q '# >>> agentware aliases >>>' <target-rc>`. If present,
    tell the user and skip to verification (step 6). If absent, proceed.
-4. Resolve the absolute repo path with `pwd` (call it `$AW_REPO`). Bake it into
-   each alias with a subshell `cd` so the aliases work from ANY directory and
-   leave the user's current directory unchanged. Append this block with the
-   `write` tool (insert mode, end of file) — NOT `cat`/heredoc/`echo >>`, and
-   substitute the real absolute path for `$AW_REPO`:
+4. Resolve the absolute repo path with `pwd` (call it `$AW_REPO`) and the chosen
+   runtime with `AW_CLI=$(scripts/agentware config --cli-only)`. Bake the literal
+   repo path into each alias with a subshell `cd` so the aliases work from ANY
+   directory and leave the user's current directory unchanged. Append the block
+   matching `$AW_CLI` with the `write` tool (insert mode, end of file) — NOT
+   `cat`/heredoc/`echo >>`, and substitute the real absolute path for `$AW_REPO`:
+
+   **If `$AW_CLI` == `claude` (default):**
    ```
    # >>> agentware aliases >>>
    alias PLAN_AW='(cd "$AW_REPO" && claude --agent agentware-planner --dangerously-skip-permissions)'
    alias WORK_AW='(cd "$AW_REPO" && claude --agent agentware-execution --dangerously-skip-permissions)'
    # <<< agentware aliases <<<
    ```
+
+   **If `$AW_CLI` == `codex`:** codex has no `--agent` selector, so launch codex
+   in the repo with a persona-bootstrap initial prompt — `PLAN_AW` adopts the
+   planner persona read-only (`--sandbox read-only`, never executes), `WORK_AW`
+   adopts the execution persona with autonomy
+   (`--dangerously-bypass-approvals-and-sandbox`, the analog of Claude's
+   skip-permissions):
+   ```
+   # >>> agentware aliases >>>
+   alias PLAN_AW='(cd "$AW_REPO" && codex --sandbox read-only "Read .claude/agents/agentware-planner.md and fully adopt that persona. You are the agentware PLANNER: design and write plans only, NEVER execute them.")'
+   alias WORK_AW='(cd "$AW_REPO" && codex --dangerously-bypass-approvals-and-sandbox "Read .claude/agents/agentware-execution.md and fully adopt that persona. You are the agentware EXECUTION agent: implement the next plan task, verify it, and log progress.")'
+   # <<< agentware aliases <<<
+   ```
    Write the LITERAL absolute path (e.g. `/Users/you/agentware`), not the
    `$AW_REPO` variable, so the alias is self-contained. The `(cd … && …)` subshell
-   means Claude Code loads agentware's `CLAUDE.md`, agents, settings, and hooks
-   from the repo no matter where the user's terminal is, and their shell stays in
-   whatever directory they were in. (If the runtime binary is not `claude`, swap it.)
+   means the runtime loads agentware's `AGENTS.md` (and, for claude, `CLAUDE.md`,
+   agents, settings, and hooks) from the repo no matter where the user's terminal
+   is, and their shell stays in whatever directory they were in. (Only ONE
+   `# >>> agentware aliases >>>` block is written — the one matching `$AW_CLI`.)
 5. Confirm the append landed: re-run the grep from step 3 (must match now).
 6. **VERIFY the aliases actually work before completing onboarding:**
-   - `command -v claude` must succeed (the runtime is on PATH). If not, tell the
-     user to install/login to Claude Code and that the aliases will work once it is.
+   - `command -v "$AW_CLI"` must succeed (the chosen runtime is on PATH). If not,
+     tell the user to install/login to that runtime (Claude Code or Codex) and
+     that the aliases will work once it is.
    - Confirm each alias resolves in a fresh interactive shell of the user's type:
      - zsh: `zsh -ic 'alias PLAN_AW; alias WORK_AW'`
      - bash: `bash -ic 'type PLAN_AW WORK_AW'`

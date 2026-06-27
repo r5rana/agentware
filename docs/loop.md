@@ -38,10 +38,43 @@ updates a worklog as it goes. The runner is `agentware.sh`.
 ./agentware.sh my-feature --main-prompt "Use the dev environment, not prod."
 ```
 
-By default the loop spawns Claude Code headlessly
-(`claude -p --agent agentware-execution --dangerously-skip-permissions`). Set
-`AGENTWARE_CLI=<your-cli>` to use a different runtime, and `AGENTWARE_MODEL` to
-override the model.
+The loop supports two agent runtimes — **Claude Code** and **OpenAI Codex** —
+chosen at onboarding and overridable per-run with `AGENTWARE_CLI=claude|codex`
+(resolution: env → `config --set-cli` → default `claude`). Set `AGENTWARE_MODEL`
+to override the model for either runtime.
+
+### Runtime adapter (Claude Code / OpenAI Codex)
+
+All three loop spawns (KB-merge, pre/post phase, main loop) go through a single
+`run_agent()` adapter in `agentware.sh` that maps the abstract intent — *run agent
+X with prompt P, autonomously* — to per-runtime argv:
+
+- **Claude Code** (default) spawns headlessly:
+  `claude -p --agent agentware-execution --dangerously-skip-permissions [--model …] <prompt>`.
+- **OpenAI Codex** spawns:
+  `codex exec --dangerously-bypass-approvals-and-sandbox [--model …] --json <composed-prompt>`.
+  - **Sandbox / approval mapping.** `--dangerously-bypass-approvals-and-sandbox` is
+    the faithful analog of Claude's `--dangerously-skip-permissions` (full autonomy).
+    Set `AGENTWARE_CODEX_SANDBOX=1` to opt out — the adapter swaps to
+    `--sandbox workspace-write -a never` (writes confined to the workspace, no
+    approval prompts).
+  - **Persona + context injection.** Codex has no `--agent` selector and fires no
+    `SessionStart` hook, so the adapter PREPENDS to each prompt (a) the
+    `.claude/agents/<agent>.md` persona (YAML frontmatter stripped) and (b) a
+    session-context header (the `AGENTWARE_STATUS` line + the external `MAIN.md`).
+    Codex auto-loads `AGENTS.md` but **not** `CLAUDE.md`'s `@imports`, so the
+    injected context references `steering/` explicitly.
+  - **Logging parity.** Codex fires none of the `.claude/*` logging hooks, so the
+    adapter pipes `codex exec --json`'s event stream through
+    `scripts/hooks/codex-stream.py` (stdlib-only), which reproduces the SAME sinks
+    the Claude hooks write: `logs/prompts.log`, per-action
+    `logs/sessions/<sid>/live.jsonl` + `live.md`, the lossless `main.jsonl`, and the
+    `$AGENTWARE_LIVE_LOG` live-stream sink that feeds `tail -F`. The final assistant
+    message still reaches stdout so the `<promise>…</promise>` completion grep works.
+
+`scripts/agentware config --cli-only` reports the persisted runtime;
+`--set-cli claude|codex` sets it (invalid values exit 2). Loop completion
+detection, metrics, and `scripts/agentware` itself are runtime-independent.
 
 ## Why iterations?
 

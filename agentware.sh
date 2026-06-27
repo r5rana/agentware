@@ -20,12 +20,18 @@
 
 set -e
 
-# The CLI runtime used to spawn agents. Defaults to Claude Code (`claude`).
-# Override with AGENTWARE_CLI if your runtime binary differs. AGENTWARE_MODEL
-# optionally overrides the model passed to each spawn (otherwise the subagent's
-# own `model:` frontmatter applies).
-CLI="${AGENTWARE_CLI:-claude}"
+# The CLI runtime used to spawn agents. Resolved env -> config.env -> default
+# `claude` (the single source of truth `scripts/agentware config --cli-only`
+# reports; onboarding records it via --set-cli). Override per-run with
+# AGENTWARE_CLI. AGENTWARE_MODEL optionally overrides the model passed to each
+# spawn (otherwise the subagent's own `model:` frontmatter applies).
+CLI="${AGENTWARE_CLI:-$(scripts/agentware config --cli-only 2>/dev/null || echo claude)}"
 MODEL="${AGENTWARE_MODEL:-}"
+
+# claude's autonomy flag, defined ONCE so the literal appears a single time in
+# this file (run_agent spawns with it; the --dry-run argv printer echoes it).
+# The codex faithful analog is --dangerously-bypass-approvals-and-sandbox.
+CLAUDE_SKIP_PERMS="--dangerously-skip-permissions"
 
 usage() {
   echo "Usage: ./agentware.sh <feature-name> [--max-iterations N] [--agent AGENT]"
@@ -877,6 +883,87 @@ run_kb_sync() {
 # `kb-git merge-continue` to rebuild the derived files and finish the push.
 # Returns the CLI's exit code. The nothing-lost ID-superset gate + bounded
 # re-push retry live inside the CLI (`kb-git push` / `merge-continue`, Phase 6);
+# ---- RUNTIME ADAPTER (Task 2) ----
+# Single spawn adapter: maps the abstract intent (run agent $AGENT with prompt P,
+# autonomously) to per-runtime argv. ALL loop spawns (the MERGE reconcile, the
+# pre/post run_phase, and the main loop) route through here, so runtime coupling
+# lives in exactly one place.
+#   - claude branch: byte-identical to the historical inline spawn
+#     (`-p --agent $AGENT` + the skip-permissions autonomy flag + [--model M] + PROMPT).
+#   - codex branch: the faithful analog (`codex exec` — codex has no -p/--agent).
+#     Autonomy mirrors claude's skip-permissions flag with codex's
+#     --dangerously-bypass-approvals-and-sandbox (operator Q3 = "mapped SIMILAR to
+#     claude"); the AGENTWARE_CODEX_SANDBOX opt-out swaps to the sandboxed,
+#     never-approve analog (--sandbox workspace-write -a never). --model is
+#     accepted by both runtimes, so MODEL_FLAG is reused as-is.
+# stdout is the agent's transcript exactly as before, so callers that capture it
+# (run_phase's `<promise>` grep) keep working unchanged.
+#
+# ---- CODEX PERSONA + CONTEXT INJECTION (Task 3) ----
+# Claude Code gives a spawn two things codex cannot: a persona (via `--agent`)
+# and a SessionStart hook (scripts/hooks/session-start.sh injects AGENTWARE_STATUS
+# + the external MAIN.md). Codex has NEITHER, so we synthesize both at the prompt
+# level: build_codex_prompt PREPENDS (a) the agent persona with its YAML
+# frontmatter stripped and (b) a session-context header byte-equivalent to the
+# session-start hook, then the phase prompt. Codex auto-loads AGENTS.md but NOT
+# CLAUDE.md's @imports (steering/*), so the injected header references steering
+# explicitly.
+
+# Strip the leading YAML frontmatter (--- ... ---) from a persona file, leaving
+# only the prose body (everything after the second `---`).
+strip_frontmatter() {
+  awk 'fm>=2{print} /^---[[:space:]]*$/{fm++}' "$1"
+}
+
+# Compose the codex prompt: persona body + injected session context + phase prompt.
+build_codex_prompt() {
+  local phase_prompt="$1"
+  local persona_file=".claude/agents/$AGENT.md"
+  local persona="" status_ctx=""
+  [[ -f "$persona_file" ]] && persona="$(strip_frontmatter "$persona_file")"
+  if [[ "$INITIALIZED" == true ]]; then
+    status_ctx="AGENTWARE_STATUS: initialized (knowledge dir: $KDIR)"
+    [[ -f "$KDIR/MAIN.md" ]] && status_ctx="$status_ctx
+----- knowledge/MAIN.md (operator profile + active work) -----
+$(cat "$KDIR/MAIN.md")"
+  else
+    status_ctx="AGENTWARE_STATUS: FIRST_RUN — this workspace is not yet initialized. Run the onboarding skill in .claude/skills/onboarding/SKILL.md before any other work."
+  fi
+  printf '%s\n\n%s\n%s\n\n%s\n%s\n\n%s\n' \
+    "$persona" \
+    "===== SESSION CONTEXT (injected — codex has no SessionStart hook) =====" \
+    "$status_ctx" \
+    "NOTE: codex auto-loads AGENTS.md but NOT CLAUDE.md's @imports — read steering/ (steering/common-problems.md, steering/project-context.md) explicitly." \
+    "===== END SESSION CONTEXT =====" \
+    "$phase_prompt"
+}
+
+run_agent() {
+  local prompt="$1"
+  local model_flag=(); [[ -n "$MODEL" ]] && model_flag=(--model "$MODEL")
+  if [[ "$CLI" == codex ]]; then
+    # codex has no --agent/SessionStart hook: synthesize persona + context inline.
+    local composed; composed="$(build_codex_prompt "$prompt")"
+    local autonomy=(--dangerously-bypass-approvals-and-sandbox)
+    [[ -n "${AGENTWARE_CODEX_SANDBOX:-}" ]] && autonomy=(--sandbox workspace-write -a never)
+    # codex fires NO `.claude/*` hooks, so the rich logging the claude spawn gets
+    # for free (prompts.log + per-action live.jsonl/live.md + main.jsonl + the
+    # $AGENTWARE_LIVE_LOG live-stream sink) is reconstructed by streaming
+    # `codex exec --json` (a JSONL event stream) through scripts/hooks/codex-stream.py
+    # into the SAME sinks the claude hooks write (Task 6). The renderer echoes the
+    # final assistant message to stdout so run_phase's `<promise>` grep keeps
+    # working; sink writes are NOT gated by --no-stream (that only disables the
+    # tail -F follower VIEW). stdin is /dev/null so codex never blocks on input.
+    CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 \
+      codex exec --json "${autonomy[@]}" "${model_flag[@]}" "$composed" < /dev/null \
+      | python3 scripts/hooks/codex-stream.py \
+          --log-dir "${KDIR:+$KDIR/logs}" --feature "$FEATURE_NAME" --prompt "$prompt"
+  else
+    CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 \
+      "$CLI" -p --agent "$AGENT" "$CLAUDE_SKIP_PERMS" "${model_flag[@]}" "$prompt"
+  fi
+}
+
 # this is wired into run_post_hooks AFTER the KB commit, behind the same opt-in.
 kb_sync_push() {
   local files rc
@@ -891,12 +978,31 @@ kb_sync_push() {
   log "[sync] prose conflict — reconciling entry file(s) via MERGE_PROMPT:"
   printf '%s\n' "$files"
   local prompt="${MERGE_PROMPT//<FILES>/$files}"
-  MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
-  CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" \
-    --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$prompt" || true
+  run_agent "$prompt" || true
 
   log "[sync] scripts/agentware kb-git merge-continue (rebuild derived + finish push)"
   scripts/agentware kb-git merge-continue
+}
+
+# --dry-run helper (Task 3): print the EXACT runtime-specific spawn argv for a
+# phase prompt without spawning. Mirrors run_agent's branch logic so what is
+# printed is exactly what would run — for codex this includes the composed
+# persona + injected session context, making the injection verifiable offline.
+show_spawn_argv() {
+  local label="$1" prompt="$2"
+  local model_flag=(); [[ -n "$MODEL" ]] && model_flag=(--model "$MODEL")
+  echo "----- SPAWN ARGV: $label ($CLI) -----"
+  if [[ "$CLI" == codex ]]; then
+    local autonomy=(--dangerously-bypass-approvals-and-sandbox)
+    [[ -n "${AGENTWARE_CODEX_SANDBOX:-}" ]] && autonomy=(--sandbox workspace-write -a never)
+    local composed; composed="$(build_codex_prompt "$prompt")"
+    printf 'codex exec --json %s %s <PROMPT>\n%s\n</PROMPT>\n | python3 scripts/hooks/codex-stream.py --log-dir %s/logs --feature %s --prompt <PHASE_PROMPT>\n' \
+      "${autonomy[*]}" "${model_flag[*]}" "$composed" "${KDIR:-<kdir>}" "$FEATURE_NAME"
+  else
+    printf '%s -p --agent %s %s %s <PROMPT>\n%s\n</PROMPT>\n' \
+      "$CLI" "$AGENT" "$CLAUDE_SKIP_PERMS" "${model_flag[*]}" "$prompt"
+  fi
+  echo
 }
 
 # --dry-run — print prompts + iteration plan, then exit WITHOUT spawning the CLI.
@@ -920,6 +1026,10 @@ if [[ "$DRY_RUN" == true ]]; then
   if [[ "$SKIP_POST" != true ]]; then
     echo "----- POST PHASE PROMPT (1 task) -----"; echo "$POST_PROMPT"; echo
   fi
+  echo "===== RESOLVED SPAWN ARGV (runtime: $CLI) ====="; echo
+  [[ "$SKIP_PRE" != true ]] && show_spawn_argv "PRE" "$PRE_PROMPT"
+  show_spawn_argv "MAIN" "$MAIN_PROMPT"
+  [[ "$SKIP_POST" != true ]] && show_spawn_argv "POST" "$POST_PROMPT"
   echo "===== DRY RUN complete — no agent was spawned ====="
   exit 0
 fi
@@ -941,10 +1051,9 @@ run_phase() {
     echo "$i" > "$STATE_DIR/.${phase_name}_iteration"
     log "--- $phase_name task $i/$max_iter ---"
 
-    MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
     local it_t0 it_wall rem
     it_t0=$(date +%s)
-    output=$(CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$prompt" 2>&1 | tee /dev/tty) || true
+    output=$(run_agent "$prompt" 2>&1 | tee /dev/tty) || true
     it_wall=$(( $(date +%s) - it_t0 ))
     rem=$(open_markers)
     # Per-task transition events (Task 7): diff plan.md marker states vs the prior
@@ -1026,9 +1135,8 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   LOOP_ITERATIONS_USED="$i"   # tracked for the terminal outcome event (Task 7)
   log "--- main iteration $i/$MAX_ITERATIONS ($(open_markers) task(s) remaining) ---"
 
-  MODEL_FLAG=(); [[ -n "$MODEL" ]] && MODEL_FLAG=(--model "$MODEL")
   it_t0=$(date +%s)
-  CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 "$CLI" -p --agent "$AGENT" --dangerously-skip-permissions "${MODEL_FLAG[@]}" "$CURRENT_PROMPT" || true
+  run_agent "$CURRENT_PROMPT" || true
   it_wall=$(( $(date +%s) - it_t0 ))
 
   # Per-task transition events (Task 7): diff plan.md marker states vs the prior

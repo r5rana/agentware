@@ -29,7 +29,7 @@ def isolated_config(env=None):
     saved_env = {}
     for k in ("AGENTWARE_KB_MODE", "AGENTWARE_USER_HANDLE",
               "AGENTWARE_RETRIEVAL_MODE", "AGENTWARE_DREAM",
-              "AGENTWARE_DREAM_SCHEDULE"):
+              "AGENTWARE_DREAM_SCHEDULE", "AGENTWARE_CLI"):
         saved_env[k] = os.environ.pop(k, None)
     if env:
         os.environ.update(env)
@@ -105,6 +105,55 @@ class KbModeTests(unittest.TestCase):
             self.assertIn("AGENTWARE_KB_MODE=team", txt)
             code, out, _ = run(mod, ["config", "--kb-mode-only"])
             self.assertEqual(out.strip(), "team")
+
+
+class CliTests(unittest.TestCase):
+    """Runtime CLI SETTINGS_AW flags (260627-codex-runtime-adapter).
+
+    --set-cli claude|codex / --cli-only record WHICH runtime the loop spawns.
+    DISTINCT from every other config axis; default 'claude' (byte-unchanged for
+    existing users).
+    """
+
+    def test_default_is_claude(self):
+        with isolated_config() as (mod, _cfg):
+            code, out, _ = run(mod, ["config", "--cli-only"])
+            self.assertEqual(code, 0)
+            self.assertEqual(out.strip(), "claude")
+
+    def test_set_codex_then_claude_roundtrips(self):
+        with isolated_config() as (mod, cfg):
+            code, _, _ = run(mod, ["config", "--set-cli", "codex"])
+            self.assertEqual(code, 0)
+            code, out, _ = run(mod, ["config", "--cli-only"])
+            self.assertEqual(out.strip(), "codex")
+            self.assertIn("AGENTWARE_CLI=codex", open(cfg).read())
+            # flip back
+            code, _, _ = run(mod, ["config", "--set-cli", "claude"])
+            self.assertEqual(code, 0)
+            code, out, _ = run(mod, ["config", "--cli-only"])
+            self.assertEqual(out.strip(), "claude")
+
+    def test_bogus_rejected_exits_2(self):
+        with isolated_config() as (mod, _cfg):
+            code, _, err = run(mod, ["config", "--set-cli", "bogus"])
+            self.assertEqual(code, 2)
+            self.assertIn("invalid --set-cli", err)
+
+    def test_env_overrides_config(self):
+        with isolated_config() as (mod, _cfg):
+            run(mod, ["config", "--set-cli", "claude"])
+        with isolated_config(env={"AGENTWARE_CLI": "codex"}) as (mod, _cfg):
+            code, out, _ = run(mod, ["config", "--cli-only"])
+            self.assertEqual(out.strip(), "codex")
+
+    def test_json_surfaces_cli(self):
+        import json as _json
+        with isolated_config() as (mod, _cfg):
+            run(mod, ["config", "--set-cli", "codex"])
+            code, out, _ = run(mod, ["config", "--format", "json"])
+            obj = _json.loads(out)
+            self.assertEqual(obj["cli"], "codex")
 
 
 class UserHandleTests(unittest.TestCase):

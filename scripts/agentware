@@ -97,6 +97,20 @@ _KB_MODE_TEAM_TOKENS = ("team", "t", "shared", "git", "group")
 # package (R-LOC-03).
 USER_HANDLE_KEY = "AGENTWARE_USER_HANDLE"
 
+# Runtime CLI (feature 260627-codex-runtime-adapter). agentware is runtime-
+# agnostic: the loop spawns an autonomous coding agent per phase. This records
+# WHICH backend that is — 'claude' (Claude Code) or 'codex' (OpenAI Codex). It is
+# the single source of truth the loop's run_agent() adapter and onboarding both
+# read. Resolution precedence: AGENTWARE_CLI env -> config.env -> default
+# 'claude' (today's behavior, byte-unchanged for existing users). This setting
+# only steers WHICH argv the loop composes; it changes no ranking math (INV-1).
+CLI_KEY = "AGENTWARE_CLI"
+CLI_CLAUDE = "claude"
+CLI_CODEX = "codex"
+CLI_DEFAULT = CLI_CLAUDE
+_CLI_CLAUDE_TOKENS = ("claude", "claude-code", "claudecode", "cc", "default")
+_CLI_CODEX_TOKENS = ("codex", "openai-codex", "openai", "codex-cli")
+
 # Pluggable LOCAL embedder backend (feature 260625-semantic-retrieval-benchmark,
 # Phase 3.2). Mode B (semantic) needs a LOCAL embedding model. The backend is
 # OPTIONAL and NEVER hard-imported: it is resolved from a runtime config string
@@ -477,6 +491,50 @@ def resolve_kb_mode():
     if cfg is not None:
         return cfg
     return KB_MODE_DEFAULT
+
+
+def _parse_cli(raw):
+    """Map a raw runtime-CLI setting to 'claude'/'codex', or None if empty/unknown.
+
+    Lenient (precedence-tier) parse: an unrecognized non-empty value returns None
+    so the caller falls through to the next tier (ultimately the safe 'claude'
+    default) — a typo never silently flips the operator onto an unsupported runtime.
+    """
+    if raw is None:
+        return None
+    v = raw.strip().strip('"').strip("'").lower()
+    if not v:
+        return None
+    if v in _CLI_CODEX_TOKENS:
+        return CLI_CODEX
+    if v in _CLI_CLAUDE_TOKENS:
+        return CLI_CLAUDE
+    return None
+
+
+def _parse_cli_strict(raw):
+    """Strict parse for `config --set-cli`: only recognized tokens, else None."""
+    v = (raw or "").strip().strip('"').strip("'").lower()
+    if v in _CLI_CODEX_TOKENS:
+        return CLI_CODEX
+    if v in _CLI_CLAUDE_TOKENS:
+        return CLI_CLAUDE
+    return None
+
+
+def resolve_cli():
+    """Resolve the configured runtime CLI ('claude' | 'codex').
+
+    Precedence: AGENTWARE_CLI env -> config.env -> default 'claude'. This is the
+    single source of truth the loop's run_agent() adapter and onboarding read.
+    """
+    env = _parse_cli(os.environ.get(CLI_KEY))
+    if env is not None:
+        return env
+    cfg = _parse_cli(_read_config_key(CLI_KEY))
+    if cfg is not None:
+        return cfg
+    return CLI_DEFAULT
 
 
 def _parse_dream(raw):
@@ -1667,6 +1725,27 @@ def cmd_config(args):
                   % (KB_MODE_KEY, norm, HOME_CONFIG, norm))
         return 0
 
+    # --set-cli claude|codex: persist the runtime CLI (feature
+    # 260627-codex-runtime-adapter) to ~/.agentware/config.env, then report. This
+    # is the single source of truth the loop's run_agent() adapter reads.
+    cli_val = getattr(args, "set_cli", None)
+    if cli_val is not None:
+        norm = _parse_cli_strict(cli_val)
+        if norm is None:
+            sys.stderr.write(
+                "agentware: invalid --set-cli value %r (use claude|codex)\n"
+                % cli_val)
+            return 2
+        _set_config_value(CLI_KEY, norm)
+        if as_json:
+            json.dump({"ok": True, "cli": norm, "config": HOME_CONFIG},
+                      sys.stdout, ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+        else:
+            print("Set %s=%s in %s (runtime CLI %s)"
+                  % (CLI_KEY, norm, HOME_CONFIG, norm))
+        return 0
+
     # --set-dream on|off: persist the dream-mode opt-in (feature 260627-dream-mode)
     # to ~/.agentware/config.env, then report. Default OFF; env overrides per-run.
     dream_val = getattr(args, "set_dream", None)
@@ -1733,6 +1812,12 @@ def cmd_config(args):
         print(resolve_kb_mode())
         return 0
 
+    # --cli-only: bare resolved runtime CLI (claude|codex) for shell consumers
+    # (the loop's run_agent() adapter + onboarding alias generation).
+    if getattr(args, "cli_only", False):
+        print(resolve_cli())
+        return 0
+
     # --dream-only: bare resolved dream setting (on/off) for shell consumers
     # (the scheduler installer + the `dream` idle-gate). Default OFF.
     if getattr(args, "dream_only", False):
@@ -1794,6 +1879,7 @@ def cmd_config(args):
     retrieval_mode = resolve_retrieval_mode()
     eff_mode, mode_fell_back, _mode_notice = resolve_effective_retrieval_mode()
     kb_mode = resolve_kb_mode()
+    cli = resolve_cli()
     user_handle = resolve_user_handle()
     dream = resolve_dream()
     dream_schedule = resolve_dream_schedule()
@@ -1803,7 +1889,7 @@ def cmd_config(args):
                    "initialized": initialized, "kb_autocommit": autocommit,
                    "retrieval_mode": retrieval_mode,
                    "effective_retrieval_mode": eff_mode,
-                   "kb_mode": kb_mode, "user_handle": user_handle,
+                   "kb_mode": kb_mode, "cli": cli, "user_handle": user_handle,
                    "dream": dream, "dream_schedule": dream_schedule,
                    "embedder_backend": resolve_embedder_backend(),
                    "embed_model": resolve_embed_model(),
@@ -1819,6 +1905,7 @@ def cmd_config(args):
     mode_line = "retrieval_mode: %s" % retrieval_mode
     if mode_fell_back:
         mode_line += " (effective: %s — no local model)" % eff_mode
+    cli_line = "cli:           %s" % cli
     handle_line = "user_handle:   %s" % (user_handle or "<unset>")
     dream_line = "dream:         %s" % ("on" if dream == "1" else "off")
     dream_sched_line = "dream_sched:   %s" % (dream_schedule or "<unset>")
@@ -1833,6 +1920,7 @@ def cmd_config(args):
         print(embedder_line)
         print(embed_model_line)
         print("kb_mode:       %s" % kb_mode)
+        print(cli_line)
         print(handle_line)
         print(dream_line)
         print(dream_sched_line)
@@ -1843,6 +1931,7 @@ def cmd_config(args):
     print(embedder_line)
     print(embed_model_line)
     print("kb_mode:       %s" % kb_mode)
+    print(cli_line)
     print(handle_line)
     print(dream_line)
     print(dream_sched_line)
@@ -2619,8 +2708,12 @@ def _operator_handle(kdir):
     """Best-effort operator handle for the `author` default. Stdlib only.
 
     Parses `**Handle**:` (then `**Operator**:`) out of the KB MAIN.md. Falls back
-    to 'operator' so the writer never blocks on a missing profile.
+    to 'operator' so the writer never blocks on a missing profile. Tolerates a
+    None/empty kdir (e.g. an unconfigured knowledge dir during a pure row-build
+    test) by returning the safe default instead of crashing on os.path.join.
     """
+    if not kdir:
+        return "operator"
     try:
         with open(os.path.join(kdir, "MAIN.md"), "r", encoding="utf-8") as f:
             text = f.read()
@@ -2654,8 +2747,10 @@ def _operator_email(kdir):
     """Best-effort operator email parsed from the KB MAIN.md, or None.
 
     Reads the LIVE profile at runtime (hardcodes nothing). Returns the first
-    email-shaped token found in MAIN.md, else None.
+    email-shaped token found in MAIN.md, else None. Tolerates a None/empty kdir.
     """
+    if not kdir:
+        return None
     try:
         with open(os.path.join(kdir, "MAIN.md"), "r", encoding="utf-8") as f:
             text = f.read()
@@ -6778,6 +6873,18 @@ _DEFAULT_PRICES = {
     "claude-3-5-sonnet": {
         "input": 3.0, "output": 15.0,
         "cache_creation_input_tokens": 3.75, "cache_read_input_tokens": 0.3},
+    # OpenAI Codex runtime (AGENTWARE_CLI=codex). USD per 1M tokens. OpenAI bills
+    # no cache-WRITE fee (creation == input price) and discounts cached input
+    # reads; longest-substring match means "gpt-5-codex" wins over "gpt-5".
+    "gpt-5-codex": {
+        "input": 1.25, "output": 10.0,
+        "cache_creation_input_tokens": 1.25, "cache_read_input_tokens": 0.125},
+    "gpt-5-mini": {
+        "input": 0.25, "output": 2.0,
+        "cache_creation_input_tokens": 0.25, "cache_read_input_tokens": 0.025},
+    "gpt-5": {
+        "input": 1.25, "output": 10.0,
+        "cache_creation_input_tokens": 1.25, "cache_read_input_tokens": 0.125},
     "default": {
         "input": 3.0, "output": 15.0,
         "cache_creation_input_tokens": 3.75, "cache_read_input_tokens": 0.3},
@@ -13645,6 +13752,15 @@ def build_parser():
                        help="persist the workspace KB mode to ~/.agentware/config.env "
                             "(power=solo local KB / team=shared git KB; distinct "
                             "from the retrieval --set-mode; env overrides per-run)")
+    # --- runtime CLI (260627-codex-runtime-adapter) ----------------------
+    p_cfg.add_argument("--cli-only", action="store_true", dest="cli_only",
+                       help="print only the resolved runtime CLI (claude|codex) "
+                            "for shell consumers (the loop's run_agent adapter "
+                            "+ onboarding alias generation)")
+    p_cfg.add_argument("--set-cli", dest="set_cli", metavar="claude|codex",
+                       help="persist the runtime CLI to ~/.agentware/config.env "
+                            "(claude=Claude Code / codex=OpenAI Codex; env still "
+                            "overrides per-run; default claude)")
     p_cfg.add_argument("--user-handle-only", action="store_true",
                        dest="user_handle_only",
                        help="print only the resolved per-user provenance handle "

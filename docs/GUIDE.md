@@ -28,9 +28,12 @@ that you own completely, and how everything is tracked deterministically.
 ## One-time setup
 
 1. Clone the package and `cd` into it.
-2. Run `claude`. On first launch Claude Code asks you to **trust this folder's
-   hooks/settings** — approve it once (a security step).
+2. Run your agent runtime — `claude` (Claude Code) or `codex` (OpenAI Codex).
+   On first launch Claude Code asks you to **trust this folder's hooks/settings** —
+   approve it once (a security step).
 3. Onboarding starts automatically. It will:
+   - ask **which runtime** to use (Claude Code or OpenAI Codex) and persist it via
+     `scripts/agentware config --set-cli`,
    - ask **where to store your knowledge base** (e.g. `~/agentware-knowledge`),
    - run `scripts/agentware init` to build that directory,
    - interview you briefly + look at your system,
@@ -727,11 +730,15 @@ day-to-day work can never silently alter the orchestrator.
   (they skip permissions), or approve the one-time folder-trust prompt.
 - **Hooks/logging not running** — make sure you launched Claude Code from the
   package directory (the aliases handle this) and that `jq` + `python3` are on
-  your PATH.
+  your PATH. Under **OpenAI Codex** there are no `.claude/*` hooks; the loop
+  reconstructs the same log sinks by piping `codex exec --json` through
+  `scripts/hooks/codex-stream.py` (see [docs/loop.md](loop.md#runtime-adapter-claude-code--openai-codex)).
 
 ---
 
 ## Requirements
 
-Claude Code (`claude`), a POSIX shell with `bash` + `jq` + Python 3
-(macOS / Linux / WSL). See the [README](../README.md) for the full list.
+An agent runtime — Claude Code (`claude`) or OpenAI Codex (`codex`), chosen at
+onboarding and overridable via `AGENTWARE_CLI=claude|codex` — plus a POSIX shell
+with `bash` + `jq` + Python 3 (macOS / Linux / WSL). See the
+[README](../README.md) for the full list.

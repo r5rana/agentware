@@ -26,7 +26,7 @@ There are two kinds of tools today, and a gap between them:
 
 **agentware is the seat between them:** a real execution loop **and** memory that's deterministic, non-hallucinated, benchmark-gated, and managed entirely by code — so every loop deterministically reuses verified knowledge, and the system **self-heals, self-improves, and self-extends** as it runs.
 
-**And it's open-source and fully yours.** agentware is Apache-2.0; your knowledge base is plaintext markdown + JSON in a directory **you choose** — git-native, with a full audit trail of every prompt and transcript. Nothing personal is committed to this repo, nothing phones home, and there's no account or hosted service in the loop: the framework runs on **your own** agent runtime (e.g. Claude Code).
+**And it's open-source and fully yours.** agentware is Apache-2.0; your knowledge base is plaintext markdown + JSON in a directory **you choose** — git-native, with a full audit trail of every prompt and transcript. Nothing personal is committed to this repo, nothing phones home, and there's no account or hosted service in the loop: the framework runs on **your own** agent runtime — **Claude Code or OpenAI Codex**, chosen at onboarding (overridable via `AGENTWARE_CLI`).
 
 ---
 
@@ -129,10 +129,11 @@ The moat in one line:
 # 1. Clone wherever you want your instance to live
 git clone <this-repo> agentware && cd agentware
 
-# 2. Run your agent runtime (Claude Code) inside the repository — onboarding auto-starts:
-#    it asks where to store your knowledge base, scaffolds it, and personalizes.
-#    make sure you are in the correct path and pay attention during onboarding
-claude "hi"
+# 2. Run your agent runtime inside the repository — onboarding auto-starts:
+#    it asks which runtime to use (Claude Code or OpenAI Codex), where to store your
+#    knowledge base, scaffolds it, and personalizes. Pay attention during onboarding.
+claude "hi"      # Claude Code (default), OR
+codex "hi"       # OpenAI Codex — onboarding records your choice via `config --set-cli`
 
 # 3. Write a short plan using PLAN_AW, then fire-and-forget the loop:
 ./agentware.sh <YYMMDD-feature>
@@ -179,7 +180,7 @@ agentware is honest about where it's *not yet* industry-standard:
 
 - **🌙 Dream mode** *(next)* — idle-time background maintenance ("dreams"). **The fundamental:** in agentware the *interactive* path stays flat as the KB grows — retrieval is ranked + **token-budgeted**, so each loop injects a bounded, relevant slice no matter how large the KB gets. The **only** work that scales with size is *maintenance*: re-indexing, re-embedding, audit, dedup, PII-redaction, git-sync. Dream mode moves all of it **off the hot path** — a scheduled, idle-gated job that rebuilds the BM25/vector caches, runs the health + benchmark gates, promotes pending learnings, scrubs the ledger, dedups/compacts entries, syncs the KB to git, and leaves a "dream journal" for the morning. You wake to a fresh, compacted, backed-up KB and never feel the maintenance cost. *Phase 1 = deterministic ops (safe, unattended); Phase 2 = LLM-assisted curation behind a review queue.*
 - **Knowledge-graph / multi-hop** retrieval — deeper traversal over the shipped deterministic dependency graph.
-- **Broader runtime support** (native Windows; more agent CLIs).
+- **Broader runtime support** (native Windows; more agent CLIs beyond the shipped Claude Code + OpenAI Codex).
 
 **Shipped since this list started:** **Mode B** local semantic retrieval (optional/opt-in — see the measured A/B above; BM25 stays default), the **observability dashboard** (live loop + benchmark health), and a deterministic **KB dependency graph**.
 
@@ -189,7 +190,12 @@ agentware is honest about where it's *not yet* industry-standard:
 
 ## Requirements
 
-- **Claude Code** (`claude` CLI) — the native runtime (set `AGENTWARE_CLI=<your-cli>` for others).
+- **An agent runtime: Claude Code (`claude`) or OpenAI Codex (`codex`)** — chosen at
+  onboarding and persisted via `scripts/agentware config --set-cli claude|codex`;
+  override per-run with `AGENTWARE_CLI=claude|codex`. Resolution is env → config →
+  default `claude`. See [docs/loop.md](docs/loop.md#runtime-adapter-claude-code--openai-codex)
+  for the Codex adapter (the `codex exec` invocation, sandbox/approval mapping, persona
+  injection, and `--json` logging renderer).
 - **POSIX shell + `bash` + `jq` + Python 3** — macOS, Linux, or Windows via WSL/Git-Bash.
 - Git optional (onboarding offers `git init` + push via `gh`). Node.js ≥ 18 only for optional Playwright UI verification.
 
