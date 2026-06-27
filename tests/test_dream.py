@@ -192,7 +192,10 @@ def _migrate_kb(kdir):
 
 class _GuardedEnv:
     """Mixin: pin AGENTWARE_NESTED_UNITTEST (so the cycle's audit/eval steps never
-    recursively shell the whole suite) and restore touched env keys afterward."""
+    recursively shell the whole suite), ISOLATE the config (so resolve_dream /
+    resolve_dream_schedule / resolve_kb_autocommit never fall through to the
+    operator's real ~/.agentware/config.env — R-LOC-03 + determinism), and restore
+    everything afterward."""
 
     _KEYS = ("AGENTWARE_NESTED_UNITTEST", "AGENTWARE_DREAM",
              "AGENTWARE_DREAM_SCHEDULE", "HOME", "AGENTWARE_KB_AUTOCOMMIT")
@@ -200,8 +203,19 @@ class _GuardedEnv:
     def _save_env(self):
         self._env = {k: os.environ.get(k) for k in self._KEYS}
         os.environ["AGENTWARE_NESTED_UNITTEST"] = "1"
+        # Redirect the module's config file to a throwaway path so NO real
+        # operator setting leaks into a test (CONFIG_PATHS is import-time-bound to
+        # the real HOME, so patching os.environ['HOME'] alone does not isolate it).
+        self._mod = load_cli()
+        self._cfgdir = tempfile.mkdtemp(prefix="agentware-dream-cfg-")
+        cfg = os.path.join(self._cfgdir, "config.env")
+        self._saved_cfg = (self._mod.HOME_CONFIG, self._mod.CONFIG_PATHS)
+        self._mod.HOME_CONFIG = cfg
+        self._mod.CONFIG_PATHS = (cfg,)
 
     def _restore_env(self):
+        self._mod.HOME_CONFIG, self._mod.CONFIG_PATHS = self._saved_cfg
+        shutil.rmtree(self._cfgdir, ignore_errors=True)
         for k, v in self._env.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -252,6 +266,16 @@ class DreamCycleTests(unittest.TestCase, _GuardedEnv):
         code, _out, err = self._run(["--steps", "z"])
         self.assertEqual(code, 2)
         self.assertIn("unknown dream step", err)
+
+    def test_audit_step_ignores_self_referential_dream_health(self):
+        # With dream ON and no prior cycle, dream_health is red — but step c must
+        # NOT fail on it (it's circular to audit "did a dream run?" mid-cycle).
+        os.environ["AGENTWARE_DREAM"] = "1"
+        code, out, err = self._run(["--steps", "c", "--format", "json"])
+        self.assertEqual(code, 0, err)
+        c = json.loads(out)["steps"][0]
+        self.assertEqual(c["status"], "ok")
+        self.assertEqual(c["ignored_checks"], "dream_health")
 
     def test_full_cycle_records_one_row(self):
         ledger = os.path.join(self.kdir, "benchmarks", "history.jsonl")
@@ -438,7 +462,9 @@ class DreamHealthAuditTests(unittest.TestCase, _GuardedEnv):
         return None
 
     def test_inert_when_off(self):
-        os.environ.pop("AGENTWARE_DREAM", None)
+        # Force OFF via env (hermetic): popping the var would fall through to the
+        # operator's REAL ~/.agentware/config.env, which may have dream enabled.
+        os.environ["AGENTWARE_DREAM"] = "0"
         c = self._dream_check()
         self.assertIsNotNone(c)
         self.assertTrue(c["ok"])
@@ -470,6 +496,18 @@ class DreamSchedulerTests(unittest.TestCase, _GuardedEnv):
         os.environ["HOME"] = self.home
         os.environ["AGENTWARE_DREAM"] = "1"
         os.environ["AGENTWARE_DREAM_SCHEDULE"] = "03:30"
+        # HOME_CONFIG/CONFIG_PATHS are frozen at import (expanduser at load time),
+        # so patching $HOME alone does NOT redirect config reads. Redirect them to
+        # a temp config inside the patched HOME so resolve_dream*/config reads are
+        # fully hermetic and never see the operator's real config (R-LOC-03).
+        mod = load_cli()
+        self._saved_cfg = (mod.HOME_CONFIG, mod.CONFIG_PATHS)
+        cfg = os.path.join(self.home, ".agentware", "config.env")
+        mod.HOME_CONFIG, mod.CONFIG_PATHS = cfg, (cfg,)
+
+        def _restore_cfg():
+            mod.HOME_CONFIG, mod.CONFIG_PATHS = self._saved_cfg
+        self.addCleanup(_restore_cfg)
 
     def _installed_path(self):
         import sys

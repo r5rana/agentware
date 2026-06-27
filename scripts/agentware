@@ -13077,8 +13077,16 @@ def _dream_step_audit(kdir, dry_run):
                         if not c.get("ok"))
     except ValueError:
         pass
-    return {"status": "ok" if rc == 0 else "fail", "audit_ok": rc == 0,
-            "with_tests": with_tests, "failed_checks": ",".join(failed) or "-"}
+    # The dream is auditing ITSELF mid-cycle: dream_health asks "has a dream run
+    # recently?", which is circular DURING a cycle — THIS cycle's metric isn't
+    # emitted until after all steps finish, so on the first-ever (or post-stale)
+    # run dream_health is necessarily red here. Exclude it from the cycle's own
+    # pass/fail (it self-heals on the next run); still surface it for transparency.
+    material = [c for c in failed if c != "dream_health"]
+    ok = not material
+    return {"status": "ok" if ok else "fail", "audit_ok": ok,
+            "with_tests": with_tests, "failed_checks": ",".join(material) or "-",
+            "ignored_checks": "dream_health" if "dream_health" in failed else "-"}
 
 
 def _dream_step_eval_record(kdir, dry_run):
