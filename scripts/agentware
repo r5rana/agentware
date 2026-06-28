@@ -144,6 +144,19 @@ _DREAM_ON_TOKENS = ("1", "on", "yes", "true", "enable", "enabled")
 # operator sets one. Resolution: AGENTWARE_DREAM_SCHEDULE env -> config.env -> None.
 DREAM_SCHEDULE_KEY = "AGENTWARE_DREAM_SCHEDULE"
 
+# Dream max-runtime guard (feature 260628-dream-observability, Task 7): a
+# best-effort, FULLY OFFLINE wall-clock cap (seconds) so a hung/runaway step can't
+# let the cycle run unbounded. Checked BETWEEN steps (no signals/threads — see the
+# DECISION in the feature worklog); on trip the remaining steps are stopped, a
+# PARTIAL cycle + trip reason are recorded, and the process exits non-zero.
+# Generous default (30m) so it only ever catches a genuine hang. 0 = disabled (no
+# cap). Resolution mirrors the other SETTINGS_AW flags: env -> config.env ->
+# default. NO outbound ping / external monitoring — dream stays 100% offline.
+DREAM_MAX_RUNTIME_KEY = "AGENTWARE_DREAM_MAX_RUNTIME"
+DREAM_MAX_RUNTIME_DEFAULT = 1800   # 30 minutes
+_DREAM_MAX_RUNTIME_OFF_TOKENS = ("0", "off", "none", "disable", "disabled",
+                                 "unlimited")
+
 # Knowledge-dir-relative locations (joined with the resolved knowledge dir).
 INDEX_REL = "index.json"
 LEARNINGS_REL = "learnings"
@@ -619,6 +632,46 @@ def resolve_dream_schedule():
         if norm is not None:
             return norm
     return None
+
+
+def _parse_dream_max_runtime(raw):
+    """Strict parse/normalize for the dream max-runtime cap -> int seconds.
+
+    Accepts a bare integer (seconds) or an integer with a single s/m/h suffix
+    (e.g. "1800", "30m", "1h"), or an explicit off token ("0"/"off"/"none"/
+    "disable"/"disabled"/"unlimited") -> 0 (disabled, no cap). Returns the
+    non-negative int of seconds, or None for an empty/invalid value (the
+    resolver falls through to the default; the `config` setter errors out).
+    Deterministic + stdlib-only.
+    """
+    if raw is None:
+        return None
+    v = str(raw).strip().strip('"').strip("'").lower()
+    if not v:
+        return None
+    if v in _DREAM_MAX_RUNTIME_OFF_TOKENS:
+        return 0
+    m = re.match(r"^(\d+)\s*([smh]?)$", v)
+    if not m:
+        return None
+    return int(m.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600}[m.group(2)]
+
+
+def resolve_dream_max_runtime():
+    """Resolve the dream wall-clock cap in seconds (0 = disabled/no cap).
+
+    Precedence: AGENTWARE_DREAM_MAX_RUNTIME env -> config.env -> generous
+    default (DREAM_MAX_RUNTIME_DEFAULT). Read per-run (no daemon); the dream
+    cycle consults this BETWEEN steps. A hand-edited config typo degrades to the
+    default rather than silently disabling the guard.
+    """
+    env = _parse_dream_max_runtime(os.environ.get(DREAM_MAX_RUNTIME_KEY))
+    if env is not None:
+        return env
+    cfg = _parse_dream_max_runtime(_read_config_key(DREAM_MAX_RUNTIME_KEY))
+    if cfg is not None:
+        return cfg
+    return DREAM_MAX_RUNTIME_DEFAULT
 
 
 def _normalize_user_handle(raw):
@@ -1787,6 +1840,30 @@ def cmd_config(args):
                   % (DREAM_SCHEDULE_KEY, norm, HOME_CONFIG))
         return 0
 
+    # --set-dream-max-runtime <Ns|Nm|Nh|off>: persist the best-effort wall-clock
+    # cap (seconds) for a dream cycle. 0/off = disabled (no cap). Invalid tokens
+    # are rejected. Fully offline — no network/ping anywhere (Task 7).
+    dream_max_val = getattr(args, "set_dream_max_runtime", None)
+    if dream_max_val is not None:
+        secs = _parse_dream_max_runtime(dream_max_val)
+        if secs is None:
+            sys.stderr.write(
+                "agentware: invalid --set-dream-max-runtime value %r (use seconds "
+                "or N[s|m|h], e.g. 1800 / 30m / 1h, or off to disable)\n"
+                % dream_max_val)
+            return 2
+        _set_config_value(DREAM_MAX_RUNTIME_KEY, str(secs))
+        if as_json:
+            json.dump({"ok": True, "dream_max_runtime": secs,
+                       "config": HOME_CONFIG},
+                      sys.stdout, ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+        else:
+            print("Set %s=%s in %s (dream max-runtime %s)"
+                  % (DREAM_MAX_RUNTIME_KEY, secs, HOME_CONFIG,
+                     ("%ss" % secs) if secs else "disabled"))
+        return 0
+
     # --set-user-handle <h>: persist the per-user provenance handle. Sanitized to
     # a safe single token; an all-invalid handle is rejected (no config corruption).
     handle_val = getattr(args, "set_user_handle", None)
@@ -1829,6 +1906,12 @@ def cmd_config(args):
         sched = resolve_dream_schedule()
         if sched:
             print(sched)
+        return 0
+
+    # --dream-max-runtime-only: bare resolved dream max-runtime cap in seconds
+    # (0 = disabled) for shell consumers.
+    if getattr(args, "dream_max_runtime_only", False):
+        print(resolve_dream_max_runtime())
         return 0
 
     # --user-handle-only: bare resolved per-user handle (empty if unset).
@@ -1883,6 +1966,7 @@ def cmd_config(args):
     user_handle = resolve_user_handle()
     dream = resolve_dream()
     dream_schedule = resolve_dream_schedule()
+    dream_max_runtime = resolve_dream_max_runtime()
     initialized = bool(kdir) and os.path.isfile(os.path.join(kdir, SENTINEL_REL))
     if as_json:
         json.dump({"knowledge_dir": kdir, "configured": bool(kdir),
@@ -1891,6 +1975,7 @@ def cmd_config(args):
                    "effective_retrieval_mode": eff_mode,
                    "kb_mode": kb_mode, "cli": cli, "user_handle": user_handle,
                    "dream": dream, "dream_schedule": dream_schedule,
+                   "dream_max_runtime": dream_max_runtime,
                    "embedder_backend": resolve_embedder_backend(),
                    "embed_model": resolve_embed_model(),
                    "semantic_embedder_available": semantic_embedder_available()},
@@ -1909,6 +1994,9 @@ def cmd_config(args):
     handle_line = "user_handle:   %s" % (user_handle or "<unset>")
     dream_line = "dream:         %s" % ("on" if dream == "1" else "off")
     dream_sched_line = "dream_sched:   %s" % (dream_schedule or "<unset>")
+    dream_max_line = ("dream_max_rt:  %s"
+                      % (("%ss" % dream_max_runtime) if dream_max_runtime
+                         else "disabled"))
     # SETTINGS_AW surfacing (semantic backend choice): only meaningful in Mode B.
     embedder_line = "embedder:      %s" % (resolve_embedder_backend() or "<unset>")
     embed_model_line = "embed_model:   %s" % resolve_embed_model()
@@ -1924,6 +2012,7 @@ def cmd_config(args):
         print(handle_line)
         print(dream_line)
         print(dream_sched_line)
+        print(dream_max_line)
         return 0
     print("knowledge_dir: <unconfigured>")
     print("kb_autocommit: %s" % ("on" if autocommit == "1" else "off"))
@@ -1935,6 +2024,7 @@ def cmd_config(args):
     print(handle_line)
     print(dream_line)
     print(dream_sched_line)
+    print(dream_max_line)
     return 1
 
 
@@ -5415,28 +5505,56 @@ def utc_now_iso():
         "%Y-%m-%dT%H:%M:%SZ")
 
 
-def _record_test_passrate():
-    """Shell the unittest suite once and return (pass_rate, ran, failed).
+def _parse_failing_test_ids(err):
+    """Extract failing/erroring test ids from a unittest stderr blob.
 
-    Recursion guard: the unittest suite itself exercises `eval --record`; if we
-    are already inside a suite run (AGENTWARE_NESTED_UNITTEST=1) we return
-    (None, 0, 0) instead of spawning the suite again. pass_rate is None when not
-    measured. Pure stdlib subprocess (INV-6). Read-only.
+    unittest prints one `FAIL: <test_id>` or `ERROR: <test_id>` header line per
+    failing test (above each traceback) — e.g.
+    `FAIL: test_x (tests.test_mod.TestCase)` or, on newer Pythons,
+    `FAIL: test_x (tests.test_mod.TestCase.test_x)`. The count-only parse in
+    `_record_test_passrate` throws these away; this captures the ids (deduped,
+    first-seen order preserved) so callers can answer "which tests failed?".
+    Pure string parsing, read-only, deterministic.
+    """
+    ids = []
+    seen = set()
+    for ln in (err or "").splitlines():
+        s = ln.strip()
+        for prefix in ("FAIL: ", "ERROR: "):
+            if s.startswith(prefix):
+                tid = s[len(prefix):].strip()
+                if tid and tid not in seen:
+                    seen.add(tid)
+                    ids.append(tid)
+                break
+    return ids
+
+
+def _record_test_passrate_detail():
+    """Shell the unittest suite once; return (pass_rate, ran, failed, failed_tests).
+
+    Superset of `_record_test_passrate`: in addition to the counts it returns the
+    list of failing test ids parsed from the `FAIL:`/`ERROR:` stderr lines (which
+    the count-only path discards). Recursion guard: the unittest suite itself
+    exercises `eval --record`; if we are already inside a suite run
+    (AGENTWARE_NESTED_UNITTEST=1) we return (None, 0, 0, []) instead of spawning
+    the suite again. pass_rate is None when not measured. Pure stdlib subprocess
+    (INV-6). Read-only.
     """
     if os.environ.get("AGENTWARE_NESTED_UNITTEST") == "1":
-        return None, 0, 0
+        return None, 0, 0, []
     env = dict(os.environ)
     env["AGENTWARE_NESTED_UNITTEST"] = "1"
     tests_dir = os.path.join(REPO_ROOT, "tests")
     if not os.path.isdir(tests_dir):
-        return None, 0, 0
+        return None, 0, 0, []
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
             cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             universal_newlines=True, env=env)
     except OSError:
-        return None, 0, 0
+        return None, 0, 0, []
     err = proc.stderr or ""
     rm = re.search(r"Ran (\d+) test", err)
     ran = int(rm.group(1)) if rm else 0
@@ -5444,8 +5562,20 @@ def _record_test_passrate():
     em = re.search(r"errors=(\d+)", err)
     failed = (int(fm.group(1)) if fm else 0) + (int(em.group(1)) if em else 0)
     if ran == 0:
-        return None, 0, 0
-    return (ran - failed) / ran, ran, failed
+        return None, 0, 0, []
+    return (ran - failed) / ran, ran, failed, _parse_failing_test_ids(err)
+
+
+def _record_test_passrate():
+    """Shell the unittest suite once and return (pass_rate, ran, failed).
+
+    Back-compatible 3-tuple wrapper over `_record_test_passrate_detail()` (which
+    also returns the failing test ids) so existing call sites keep working.
+    pass_rate is None when not measured. Pure stdlib subprocess (INV-6).
+    Read-only.
+    """
+    pass_rate, ran, failed, _ = _record_test_passrate_detail()
+    return pass_rate, ran, failed
 
 
 def _determinism_check(kdir, data, gold, top_k):
@@ -9839,7 +9969,13 @@ def _audit_tests_check():
     details = [ran_line.strip() or ("unittest exit %d" % proc.returncode)]
     if not ok:
         details.extend(lines[-12:])
-    return {"name": "unittest", "ok": ok, "details": details}
+    # Thread the failing test ids (parsed from the FAIL:/ERROR: header lines) into
+    # the check payload so `audit --with-tests` consumers (e.g. dream step c) can
+    # answer "which tests failed?" without re-running the suite. Sorted for a
+    # byte-stable, diff-friendly payload (INV-1).
+    failed_tests = sorted(_parse_failing_test_ids(proc.stderr or ""))
+    return {"name": "unittest", "ok": ok, "details": details,
+            "failed_tests": failed_tests}
 
 
 def _audit_gate_check(kdir):
@@ -12944,6 +13080,11 @@ def cmd_mcp(args):
 # the tracked eval ledger (benchmarks/history.jsonl). See the Task-8 `> DECISION:`.
 DREAM_LOCK_REL = os.path.join(".cache", "dream.lock")
 DREAM_JOURNAL_REL = os.path.join("logs", "dream-journal.md")
+# Step e's actionable, report-only (INV-2) artifact. Fixed name ("latest"),
+# overwritten each cycle, byte-stable for unchanged inputs (INV-1). Gitignored
+# via logs/. It makes step e's COUNTS self-serve (which stale entry / which
+# duplicate pair / which unpromoted marker) without re-deriving or re-running.
+DREAM_REPORT_REL = os.path.join("logs", "dream-report-latest.md")
 DREAM_LOCK_TTL_SEC = 3600        # a held lock older than this is reclaimable (stale)
 DREAM_SESSION_TTL_SEC = 1800     # a .loop whose liveness file is fresher = active
 DREAM_LOAD_RATIO = 4.0           # skip when 1-min loadavg > ratio * cpu_count
@@ -13178,10 +13319,26 @@ def _dream_step_audit(kdir, dry_run):
                             max_age_days=120)
     rc, out = _dream_capture(cmd_audit, ns)
     failed = []
+    tests_ran, tests_failed, failed_tests = None, 0, []
     try:
         payload = json.loads(out)
         failed = sorted(c["name"] for c in payload.get("checks", [])
                         if not c.get("ok"))
+        # Pull the failing test ids + counts threaded into the unittest check by
+        # `_audit_tests_check()` (Task 1) so step c can answer "which tests
+        # failed?" with zero re-runs. Sorted for a byte-stable payload (INV-1).
+        ut = next((c for c in payload.get("checks", [])
+                   if c.get("name") == "unittest"), None)
+        if ut is not None:
+            failed_tests = sorted(ut.get("failed_tests", []))
+            tests_failed = len(failed_tests)
+            for d in ut.get("details", []):
+                if d.startswith("Ran ") and d.split()[1:2]:
+                    try:
+                        tests_ran = int(d.split()[1])
+                    except ValueError:
+                        pass
+                    break
     except ValueError:
         pass
     # The dream is auditing ITSELF mid-cycle: dream_health asks "has a dream run
@@ -13191,9 +13348,18 @@ def _dream_step_audit(kdir, dry_run):
     # pass/fail (it self-heals on the next run); still surface it for transparency.
     material = [c for c in failed if c != "dream_health"]
     ok = not material
-    return {"status": "ok" if ok else "fail", "audit_ok": ok,
-            "with_tests": with_tests, "failed_checks": ",".join(material) or "-",
-            "ignored_checks": "dream_health" if "dream_health" in failed else "-"}
+    result = {"status": "ok" if ok else "fail", "audit_ok": ok,
+              "with_tests": with_tests, "failed_checks": ",".join(material) or "-",
+              "ignored_checks": "dream_health" if "dream_health" in failed else "-",
+              "tests_ran": tests_ran if tests_ran is not None else "-",
+              "tests_failed": tests_failed,
+              "failed_tests": ",".join(failed_tests) or "-"}
+    # On a MATERIAL audit failure, hand the orchestrator the full captured audit
+    # output so it persists a per-cycle triage artifact (best-effort; the private
+    # underscore key is popped before the step dict is journaled/emitted).
+    if not ok:
+        result["_failure_capture"] = out
+    return result
 
 
 def _dream_step_eval_record(kdir, dry_run):
@@ -13224,18 +13390,100 @@ def _dream_step_eval_record(kdir, dry_run):
             "post_redact_scrubbed": redact.get("scrubbed", 0)}
 
 
+def _dream_render_detect_report(report, markers):
+    """Render step e's findings into a deterministic, diff-friendly markdown
+    report body. REPORT-ONLY (INV-2) — pure formatting, no mutation. Inputs are
+    sorted here so the output is byte-stable for unchanged inputs (INV-1): no
+    clocks, no run-id, no host-specific values in the body."""
+    lines = [
+        "# Dream Detect Report (latest)",
+        "",
+        "> Deterministic, report-only (INV-2) enumeration of what dream step e",
+        "> detected. NEVER promotes, merges, or deletes — it only makes the",
+        "> counts self-serve (which stale entry / which duplicate pair / which",
+        "> unpromoted marker) with zero re-derivation. Machine-local; gitignored",
+        "> via logs/. Overwritten each cycle; byte-stable for unchanged inputs.",
+        "",
+    ]
+    stale = sorted(report.get("stale") or [],
+                   key=lambda s: (s.get("id") or ""))
+    lines.append("## Stale entries (%d)" % len(stale))
+    lines.append("")
+    lines.append("> last_verified older than %d day(s) in %s"
+                 % (report.get("max_age_days", 0),
+                    ", ".join(report.get("volatile_categories") or [])))
+    lines.append("")
+    if stale:
+        for s in stale:
+            lines.append("- %s [%s] last_verified=%s age=%dd  (%s)"
+                         % (s.get("id"), s.get("category"),
+                            s.get("last_verified"), s.get("age_days") or 0,
+                            s.get("path")))
+    else:
+        lines.append("_none_")
+    lines.append("")
+    conflicts = sorted(report.get("conflicts") or [],
+                       key=lambda c: (c.get("a") or "", c.get("b") or ""))
+    lines.append("## Possible duplicate / conflict pairs (%d)" % len(conflicts))
+    lines.append("")
+    if conflicts:
+        for c in conflicts:
+            lines.append("- %s <-> %s [%s] jaccard=%.4f"
+                         % (c.get("a"), c.get("b"), c.get("category"),
+                            c.get("jaccard") or 0.0))
+    else:
+        lines.append("_none_")
+    lines.append("")
+    lines.append("## Unpromoted worklog markers (%d)" % len(markers))
+    lines.append("")
+    if markers:
+        by_feat = {}
+        for m in markers:
+            by_feat.setdefault(m["feature"], []).append(m)
+        for feat in sorted(by_feat):
+            items = sorted(by_feat[feat], key=lambda m: m["line"])
+            lines.append("### %s (%d)" % (feat, len(items)))
+            lines.append("")
+            for m in items:
+                lines.append("- %s:%d [%s] %s"
+                             % (m["rel"], m["line"], m["kind"], m["text"]))
+            lines.append("")
+    else:
+        lines.append("_none_")
+        lines.append("")
+    return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _dream_write_detect_report(kdir, body):
+    """Overwrite logs/dream-report-latest.md with step e's actionable report.
+    Best-effort: an OSError is swallowed and never aborts the cycle. Returns the
+    relative report path on success, else None. Overwrites (not appends) so the
+    'latest' report is byte-stable for unchanged inputs (INV-1)."""
+    try:
+        path = os.path.join(kdir, DREAM_REPORT_REL)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(body)
+        return DREAM_REPORT_REL
+    except OSError:
+        return None
+
+
 def _dream_step_detect_report(kdir, dry_run):
     """Step e — DETECT-AND-REPORT only (Phase 1): stale/duplicate learnings +
     unpromoted markers across work/*/worklog.md. READ-ONLY (INV-2): never
-    promotes, deletes, or merges (that is Phase 2)."""
+    promotes, deletes, or merges (that is Phase 2). Also writes an actionable,
+    deterministic logs/dream-report-latest.md enumerating EACH finding so the
+    morning-after 'which 1 duplicate / which N markers?' is self-serve."""
     if dry_run:
         return {"status": "planned",
-                "would": "audit --stale + worklog scan (REPORT only, no mutation)"}
+                "would": "audit --stale + worklog scan + write "
+                         "dream-report-latest.md (REPORT only, no mutation)"}
     data, err = load_index(kdir)
     if err is not None:
         return {"status": "error", "errors": [err]}
     report = build_stale_report(kdir, data, 120)
-    unpromoted, scanned = 0, 0
+    markers, scanned = [], 0
     work = os.path.join(kdir, "work")
     if os.path.isdir(work):
         for feat in sorted(os.listdir(work)):
@@ -13243,10 +13491,19 @@ def _dream_step_detect_report(kdir, dry_run):
             if os.path.isfile(wl):
                 scanned += 1
                 up, _tot = scan_worklog(wl, kdir, data)
-                unpromoted += len(up)
-    return {"status": "ok", "stale": len(report["stale"]),
-            "duplicates": len(report["conflicts"]),
-            "worklogs_scanned": scanned, "unpromoted_markers": unpromoted}
+                rel = os.path.join("work", feat, "worklog.md")
+                for m in up:
+                    markers.append({"feature": feat, "rel": rel,
+                                    "line": m["line"], "kind": m["kind"],
+                                    "text": m["text"]})
+    body = _dream_render_detect_report(report, markers)
+    report_rel = _dream_write_detect_report(kdir, body)
+    result = {"status": "ok", "stale": len(report["stale"]),
+              "duplicates": len(report["conflicts"]),
+              "worklogs_scanned": scanned, "unpromoted_markers": len(markers)}
+    if report_rel:
+        result["report"] = report_rel
+    return result
 
 
 def _dream_step_kb_git(kdir, dry_run):
@@ -13318,11 +13575,38 @@ def _dream_render_journal_entry(cycle):
              "- finished: %s" % cycle["finished"],
              "- duration_s: %s" % cycle["duration_s"],
              "- force: %s" % cycle["force"]]
+    if cycle.get("timed_out"):
+        lines.append("- timed_out: %s" % cycle["timeout_reason"])
     for r in cycle["steps"]:
         lines.append("- step %s (%s): %s%s"
                      % (r["step"], r["label"], r["status"], _dream_step_summary(r)))
     lines.append("")
     return "\n".join(lines) + "\n"
+
+
+def _dream_failure_log_rel(started):
+    """Relative path of the per-cycle triage artifact for a cycle `started` ts.
+    Colons are stripped so the name is filesystem-safe; deterministic in the
+    cycle timestamp (one log per cycle, gitignored under logs/)."""
+    slug = started.replace(":", "")
+    return os.path.join("logs", "dream-failures", slug + ".log")
+
+
+def _dream_write_failure_capture(kdir, started, step, text):
+    """Persist the FULL captured audit/test output for a failed step to a
+    gitignored per-cycle triage artifact so the morning-after "which tests
+    failed?" needs no re-run. Best-effort: an OSError is swallowed and never
+    aborts the cycle. Returns the relative log path on success, else None."""
+    try:
+        rel = _dream_failure_log_rel(started)
+        path = os.path.join(kdir, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("===== dream %s step %s =====\n" % (started, step))
+            f.write(text if text.endswith("\n") else text + "\n")
+        return rel
+    except OSError:
+        return None
 
 
 def _dream_write_journal(kdir, cycle):
@@ -13341,16 +13625,38 @@ def _dream_write_journal(kdir, cycle):
         pass
 
 
+# Per-step failure fields propagated into the metric event so the dream event in
+# logs/metrics.jsonl answers "which checks/tests failed?" without re-deriving from
+# the journal or a re-run. Only emitted for steps that carry them (step c), so the
+# event stays byte-stable for unchanged inputs (INV-1; sorted-keys append).
+_DREAM_METRIC_STEP_FIELDS = ("failed_checks", "failed_tests", "tests_failed",
+                             "tests_ran")
+
+
+def _dream_metric_step(r):
+    """One per-step record for the dream metric event: base fields plus any
+    failure-detail fields present on the step dict (deterministic field set)."""
+    m = {"step": r["step"], "status": r["status"], "duration_s": r["duration_s"]}
+    for k in _DREAM_METRIC_STEP_FIELDS:
+        if k in r:
+            m[k] = r[k]
+    return m
+
+
 def _dream_emit_metric(kdir, cycle):
     """Rule-7 observability: ONE `dream` event to logs/metrics.jsonl. Best-effort
     + read-only w.r.t. the KB/index; a write failure never blocks (mirrors the
-    ingestion-event shape: sorted-keys append)."""
+    ingestion-event shape: sorted-keys append). Per-step records carry the
+    failure-detail fields (failed_checks / failed_tests / tests_*) so the event
+    is self-explaining the morning after."""
     try:
         rec = {"event": "dream", "ts": cycle["started"],
                "finished": cycle["finished"], "duration_s": cycle["duration_s"],
                "force": cycle["force"],
-               "steps": [{"step": r["step"], "status": r["status"],
-                          "duration_s": r["duration_s"]} for r in cycle["steps"]]}
+               "steps": [_dream_metric_step(r) for r in cycle["steps"]]}
+        if cycle.get("timed_out"):
+            rec["timed_out"] = True
+            rec["timeout_reason"] = cycle["timeout_reason"]
         logs = os.path.join(kdir, "logs")
         os.makedirs(logs, exist_ok=True)
         with open(os.path.join(logs, "metrics.jsonl"), "a",
@@ -13416,10 +13722,33 @@ def cmd_dream(args):
 
     def _run_cycle():
         started, wall0 = utc_now_iso(), _dream_perf()
+        # Best-effort, FULLY OFFLINE wall-clock guard (Task 7). 0 = disabled.
+        # Checked BETWEEN steps (no signals/threads — see worklog DECISION); it
+        # can't interrupt a step already running, only stop the cycle before the
+        # next one once the cap is exceeded.
+        max_runtime = resolve_dream_max_runtime()
+        planned = [t for t in DREAM_STEP_FUNCS if t[0] in steps]
         results = []
-        for s, label, fn in DREAM_STEP_FUNCS:
-            if s not in steps:
-                continue
+        timed_out, timeout_reason = False, None
+        for i, (s, label, fn) in enumerate(planned):
+            elapsed = _dream_perf() - wall0
+            if max_runtime and elapsed > max_runtime:
+                # Cap tripped: record a synthetic guard step (status error ->
+                # non-zero exit), mark the remaining steps stopped, and stop.
+                timed_out = True
+                timeout_reason = ("max-runtime cap exceeded: %.1fs elapsed > %ds "
+                                  "cap (AGENTWARE_DREAM_MAX_RUNTIME)"
+                                  % (elapsed, max_runtime))
+                results.append({"step": "guard", "label": "max-runtime",
+                                "status": "error", "error": timeout_reason,
+                                "duration_s": round(elapsed, 4)})
+                for rs, rlabel, _fn in planned[i:]:
+                    results.append({"step": rs, "label": rlabel,
+                                    "status": "skipped",
+                                    "skipped_reason": "not run: max-runtime cap "
+                                                      "tripped",
+                                    "duration_s": 0.0})
+                break
             t0 = _dream_perf()
             try:
                 r = fn(kdir, dry_run)
@@ -13427,10 +13756,23 @@ def cmd_dream(args):
                 r = {"status": "error", "error": "%s: %s" % (type(exc).__name__, exc)}
             r["step"], r["label"] = s, label
             r["duration_s"] = round(_dream_perf() - t0, 4)
+            # A failed step may hand back the full captured output under the
+            # private `_failure_capture` key — persist it to a per-cycle triage
+            # artifact and replace the blob with its (diff-friendly) path so the
+            # step dict stays small + byte-stable in the journal/metric (INV-1).
+            cap = r.pop("_failure_capture", None)
+            if cap is not None and not dry_run:
+                log_rel = _dream_write_failure_capture(kdir, started, s, cap)
+                if log_rel:
+                    r["triage_log"] = log_rel
             results.append(r)
-        return {"event": "dream", "started": started, "finished": utc_now_iso(),
-                "duration_s": round(_dream_perf() - wall0, 4), "dry_run": dry_run,
-                "force": force, "skipped": False, "steps": results}
+        cyc = {"event": "dream", "started": started, "finished": utc_now_iso(),
+               "duration_s": round(_dream_perf() - wall0, 4), "dry_run": dry_run,
+               "force": force, "skipped": False, "steps": results}
+        if timed_out:
+            cyc["timed_out"] = True
+            cyc["timeout_reason"] = timeout_reason
+        return cyc
 
     # --dry-run: pure report — no lock, no idle-gate writes, no journal/metric.
     if dry_run:
@@ -13459,9 +13801,10 @@ def cmd_dream(args):
         dream_release_lock(kdir)
 
 
-def _dream_last_cycle_ts(kdir):
-    """Timestamp (ISO 'Z') of the most recent dream from logs/metrics.jsonl, or
-    None. Read-only; tolerant of a missing/garbled log."""
+def _dream_last_cycle(kdir):
+    """Most recent `dream` event RECORD from logs/metrics.jsonl, or None.
+    Read-only; tolerant of a missing/garbled log. The full record (not just the
+    timestamp) lets the heartbeat derive last-run AGE + OUTCOME in one pass."""
     path = os.path.join(kdir, "logs", "metrics.jsonl")
     last = None
     try:
@@ -13476,10 +13819,31 @@ def _dream_last_cycle_ts(kdir):
                 except ValueError:
                     continue
                 if rec.get("event") == "dream" and rec.get("ts"):
-                    last = rec["ts"]
+                    last = rec
     except OSError:
         return None
     return last
+
+
+def _dream_last_cycle_ts(kdir):
+    """Timestamp (ISO 'Z') of the most recent dream from logs/metrics.jsonl, or
+    None. Read-only; tolerant of a missing/garbled log."""
+    rec = _dream_last_cycle(kdir)
+    return rec.get("ts") if rec else None
+
+
+def _dream_cycle_outcome(rec):
+    """Classify a dream metric event as 'ok' | 'partial' | 'fail' from its
+    per-step statuses (skips are not failures, mirroring _dream_output). 'ok' =
+    no step failed; 'fail' = every non-skipped step failed; 'partial' = a mix of
+    passed and failed steps. Returns 'ok' for a record with no steps."""
+    steps = rec.get("steps") or []
+    failed = [s for s in steps
+              if s.get("status") not in ("ok", "skipped", "planned")]
+    if not failed:
+        return "ok"
+    passed = [s for s in steps if s.get("status") == "ok"]
+    return "partial" if passed else "fail"
 
 
 def _dream_age_hours(ts):
@@ -13493,25 +13857,43 @@ def _dream_age_hours(ts):
 
 
 def _audit_dream_health_check(kdir):
-    """Rule-7 last-dream freshness. INERT when dream is OFF (the opt-in default);
-    when ON it FAILs if no cycle ran yet or the last one is stale (> DREAM_STALE_
-    HOURS). Read-only (reads logs/metrics.jsonl only)."""
+    """Rule-7 last-dream heartbeat. INERT when dream is OFF (the opt-in default);
+    when ON it reports the last cycle's AGE (hours) + OUTCOME (ok|fail|partial)
+    parsed from logs/metrics.jsonl and FAILs if no cycle ran yet, the last one is
+    stale (> DREAM_STALE_HOURS), OR the last cycle did not finish clean
+    (fail/partial). The structured `last_run`/`age_hours`/`outcome` fields are
+    surfaced on the dashboard's dream_health panel. Read-only (reads
+    logs/metrics.jsonl only)."""
     if resolve_dream() != "1":
         return {"name": "dream_health", "ok": True,
                 "details": ["inert: dream mode OFF (opt-in; enable with "
                             "`scripts/agentware config --set-dream on`)"]}
-    last = _dream_last_cycle_ts(kdir)
-    if last is None:
-        return {"name": "dream_health", "ok": False,
+    rec = _dream_last_cycle(kdir)
+    if rec is None:
+        return {"name": "dream_health", "ok": False, "last_run": None,
+                "age_hours": None, "outcome": None,
                 "details": ["dream is ON but no cycle has run yet — run "
                             "`scripts/agentware dream` or install the schedule"]}
+    last = rec.get("ts")
     age = _dream_age_hours(last)
+    outcome = _dream_cycle_outcome(rec)
+    age_str = ("%.1fh" % age) if age is not None else "unknown age"
+    base = {"name": "dream_health", "last_run": last,
+            "age_hours": round(age, 1) if age is not None else None,
+            "outcome": outcome}
     if age is not None and age > DREAM_STALE_HOURS:
-        return {"name": "dream_health", "ok": False,
-                "details": ["last dream %s is stale (%.1fh > %dh budget)"
-                            % (last, age, DREAM_STALE_HOURS)]}
-    return {"name": "dream_health", "ok": True,
-            "details": ["fresh: last dream %s" % last]}
+        return dict(base, ok=False,
+                    details=["last dream %s is stale (%.1fh > %dh budget); "
+                             "outcome=%s" % (last, age, DREAM_STALE_HOURS,
+                                             outcome)])
+    if outcome != "ok":
+        return dict(base, ok=False,
+                    details=["last dream %s did not finish clean (outcome=%s, "
+                             "age=%s) — see logs/dream-failures/ + "
+                             "logs/dream-journal.md" % (last, outcome, age_str)])
+    return dict(base, ok=True,
+                details=["fresh: last dream %s (age=%s, outcome=ok)"
+                         % (last, age_str)])
 
 
 # --- Dream scheduler installer (Task 10; OS-agnostic, opt-in) -----------------
@@ -13529,6 +13911,18 @@ def _dream_cli_path():
     return os.path.join(REPO_ROOT, "scripts", "agentware")
 
 
+def _dream_scheduler_log_path():
+    """Absolute path to the gitignored scheduler stdout/stderr log.
+
+    Defaults to `<knowledge-dir>/logs/dream-scheduler.log` (already gitignored
+    via the `logs/` rule in `_ensure_kb_gitignore`). Falls back to
+    `~/.agentware/logs/` only when the knowledge dir is unconfigured, so the
+    generators are always deterministic and never emit a relative path."""
+    kdir = resolve_knowledge_dir()
+    base = kdir if kdir else os.path.join(os.path.expanduser("~"), ".agentware")
+    return os.path.join(base, "logs", "dream-scheduler.log")
+
+
 def _dream_schedule_hm(schedule):
     """(hour, minute) ints from an HH:MM or 5-field cron token, or None.
 
@@ -13543,10 +13937,15 @@ def _dream_schedule_hm(schedule):
     return None
 
 
-def _dream_launchd_plist(schedule, cli_path):
-    """Deterministic LaunchAgent plist string for a nightly low-priority dream."""
+def _dream_launchd_plist(schedule, cli_path, log_path=None):
+    """Deterministic LaunchAgent plist string for a nightly low-priority dream.
+
+    Captures the scheduled run's stdout+stderr via StandardOutPath/StandardErrorPath
+    (defaulting to the gitignored scheduler log) so a failed cycle is diagnosable
+    the morning after instead of vanishing into launchd's void."""
     hm = _dream_schedule_hm(schedule)
     hour, minute = hm if hm else (3, 0)
+    log = log_path or _dream_scheduler_log_path()
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -13566,13 +13965,19 @@ def _dream_launchd_plist(schedule, cli_path):
         '    <key>Hour</key>\n    <integer>%d</integer>\n'
         '    <key>Minute</key>\n    <integer>%d</integer>\n'
         '  </dict>\n'
+        '  <key>StandardOutPath</key>\n  <string>%s</string>\n'
+        '  <key>StandardErrorPath</key>\n  <string>%s</string>\n'
         '  <key>RunAtLoad</key>\n  <false/>\n'
         '</dict>\n</plist>\n'
-        % (DREAM_LAUNCHD_LABEL, DREAM_NICE, cli_path, hour, minute))
+        % (DREAM_LAUNCHD_LABEL, DREAM_NICE, cli_path, hour, minute, log, log))
 
 
-def _dream_cron_line(schedule, cli_path):
-    """Deterministic crontab line for a nightly low-priority dream."""
+def _dream_cron_line(schedule, cli_path, log_path=None):
+    """Deterministic crontab line for a nightly low-priority dream.
+
+    Appends stdout+stderr to the gitignored scheduler log (`>> <log> 2>&1`)
+    instead of discarding them to `/dev/null`, so a scheduled failure is
+    diagnosable without re-running."""
     fields = (schedule or "").split()
     if len(fields) == 5:
         spec = " ".join(fields)
@@ -13580,8 +13985,9 @@ def _dream_cron_line(schedule, cli_path):
         hm = _dream_schedule_hm(schedule) or (0, 3)  # (minute_src) -> rebuild
         hour, minute = hm
         spec = "%d %d * * *" % (minute, hour)
-    return "%s nice -n %d %s dream >/dev/null 2>&1\n" % (
-        spec, DREAM_NICE, cli_path)
+    log = log_path or _dream_scheduler_log_path()
+    return "%s nice -n %d %s dream >> %s 2>&1\n" % (
+        spec, DREAM_NICE, cli_path, log)
 
 
 def _dream_launchd_plist_path():
@@ -13603,16 +14009,20 @@ def _dream_install_schedule(kdir, as_json):
                          "(`scripts/agentware config --set-dream-schedule HH:MM`).\n")
         return 2
     cli = _dream_cli_path()
+    log_path = _dream_scheduler_log_path()
     if sys.platform == "darwin":
         path = _dream_launchd_plist_path()
-        content = _dream_launchd_plist(schedule, cli)
+        content = _dream_launchd_plist(schedule, cli, log_path)
         platform = "launchd"
     else:
         path = os.path.join(os.path.expanduser("~"), DREAM_CRON_REL)
-        content = _dream_cron_line(schedule, cli)
+        content = _dream_cron_line(schedule, cli, log_path)
         platform = "cron"
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
+        # Create the gitignored scheduler-log dir so the scheduler's first run
+        # has a valid StandardOutPath/redirection target (launchd won't create it).
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
     except OSError as exc:
@@ -13790,6 +14200,15 @@ def build_parser():
                        metavar="HH:MM|CRON",
                        help="persist the nightly dream schedule (a 24h HH:MM token "
                             "or a 5-field cron expression) to ~/.agentware/config.env")
+    p_cfg.add_argument("--dream-max-runtime-only", action="store_true",
+                       dest="dream_max_runtime_only",
+                       help="print only the resolved dream max-runtime cap in "
+                            "seconds (0 = disabled) for shell consumers")
+    p_cfg.add_argument("--set-dream-max-runtime", dest="set_dream_max_runtime",
+                       metavar="N|Ns|Nm|Nh|off",
+                       help="persist the best-effort dream wall-clock cap (seconds, "
+                            "or N[s|m|h]; off/0 disables) to ~/.agentware/config.env; "
+                            "fully offline, no network")
     p_cfg.set_defaults(func=cmd_config)
 
     # attach -----------------------------------------------------------------

@@ -466,6 +466,7 @@ flags). Every key resolves **env → `config.env` → default**:
 | `AGENTWARE_EMBED_MODEL` | `config --set-embed-model <id>` | `config --embed-model-only` | `nomic-embed-text` | The embedding model id passed to the backend |
 | `AGENTWARE_DREAM` | `config --set-dream on\|off` | `config --dream-only` | `off` (opt-in) | Enable the unattended `dream` maintenance cycle |
 | `AGENTWARE_DREAM_SCHEDULE` | `config --set-dream-schedule HH:MM\|<cron>` | `config --dream-schedule-only` | _unset_ | Nightly run time the scheduler installs |
+| `AGENTWARE_DREAM_MAX_RUNTIME` | `config --set-dream-max-runtime <N\|Ns\|Nm\|Nh\|off>` | `config --dream-max-runtime-only` | `1800` (30m) | Best-effort wall-clock cap; a cycle that exceeds it stops remaining steps, records a PARTIAL cycle, and exits non-zero (`off`/`0` = disabled) |
 
 - **Resolution order** for every key: the environment variable wins (per-run
   override), then `~/.agentware/config.env` (the persisted choice), then the
@@ -501,7 +502,7 @@ order, each step idempotent and individually skippable:
 | **b** bench redact | scrub `gold_path` PII from the benchmark ledger | ledger `gold_path` only |
 | **c** audit `--with-tests` | full health check (incl. unittest + gate) | none (read-only) |
 | **d** eval `--record` | append ONE reliability row, then redact it | one append-only ledger row |
-| **e** detect & report | `audit --stale` + worklog scan across `work/*/worklog.md` | **none** — REPORTS only |
+| **e** detect & report | `audit --stale` + worklog scan → writes an actionable `logs/dream-report-latest.md` | **none** — REPORTS only |
 | **f** kb-git commit | nightly backup (+ optional push), gated on autocommit | one KB commit |
 
 ```bash
@@ -523,8 +524,49 @@ scripts/agentware dream                      # one full cycle (idle-gated)
   clean ledger).
 - **Journal + observability.** Each cycle appends a deterministic entry to
   `logs/dream-journal.md` (machine-local, gitignored) and emits one `dream` event
-  to `logs/metrics.jsonl`. A read-only `dream_health` audit check is **inert** when
-  dream is OFF and **warns** when it is ON but the last cycle is stale.
+  to `logs/metrics.jsonl`. Both are **enriched with failure detail**: step c
+  carries `tests_ran`, `tests_failed`, and the `failed_tests` names (parsed from
+  the unittest `FAIL:`/`ERROR:` lines), and the metric event records per-step
+  `failed_checks` + `failed_tests` — so "which tests failed?" is answerable the
+  morning after with **zero re-runs**. A read-only `dream_health` audit check is
+  **inert** when dream is OFF and **warns** when it is ON but the last cycle is
+  stale **or did not finish clean** — it reports the last cycle's **age (hours)**
+  and **outcome** (`ok` | `partial` | `fail`, parsed from `logs/metrics.jsonl`),
+  and the dashboard's `dream_health` panel surfaces both.
+
+**Observability artifacts (all machine-local + gitignored under `logs/`).** A
+dream cycle is **self-explaining**: failures and the already-detected
+duplicates/markers land on disk in actionable form so the morning-after answer
+needs no re-derivation.
+
+| Artifact | Written by | Granularity | Content |
+|---|---|---|---|
+| `logs/dream-journal.md` | every cycle | step | per-step status + duration, plus step c's `tests_ran`/`tests_failed`/`failed_tests` and a `triage_log` pointer; `timed_out` reason on a guard trip |
+| `logs/metrics.jsonl` (`dream` event) | every cycle | step | per-step `status`/`duration_s` + `failed_checks`/`failed_tests`; top-level `timed_out`/`timeout_reason` on a trip — the source `dream_health` reads for age + outcome |
+| `logs/dream-failures/<started>.log` | step c, on a **material** audit failure | full output | the COMPLETE captured audit + unittest stdout/stderr for that cycle — "which 5 of 791 failed?" answered verbatim, no re-run |
+| `logs/dream-report-latest.md` | step e, every cycle | item | byte-stable enumeration of each **stale** entry (id, category, age), each **duplicate/conflict** pair (ids + jaccard + category), and every **unpromoted** worklog marker (`work/<feature>/worklog.md:<line>` + kind + text). **Report-only (INV-2)** — never promotes/merges/deletes; it just makes the existing counts self-serve |
+| `logs/dream-scheduler.log` | the scheduler (launchd/cron) | raw stdout/stderr | see below |
+
+- **Scheduler output is no longer discarded.** The installed launchd plist now
+  sets `StandardOutPath` + `StandardErrorPath`, and the cron line **appends**
+  (`>> <log> 2>&1`) instead of the old `>/dev/null 2>&1` — both point at
+  `<knowledge-dir>/logs/dream-scheduler.log` (gitignored), whose dir is created on
+  install (launchd will not create it itself). A scheduled run that fails is now
+  fully recoverable from disk.
+- **Best-effort max-runtime guard (fully offline).** `AGENTWARE_DREAM_MAX_RUNTIME`
+  (default 30m, `off` to disable) caps the cycle's wall-clock so a hung/runaway
+  step cannot stack nightly. The guard is a **between-steps** check — it never
+  interrupts a step already running (interrupting a sanctioned writer mid-`index
+  rebuild`/git-commit risks a torn KB). On trip it stops the remaining steps,
+  records a **PARTIAL** cycle + the trip reason to the journal + metric, and exits
+  non-zero.
+- **Fully offline — no external monitoring.** Dream makes **no network calls**
+  under any configuration. There is **no** outbound-ping / dead-man's-switch
+  integration (e.g. healthchecks.io) anywhere in the code — this was considered
+  and **deliberately dropped** to preserve the offline, no-new-dependency boundary
+  (`R-DEP-01`). The **local** `dream_health` heartbeat (age + outcome) is the
+  in-box signal; an operator who wants off-box alerting points **their own**
+  monitor at the local artifacts (`logs/metrics.jsonl`, `logs/dream-failures/`).
 
 **Install the nightly schedule (opt-in).** The portable artifact is the `dream`
 command; the installer is a thin, fully non-interactive wrapper that writes ONLY
@@ -545,9 +587,34 @@ unsupported platform: schedule any task runner to invoke
 self-contained and non-interactive. To disable entirely:
 `config --set-dream off` then `dream --uninstall-schedule`.
 
+**Making a dream cycle effective (research-informed).** Two bodies of practice
+shaped this design:
+
+- **Agent sleep-time consolidation.** The field treats agent downtime as compute:
+  during idle time an agent consolidates insights, promotes recurring **episodic →
+  semantic** memory, extracts reusable skills, dedups/merges, and reflects — so
+  test-time needs less reasoning. agentware's `dream` is that idle window. Phase 1
+  does the deterministic groundwork (re-index, redact, eval, **detect** duplicates
+  + unpromoted markers) and now makes that detection **actionable** via
+  `dream-report-latest.md`; the LLM-driven consolidation is Phase 2 (below). _(Letta
+  — Sleep-time Compute, letta.com/blog/sleep-time-compute; "Memory for Autonomous
+  LLM Agents", arxiv.org/html/2603.07670v1.)_
+- **Scheduled-job observability.** Best practice for cron/launchd jobs = structured
+  logs (job, run-id, duration, exit_code, **failing items**) + clean exit codes + a
+  **heartbeat / dead-man's-switch** ("logs tell you what happened; a heartbeat tells
+  you when a job *didn't* run") + a **timeout** so a job can't run forever. The
+  artifacts above add the structured failure logs + stop discarding scheduler
+  output; the max-runtime guard is the timeout; `dream_health` (age + outcome) is
+  the **local** heartbeat. The off-box external monitor is intentionally left to the
+  operator to keep dream offline. _(CronBeacon — Cron Job Best Practices,
+  cronbeacon.dev/guides/cron-job-best-practices.)_
+
 > **Phase 2 (deferred, NOT in Phase 1):** all LLM-driven curation lives behind a
 > future review queue — dedup-MERGE of duplicate learnings, re-summarize/compaction,
-> and AUTO-PROMOTE of `> LEARNED:`/`> DECISION:` markers. Phase 1 only REPORTS those.
+> skill extraction, and AUTO-PROMOTE (episodic→semantic) of
+> `> LEARNED:`/`> DECISION:` markers. Phase 1 only REPORTS those (the
+> `dream-report-latest.md` enumeration is the deterministic on-ramp to that
+> curation).
 
 ### Benchmark methodology & numbers (LongMemEval)
 

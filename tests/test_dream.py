@@ -551,5 +551,675 @@ class DreamSchedulerTests(unittest.TestCase, _GuardedEnv):
         self.assertFalse(json.loads(o2)["removed"])
 
 
+# ============================================================================
+# Phase 1.5 — observability + actionable reporting (feature 260628-dream-observability)
+# Hermetic, temp-dir, stdlib-only tests for every NEW behavior added in that
+# feature. Each test pins the failing-test ids it asserts on so the suite stays
+# self-referential-safe under AGENTWARE_NESTED_UNITTEST.
+# ============================================================================
+
+
+class DreamFailingTestParseTests(unittest.TestCase):
+    """Task 1 — recover *which* tests failed from unittest's stderr header lines."""
+
+    def setUp(self):
+        self.mod = load_cli()
+
+    def test_parses_fail_and_error_ids(self):
+        err = (
+            "FAIL: test_alpha (tests.test_mod.Case)\n"
+            "Traceback (most recent call last):\n  ...\n"
+            "ERROR: test_beta (tests.test_mod.Case.test_beta)\n"
+            "  raise RuntimeError\n"
+            "Ran 3 tests in 0.01s\nFAILED (failures=1, errors=1)\n")
+        self.assertEqual(
+            self.mod._parse_failing_test_ids(err),
+            ["test_alpha (tests.test_mod.Case)",
+             "test_beta (tests.test_mod.Case.test_beta)"])
+
+    def test_dedupes_preserving_first_seen_order(self):
+        err = ("FAIL: test_b (m.C)\nFAIL: test_a (m.C)\nFAIL: test_b (m.C)\n")
+        self.assertEqual(self.mod._parse_failing_test_ids(err),
+                         ["test_b (m.C)", "test_a (m.C)"])
+
+    def test_ignores_noise_and_empty(self):
+        self.assertEqual(self.mod._parse_failing_test_ids(""), [])
+        self.assertEqual(self.mod._parse_failing_test_ids(None), [])
+        self.assertEqual(
+            self.mod._parse_failing_test_ids("OK\nRan 5 tests\n  some FAIL: x\n"),
+            [], "only header lines (after strip) count, not substrings mid-line")
+
+    def test_record_passrate_detail_nested_guard_returns_4tuple(self):
+        # We ARE inside a suite run (AGENTWARE_NESTED_UNITTEST is set by the
+        # runner / the verify cmd), so the recursion guard returns the empty
+        # 4-tuple instead of re-spawning the suite.
+        prev = os.environ.get("AGENTWARE_NESTED_UNITTEST")
+        os.environ["AGENTWARE_NESTED_UNITTEST"] = "1"
+        try:
+            self.assertEqual(self.mod._record_test_passrate_detail(),
+                             (None, 0, 0, []))
+            # The back-compatible 3-tuple wrapper still works for old call sites.
+            self.assertEqual(self.mod._record_test_passrate(), (None, 0, 0))
+        finally:
+            if prev is None:
+                os.environ.pop("AGENTWARE_NESTED_UNITTEST", None)
+            else:
+                os.environ["AGENTWARE_NESTED_UNITTEST"] = prev
+
+    def test_audit_tests_check_threads_sorted_failed_test_ids(self):
+        # `_audit_tests_check` shells the suite for real, so we stub subprocess.run
+        # (NEVER call it live from inside the suite — that recurses). The contract:
+        # it parses the FAIL:/ERROR: ids and threads them, sorted (INV-1), into the
+        # check payload that `audit --with-tests` (dream step c) consumes.
+        mod = self.mod
+
+        class _Proc:
+            returncode = 1
+            stdout = ""
+            stderr = ("FAIL: test_b (m.C)\nTraceback...\n"
+                      "ERROR: test_a (m.C)\nTraceback...\n"
+                      "Ran 2 tests in 0.0s\n\nFAILED (failures=1, errors=1)\n")
+
+        saved = mod.subprocess.run
+        mod.subprocess.run = lambda *a, **k: _Proc()
+        try:
+            chk = mod._audit_tests_check()
+        finally:
+            mod.subprocess.run = saved
+        self.assertEqual(chk["name"], "unittest")
+        self.assertFalse(chk["ok"])
+        self.assertEqual(chk["failed_tests"], ["test_a (m.C)", "test_b (m.C)"],
+                         "failed_tests must be sorted (byte-stable, INV-1)")
+
+
+class DreamMaxRuntimeParseTests(unittest.TestCase):
+    """Task 7 — strict parse + resolver for the wall-clock cap (SETTINGS_AW)."""
+
+    def setUp(self):
+        self.mod = load_cli()
+
+    def test_parse_matrix(self):
+        p = self.mod._parse_dream_max_runtime
+        self.assertEqual(p("900"), 900)         # bare seconds
+        self.assertEqual(p("30m"), 1800)        # minutes
+        self.assertEqual(p("1h"), 3600)         # hours
+        self.assertEqual(p("45s"), 45)          # explicit seconds suffix
+        self.assertEqual(p("off"), 0)           # off token -> disabled
+        self.assertEqual(p("0"), 0)             # zero -> disabled
+        self.assertEqual(p("disabled"), 0)
+        self.assertIsNone(p("bogus"))           # invalid -> None (falls through)
+        self.assertIsNone(p(""))
+        self.assertIsNone(p(None))
+
+    def test_resolver_env_overrides_default(self):
+        key = self.mod.DREAM_MAX_RUNTIME_KEY
+        prev = os.environ.get(key)
+        try:
+            os.environ[key] = "15m"
+            self.assertEqual(self.mod.resolve_dream_max_runtime(), 900)
+            os.environ[key] = "off"
+            self.assertEqual(self.mod.resolve_dream_max_runtime(), 0)
+            # A typo in the env degrades to the default (never silently disables).
+            os.environ[key] = "nonsense"
+            self.assertEqual(self.mod.resolve_dream_max_runtime(),
+                             self.mod.DREAM_MAX_RUNTIME_DEFAULT)
+        finally:
+            if prev is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = prev
+
+
+class DreamSchedulerRedirectTests(unittest.TestCase):
+    """Task 4 — the scheduler generators stop discarding output."""
+
+    def setUp(self):
+        self.mod = load_cli()
+
+    def test_plist_has_standard_out_and_err_paths(self):
+        p = self.mod._dream_launchd_plist("00:00", "/x/agentware", "/tmp/d.log")
+        self.assertIn("<key>StandardOutPath</key>", p)
+        self.assertIn("<key>StandardErrorPath</key>", p)
+        self.assertEqual(p.count("/tmp/d.log"), 2)   # both streams -> the log
+        self.assertNotIn("/dev/null", p)
+
+    def test_cron_appends_and_drops_dev_null(self):
+        c = self.mod._dream_cron_line("00:00", "/x/agentware", "/tmp/d.log")
+        self.assertNotIn("/dev/null", c)
+        self.assertIn(">> /tmp/d.log 2>&1", c)
+        self.assertIn("0 0 * * *", c)               # 00:00 -> minute hour spec
+
+    def test_generators_are_byte_stable(self):
+        a1 = self.mod._dream_launchd_plist("03:30", "/x/agentware", "/tmp/d.log")
+        a2 = self.mod._dream_launchd_plist("03:30", "/x/agentware", "/tmp/d.log")
+        self.assertEqual(a1, a2)
+        c1 = self.mod._dream_cron_line("03:30", "/x/agentware", "/tmp/d.log")
+        c2 = self.mod._dream_cron_line("03:30", "/x/agentware", "/tmp/d.log")
+        self.assertEqual(c1, c2)
+
+
+class DreamDetectReportRenderTests(unittest.TestCase):
+    """Task 5 — actionable, byte-stable, report-only detect report (INV-1/INV-2)."""
+
+    def setUp(self):
+        self.mod = load_cli()
+        self.report = {
+            "stale": [
+                {"id": "learn-z", "category": "learnings",
+                 "last_verified": "2025-01-01", "age_days": 400,
+                 "path": "learnings/z.md"},
+                {"id": "learn-a", "category": "references",
+                 "last_verified": "2025-02-01", "age_days": 300,
+                 "path": "references/a.md"},
+            ],
+            "conflicts": [
+                {"a": "id-b", "b": "id-a", "category": "references",
+                 "jaccard": 0.6537},
+            ],
+            "max_age_days": 120,
+            "volatile_categories": ["configurations", "references"],
+        }
+        self.markers = [
+            {"feature": "260628-x", "rel": "work/260628-x/worklog.md",
+             "line": 12, "kind": "LEARNED", "text": "a discovery"},
+            {"feature": "260628-x", "rel": "work/260628-x/worklog.md",
+             "line": 3, "kind": "DECISION", "text": "a choice"},
+        ]
+
+    def test_report_enumerates_each_finding(self):
+        body = self.mod._dream_render_detect_report(self.report, self.markers)
+        # stale: sorted by id (learn-a before learn-z)
+        self.assertLess(body.index("learn-a"), body.index("learn-z"))
+        self.assertIn("learn-z [learnings] last_verified=2025-01-01 age=400d", body)
+        # duplicate pair with the jaccard
+        self.assertIn("id-b <-> id-a [references] jaccard=0.6537", body)
+        # markers grouped by feature, sorted by line (3 before 12), with kind+text
+        self.assertIn("work/260628-x/worklog.md:3 [DECISION] a choice", body)
+        self.assertIn("work/260628-x/worklog.md:12 [LEARNED] a discovery", body)
+        self.assertLess(body.index("worklog.md:3"), body.index("worklog.md:12"))
+        # section headers carry the counts
+        self.assertIn("## Stale entries (2)", body)
+        self.assertIn("## Possible duplicate / conflict pairs (1)", body)
+        self.assertIn("## Unpromoted worklog markers (2)", body)
+
+    def test_render_is_byte_stable(self):
+        a = self.mod._dream_render_detect_report(self.report, self.markers)
+        b = self.mod._dream_render_detect_report(self.report, self.markers)
+        self.assertEqual(a, b, "report body must be byte-stable for unchanged inputs")
+
+    def test_write_report_overwrites_byte_stable(self):
+        kdir = tempfile.mkdtemp(prefix="agentware-dream-report-")
+        self.addCleanup(shutil.rmtree, kdir, True)
+        body = self.mod._dream_render_detect_report(self.report, self.markers)
+        rel1 = self.mod._dream_write_detect_report(kdir, body)
+        self.assertEqual(rel1, self.mod.DREAM_REPORT_REL)
+        path = os.path.join(kdir, rel1)
+        first = open(path, "rb").read()
+        # Overwrite (not append) with the same body -> byte-identical file.
+        self.mod._dream_write_detect_report(kdir, body)
+        self.assertEqual(open(path, "rb").read(), first)
+
+
+class DreamReportNoClockTests(unittest.TestCase):
+    """The detect report carries NO clock/run-id (INV-1 determinism)."""
+
+    def setUp(self):
+        self.mod = load_cli()
+
+    def test_no_timestamp_in_body(self):
+        body = self.mod._dream_render_detect_report(
+            {"stale": [], "conflicts": [], "max_age_days": 120,
+             "volatile_categories": ["references"]}, [])
+        # An ISO 'Z' timestamp (YYYY-MM-DDTHH:MM:SSZ) must never appear in the body.
+        import re as _re
+        self.assertIsNone(_re.search(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", body),
+                          "no clock may leak into the byte-stable report body")
+
+
+class DreamCycleOutcomeTests(unittest.TestCase):
+    """Task 6 — heartbeat outcome classifier (skip-tolerant, like _dream_output)."""
+
+    def setUp(self):
+        self.mod = load_cli()
+
+    def _rec(self, *statuses):
+        return {"event": "dream", "ts": "2026-06-28T00:00:00Z",
+                "steps": [{"step": "x%d" % i, "status": s}
+                          for i, s in enumerate(statuses)]}
+
+    def test_ok_when_none_failed(self):
+        self.assertEqual(
+            self.mod._dream_cycle_outcome(self._rec("ok", "skipped", "ok")), "ok")
+
+    def test_fail_when_all_nonskipped_failed(self):
+        self.assertEqual(
+            self.mod._dream_cycle_outcome(self._rec("fail", "skipped", "error")),
+            "fail")
+
+    def test_partial_when_mixed(self):
+        self.assertEqual(
+            self.mod._dream_cycle_outcome(self._rec("ok", "fail")), "partial")
+
+    def test_skips_and_planned_are_not_failures(self):
+        self.assertEqual(
+            self.mod._dream_cycle_outcome(self._rec("skipped", "planned")), "ok")
+
+    def test_empty_steps_is_ok(self):
+        self.assertEqual(self.mod._dream_cycle_outcome({"steps": []}), "ok")
+
+
+class DreamHealthAgeOutcomeTests(unittest.TestCase, _GuardedEnv):
+    """Task 6 — dream_health reports last-run AGE + OUTCOME and warns on stale/failed."""
+
+    def setUp(self):
+        self._save_env()
+        self.addCleanup(self._restore_env)
+        self.kdir = tempfile.mkdtemp(prefix="agentware-dream-hb-")
+        self.addCleanup(shutil.rmtree, self.kdir, True)
+        build_synthetic_kb(self.kdir)
+        self.mod = self._mod  # _GuardedEnv loaded + isolated the CLI module
+        os.environ["AGENTWARE_DREAM"] = "1"  # ON (hermetic via _GuardedEnv config)
+
+    def _write_dream_event(self, ts, statuses):
+        logs = os.path.join(self.kdir, "logs")
+        os.makedirs(logs, exist_ok=True)
+        rec = {"event": "dream", "ts": ts,
+               "steps": [{"step": "x%d" % i, "status": s}
+                         for i, s in enumerate(statuses)]}
+        with open(os.path.join(logs, "metrics.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, sort_keys=True) + "\n")
+
+    def test_fresh_ok_reports_age_and_outcome(self):
+        self._write_dream_event(self.mod.utc_now_iso(), ["ok", "ok", "skipped"])
+        c = self.mod._audit_dream_health_check(self.kdir)
+        self.assertTrue(c["ok"], c["details"])
+        self.assertEqual(c["outcome"], "ok")
+        self.assertIsNotNone(c["age_hours"])
+        self.assertLess(c["age_hours"], 1.0)
+        self.assertIsNotNone(c["last_run"])
+
+    def test_recent_but_failed_warns_with_outcome(self):
+        self._write_dream_event(self.mod.utc_now_iso(), ["ok", "fail"])
+        c = self.mod._audit_dream_health_check(self.kdir)
+        self.assertFalse(c["ok"])
+        self.assertEqual(c["outcome"], "partial")
+        self.assertIn("did not finish clean", c["details"][0])
+
+    def test_stale_cycle_warns_and_still_reports_outcome(self):
+        # A cycle far in the past trips the staleness budget regardless of outcome.
+        self._write_dream_event("2020-01-01T00:00:00Z", ["ok", "ok"])
+        c = self.mod._audit_dream_health_check(self.kdir)
+        self.assertFalse(c["ok"])
+        self.assertGreater(c["age_hours"], self.mod.DREAM_STALE_HOURS)
+        self.assertIn("stale", c["details"][0])
+        self.assertEqual(c["outcome"], "ok")
+
+    def test_inert_when_off(self):
+        os.environ["AGENTWARE_DREAM"] = "0"
+        c = self.mod._audit_dream_health_check(self.kdir)
+        self.assertTrue(c["ok"])
+        self.assertIn("inert", c["details"][0])
+
+
+class DreamFailureArtifactTests(unittest.TestCase, _GuardedEnv):
+    """Tasks 2+3 — on a failing step the orchestrator persists the full capture to
+    logs/dream-failures/<started>.log and the journal + metric carry the failure
+    fields. Driven end-to-end by injecting a failing step into DREAM_STEP_FUNCS."""
+
+    def setUp(self):
+        self._save_env()
+        self.addCleanup(self._restore_env)
+        self.kdir = tempfile.mkdtemp(prefix="agentware-dream-fail-")
+        self.addCleanup(shutil.rmtree, self.kdir, True)
+        build_synthetic_kb(self.kdir)
+        self.mod = self._mod  # _GuardedEnv loaded + isolated the CLI module
+
+    def test_failure_log_rel_strips_colons(self):
+        self.assertEqual(
+            self.mod._dream_failure_log_rel("2026-06-28T03:58:49Z"),
+            os.path.join("logs", "dream-failures", "2026-06-28T035849Z.log"))
+
+    def test_write_failure_capture_persists_full_text(self):
+        rel = self.mod._dream_write_failure_capture(
+            self.kdir, "2026-06-28T00:00:00Z", "c",
+            "FAIL: tests.test_x (m.C)\nfull audit output\n")
+        self.assertIsNotNone(rel)
+        body = open(os.path.join(self.kdir, rel), encoding="utf-8").read()
+        self.assertIn("FAIL: tests.test_x (m.C)", body)
+        self.assertIn("step c", body)
+
+    def test_metric_step_copies_only_present_failure_fields(self):
+        # Step c carries failure fields; a plain step stays minimal (byte-stable).
+        c = self.mod._dream_metric_step(
+            {"step": "c", "status": "fail", "duration_s": 0.1,
+             "failed_checks": "unittest", "failed_tests": "tests.test_x",
+             "tests_failed": 1, "tests_ran": 791})
+        self.assertEqual(c["failed_tests"], "tests.test_x")
+        self.assertEqual(c["tests_ran"], 791)
+        plain = self.mod._dream_metric_step(
+            {"step": "a", "status": "ok", "duration_s": 0.2})
+        self.assertEqual(set(plain), {"step", "status", "duration_s"})
+
+    def test_full_failure_lands_on_disk_journal_and_metric(self):
+        mod = self.mod
+        cap = ("===== audit =====\nFAIL: tests.test_x (m.C)\n"
+               "ERROR: tests.test_y (m.C)\nfull captured stderr\n")
+
+        def fake_c(kdir, dry_run):
+            if dry_run:
+                return {"status": "planned"}
+            return {"status": "fail", "failed_checks": "unittest",
+                    "tests_ran": 791, "tests_failed": 2,
+                    "failed_tests": "tests.test_x,tests.test_y",
+                    "_failure_capture": cap}
+
+        saved = mod.DREAM_STEP_FUNCS
+        mod.DREAM_STEP_FUNCS = (("c", "audit", fake_c),)
+        try:
+            code, out, err = run_cli(
+                ["dream", "--steps", "c", "--force", "--format", "json"],
+                self.kdir)
+        finally:
+            mod.DREAM_STEP_FUNCS = saved
+        self.assertEqual(code, 1, err)  # a failed step -> non-zero exit
+        step = json.loads(out)["steps"][0]
+        # (1) The per-cycle triage artifact is written + referenced; the private
+        #     capture key never leaks into the step dict.
+        self.assertNotIn("_failure_capture", step)
+        self.assertIn("triage_log", step)
+        art = os.path.join(self.kdir, step["triage_log"])
+        self.assertTrue(os.path.isfile(art))
+        body = open(art, encoding="utf-8").read()
+        self.assertIn("FAIL: tests.test_x (m.C)", body)
+        self.assertIn("ERROR: tests.test_y (m.C)", body)
+        # (2) The journal entry carries the failure fields.
+        journal = open(os.path.join(self.kdir, mod.DREAM_JOURNAL_REL),
+                       encoding="utf-8").read()
+        self.assertIn("failed_tests=tests.test_x,tests.test_y", journal)
+        self.assertIn("tests_failed=2", journal)
+        self.assertIn("failed_checks=unittest", journal)
+        # (3) The metric event's per-step record carries them too.
+        metrics = os.path.join(self.kdir, "logs", "metrics.jsonl")
+        dreams = [json.loads(l) for l in open(metrics)
+                  if l.strip() and json.loads(l).get("event") == "dream"]
+        c = dreams[-1]["steps"][0]
+        self.assertEqual(c["failed_tests"], "tests.test_x,tests.test_y")
+        self.assertEqual(c["failed_checks"], "unittest")
+        self.assertEqual(c["tests_failed"], 2)
+        self.assertEqual(c["tests_ran"], 791)
+
+
+class DreamMaxRuntimeGuardTests(unittest.TestCase, _GuardedEnv):
+    """Task 7 — the wall-clock cap trips between steps -> PARTIAL cycle + non-zero
+    exit + journal/metric trip record. Fully deterministic: the clock is injected."""
+
+    def setUp(self):
+        self._save_env()
+        self.addCleanup(self._restore_env)
+        self.kdir = tempfile.mkdtemp(prefix="agentware-dream-rt-")
+        self.addCleanup(shutil.rmtree, self.kdir, True)
+        build_synthetic_kb(self.kdir)
+        self.mod = self._mod  # _GuardedEnv loaded + isolated the CLI module
+
+    def test_cap_trips_partial_cycle_nonzero_exit(self):
+        mod = self.mod
+
+        def ok_step(kdir, dry_run):
+            return {"status": "ok"}
+
+        # Injected perf clock: wall0=0; step-a elapsed/t0/end all 1 (<cap); step-b
+        # elapsed=20 (>10s cap -> TRIP); final cycle-duration read=21.
+        vals = [0.0, 1.0, 1.0, 1.0, 20.0, 21.0]
+
+        def fake_perf():
+            return vals.pop(0) if vals else 999.0
+
+        saved_funcs, saved_perf = mod.DREAM_STEP_FUNCS, mod._dream_perf
+        mod.DREAM_STEP_FUNCS = (("a", "s1", ok_step), ("b", "s2", ok_step),
+                                ("c", "s3", ok_step))
+        mod._dream_perf = fake_perf
+        os.environ[mod.DREAM_MAX_RUNTIME_KEY] = "10"  # 10-second cap
+        try:
+            code, out, err = run_cli(["dream", "--force", "--format", "json"],
+                                     self.kdir)
+        finally:
+            mod.DREAM_STEP_FUNCS, mod._dream_perf = saved_funcs, saved_perf
+            os.environ.pop(mod.DREAM_MAX_RUNTIME_KEY, None)
+        self.assertEqual(code, 1, err)  # guard error -> non-zero exit
+        payload = json.loads(out)
+        self.assertTrue(payload["timed_out"])
+        self.assertIn("max-runtime", payload["timeout_reason"])
+        by = [(s["step"], s["status"]) for s in payload["steps"]]
+        self.assertEqual(by, [("a", "ok"), ("guard", "error"),
+                              ("b", "skipped"), ("c", "skipped")])
+        # PARTIAL outcome (a passed step + the guard failure).
+        self.assertEqual(
+            mod._dream_cycle_outcome({"steps": payload["steps"]}), "partial")
+        # Journal + metric record the trip.
+        journal = open(os.path.join(self.kdir, mod.DREAM_JOURNAL_REL),
+                       encoding="utf-8").read()
+        self.assertIn("- timed_out:", journal)
+        metrics = os.path.join(self.kdir, "logs", "metrics.jsonl")
+        ev = [json.loads(l) for l in open(metrics)
+              if l.strip() and json.loads(l).get("event") == "dream"][-1]
+        self.assertTrue(ev["timed_out"])
+        self.assertIn("max-runtime", ev["timeout_reason"])
+
+    def test_cap_zero_disables_guard(self):
+        # 0 = disabled: even a "slow" injected clock never trips. Stub the step so
+        # the test is hermetic (no real index rebuild) and isolates the guard.
+        mod = self.mod
+
+        def ok_step(kdir, dry_run):
+            return {"status": "ok"}
+
+        def fake_perf():
+            # A monotonically huge clock; with the cap disabled it must be ignored.
+            fake_perf.t += 10_000.0
+            return fake_perf.t
+        fake_perf.t = 0.0
+
+        saved_funcs, saved_perf = mod.DREAM_STEP_FUNCS, mod._dream_perf
+        mod.DREAM_STEP_FUNCS = (("a", "s1", ok_step), ("b", "s2", ok_step))
+        mod._dream_perf = fake_perf
+        os.environ[mod.DREAM_MAX_RUNTIME_KEY] = "off"
+        try:
+            code, out, err = run_cli(["dream", "--force", "--format", "json"],
+                                     self.kdir)
+        finally:
+            mod.DREAM_STEP_FUNCS, mod._dream_perf = saved_funcs, saved_perf
+            os.environ.pop(mod.DREAM_MAX_RUNTIME_KEY, None)
+        self.assertEqual(code, 0, err)
+        self.assertIsNone(json.loads(out).get("timed_out"))
+        self.assertEqual([s["status"] for s in json.loads(out)["steps"]],
+                         ["ok", "ok"])
+
+
+class DreamNoNetworkTests(unittest.TestCase):
+    """Invariant — dream stays 100% OFFLINE: no outbound ping / dead-man's-switch
+    integration anywhere in the dream code (Task 7, acceptance criterion)."""
+
+    def setUp(self):
+        self.mod = load_cli()
+
+    def test_no_network_tokens_in_dream_source(self):
+        import inspect
+        names = [n for n in dir(self.mod)
+                 if ("dream" in n.lower()) and callable(getattr(self.mod, n))]
+        self.assertTrue(names, "no dream functions discovered")
+        src = []
+        for n in names:
+            try:
+                src.append(inspect.getsource(getattr(self.mod, n)))
+            except (OSError, TypeError):
+                pass
+        blob = "\n".join(src)
+        # Pure network-call tokens (NOT 'http', which legitimately appears in the
+        # launchd plist DTD URL); their absence proves no off-box integration.
+        for tok in ("urllib", "urlopen", "socket.", "http.client",
+                    "requests.", "healthchecks", "DREAM_PING"):
+            self.assertNotIn(tok, blob,
+                             "dream code must make no network calls: found %r" % tok)
+
+
+class DreamObservabilityE2ETests(unittest.TestCase, _GuardedEnv):
+    """Task 10 [e2e] — prove the morning-after question is answerable FROM DISK.
+
+    A forced FULL cycle (real steps a,b,d,e,f) with ONE injected failing audit
+    check (step c carrying real failing-test names) must, with zero re-runs, land:
+    (a) the failing TEST NAMES in logs/metrics.jsonl, the journal, AND
+        logs/dream-failures/<ts>.log;
+    (b) the duplicate pair + every unpromoted marker in logs/dream-report-latest.md;
+    (c) scheduler output redirection in the generated launchd plist + cron line
+        (no /dev/null);
+    (d) the dream_health heartbeat reporting last-run AGE + OUTCOME.
+
+    Hermetic: synthetic KB, isolated config (_GuardedEnv), injected failing step
+    (the real audit shells unittest, which the nested guard disables — so real
+    failing-test NAMES can only be produced by injecting step c, per
+    learn-dream-cycle-test-monkeypatch-step-funcs). Step f degrades to a skipped
+    no-op (autocommit OFF under the isolated config) so the cycle touches no git.
+    """
+
+    # Two near-identical `references` entries -> a real jaccard>=0.6 duplicate pair
+    # that survives the step-a frontmatter rebuild. Distinct vocabulary from the
+    # default entries so EXACTLY one pair is flagged.
+    _DUP_BODY = (
+        "Token bucket rate limiting refills tokens at a steady configured rate "
+        "and permits short bursts up to the bucket capacity before throttling "
+        "any further requests, smoothing spiky traffic deterministically.\n")
+    _DUP_A = {
+        "id": "ref-dup-alpha", "title": "Token Bucket Rate Limiting",
+        "category": "references", "path": "references/dup-alpha.md",
+        "tags": ["ratelimit", "tokenbucket", "throttle"],
+        "created": "2026-01-06",
+        "summary": "Token bucket rate limiting refills tokens at a steady rate.",
+        "body": "# Token Bucket Rate Limiting\n\n" + _DUP_BODY,
+    }
+    _DUP_B = {
+        "id": "ref-dup-beta", "title": "Token Bucket Throttling",
+        "category": "references", "path": "references/dup-beta.md",
+        "tags": ["ratelimit", "tokenbucket", "throttle"],
+        "created": "2026-01-07",
+        "summary": "Token bucket rate limiting refills tokens at a steady rate.",
+        "body": "# Token Bucket Throttling\n\n" + _DUP_BODY,
+    }
+
+    def setUp(self):
+        self._save_env()
+        self.addCleanup(self._restore_env)
+        self.kdir = tempfile.mkdtemp(prefix="agentware-dream-e2e-")
+        self.addCleanup(shutil.rmtree, self.kdir, True)
+        self.mod = self._mod  # _GuardedEnv loaded + isolated the CLI module
+        from tests import _fixtures as fx
+        entries = [dict(e) for e in fx._ENTRIES] + [self._DUP_A, self._DUP_B]
+        build_synthetic_kb(self.kdir, entries=entries)
+        # Frontmatter-complete so step a (index rebuild) is a clean no-op and the
+        # two duplicate entries survive into the rebuilt index.
+        run_cli(["index", "migrate-frontmatter"], self.kdir)
+        run_cli(["index", "rebuild"], self.kdir)
+        _seed_gold(self.kdir)
+        # An unpromoted-marker worklog for step e to enumerate (text is unique, so
+        # scan_worklog flags both markers as unpromoted).
+        wdir = os.path.join(self.kdir, "work", "260628-e2e")
+        os.makedirs(wdir, exist_ok=True)
+        with open(os.path.join(wdir, "worklog.md"), "w", encoding="utf-8") as f:
+            f.write("# Worklog — 260628-e2e\n\n"
+                    "> LEARNED: e2e dream observability proof marker alpha\n"
+                    "> DECISION: e2e injected a failing audit step for determinism\n")
+        os.environ["AGENTWARE_DREAM"] = "1"  # ON so dream_health is live (not inert)
+
+    def test_full_cycle_is_self_explaining_from_disk(self):
+        mod = self.mod
+        cap = ("===== audit --with-tests =====\n"
+               "FAIL: tests.test_widget (m.WidgetCase.test_render)\n"
+               "ERROR: tests.test_db (m.DbCase.test_commit)\n"
+               "full captured audit + unittest stderr blob\n")
+
+        def fake_c(kdir, dry_run):
+            if dry_run:
+                return {"status": "planned", "would": "audit --with-tests"}
+            return {"status": "fail", "failed_checks": "unittest",
+                    "tests_ran": 802, "tests_failed": 2,
+                    "failed_tests": "tests.test_db,tests.test_widget",
+                    "_failure_capture": cap}
+
+        # Swap ONLY step c; every other step runs for real -> a genuine full cycle.
+        saved = mod.DREAM_STEP_FUNCS
+        mod.DREAM_STEP_FUNCS = tuple(
+            (s, lbl, fake_c if s == "c" else fn) for (s, lbl, fn) in saved)
+        try:
+            code, out, err = run_cli(
+                ["dream", "--force", "--format", "json"], self.kdir)
+        finally:
+            mod.DREAM_STEP_FUNCS = saved
+
+        self.assertEqual(code, 1, err)  # a failed step -> non-zero exit
+        payload = json.loads(out)
+        steps = {s["step"]: s for s in payload["steps"]}
+        # The full a-f cycle ran (c failed but never aborted the rest).
+        self.assertEqual([s["step"] for s in payload["steps"]],
+                         ["a", "b", "c", "d", "e", "f"])
+        self.assertEqual(steps["c"]["status"], "fail")
+        self.assertEqual(steps["e"]["status"], "ok")
+
+        names = ("tests.test_db", "tests.test_widget")
+
+        # (a) The failing TEST NAMES land in all three artifacts.
+        # (a.1) metrics.jsonl dream event, step-c record.
+        metrics = os.path.join(self.kdir, "logs", "metrics.jsonl")
+        dreams = [json.loads(l) for l in open(metrics, encoding="utf-8")
+                  if l.strip() and json.loads(l).get("event") == "dream"]
+        mc = {s["step"]: s for s in dreams[-1]["steps"]}["c"]
+        self.assertEqual(mc["failed_tests"], "tests.test_db,tests.test_widget")
+        self.assertEqual(mc["failed_checks"], "unittest")
+        self.assertEqual(mc["tests_failed"], 2)
+        self.assertEqual(mc["tests_ran"], 802)
+        # (a.2) The journal.
+        journal = open(os.path.join(self.kdir, mod.DREAM_JOURNAL_REL),
+                       encoding="utf-8").read()
+        self.assertIn("failed_tests=tests.test_db,tests.test_widget", journal)
+        self.assertIn("tests_failed=2", journal)
+        # (a.3) The per-cycle triage capture log (FULL captured output).
+        self.assertIn("triage_log", steps["c"])
+        self.assertNotIn("_failure_capture", steps["c"])  # never leaks
+        triage = os.path.join(self.kdir, steps["c"]["triage_log"])
+        self.assertTrue(os.path.isfile(triage))
+        tbody = open(triage, encoding="utf-8").read()
+        self.assertIn("FAIL: tests.test_widget (m.WidgetCase.test_render)", tbody)
+        self.assertIn("ERROR: tests.test_db (m.DbCase.test_commit)", tbody)
+
+        # (b) The actionable report enumerates the duplicate pair + every marker.
+        report = os.path.join(self.kdir, mod.DREAM_REPORT_REL)
+        self.assertTrue(os.path.isfile(report))
+        rbody = open(report, encoding="utf-8").read()
+        # the duplicate pair (both ids + a jaccard) -- direction is corpus order.
+        self.assertIn("ref-dup-alpha <-> ref-dup-beta", rbody)
+        self.assertIn("[references] jaccard=", rbody)
+        # every unpromoted marker, with worklog.md:line + kind + text.
+        self.assertIn("work/260628-e2e/worklog.md:", rbody)
+        self.assertIn("[learned] e2e dream observability proof marker alpha", rbody)
+        self.assertIn(
+            "[decision] e2e injected a failing audit step for determinism", rbody)
+        self.assertEqual(steps["e"].get("duplicates"), 1)
+        self.assertEqual(steps["e"].get("unpromoted_markers"), 2)
+
+        # (c) The generated scheduler artifacts REDIRECT output (no /dev/null).
+        plist = mod._dream_launchd_plist("00:00", "/x/agentware")
+        self.assertIn("StandardOutPath", plist)
+        self.assertIn("StandardErrorPath", plist)
+        cron = mod._dream_cron_line("00:00", "/x/agentware")
+        self.assertNotIn("/dev/null", cron)
+        self.assertIn(">>", cron)
+
+        # (d) dream_health reports last-run AGE + OUTCOME (partial: c failed, rest ok).
+        hc = mod._audit_dream_health_check(self.kdir)
+        self.assertIsNotNone(hc["last_run"])
+        self.assertIsNotNone(hc["age_hours"])
+        self.assertLess(hc["age_hours"], 1.0)
+        self.assertEqual(hc["outcome"], "partial")
+        self.assertFalse(hc["ok"])  # warns: last cycle did not finish clean
+
+
 if __name__ == "__main__":
     unittest.main()
