@@ -153,6 +153,7 @@ Nothing personal is ever committed: the repo is **pure steering**, and your know
 - **Self-improvement**: worklog `> LEARNED:` markers are promoted into durable, ID'd steering rules — linted in CI.
 - **Self-healing**: every subtask is verified with *your* project's own build/test/health command; failures retry, not ship.
 - **Self-extension**: ship features into agentware the same way you ship them into any project (gated by a `!! WARNING !!` for package edits).
+- **(Experimental branched feat/HybridModels) Hybrid & local models**: route each loop phase (Pre/Main/Post) to its own runtime+model — keep planning + assessment on cloud Claude and run *execution* on a **local** model (`gpt-oss-20b` / `gemma-26b` via LM Studio + Codex `--oss`). No per-phase keys ⇒ byte-identical all-cloud; a no-progress circuit breaker, opt-in cloud fallback, and one-command revert keep it safe unattended. **[Benchmarked](#local-models): the framework lifts weaker executors most, and KB memory compounds model-independently.**. 
 - **Git-native & private**: plaintext markdown + JSON; team-sync over git; full audit trail (every prompt + session transcript) in *your* external dir.
 
 ---
@@ -174,6 +175,91 @@ Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](
 
 ---
 
+<a id="local-models"></a>
+
+## 🪶 Small & local models — same framework, weaker models, still ship
+
+You don't need a frontier model to get tasks done. agentware's loop — **plan → execute → verify → recall → self-heal** — is exactly the scaffold a *smaller* model needs to punch above its weight: it sharpens the plan before the weak model touches anything, verifies every subtask with your project's own test/health command (so a wrong edit retries instead of shipping), and injects only the relevant, deterministically-retrieved prior knowledge. **The weaker the executor, the more the framework lifts it** — and that's measured below, not asserted.
+
+### Per-phase routing — the knob
+
+Every loop phase picks its **own** runtime + model. Resolution is **env → phase `config.env` → global `AGENTWARE_CLI`/`MODEL` → default `claude`**, so with *no* per-phase keys the loop is **byte-identical all-cloud** (fully backward-compatible — the new surface is inert until you opt in).
+
+| Knob | What it sets | Values |
+|---|---|---|
+| `AGENTWARE_{PRE,MAIN,POST}_CLI` | runtime for that phase | `claude` \| `codex` |
+| `AGENTWARE_{PRE,MAIN,POST}_MODEL` | model id for that phase | e.g. `opus`, `haiku`, `gpt-oss-20b`, `gemma-26b` |
+| `AGENTWARE_{PRE,MAIN,POST}_LOCAL` | local provider (Codex `--oss`) | `lmstudio` \| `ollama` |
+
+### The hybrid profile (recommended) — cloud brains, local hands
+
+Keep **planning + assessment on cloud Claude** (you never want a weak model judging its own plan or honesty), and run the high-volume **execute** phase on a **local** model:
+
+```bash
+# Persist the hybrid profile (effective on the NEXT run):
+scripts/agentware config --set-main-cli   codex
+scripts/agentware config --set-main-local lmstudio
+scripts/agentware config --set-main-model gpt-oss-20b   # or gemma-26b (the more reliable local editor)
+
+# …or set it for a single run, no persistence:
+AGENTWARE_MAIN_CLI=codex AGENTWARE_MAIN_LOCAL=lmstudio AGENTWARE_MAIN_MODEL=gemma-26b \
+  ./agentware.sh <YYMMDD-feature>
+
+# Revert to all-cloud at any time (one command):
+scripts/agentware config --set-main-cli claude
+```
+
+Under the hood the execute phase then spawns `codex exec --oss --local-provider lmstudio -m <model> …`; PRE/POST stay on `claude`. (Always pass `--local-provider lmstudio` — `codex --oss` silently falls back to Ollama, and may auto-pull a huge model, if the LM Studio server is unreachable.)
+
+### Safety rails (so it's safe to run unattended)
+
+- **No-progress circuit breaker** — `AW_NOPROGRESS_ABORT` halts a phase that spins without flipping a task marker, so a stuck weak model can't burn the loop.
+- **Opt-in cloud fallback** — `AGENTWARE_MAIN_FALLBACK=claude` re-runs a stalled local task on cloud Claude.
+- **Cloud-only reconcile** — promote/merge reconcile steps always route to cloud regardless of main routing.
+- **One-command revert** — `scripts/agentware config --set-main-cli claude`.
+- **Cost-safe by construction** — all cloud calls go through your Claude Code **subscription** (no API key, no per-token billing, no spend cap; quota is the only ceiling). Local calls cost **zero** dollars and stay **fully private** on your machine.
+
+> **One-time local PRE-FLIGHT.** The local stack (LM Studio MLX serving the `/v1/responses` API Codex needs) must be brought up **manually once** — the loop won't start servers headlessly. On a 24 GB M4 Pro the two local executors **can't co-reside** (`gpt-oss-20b` ≈ 12 GB, `gemma-4-26b-a4b-qat` ≈ 15 GB); rotate one at a time with `lms load`/`lms unload` and re-probe `:1234`. Full steps + verified pitfalls: [docs/loop.md → per-phase routing & the hybrid local-executor profile](docs/loop.md#per-phase-routing--the-hybrid-local-executor-profile).
+
+### The benchmarks — does a weaker model actually get tasks done?
+
+A controlled matrix: **3 tests × harness {without, with framework} × executor {opus, sonnet, haiku, gpt-oss-20b (local), gemma-26b (local)}**. Cloud runs on the Claude subscription; local runs on LM Studio + Codex `--oss` on a 24 GB M4 Pro. Raw rows are committed (`bench/*.csv` + `REPORT.md`). Small-N by design — treat deltas as **directional**, and read the honest confounds below.
+
+**① The framework lifts weaker executors the most.** On the *hard* synthetic exercises (`list-ops`, `bowling`) — exactly where headroom exists — the **bare** model is unreliable for every tier; inside the framework loop, every executor that can emit edits reaches the all-Opus reference pass rate:
+
+| Executor | Bare (hard exercises) | Inside framework | Lift |
+|---|:--:|:--:|:--:|
+| opus (reference) | 1/4 (25%) | 2/2 (100%) | already strongest — smallest headroom |
+| sonnet | 2/4 (50%) | 2/2 (100%) | **+50pp** |
+| **haiku** (cheapest cloud) | 2/4 (50%) | 2/2 (100%) | **+50pp → reaches the Opus reference** |
+| **gemma-26b** (local) | 0/2 (bare timeout/fail) | 1/1 (100%) | **fail → verified solve** |
+| gpt-oss-20b (local) | 0/2 | 0/1 | *no lift — executor-blocked, see note* |
+
+> The lone non-lift is **not** a framework failure: under Codex 0.142.3 `gpt-oss-20b`'s `apply_patch` tool-call fails to parse deterministically, so it never emits an edit. The reason→recall→verify scaffold is sound; the model just can't act on it — which is why **`gemma-4-26b-a4b-qat` is the recommended default local *editor*** (`gpt-oss-20b` is fine for shell-driven edits).
+
+**② "Never forget" compounds — and it's model-independent.** A sequence of 3 *related* bugs; with memory on, each verified fix is `recall`-able for the next, so retrieval hits climb. The no-memory control never accumulates. It reproduces **identically on cloud and local**:
+
+| Arm | recall_hits chain (bug 1 → 2 → 3) |
+|---|:--:|
+| control (memory off, any executor) | **0 → 0 → 0** |
+| with memory · opus (cloud) | **0 → 1 → 2** |
+| with memory · haiku (cloud) | **0 → 1 → 2** |
+| with memory · **gpt-oss-20b (local)** | **0 → 1 → 2** |
+| with memory · **gemma-26b (local)** | **0 → 1 → 2** |
+| with memory · sonnet (cloud) | 0 → 0 → 1 *(confound — see below)* |
+
+The deterministic `recall` is the *single* varied factor — so the "never forget" payoff is the framework's, not the model's, and a small local model gets it for free.
+
+**③ No-regression safety holds for local executors too.** On a real-repo bug-fix (`python-slugify` regression, scored by the repo's own 82-test suite), **every** executor passed both bare and framed — including the local ones (`gemma-26b` solved 82/82 via sed-edit; `gpt-oss-20b` 82/82 via shell edits). The easy single-hunk bug *saturates* (no headroom to discriminate), so it yields a clean **no-regression** signal plus a cost/time spread, not a discrimination signal.
+
+**Cost & time.** Bare cloud one-shot is cheapest per *easy* task (~10–20 s) but unreliable on hard ones. The framework adds 10–20× wall-clock (the plan→verify→assess scaffold) — worth it exactly when a task is **hard** (Test ①) or **recurring** (Test ②). Local trades dollars for wall-clock: **zero marginal cost, fully private, ~10–40× slower** than cloud on this box.
+
+**Honest confounds (read these).** ① Small N — directional, not statistically significant. ② The easy real-repo bug saturates; true framework-effect measurement needs a harder multi-file bug (logged as future work). ③ The `sonnet` compounding cell shows `0,0,1` because bug 1 hit a `claude -p` **stdout-reconstruction artifact** (a truncated/fenced response wrote an incomplete file — a harness output bug, *not* a reasoning failure), so no learning promoted; recorded as-is rather than re-run to tidy the data. Tool-loop executors (`codex exec` edits files in place) never hit this class.
+
+**Verdict:** the hybrid profile is the practical default — **pre/post on cloud Claude, main chosen by task** (Opus for hard one-shots; a cheaper or local main when the verify-loop + KB memory carry it). For weaker and local models, the framework is the difference between "couldn't do it bare" and "verified solve."
+
+---
+
 ## Roadmap
 
 agentware is honest about where it's *not yet* industry-standard:
@@ -182,7 +268,7 @@ agentware is honest about where it's *not yet* industry-standard:
 - **Knowledge-graph / multi-hop** retrieval — deeper traversal over the shipped deterministic dependency graph.
 - **Broader runtime support** (native Windows; more agent CLIs beyond the shipped Claude Code + OpenAI Codex).
 
-**Shipped since this list started:** **Mode B** local semantic retrieval (optional/opt-in — see the measured A/B above; BM25 stays default), the **observability dashboard** (live loop + benchmark health), and a deterministic **KB dependency graph**.
+**Shipped since this list started:** **hybrid per-phase model routing + local executor** (run the execute phase on a local `gpt-oss-20b`/`gemma-26b` via LM Studio + Codex `--oss` while planning/assessment stay on cloud Claude — [benchmarked above](#local-models)), **Mode B** local semantic retrieval (optional/opt-in — see the measured A/B above; BM25 stays default), the **observability dashboard** (live loop + benchmark health), and a deterministic **KB dependency graph**.
 
 **Deliberately *not* on the roadmap (the moat line):** an LLM in the retrieval or write path. That is exactly where determinism and non-hallucination break — and it's our whole point.
 
