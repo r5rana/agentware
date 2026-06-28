@@ -111,6 +111,31 @@ CLI_DEFAULT = CLI_CLAUDE
 _CLI_CLAUDE_TOKENS = ("claude", "claude-code", "claudecode", "cc", "default")
 _CLI_CODEX_TOKENS = ("codex", "openai-codex", "openai", "codex-cli")
 
+# Global model knob (no setter today — read straight from the env by agentware.sh
+# as AGENTWARE_MODEL). Named here so the per-phase resolvers can fall back to it
+# (env then config.env) for backward-compatibility. Default unset => the spawned
+# subagent picks its own model (today's behavior, byte-unchanged).
+MODEL_KEY = "AGENTWARE_MODEL"
+
+# Per-phase runtime routing (feature 260628-hybrid-local-model). agentware's loop
+# runs THREE phases — pre (plan), main (execute), post (assess). Each phase can be
+# routed to its own runtime CLI + model + LOCAL serving provider, enabling the
+# default HYBRID profile (plan/assess on cloud Claude, execute on a LOCAL model via
+# the Codex --oss adapter). Three axes per phase: CLI (claude|codex), MODEL (free
+# vendor id), LOCAL (lmstudio|ollama — which local OpenAI-compatible server Codex's
+# --oss targets; unset => a cloud route).
+#
+# Resolution precedence per (phase, axis), STRICTLY backward-compatible:
+#   phase env  ->  phase config.env  ->  GLOBAL (AGENTWARE_CLI/AGENTWARE_MODEL)  ->  default
+# With NO per-phase keys set, every phase resolves to exactly the global value:
+#   CLI -> resolve_cli() (default 'claude'); MODEL -> AGENTWARE_MODEL (default
+#   unset); LOCAL -> unset (cloud). That is byte-identical to today. The LOCAL axis
+#   has no global fallback (it is inherently per-phase) and defaults to unset. The
+#   loop resolves each phase ONCE at run start and treats it as immutable mid-run.
+PHASES = ("pre", "main", "post")
+# Local OpenAI-compatible serving provider for Codex --oss. Strict token set.
+_LOCAL_TOKENS = ("lmstudio", "ollama")
+
 # Pluggable LOCAL embedder backend (feature 260625-semantic-retrieval-benchmark,
 # Phase 3.2). Mode B (semantic) needs a LOCAL embedding model. The backend is
 # OPTIONAL and NEVER hard-imported: it is resolved from a runtime config string
@@ -548,6 +573,111 @@ def resolve_cli():
     if cfg is not None:
         return cfg
     return CLI_DEFAULT
+
+
+# --- per-phase routing (260628-hybrid-local-model) ---------------------------
+def _phase_key(phase, axis):
+    """Env/config key for a (phase, axis) pair, e.g. ('main','CLI') ->
+    'AGENTWARE_MAIN_CLI'. `phase` in PHASES; `axis` in {CLI,MODEL,LOCAL}."""
+    return "AGENTWARE_%s_%s" % (phase.upper(), axis)
+
+
+def _parse_local(raw):
+    """Lenient parse for the LOCAL provider knob -> 'lmstudio'|'ollama'|None.
+
+    An unrecognized non-empty value returns None so the caller falls through to
+    the next precedence tier (ultimately unset => cloud route) — a typo never
+    silently points Codex at a bogus local server.
+    """
+    if raw is None:
+        return None
+    v = raw.strip().strip('"').strip("'").lower()
+    if not v:
+        return None
+    if v in _LOCAL_TOKENS:
+        return v
+    return None
+
+
+def _parse_local_strict(raw):
+    """Strict parse for `config --set-*-local`: only lmstudio|ollama, else None."""
+    v = (raw or "").strip().strip('"').strip("'").lower()
+    if v in _LOCAL_TOKENS:
+        return v
+    return None
+
+
+def _parse_model(raw):
+    """Lenient parse for a runtime model id: a non-empty single token, else None.
+
+    Models are free-form vendor ids ('opus', 'openai/gpt-oss-20b'); we only reject
+    empty/whitespace-containing values (mirrors _parse_embed_model_strict) so a
+    stray shell glob never becomes a model id. Used in the precedence tiers.
+    """
+    if raw is None:
+        return None
+    v = raw.strip().strip('"').strip("'")
+    if not v or any(c.isspace() for c in v):
+        return None
+    return v
+
+
+def _parse_model_strict(raw):
+    """Strict parse for `config --set-*-model`: a non-empty, whitespace-free id."""
+    v = (raw or "").strip().strip('"').strip("'")
+    if not v or any(c.isspace() for c in v):
+        return None
+    return v
+
+
+def resolve_phase_cli(phase):
+    """Resolve a phase's runtime CLI ('claude'|'codex').
+
+    Precedence: AGENTWARE_<PHASE>_CLI env -> phase config.env -> global
+    resolve_cli() (which itself is env AGENTWARE_CLI -> config -> default 'claude').
+    Backward-compatible: no per-phase key => exactly the global CLI.
+    """
+    key = _phase_key(phase, "CLI")
+    env = _parse_cli(os.environ.get(key))
+    if env is not None:
+        return env
+    cfg = _parse_cli(_read_config_key(key))
+    if cfg is not None:
+        return cfg
+    return resolve_cli()
+
+
+def resolve_phase_model(phase):
+    """Resolve a phase's model id ('' if none — spawned agent picks its own).
+
+    Precedence: AGENTWARE_<PHASE>_MODEL env -> phase config.env -> global
+    AGENTWARE_MODEL env -> global config.env -> '' (unset). Backward-compatible:
+    no per-phase key => exactly the global AGENTWARE_MODEL (default unset).
+    """
+    key = _phase_key(phase, "MODEL")
+    for raw in (os.environ.get(key), _read_config_key(key),
+                os.environ.get(MODEL_KEY), _read_config_key(MODEL_KEY)):
+        m = _parse_model(raw)
+        if m is not None:
+            return m
+    return ""
+
+
+def resolve_phase_local(phase):
+    """Resolve a phase's LOCAL serving provider ('lmstudio'|'ollama'|'').
+
+    Precedence: AGENTWARE_<PHASE>_LOCAL env -> phase config.env -> '' (unset =>
+    cloud route). The LOCAL axis is inherently per-phase and has NO global
+    fallback. Default unset keeps every phase cloud-routed (today's behavior).
+    """
+    key = _phase_key(phase, "LOCAL")
+    env = _parse_local(os.environ.get(key))
+    if env is not None:
+        return env
+    cfg = _parse_local(_read_config_key(key))
+    if cfg is not None:
+        return cfg
+    return ""
 
 
 def _parse_dream(raw):
@@ -1799,6 +1929,44 @@ def cmd_config(args):
                   % (CLI_KEY, norm, HOME_CONFIG, norm))
         return 0
 
+    # --- per-phase routing setters/readers (260628-hybrid-local-model) -------
+    # Generic handling for the 3 phases x 3 axes (CLI/MODEL/LOCAL). Setters
+    # validate strictly and persist to ~/.agentware/config.env; readers print the
+    # bare resolved value for shell consumers (the loop resolves each phase once).
+    _PHASE_AXES = (
+        ("cli", "CLI", _parse_cli_strict, "claude|codex", resolve_phase_cli),
+        ("model", "MODEL", _parse_model_strict,
+         "a non-empty model id, no whitespace", resolve_phase_model),
+        ("local", "LOCAL", _parse_local_strict, "lmstudio|ollama",
+         resolve_phase_local),
+    )
+    for phase in PHASES:
+        for axis_lc, axis_uc, parse_strict, hint, resolver in _PHASE_AXES:
+            sval = getattr(args, "set_%s_%s" % (phase, axis_lc), None)
+            if sval is not None:
+                norm = parse_strict(sval)
+                if norm is None:
+                    sys.stderr.write(
+                        "agentware: invalid --set-%s-%s value %r (use %s)\n"
+                        % (phase, axis_lc, sval, hint))
+                    return 2
+                key = _phase_key(phase, axis_uc)
+                _set_config_value(key, norm)
+                if as_json:
+                    json.dump({"ok": True, "phase": phase, "axis": axis_lc,
+                               "key": key, "value": norm, "config": HOME_CONFIG},
+                              sys.stdout, ensure_ascii=False, indent=2)
+                    sys.stdout.write("\n")
+                else:
+                    print("Set %s=%s in %s (phase %s %s)"
+                          % (key, norm, HOME_CONFIG, phase, axis_lc))
+                return 0
+            if getattr(args, "%s_%s_only" % (phase, axis_lc), False):
+                val = resolver(phase)
+                if val:
+                    print(val)
+                return 0
+
     # --set-dream on|off: persist the dream-mode opt-in (feature 260627-dream-mode)
     # to ~/.agentware/config.env, then report. Default OFF; env overrides per-run.
     dream_val = getattr(args, "set_dream", None)
@@ -1978,7 +2146,12 @@ def cmd_config(args):
                    "dream_max_runtime": dream_max_runtime,
                    "embedder_backend": resolve_embedder_backend(),
                    "embed_model": resolve_embed_model(),
-                   "semantic_embedder_available": semantic_embedder_available()},
+                   "semantic_embedder_available": semantic_embedder_available(),
+                   "phase_routing": {
+                       p: {"cli": resolve_phase_cli(p),
+                           "model": resolve_phase_model(p),
+                           "local": resolve_phase_local(p)}
+                       for p in PHASES}},
                   sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0 if kdir else 1
@@ -14171,6 +14344,25 @@ def build_parser():
                        help="persist the runtime CLI to ~/.agentware/config.env "
                             "(claude=Claude Code / codex=OpenAI Codex; env still "
                             "overrides per-run; default claude)")
+    # --- per-phase routing (260628-hybrid-local-model) -------------------
+    # 3 phases (pre/main/post) x 3 axes (cli/model/local): a --set-<phase>-<axis>
+    # writer + a --<phase>-<axis>-only reader each. Registered in a loop to keep
+    # the surface declarative; resolution precedence is phase env -> phase config
+    # -> global -> default (see resolve_phase_*).
+    for _phase in ("pre", "main", "post"):
+        for _axis, _meta in (("cli", "claude|codex"), ("model", "MODEL_ID"),
+                             ("local", "lmstudio|ollama")):
+            p_cfg.add_argument(
+                "--set-%s-%s" % (_phase, _axis),
+                dest="set_%s_%s" % (_phase, _axis), metavar=_meta,
+                help="persist the %s-phase %s to ~/.agentware/config.env "
+                     "(per-phase override of the global value; env still "
+                     "overrides per-run)" % (_phase, _axis))
+            p_cfg.add_argument(
+                "--%s-%s-only" % (_phase, _axis),
+                dest="%s_%s_only" % (_phase, _axis), action="store_true",
+                help="print only the resolved %s-phase %s for shell consumers "
+                     "(the loop's per-phase run_agent adapter)" % (_phase, _axis))
     p_cfg.add_argument("--user-handle-only", action="store_true",
                        dest="user_handle_only",
                        help="print only the resolved per-user provenance handle "

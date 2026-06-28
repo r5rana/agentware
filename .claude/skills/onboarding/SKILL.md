@@ -172,6 +172,47 @@ This is the defining step of agentware. Do it before anything else.
    `scripts/agentware config --cli-only` (call it `$AW_CLI`); Step 7c's aliases
    and the Step 7d preflight both branch on it.
 
+7. **(OPTIONAL) Offer the hybrid per-phase profile (local executor).** The loop
+   can route each phase — **pre** (plan), **main** (execute), **post** (assess) —
+   to a different runtime/model. The **default hybrid profile** keeps plan+assess
+   on **cloud Claude** (so completion is never judged by a weak model) and runs
+   the token-heavy **execute** phase on a **local model** (default
+   `gpt-oss-20b` via LM Studio, driven through the already-installed Codex CLI
+   with `--oss --local-provider lmstudio`). This is **purely opt-in**: leaving it
+   unset is byte-identical to today's all-cloud flow.
+
+   Ask (no stdin prompt — just offer and act on the answer):
+   > "Want the **hybrid profile**? Plan + assess stay on cloud Claude; the
+   > execute phase runs locally on `gpt-oss-20b`. It cuts cloud usage on the
+   > heaviest phase, with a safety net that falls back to cloud if the local
+   > model stalls. **Default = no (all-cloud).** It needs a one-time local-stack
+   > PRE-FLIGHT (LM Studio + the model); skip that and it cleanly stays cloud."
+
+   - **If they decline (the default), do nothing** — today's flow, byte-unchanged.
+   - **If they accept:**
+     1. Point them at the local-stack **PRE-FLIGHT** (install LM Studio, `lms get`
+        the pinned model, `lms server start`, confirm
+        `curl -s http://localhost:1234/v1/models`) — see the feature's
+        `PREFLIGHT.md` / `docs/loop.md` runtime-adapter section. This is a manual,
+        one-time host setup (it may need `sudo` for the GPU memory limit), never
+        run headless inside the loop.
+     2. Persist the default hybrid profile via the per-phase setters (the toolkit
+        is the only writer; strict-validated):
+        ```bash
+        scripts/agentware config --set-main-cli codex          # execute phase → Codex
+        scripts/agentware config --set-main-local lmstudio     # serve via LM Studio (never ollama)
+        scripts/agentware config --set-main-model gpt-oss-20b  # pinned local executor
+        # pre + post intentionally left unset → stay cloud claude
+        ```
+        Confirm: `scripts/agentware config --main-cli-only` (→ `codex`) and
+        `scripts/agentware config --main-local-only` (→ `lmstudio`).
+   - **Safety + one-command revert (always mention):** a no-progress circuit
+     breaker emits `AW_NOPROGRESS_ABORT` and aborts cleanly if the local executor
+     stalls; opt-in `AGENTWARE_MAIN_FALLBACK=claude` re-runs a stalled execute
+     iteration on cloud Claude; config is resolved once at run start (immutable
+     mid-loop, never model-controlled). Revert anytime with one command — effective
+     next run: `scripts/agentware config --set-main-cli claude`.
+
 ### Step 3 — Interview the user
 
 Keep this concise. Ask one question at a time, or batch 2–3 related questions.

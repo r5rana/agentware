@@ -135,6 +135,28 @@ done
 # Env opt-out for the live terminal auto-stream (equivalent to --no-stream).
 [[ -n "${AGENTWARE_NO_STREAM:-}" ]] && NO_STREAM=true
 
+# ---- PER-PHASE RUNTIME ROUTING (Task 3) ----
+# Resolve each loop role's (pre|main|post) runtime axes — CLI + MODEL + LOCAL
+# provider — exactly ONCE here at run start into immutable bash vars. run_agent
+# and show_spawn_argv read these vars and make ZERO per-iteration config
+# subprocess calls, and the resolution is fixed for the whole run (config is
+# immutable mid-loop; a routing change takes effect only on the NEXT run).
+# scripts/agentware is the single source of truth: each --<phase>-<axis>-only
+# reader already applies the precedence (phase env -> phase config.env -> global
+# AGENTWARE_CLI/AGENTWARE_MODEL -> default claude), so with NO per-phase overrides
+# every role resolves to exactly the global value and the run stays byte-identical
+# to today's all-cloud default. The `|| echo "$CLI"/"$MODEL"` fallbacks keep the
+# loop working against an older scripts/agentware that lacks the per-phase readers.
+PRE_CLI="$(scripts/agentware config --pre-cli-only 2>/dev/null || echo "$CLI")"
+PRE_MODEL="$(scripts/agentware config --pre-model-only 2>/dev/null || echo "$MODEL")"
+PRE_LOCAL="$(scripts/agentware config --pre-local-only 2>/dev/null || echo "")"
+MAIN_CLI="$(scripts/agentware config --main-cli-only 2>/dev/null || echo "$CLI")"
+MAIN_MODEL="$(scripts/agentware config --main-model-only 2>/dev/null || echo "$MODEL")"
+MAIN_LOCAL="$(scripts/agentware config --main-local-only 2>/dev/null || echo "")"
+POST_CLI="$(scripts/agentware config --post-cli-only 2>/dev/null || echo "$CLI")"
+POST_MODEL="$(scripts/agentware config --post-model-only 2>/dev/null || echo "$MODEL")"
+POST_LOCAL="$(scripts/agentware config --post-local-only 2>/dev/null || echo "")"
+
 # ---- PREFLIGHT GATES ----
 
 # jq is always required; the CLI runtime is required only when we actually spawn.
@@ -143,10 +165,18 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "Install jq (e.g. 'brew install jq') and re-run."
   exit 1
 fi
-if [[ "$DRY_RUN" != true ]] && ! command -v "$CLI" >/dev/null 2>&1; then
-  echo "Error: required agent runtime '$CLI' not found on PATH."
-  echo "Install it, set AGENTWARE_CLI=<your-cli>, or run with --dry-run."
-  exit 1
+if [[ "$DRY_RUN" != true ]]; then
+  # Per-phase routing (Task 3) can resolve different runtimes per role (e.g. a
+  # cloud pre/post + a local-via-codex main), so every DISTINCT resolved CLI must
+  # be on PATH. With no per-phase overrides all three collapse to the single
+  # global $CLI, so the default behaviour is unchanged.
+  for _phase_cli in "$PRE_CLI" "$MAIN_CLI" "$POST_CLI"; do
+    if ! command -v "$_phase_cli" >/dev/null 2>&1; then
+      echo "Error: required agent runtime '$_phase_cli' not found on PATH."
+      echo "Install it, set AGENTWARE_CLI=<your-cli>, or run with --dry-run."
+      exit 1
+    fi
+  done
 fi
 
 # plan.md must exist and be non-empty before the main phase.
@@ -468,6 +498,33 @@ open_markers() {
   local n
   n=$(grep -cE '^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)
   echo "${n:-0}"
+}
+
+# ---- SAFETY: no-progress circuit breaker signal (Task 4) ----
+# Portable stdin hasher (shasum on macOS, falls back to cksum elsewhere). Only used
+# for equality comparison across iterations, so the specific algorithm is irrelevant.
+_hash_stdin() { if command -v shasum >/dev/null 2>&1; then shasum; else cksum; fi; }
+
+# progress_signature — a SINGLE signature over the three independent "did this main
+# iteration make progress?" signals. The circuit breaker trips only when the
+# signature is byte-identical across an iteration, which is EXACTLY the AND of all
+# three being unchanged — "no git diff AND no valid tool call AND no plan-status
+# change" (the plan's stall definition):
+#   1. git working-tree state (status --porcelain + diff) — did the executor edit code?
+#   2. plan.md task markers (⬜/🟡/✅ lines)               — did a task's status advance?
+#   3. live action-stream line count ($LIVE_LOG)           — did the executor make ANY tool call?
+# Each component degrades safely: a missing git repo / plan / live log contributes a
+# constant, so the breaker leans on whichever signals ARE present and never false-trips
+# while real work happens — ANY one component moving changes the signature and resets
+# the streak. The live-stream sink is written by BOTH the claude PostToolUse hook and
+# the codex-stream renderer, so the tool-call signal works for cloud AND local mains.
+progress_signature() {
+  {
+    git status --porcelain 2>/dev/null
+    git diff 2>/dev/null
+    grep -nE '^[[:space:]]*-[[:space:]]*(⬜|🟡|✅)[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null
+    wc -l < "$LIVE_LOG" 2>/dev/null
+  } | _hash_stdin | awk '{print $1}'
 }
 
 # Returns 0 if every '> LEARNED:' marker in the worklog is promoted (zero knowledge
@@ -938,14 +995,42 @@ $(cat "$KDIR/MAIN.md")"
     "$phase_prompt"
 }
 
+# ---- PER-PHASE ROLE RESOLUTION (Task 3) ----
+# Map a loop ROLE to its resolved runtime axes, assigning into the caller's
+# locally-declared R_CLI / R_MODEL / R_LOCAL (bash dynamic scope — callers MUST
+# `local R_CLI R_MODEL R_LOCAL` before calling). Reads the immutable per-phase
+# vars resolved once at run start (no config subprocess per call). Roles:
+#   pre|main|post — the three loop phases.
+#   cloud         — FORCE cloud Claude regardless of main routing. Used for the
+#                   PROMOTE self-heal and the KB-MERGE reconcile so completion/
+#                   knowledge spawns are never judged/handled by a weak local main
+#                   executor (design: pre+post stay cloud; promote/merge route to
+#                   cloud too). No model override (the agent's own frontmatter).
+#   *             — unknown role: fall back to the global CLI/MODEL.
+resolve_role_axes() {
+  case "$1" in
+    pre)   R_CLI="$PRE_CLI";  R_MODEL="$PRE_MODEL";  R_LOCAL="$PRE_LOCAL" ;;
+    main)  R_CLI="$MAIN_CLI"; R_MODEL="$MAIN_MODEL"; R_LOCAL="$MAIN_LOCAL" ;;
+    post)  R_CLI="$POST_CLI"; R_MODEL="$POST_MODEL"; R_LOCAL="$POST_LOCAL" ;;
+    cloud) R_CLI="claude";    R_MODEL="";            R_LOCAL="" ;;
+    *)     R_CLI="$CLI";      R_MODEL="$MODEL";       R_LOCAL="" ;;
+  esac
+}
+
 run_agent() {
-  local prompt="$1"
-  local model_flag=(); [[ -n "$MODEL" ]] && model_flag=(--model "$MODEL")
-  if [[ "$CLI" == codex ]]; then
+  local role="$1" prompt="$2"
+  local R_CLI R_MODEL R_LOCAL; resolve_role_axes "$role"
+  local model_flag=(); [[ -n "$R_MODEL" ]] && model_flag=(--model "$R_MODEL")
+  if [[ "$R_CLI" == codex ]]; then
     # codex has no --agent/SessionStart hook: synthesize persona + context inline.
     local composed; composed="$(build_codex_prompt "$prompt")"
     local autonomy=(--dangerously-bypass-approvals-and-sandbox)
     [[ -n "${AGENTWARE_CODEX_SANDBOX:-}" ]] && autonomy=(--sandbox workspace-write -a never)
+    # When this role's LOCAL knob is set, serve via a local provider: append
+    # `--oss --local-provider <lmstudio|ollama>`. ALWAYS pass --local-provider
+    # explicitly so `--oss` never silently falls back to Ollama (and an auto-pull)
+    # when LM Studio is unreachable. Empty LOCAL => cloud codex (no --oss).
+    local oss_flag=(); [[ -n "$R_LOCAL" ]] && oss_flag=(--oss --local-provider "$R_LOCAL")
     # codex fires NO `.claude/*` hooks, so the rich logging the claude spawn gets
     # for free (prompts.log + per-action live.jsonl/live.md + main.jsonl + the
     # $AGENTWARE_LIVE_LOG live-stream sink) is reconstructed by streaming
@@ -955,12 +1040,12 @@ run_agent() {
     # working; sink writes are NOT gated by --no-stream (that only disables the
     # tail -F follower VIEW). stdin is /dev/null so codex never blocks on input.
     CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 \
-      codex exec --json "${autonomy[@]}" "${model_flag[@]}" "$composed" < /dev/null \
+      codex exec --json "${autonomy[@]}" "${oss_flag[@]}" "${model_flag[@]}" "$composed" < /dev/null \
       | python3 scripts/hooks/codex-stream.py \
           --log-dir "${KDIR:+$KDIR/logs}" --feature "$FEATURE_NAME" --prompt "$prompt"
   else
     CI=true npm_config_yes=true HOMEBREW_NO_AUTO_UPDATE=1 \
-      "$CLI" -p --agent "$AGENT" "$CLAUDE_SKIP_PERMS" "${model_flag[@]}" "$prompt"
+      "$R_CLI" -p --agent "$AGENT" "$CLAUDE_SKIP_PERMS" "${model_flag[@]}" "$prompt"
   fi
 }
 
@@ -978,7 +1063,9 @@ kb_sync_push() {
   log "[sync] prose conflict — reconciling entry file(s) via MERGE_PROMPT:"
   printf '%s\n' "$files"
   local prompt="${MERGE_PROMPT//<FILES>/$files}"
-  run_agent "$prompt" || true
+  # Route the KB-MERGE reconcile to cloud Claude regardless of main routing — the
+  # knowledge base is never reconciled by a weak/local main executor (Task 3).
+  run_agent cloud "$prompt" || true
 
   log "[sync] scripts/agentware kb-git merge-continue (rebuild derived + finish push)"
   scripts/agentware kb-git merge-continue
@@ -989,18 +1076,22 @@ kb_sync_push() {
 # printed is exactly what would run — for codex this includes the composed
 # persona + injected session context, making the injection verifiable offline.
 show_spawn_argv() {
-  local label="$1" prompt="$2"
-  local model_flag=(); [[ -n "$MODEL" ]] && model_flag=(--model "$MODEL")
-  echo "----- SPAWN ARGV: $label ($CLI) -----"
-  if [[ "$CLI" == codex ]]; then
+  local label="$1" role="$2" prompt="$3"
+  # Resolve the SAME per-phase axes run_agent would use, so --dry-run prints
+  # exactly what each role would spawn (Task 3).
+  local R_CLI R_MODEL R_LOCAL; resolve_role_axes "$role"
+  local model_flag=(); [[ -n "$R_MODEL" ]] && model_flag=(--model "$R_MODEL")
+  echo "----- SPAWN ARGV: $label ($R_CLI) -----"
+  if [[ "$R_CLI" == codex ]]; then
     local autonomy=(--dangerously-bypass-approvals-and-sandbox)
     [[ -n "${AGENTWARE_CODEX_SANDBOX:-}" ]] && autonomy=(--sandbox workspace-write -a never)
+    local oss_flag=(); [[ -n "$R_LOCAL" ]] && oss_flag=(--oss --local-provider "$R_LOCAL")
     local composed; composed="$(build_codex_prompt "$prompt")"
-    printf 'codex exec --json %s %s <PROMPT>\n%s\n</PROMPT>\n | python3 scripts/hooks/codex-stream.py --log-dir %s/logs --feature %s --prompt <PHASE_PROMPT>\n' \
-      "${autonomy[*]}" "${model_flag[*]}" "$composed" "${KDIR:-<kdir>}" "$FEATURE_NAME"
+    printf 'codex exec --json %s %s %s <PROMPT>\n%s\n</PROMPT>\n | python3 scripts/hooks/codex-stream.py --log-dir %s/logs --feature %s --prompt <PHASE_PROMPT>\n' \
+      "${autonomy[*]}" "${oss_flag[*]}" "${model_flag[*]}" "$composed" "${KDIR:-<kdir>}" "$FEATURE_NAME"
   else
     printf '%s -p --agent %s %s %s <PROMPT>\n%s\n</PROMPT>\n' \
-      "$CLI" "$AGENT" "$CLAUDE_SKIP_PERMS" "${model_flag[*]}" "$prompt"
+      "$R_CLI" "$AGENT" "$CLAUDE_SKIP_PERMS" "${model_flag[*]}" "$prompt"
   fi
   echo
 }
@@ -1010,7 +1101,9 @@ if [[ "$DRY_RUN" == true ]]; then
   echo "===== DRY RUN: $FEATURE_NAME ====="
   echo "Docs dir:        $DOCS_DIR"
   echo "Agent:           $AGENT"
-  echo "Runtime:         $CLI"
+  echo "Runtime (pre):   $PRE_CLI${PRE_MODEL:+ model=$PRE_MODEL}${PRE_LOCAL:+ local=$PRE_LOCAL}"
+  echo "Runtime (main):  $MAIN_CLI${MAIN_MODEL:+ model=$MAIN_MODEL}${MAIN_LOCAL:+ local=$MAIN_LOCAL}"
+  echo "Runtime (post):  $POST_CLI${POST_MODEL:+ model=$POST_MODEL}${POST_LOCAL:+ local=$POST_LOCAL}"
   echo "Knowledge dir:   ${KDIR:-<unconfigured>} (initialized: $INITIALIZED)"
   echo "Max iterations:  $MAX_ITERATIONS"
   echo "Skip pre:        $SKIP_PRE"
@@ -1026,10 +1119,10 @@ if [[ "$DRY_RUN" == true ]]; then
   if [[ "$SKIP_POST" != true ]]; then
     echo "----- POST PHASE PROMPT (1 task) -----"; echo "$POST_PROMPT"; echo
   fi
-  echo "===== RESOLVED SPAWN ARGV (runtime: $CLI) ====="; echo
-  [[ "$SKIP_PRE" != true ]] && show_spawn_argv "PRE" "$PRE_PROMPT"
-  show_spawn_argv "MAIN" "$MAIN_PROMPT"
-  [[ "$SKIP_POST" != true ]] && show_spawn_argv "POST" "$POST_PROMPT"
+  echo "===== RESOLVED SPAWN ARGV (per-phase routing) ====="; echo
+  [[ "$SKIP_PRE" != true ]] && show_spawn_argv "PRE" pre "$PRE_PROMPT"
+  show_spawn_argv "MAIN" main "$MAIN_PROMPT"
+  [[ "$SKIP_POST" != true ]] && show_spawn_argv "POST" post "$POST_PROMPT"
   echo "===== DRY RUN complete — no agent was spawned ====="
   exit 0
 fi
@@ -1053,7 +1146,7 @@ run_phase() {
 
     local it_t0 it_wall rem
     it_t0=$(date +%s)
-    output=$(run_agent "$prompt" 2>&1 | tee /dev/tty) || true
+    output=$(run_agent "$phase_name" "$prompt" 2>&1 | tee /dev/tty) || true
     it_wall=$(( $(date +%s) - it_t0 ))
     rem=$(open_markers)
     # Per-task transition events (Task 7): diff plan.md marker states vs the prior
@@ -1127,6 +1220,24 @@ promote_retries=0
 # Track task burndown across iterations for the per-iteration emission (Task 6).
 prev_remaining=$(open_markers)
 
+# ---- SAFETY: no-progress circuit breaker + opt-in cloud fallback (Task 4) ----
+# A weak/local main executor can stall — hallucinate, loop, or fail to edit — and
+# silently burn the whole iteration budget. Guard against that WITHOUT ever risking a
+# false-trip on a slow-but-working run:
+#   - NOPROGRESS_LIMIT (env AGENTWARE_NOPROGRESS_LIMIT, default 3): after K CONSECUTIVE
+#     main iterations whose progress_signature is unchanged (no git diff AND no valid
+#     tool call AND no plan-status change), emit the fixed greppable token
+#     AW_NOPROGRESS_ABORT and exit cleanly. Any real progress resets the streak to 0.
+#   - AGENTWARE_MAIN_FALLBACK=claude: opt-in recovery — when a main iteration stalls on
+#     a NON-claude (e.g. local/codex) executor, re-run that SAME iteration once on cloud
+#     Claude before counting the strike, so a transient local stall self-recovers.
+# pre+post phases stay cloud Claude by default (resolve to claude with no overrides),
+# so completion/assessment is never judged by the weak main executor. Routing is
+# resolved ONCE at run start and is immutable mid-run; revert with one command (effective
+# next run):  scripts/agentware config --set-main-cli claude
+NOPROGRESS_LIMIT="${AGENTWARE_NOPROGRESS_LIMIT:-3}"
+noprogress_streak=0
+
 # Stage propagation (Task 7): main-loop spawns are attributed to loop-main.
 export AGENTWARE_STAGE="loop-main"
 
@@ -1135,9 +1246,47 @@ for i in $(seq 1 "$MAX_ITERATIONS"); do
   LOOP_ITERATIONS_USED="$i"   # tracked for the terminal outcome event (Task 7)
   log "--- main iteration $i/$MAX_ITERATIONS ($(open_markers) task(s) remaining) ---"
 
+  # Normal task execution runs on the resolved main role; the PROMOTE self-heal
+  # re-engagement is forced to cloud Claude (knowledge promotion is never left to
+  # a weak/local main executor — Task 3).
+  main_role=main
+  [[ "$CURRENT_PROMPT" == "$PROMOTE_PROMPT" ]] && main_role=cloud
+  # Snapshot the progress signals BEFORE spawning so the no-progress circuit breaker
+  # (Task 4) can tell whether this iteration actually moved anything.
+  np_sig_before="$(progress_signature)"
   it_t0=$(date +%s)
-  run_agent "$CURRENT_PROMPT" || true
+  run_agent "$main_role" "$CURRENT_PROMPT" || true
   it_wall=$(( $(date +%s) - it_t0 ))
+
+  # ---- SAFETY: no-progress circuit breaker + opt-in cloud fallback (Task 4) ----
+  # Only the normal task-execution path is policed; the PROMOTE self-heal (main_role
+  # == cloud) has its own bounded MAX_PROMOTE_RETRIES ladder and is exempt.
+  if [[ "$main_role" == main ]]; then
+    np_sig_after="$(progress_signature)"
+    if [[ "$np_sig_after" == "$np_sig_before" ]]; then
+      # Stalled iteration: no git diff AND no valid tool call AND no plan-status change.
+      # (b) Opt-in cloud fallback — re-run this SAME iteration once on cloud Claude when
+      # the main executor is non-claude, giving a transient local stall a chance to recover.
+      if [[ "${AGENTWARE_MAIN_FALLBACK:-}" == claude && "$MAIN_CLI" != claude ]]; then
+        log "⚠ Stalled main iteration $i (no progress) — AGENTWARE_MAIN_FALLBACK=claude: re-running on cloud Claude."
+        run_agent cloud "$CURRENT_PROMPT" || true
+        np_sig_after="$(progress_signature)"
+      fi
+    fi
+    if [[ "$np_sig_after" == "$np_sig_before" ]]; then
+      noprogress_streak=$((noprogress_streak + 1))
+      log "⚠ No-progress (stall) main iteration: $noprogress_streak/$NOPROGRESS_LIMIT (no git diff, no tool call, no plan-status change)."
+      if [[ $noprogress_streak -ge $NOPROGRESS_LIMIT ]]; then
+        echo "AW_NOPROGRESS_ABORT: $noprogress_streak consecutive main iterations made no progress (no git diff AND no valid tool call AND no plan-status change)."
+        echo "The main executor appears stalled; aborting cleanly so the iteration budget is not silently burned."
+        echo "Recover by re-running with AGENTWARE_MAIN_FALLBACK=claude, or revert routing with: scripts/agentware config --set-main-cli claude (effective next run)."
+        notify "no-progress circuit breaker tripped (AW_NOPROGRESS_ABORT)"
+        exit 1
+      fi
+    else
+      noprogress_streak=0   # any real progress resets the consecutive-stall streak
+    fi
+  fi
 
   # Per-task transition events (Task 7): diff plan.md marker states vs the prior
   # snapshot and emit one event per changed task (⬜->🟡 start, ->✅ complete).

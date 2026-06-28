@@ -483,6 +483,39 @@ flags). Every key resolves **env → `config.env` → default**:
   `_set_config_value`, and surface it in `config --format json`. No new storage, no
   new file — SETTINGS_AW is the one place settings live.
 
+### Per-phase runtime routing — the hybrid local-executor profile
+
+The same SETTINGS_AW store also carries **per-phase** runtime selection, so the
+loop can run each phase (pre / main / post) on a different runtime + model. The
+headline use is the **hybrid profile**: keep *plan* and *assess* on cloud Claude
+and run *execute* on a **local model** (`gpt-oss-20b` via LM Studio + Codex).
+
+| Key (each phase) | Setter | Reader | Default | Meaning |
+|---|---|---|---|---|
+| `AGENTWARE_{PRE,MAIN,POST}_CLI` | `config --set-<phase>-cli claude\|codex` | `config --<phase>-cli-only` | global `AGENTWARE_CLI` → `claude` | Runtime for that phase |
+| `AGENTWARE_{PRE,MAIN,POST}_MODEL` | `config --set-<phase>-model <id>` | `config --<phase>-model-only` | global `AGENTWARE_MODEL` → _unset_ | Model id for that phase |
+| `AGENTWARE_{PRE,MAIN,POST}_LOCAL` | `config --set-<phase>-local lmstudio\|ollama` | `config --<phase>-local-only` | _unset_ | Local provider (appends `--oss --local-provider <p>` to the codex spawn) |
+
+- **Resolution** mirrors the rest of SETTINGS_AW — phase env → phase `config.env`
+  → global (`AGENTWARE_CLI`/`AGENTWARE_MODEL`) → default — except `LOCAL`, which is
+  inherently per-phase (no global fallback). **No per-phase keys ⇒ byte-identical
+  all-cloud.** Routing is **resolved once at run start and immutable mid-loop**;
+  invalid setter tokens exit 2 and never corrupt the store. `config --format json`
+  surfaces a `phase_routing` object (`{pre,main,post}×{cli,model,local}`).
+- **Enable the hybrid profile** (effective next run):
+  `config --set-main-cli codex && config --set-main-local lmstudio &&
+  config --set-main-model gpt-oss-20b` (pre+post left unset → cloud).
+- **Safety net** for a weak local executor: a no-progress circuit breaker prints
+  `AW_NOPROGRESS_ABORT` and aborts cleanly after `AGENTWARE_NOPROGRESS_LIMIT`
+  (default 3) stalled main iterations; opt-in `AGENTWARE_MAIN_FALLBACK=claude`
+  retries a stalled iteration on cloud; pre+post stay cloud; revert with
+  `config --set-main-cli claude`.
+- **One-time LM Studio PRE-FLIGHT**, **benchmark KB-isolation** (sandbox KB at
+  `$HOME/.agentware-bench-sandbox`, never `init`/onboarding, env passed per-command
+  only), the **cost/billing-safety invariant** (subscription-only, no API key, no
+  spend cap), and the **verified 24 GB pitfalls** are all documented in
+  [docs/loop.md → Per-phase routing & the hybrid local-executor profile](loop.md#per-phase-routing--the-hybrid-local-executor-profile).
+
 ### Dream mode — unattended, idle-gated KB maintenance (opt-in)
 
 agentware's **interactive** path is flat as the KB grows: recall is ranked +

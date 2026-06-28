@@ -76,6 +76,134 @@ X with prompt P, autonomously* — to per-runtime argv:
 `--set-cli claude|codex` sets it (invalid values exit 2). Loop completion
 detection, metrics, and `scripts/agentware` itself are runtime-independent.
 
+### Per-phase routing & the hybrid local-executor profile
+
+The runtime+model can be selected **independently per loop phase** (pre / main /
+post), so the expensive *judgment* phases (plan, assess) can stay on cloud Claude
+while the high-volume *execution* phase runs on a **local model** — the **hybrid
+profile**. Each phase resolves three axes from its own keys:
+
+| Key | Axis | Values | Resolution (first match wins) |
+|---|---|---|---|
+| `AGENTWARE_{PRE,MAIN,POST}_CLI` | runtime | `claude` \| `codex` | phase env → phase `config.env` → global `AGENTWARE_CLI` → default `claude` |
+| `AGENTWARE_{PRE,MAIN,POST}_MODEL` | model | any runtime model id | phase env → phase `config.env` → global `AGENTWARE_MODEL` → _unset_ |
+| `AGENTWARE_{PRE,MAIN,POST}_LOCAL` | local provider | `lmstudio` \| `ollama` | phase env → phase `config.env` → _unset_ (no global fallback — LOCAL is inherently per-phase) |
+
+- **Backward compatible by construction.** With **no** per-phase keys set, every
+  phase resolves to exactly the global value (`claude`, empty model, no local
+  provider) — **byte-identical to today's all-cloud default**. Global
+  `AGENTWARE_CLI`/`AGENTWARE_MODEL` still apply to every phase; a phase key only
+  *overrides* its own phase.
+- **Resolved ONCE at run start, immutable mid-loop.** The loop reads every
+  phase's axes into bash vars before the first spawn — `run_agent` makes zero
+  per-iteration config subprocess calls, and nothing the model emits can re-route
+  the run mid-flight.
+- **Codex `--oss` wiring.** When a phase's `LOCAL` knob is set, that phase's
+  `codex` spawn appends `--oss --local-provider <PROVIDER>` (always explicit —
+  never letting `--oss` silently fall back to Ollama).
+
+**The default hybrid profile** = `pre`(plan) + `post`(assess) on **cloud Claude**,
+`main`(execute) on a **local model via the already-installed Codex CLI**:
+
+```bash
+# Persist the hybrid profile (effective on the NEXT run):
+scripts/agentware config --set-main-cli   codex
+scripts/agentware config --set-main-local lmstudio
+scripts/agentware config --set-main-model gpt-oss-20b
+# pre+post left unset → stay cloud Claude. Read any axis back:
+scripts/agentware config --main-cli-only   # → codex
+scripts/agentware config --main-local-only # → lmstudio
+# This spawns the main phase as:
+#   codex exec --oss --local-provider lmstudio -m gpt-oss-20b …
+
+# Equivalent per-run override (env wins, persists nothing):
+AGENTWARE_MAIN_CLI=codex AGENTWARE_MAIN_LOCAL=lmstudio AGENTWARE_MAIN_MODEL=gpt-oss-20b \
+  ./agentware.sh <feature>
+```
+
+The pinned default local executor is `openai/gpt-oss-20b` (MXFP4/MLX, ~12 GB
+resident — fits a 24 GB Mac as the resting model); documented alternate fallback
+`qwen3-coder-30b`. Set any phase the same way with `--set-{pre,post}-{cli,model,local}`.
+
+#### Safety — the weak-local-executor net
+
+A local execution model can stall, hallucinate, or fail to edit. Three guardrails
+make the hybrid profile safe to run unattended:
+
+- **No-progress circuit breaker.** After `K` consecutive main iterations with **no
+  git diff AND no valid tool call AND no plan-status change** (`K` =
+  `AGENTWARE_NOPROGRESS_LIMIT`, default `3`), the loop prints the fixed greppable
+  token **`AW_NOPROGRESS_ABORT`** and exits cleanly — it never silently burns the
+  whole iteration budget. Any real progress on any of the three signals resets the
+  streak.
+- **Opt-in cloud fallback.** `AGENTWARE_MAIN_FALLBACK=claude` re-runs a stalled
+  main iteration once on cloud Claude before counting it against the streak.
+- **Pre + post stay cloud.** Completion and assessment are never judged by the
+  weak executor; the PROMOTE self-heal and KB-merge reconcile spawns also route to
+  cloud regardless of main routing.
+- **One-command revert.** Config is immutable mid-run and never model-controlled;
+  revert with `scripts/agentware config --set-main-cli claude` (effective next run).
+
+#### Local-stack PRE-FLIGHT (one-time, manual)
+
+The local executor needs LM Studio serving the model on `:1234`. This is a
+one-time, interactive setup (some steps need `sudo`, so it is **not** done
+headlessly inside the loop) — see [`PREFLIGHT.md`](../<knowledge-dir>/work/…/PREFLIGHT.md)
+in the feature's work dir for the copy-paste runbook:
+
+1. `brew install --cask lm-studio`, open it once, install the `lms` CLI.
+2. `lms get <model>` → `lms server start` (daemon; survives agent spawns) →
+   confirm `curl -fsS http://localhost:1234/v1/models`.
+3. `sudo sysctl iogpu.wired_limit_mb=19456` raises the GPU wired-memory limit
+   (persists until reboot; needs your password — cannot be done headless).
+
+Codex requires LM Studio's `/v1/responses` endpoint (raw llama.cpp/MLX servers
+can't serve it). If the server is down, the hybrid main phase has no local backend
+— keep pre+post cloud and either run the PRE-FLIGHT or revert to all-cloud.
+
+#### Benchmark KB-isolation (do NOT pollute the real KB)
+
+The Phase-B benchmarks that compare cloud vs hybrid run against a **sandbox KB** at
+an absolute path **outside** both repos (`$HOME/.agentware-bench-sandbox`). It is
+**hand-scaffolded** — never `scripts/agentware init`/onboarding (those rewrite
+`~/.agentware/config.env` and would repoint your real KB) — and the sandbox env is
+passed **only** as a per-command prefix, never `export`ed:
+
+```bash
+AGENTWARE_KNOWLEDGE_DIR=$HOME/.agentware-bench-sandbox AGENTWARE_KB_AUTOCOMMIT=0 \
+  ./agentware.sh <feature> --max-iterations 12
+```
+
+Large clones live outside the KB tree (`$HOME/.agentware-bench-clones/`); only
+small curated CSVs + the REPORT are committed as evidence.
+
+#### Cost & billing safety (invariant)
+
+**No dollar charges are possible by construction.** Every cloud call goes through
+Claude Code on the operator's **Pro/Max subscription** (OAuth) — subscription-
+metered, not pay-per-token. There is **no Anthropic API key** in the environment,
+so the only paid path is inert. **Never** set/export `ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN`, or `ANTHROPIC_BASE_URL`, and **never** enable billing or
+overages; a cell that would *require* a paid key is **skipped**. There is **no
+spend cap** — deliberately: there is no real bill to measure, and a notional cost
+gate is exactly the kind of check a weak executor could misread and stop early on.
+The subscription **quota** (not money) is the natural ceiling: when usage
+throttles, cloud calls simply fail and the loop treats it as a graceful skip.
+
+#### Verified pitfalls
+
+- 24 GB is tight — bound context to **16–32K** (KV quant `q8_0`, not `q4_0`).
+- Codex needs `/v1/responses`; raw llama.cpp/MLX servers can't serve it.
+- `codex --oss` **silently falls back to Ollama** (and may auto-pull a huge model)
+  if LM Studio is unreachable — **always** pass `--local-provider lmstudio` and
+  probe `:1234` first.
+- Ollama's default `num_ctx=4096` truncates — raise it or prefer LM Studio.
+- Trust only model-card / vendor / arXiv numbers (benchmark SEO pollution).
+- If you ever proxy through LiteLLM, pin a clean version (1.82.7 / 1.82.8 shipped
+  malware).
+- Cloud runs are non-deterministic (use confidence intervals); real-repo and
+  compounding tests are small-N (directional).
+
 ## Why iterations?
 
 The primary goal is to **prevent context rot**. LLMs accumulate errors and drift

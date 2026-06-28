@@ -196,6 +196,18 @@ agentware is honest about where it's *not yet* industry-standard:
   default `claude`. See [docs/loop.md](docs/loop.md#runtime-adapter-claude-code--openai-codex)
   for the Codex adapter (the `codex exec` invocation, sandbox/approval mapping, persona
   injection, and `--json` logging renderer).
+- **Optional hybrid (local-executor) profile** — the runtime+model is selectable
+  **per loop phase** via `AGENTWARE_{PRE,MAIN,POST}_{CLI,MODEL,LOCAL}` (set with
+  `config --set-{pre,main,post}-{cli,model,local}`). The **hybrid** default keeps
+  plan+assess on cloud Claude and runs *execute* on a **local model**
+  (`gpt-oss-20b` via LM Studio + `codex --oss --local-provider lmstudio`). No
+  per-phase keys ⇒ byte-identical all-cloud. A no-progress circuit breaker
+  (`AW_NOPROGRESS_ABORT`), opt-in `AGENTWARE_MAIN_FALLBACK=claude`, and a
+  one-command revert (`config --set-main-cli claude`) make it safe to run
+  unattended. **Cost-safe by construction:** all cloud calls go through your
+  Claude Code **subscription** (no API key, no per-token billing, no spend cap;
+  quota is the only ceiling). One-time LM Studio PRE-FLIGHT + the verified 24 GB
+  pitfalls are in [docs/loop.md](docs/loop.md#per-phase-routing--the-hybrid-local-executor-profile).
 - **POSIX shell + `bash` + `jq` + Python 3** — macOS, Linux, or Windows via WSL/Git-Bash.
 - Git optional (onboarding offers `git init` + push via `gh`). Node.js ≥ 18 only for optional Playwright UI verification.
 
