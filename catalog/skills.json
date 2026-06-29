@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "description": "In-package AUTHORED skill catalog. agentware ships ZERO third-party skills: every entry below is authored in-repo (security baked in) and lives under its `source` path. `scripts/agentware skill add` resolves ONLY these trusted in-repo sources by default; any non-catalog/external source is gated behind skill-vetter + explicit confirmation. This is NEVER an internet fetcher.",
+  "source_repo": "github.com/r5rana/agentware",
+  "provenance": "authored-in-repo",
+  "skills": [
+    {
+      "name": "sast-audit",
+      "category": "security",
+      "source": ".claude/skills/sast-audit",
+      "tags": ["security", "sast", "audit"],
+      "summary": "Whole-repository static application security testing organized by vulnerability class (SQLi, XSS, RCE, SSRF, IDOR, ...)."
+    },
+    {
+      "name": "skill-vetter",
+      "category": "security",
+      "source": ".claude/skills/skill-vetter",
+      "tags": ["security", "supply-chain", "vetting"],
+      "summary": "Security gate that vets any external skill, MCP server, or plugin BEFORE it is trusted or installed."
+    },
+    {
+      "name": "dependency-supply-chain-audit",
+      "category": "security",
+      "source": ".claude/skills/dependency-supply-chain-audit",
+      "tags": ["security", "dependencies", "supply-chain", "sbom"],
+      "summary": "Audit dependencies and the supply chain for CVEs, unpinned versions, typosquats, and generate an SBOM."
+    },
+    {
+      "name": "secure-by-design",
+      "category": "security",
+      "source": ".claude/skills/secure-by-design",
+      "tags": ["security", "design", "owasp"],
+      "summary": "Apply security at design time with an OWASP Top 10:2025 / ASVS 5.0 / LLM Top 10 requirements checklist."
+    },
+    {
+      "name": "threat-modeling",
+      "category": "security",
+      "source": ".claude/skills/threat-modeling",
+      "tags": ["security", "design", "stride", "threat-model"],
+      "summary": "Enumerate threats at design time using STRIDE, data-flow diagrams, and trust-boundary analysis."
+    },
+    {
+      "name": "ci-cd-security-audit",
+      "category": "security",
+      "source": ".claude/skills/ci-cd-security-audit",
+      "tags": ["security", "ci-cd", "audit"],
+      "summary": "Audit CI/CD pipelines and agent integration points for injection, privilege escalation, and secret exfiltration."
+    },
+    {
+      "name": "test-authoring",
+      "category": "productivity",
+      "source": ".claude/skills/test-authoring",
+      "tags": ["testing", "tdd", "quality"],
+      "summary": "Author and run focused, high-signal tests the TDD way (red -> green -> harden)."
+    },
+    {
+      "name": "systematic-debugging",
+      "category": "productivity",
+      "source": ".claude/skills/systematic-debugging",
+      "tags": ["debugging", "quality"],
+      "summary": "Find the root cause of a bug methodically: reproduce -> isolate -> hypothesize -> fix -> confirm."
+    },
+    {
+      "name": "git-commit-pr-workflow",
+      "category": "productivity",
+      "source": ".claude/skills/git-commit-pr-workflow",
+      "tags": ["git", "workflow", "pr"],
+      "summary": "Turn a working diff into Conventional Commits, a PR, and a changelog -- PROPOSES, never commits."
+    },
+    {
+      "name": "skill-creator",
+      "category": "productivity",
+      "source": ".claude/skills/skill-creator",
+      "tags": ["skills", "scaffolding", "meta"],
+      "summary": "Scaffold a new spec-compliant, portable Agent Skill and validate it against the agentskills.io standard."
+    },
+    {
+      "name": "env-doctor",
+      "category": "productivity",
+      "source": ".claude/skills/env-doctor",
+      "tags": ["environment", "setup", "diagnostics"],
+      "summary": "Diagnose and fix a broken developer environment BEFORE work starts."
+    },
+    {
+      "name": "frontend-design",
+      "category": "productivity",
+      "source": ".claude/skills/frontend-design",
+      "tags": ["frontend", "design", "ui", "ux"],
+      "summary": "Produce bold, distinctive, accessible UI instead of generic AI-slop output."
+    },
+    {
+      "name": "backend-verification",
+      "category": "gap-filler",
+      "source": ".claude/skills/backend-verification",
+      "tags": ["verification", "backend", "api"],
+      "summary": "Verify a running backend endpoint actually works by calling it yourself (R-VERIFY-03/04)."
+    },
+    {
+      "name": "safe-migration",
+      "category": "gap-filler",
+      "source": ".claude/skills/safe-migration",
+      "tags": ["migration", "data", "safety"],
+      "summary": "Change data, schema, config, or file layout safely -- backup + tested rollback before touching anything."
+    }
+  ]
+}

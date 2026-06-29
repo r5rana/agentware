@@ -318,6 +318,67 @@ If the user is purely doing data / ML / shell work, skip this step entirely.
 If any sub-step fails, capture what was done into the worklog and proceed to
 Step 7. Do NOT block the rest of onboarding on Playwright setup.
 
+### Step 6b — Install the default skill pack into the active harness
+
+agentware ships a curated, **security-first default skill pack** — authored by us
+(never downloaded), self-vetted, and portable across harnesses. Install it into
+the harness the operator chose in Step 6 (`scripts/agentware config --cli-only`,
+call it `$AW_CLI`) so the skills are discoverable out of the box.
+
+**Harness → install-path map** (the canonical in-repo source is always
+`.claude/skills/`):
+
+| Harness (`$AW_CLI`) | Skill discovery path | Steering file |
+|---------------------|----------------------|---------------|
+| `claude` (default)  | `.claude/skills/` (already the canonical source — **discovered as-is, no copy**) and/or `~/.claude/skills/` | `CLAUDE.md` (imports `@AGENTS.md`) |
+| `codex` / generic   | `.agents/skills/` (NOT `.codex/skills`) and/or `~/.agents/skills/` | `AGENTS.md` (read natively) |
+| any other harness   | a configurable custom path the operator names | `AGENTS.md` |
+| unknown             | **fall back** to `.agents/skills/` + `AGENTS.md` | `AGENTS.md` |
+
+Procedure (do this generically — **never hardcode the skill list**; install
+whatever skill folders exist under `.claude/skills/`):
+
+1. Resolve the target dir from `$AW_CLI`:
+   - `claude` → the skills already live in `.claude/skills/` and Claude Code
+     discovers them there. **No copy needed** — confirm and move on.
+   - `codex`/generic/unknown → `DEST=.agents/skills`.
+   - any other harness with a custom layout → ask the operator for the path and
+     use it as `DEST`.
+2. For a non-`claude` harness, copy each portable skill folder into `DEST`,
+   **idempotently and without clobbering operator edits** — skip any skill whose
+   target `SKILL.md` already exists:
+   ```bash
+   DEST=.agents/skills            # or the operator's custom path
+   mkdir -p "$DEST"
+   for d in .claude/skills/*/; do
+     name=$(basename "$d")
+     [ -f "$d/SKILL.md" ] || continue          # only real skills
+     if [ -e "$DEST/$name/SKILL.md" ]; then
+       echo "skip (exists): $name"             # never clobber operator edits
+     else
+       cp -R "$d" "$DEST/$name"
+       echo "installed: $name"
+     fi
+   done
+   ```
+   This is generic over whatever skills are shipped (today: the 14 default
+   skills — `sast-audit`, `skill-vetter`, `dependency-supply-chain-audit`,
+   `secure-by-design`, `threat-modeling`, `ci-cd-security-audit`,
+   `test-authoring`, `systematic-debugging`, `git-commit-pr-workflow`,
+   `skill-creator`, `env-doctor`, `frontend-design`, `backend-verification`,
+   `safe-migration`), and automatically picks up any added later.
+3. Confirm the install: every skill folder under `.claude/skills/` with a
+   `SKILL.md` now has a counterpart under `DEST` (or, for `claude`, is discovered
+   in place).
+
+> **The skill set self-grows.** Beyond this shipped pack, **operator-specific
+> skills emerge AUTOMATICALLY from your learnings** — recurring multi-step
+> procedures captured during work are promoted into new skills via the
+> auto-skill-promotion queue (`scripts/agentware skill candidates`/`approve`).
+> So the skill set is not fixed at onboarding: it learns and self-grows as you
+> use agentware. Tell the operator this so they know new skills will appear over
+> time without manual authoring.
+
 ### Step 7 — Offer git/GitHub, set KB auto-commit, install aliases, then write the sentinel
 
 Run **7a (git/GitHub for this repo)**, then **7b (knowledge-base versioning &

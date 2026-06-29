@@ -21,6 +21,16 @@ else
 ----- knowledge/MAIN.md (operator profile + active work) -----
 $(cat "$KDIR/MAIN.md")"
   fi
+  # Inject the operator skills roster AFTER MAIN.md, but only when it actually
+  # lists entries. A fresh/placeholder roster (e.g. "_No entries yet._") has no
+  # list items, so it is omitted to avoid noise. A list item is any line whose
+  # first non-space char is a bullet ("-" or "*"). For non-Claude harnesses the
+  # equivalent is documented in AGENTS.md (the harness reads it natively).
+  if [[ -f "$KDIR/skills/index.md" ]] && grep -Eq '^[[:space:]]*[-*][[:space:]]+' "$KDIR/skills/index.md"; then
+    CTX="$CTX
+----- knowledge/skills/index.md (operator skills roster) -----
+$(cat "$KDIR/skills/index.md")"
+  fi
 fi
 
 if command -v jq >/dev/null 2>&1; then

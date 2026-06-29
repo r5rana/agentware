@@ -11481,6 +11481,20 @@ def git_pull_ff(target):
     return _git(target, "pull", "--ff-only", env=env)
 
 
+def git_fetch(target):
+    """Read-only `git fetch` of the configured upstream; non-interactive.
+
+    Returns the CompletedProcess. `GIT_TERMINAL_PROMPT=0` makes an offline /
+    auth-required fetch fail fast instead of hanging for credentials
+    (R-SHELL-01). A fetch updates only the remote-tracking refs — it NEVER
+    touches the work tree, so it is safe to run for a read-only `update --check`
+    (and as a SessionStart updates-available nudge).
+    """
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return _git(target, "fetch", "--quiet", env=env)
+
+
 def cmd_kb_git_pull(args):
     """Fast-forward the KB repo from its upstream at a safe point.
 
@@ -14261,6 +14275,653 @@ def _dream_uninstall_schedule(as_json):
     return 0
 
 
+# --- skill catalog + installer ---------------------------------------------
+# The `skill` command group manages the in-package AUTHORED skill catalog
+# (catalog/skills.json) and installs trusted in-repo skills into the active
+# harness path or the external KB. It is NEVER an internet fetcher: `skill add`
+# resolves ONLY trusted in-repo catalog sources by default; any non-catalog /
+# external source is gated behind a skill-vetter static review + explicit
+# `--allow-external` confirmation before it is copied or indexed.
+#
+# FANOUT NOTE (Plan A): this subparser is intentionally EXTENSIBLE. The
+# auto-skill-promotion plan adds promotion verbs (scan/candidates/show/approve/
+# reject) to the SAME `skill` group. `list` == installed catalog skills; Plan A
+# uses `candidates` for its learnings-derived queue, so there is no verb clash.
+
+SKILLS_CATALOG_PATH = os.path.join(REPO_ROOT, "catalog", "skills.json")
+
+# Danger signatures scanned in BUNDLED SCRIPTS (executable files), not in the
+# guidance prose of a SKILL.md (security skills legitimately *discuss* these).
+_SKILL_SCRIPT_DANGER = (
+    (re.compile(r"\b(curl|wget)\b[^\n|]*\|[^\n]*\b(sh|bash|zsh|python[0-9.]*)\b"),
+     "pipe-to-shell (downloads then executes remote code)"),
+    (re.compile(r"/dev/tcp/"), "raw TCP socket (possible exfiltration channel)"),
+    (re.compile(r"\b(nc|ncat|netcat)\b\s+-"), "netcat invocation (network egress)"),
+    (re.compile(r"base64\s+(-d|--decode)"), "base64 decode (obfuscated payload)"),
+    (re.compile(r"\beval\s*\(|\bexec\s*\("), "dynamic code execution (eval/exec)"),
+    (re.compile(r"chmod\s+(-R\s+)?0?777"), "world-writable permissions (chmod 777)"),
+    (re.compile(r"\b(pip[0-9]?|npm|yarn|pnpm|gem|cargo)\s+(install|add|-g)\b"),
+     "install-time dependency fetch in a bundled script (unvetted supply chain)"),
+)
+# Tight prompt-injection markers scanned in SKILL.md / manifest prose. Kept
+# narrow on purpose so defensive security skills that *describe* these attacks
+# are not false-positives.
+_SKILL_PROSE_DANGER = (
+    (re.compile(r"ignore\s+(all\s+)?previous\s+instructions", re.I),
+     "instruction-override ('ignore previous instructions')"),
+    (re.compile(r"disregard\s+(the\s+)?(system|above)\s+(prompt|instructions)", re.I),
+     "instruction-override ('disregard the system prompt')"),
+    (re.compile(r"[​‌‍‎‮]"),
+     "hidden/zero-width unicode (steganographic instructions)"),
+)
+_SKILL_TEXT_EXTS = (".md", ".markdown", ".txt", ".rst")
+
+
+def load_skill_catalog():
+    """Load catalog/skills.json -> (data_dict, error_or_None)."""
+    try:
+        with open(SKILLS_CATALOG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except OSError as exc:
+        return None, "cannot read skill catalog (%s): %s" % (SKILLS_CATALOG_PATH, exc)
+    except ValueError as exc:
+        return None, "skill catalog is not valid JSON: %s" % exc
+    if not isinstance(data, dict) or not isinstance(data.get("skills"), list):
+        return None, "skill catalog malformed: expected {\"skills\": [...]}"
+    return data, None
+
+
+def _catalog_skill(data, name):
+    """Return the catalog entry for `name`, or None."""
+    for s in data.get("skills", []):
+        if isinstance(s, dict) and s.get("name") == name:
+            return s
+    return None
+
+
+def read_skill_frontmatter(skill_md_path):
+    """Parse an agentskills.io SKILL.md frontmatter -> {name, description}.
+
+    Independent of the index `split_frontmatter` (which only keeps index fields):
+    a skill's frontmatter carries `name` + `description`, neither of which is an
+    index field. Tolerates folded (`>-`) / block scalars for `description`.
+    """
+    out = {"name": None, "description": None}
+    try:
+        with open(skill_md_path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return out
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return out
+    close = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            close = i
+            break
+    if close is None:
+        return out
+    block = lines[1:close]
+    i = 0
+    while i < len(block):
+        ln = block[i]
+        m = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", ln)
+        if not m:
+            i += 1
+            continue
+        key, val = m.group(1).strip(), m.group(2).strip()
+        if key in ("name", "description"):
+            if val in (">", ">-", "|", "|-", "") and key == "description":
+                # Folded/block scalar: gather following more-indented lines.
+                parts = []
+                j = i + 1
+                while j < len(block) and (block[j].strip() == "" or
+                                          block[j][:1] in (" ", "\t")):
+                    parts.append(block[j].strip())
+                    j += 1
+                out["description"] = " ".join(p for p in parts if p).strip()
+                i = j
+                continue
+            out[key] = val.strip().strip("'\"")
+        i += 1
+    return out
+
+
+def _pinned_ref():
+    """Short git SHA of the package repo, or 'unknown' (read-only)."""
+    cp = _git(REPO_ROOT, "rev-parse", "--short", "HEAD")
+    if cp.returncode == 0 and cp.stdout.strip():
+        return cp.stdout.strip()
+    return "unknown"
+
+
+def vet_skill_dir(skill_dir):
+    """Static, read-only skill-vetter pass over a skill folder.
+
+    Returns a list of finding strings (empty == clean). Scripts are scanned for
+    code-execution / egress / supply-chain danger; markdown/manifest prose is
+    scanned with a TIGHT injection-marker set so defensive security skills that
+    merely *describe* these attacks do not false-positive. NEVER executes
+    anything under review (execution is exactly what the gate prevents).
+    """
+    findings = []
+    if not os.path.isdir(skill_dir):
+        return ["skill source directory not found: %s" % skill_dir]
+    for root, _dirs, files in os.walk(skill_dir):
+        for fn in sorted(files):
+            path = os.path.join(root, fn)
+            rel = os.path.relpath(path, skill_dir)
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            except OSError as exc:
+                findings.append("%s: unreadable (%s)" % (rel, exc))
+                continue
+            is_text = os.path.splitext(fn)[1].lower() in _SKILL_TEXT_EXTS
+            # Prose injection markers apply to every file (incl. SKILL.md).
+            for rx, label in _SKILL_PROSE_DANGER:
+                if rx.search(content):
+                    findings.append("%s: %s" % (rel, label))
+            # Script danger signatures apply to NON-text (executable) files only.
+            if not is_text:
+                for rx, label in _SKILL_SCRIPT_DANGER:
+                    if rx.search(content):
+                        findings.append("%s: %s" % (rel, label))
+    return findings
+
+
+def cmd_skill_list(args):
+    data, err = load_skill_catalog()
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    skills = [s for s in data.get("skills", []) if isinstance(s, dict)]
+    cat = getattr(args, "category", None)
+    if cat:
+        skills = [s for s in skills if s.get("category") == cat]
+    skills = sorted(skills, key=lambda s: (s.get("category", ""), s.get("name", "")))
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "count": len(skills), "skills": skills},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("Authored skill catalog (%d skill(s)%s):"
+              % (len(skills), " in category '%s'" % cat if cat else ""))
+        for s in skills:
+            print("  %-30s [%-12s] %s"
+                  % (s.get("name", "?"), s.get("category", "?"),
+                     s.get("summary", "")))
+    return 0
+
+
+def cmd_skill_search(args):
+    data, err = load_skill_catalog()
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    q = (args.query or "").strip().lower()
+    hits = []
+    for s in data.get("skills", []):
+        if not isinstance(s, dict):
+            continue
+        hay = " ".join([
+            s.get("name", ""), s.get("category", ""), s.get("summary", ""),
+            " ".join(s.get("tags", []) if isinstance(s.get("tags"), list) else []),
+        ]).lower()
+        if q in hay:
+            hits.append(s)
+    hits = sorted(hits, key=lambda s: s.get("name", ""))
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "query": args.query, "count": len(hits),
+                   "skills": hits}, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        if not hits:
+            print("No catalog skills match '%s'." % args.query)
+        else:
+            print("%d match(es) for '%s':" % (len(hits), args.query))
+            for s in hits:
+                print("  %-30s [%-12s] %s"
+                      % (s.get("name", "?"), s.get("category", "?"),
+                         s.get("summary", "")))
+    return 0
+
+
+def cmd_skill_validate(args):
+    data, err = load_skill_catalog()
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    only = getattr(args, "name", None)
+    results = []
+    for s in data.get("skills", []):
+        if not isinstance(s, dict):
+            continue
+        name = s.get("name")
+        if only and name != only:
+            continue
+        errs = []
+        src = s.get("source")
+        if not src:
+            errs.append("catalog entry missing 'source'")
+            results.append({"name": name, "ok": False, "errors": errs})
+            continue
+        skill_dir = os.path.join(REPO_ROOT, src)
+        skill_md = os.path.join(skill_dir, "SKILL.md")
+        if not os.path.isdir(skill_dir):
+            errs.append("source dir missing: %s" % src)
+        elif not os.path.isfile(skill_md):
+            errs.append("SKILL.md missing under %s" % src)
+        else:
+            fm = read_skill_frontmatter(skill_md)
+            folder = os.path.basename(skill_dir.rstrip("/"))
+            if fm.get("name") != folder:
+                errs.append("frontmatter name (%r) != folder (%r)"
+                            % (fm.get("name"), folder))
+            if name and fm.get("name") != name:
+                errs.append("frontmatter name (%r) != catalog name (%r)"
+                            % (fm.get("name"), name))
+            if not fm.get("description"):
+                errs.append("frontmatter has no 'description' (routing text)")
+            vet = vet_skill_dir(skill_dir)
+            if vet:
+                errs.append("skill-vetter findings: %s" % "; ".join(vet))
+        results.append({"name": name, "ok": not errs, "errors": errs})
+    if only and not results:
+        sys.stderr.write("agentware: no catalog skill named '%s'\n" % only)
+        return 1
+    ok = all(r["ok"] for r in results) and bool(results)
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": ok, "count": len(results), "results": results},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        for r in results:
+            if r["ok"]:
+                print("OK    %s" % r["name"])
+            else:
+                print("FAIL  %s" % r["name"])
+                for e in r["errors"]:
+                    print("        - %s" % e)
+        print("%s: %d/%d catalog skill(s) valid."
+              % ("PASS" if ok else "FAIL",
+                 sum(1 for r in results if r["ok"]), len(results)))
+    return 0 if ok else 1
+
+
+def _copy_skill_tree(src_dir, dest_dir):
+    """Copy a skill folder src_dir -> dest_dir, never clobbering an existing
+    SKILL.md (idempotent; protects operator edits). Returns (copied_bool, note)."""
+    dest_md = os.path.join(dest_dir, "SKILL.md")
+    if os.path.exists(dest_md):
+        return False, "already installed at %s (left untouched)" % dest_dir
+    os.makedirs(os.path.dirname(dest_dir) or ".", exist_ok=True)
+    shutil.copytree(src_dir, dest_dir, dirs_exist_ok=True)
+    return True, "copied"
+
+
+def cmd_skill_add(args):
+    name = args.name
+    data, cerr = load_skill_catalog()
+    if cerr is not None:
+        sys.stderr.write("agentware: %s\n" % cerr)
+        return 1
+
+    external = bool(getattr(args, "source", None))
+    if external:
+        # Non-catalog / external source: gated behind skill-vetter + explicit
+        # --allow-external confirmation. NEVER fetched from the internet here.
+        if "://" in args.source:
+            sys.stderr.write("agentware: refusing to fetch a remote source (%s); "
+                             "`skill add` is not an internet fetcher. Clone it "
+                             "locally, vet it, then pass --source <local-path> "
+                             "--allow-external.\n" % args.source)
+            return 1
+        skill_dir = os.path.abspath(args.source)
+        catalog_name = os.path.basename(skill_dir.rstrip("/"))
+        name = name or catalog_name
+        trust = "external (untrusted)"
+    else:
+        entry = _catalog_skill(data, name)
+        if entry is None:
+            sys.stderr.write("agentware: '%s' is not in the trusted catalog. "
+                             "Use `skill list` to see authored skills, or "
+                             "`--source <local-path> --allow-external` for an "
+                             "externally-sourced skill.\n" % name)
+            return 1
+        skill_dir = os.path.join(REPO_ROOT, entry.get("source", ""))
+        trust = "trusted in-repo catalog"
+
+    if not os.path.isdir(skill_dir):
+        sys.stderr.write("agentware: skill source not found: %s\n" % skill_dir)
+        return 1
+
+    # skill-vetter static review + provenance/pinned-ref report (R-SEC-02).
+    findings = vet_skill_dir(skill_dir)
+    provenance = {
+        "name": name,
+        "trust": trust,
+        "source": skill_dir,
+        "pinned_ref": _pinned_ref() if not external else "n/a (external)",
+        "vet_findings": findings,
+    }
+    if findings:
+        sys.stderr.write("agentware: skill-vetter found issues in '%s':\n" % name)
+        for f in findings:
+            sys.stderr.write("  - %s\n" % f)
+        sys.stderr.write("Aborting install (fail-closed). Resolve the findings "
+                         "or vet manually with the skill-vetter skill.\n")
+        return 1
+    if external and not getattr(args, "allow_external", False):
+        sys.stderr.write("agentware: '%s' is an EXTERNAL source. It passed the "
+                         "static vet, but external skills require explicit "
+                         "confirmation: re-run with --allow-external.\n" % name)
+        return 1
+
+    # Destination: external KB (indexed) by default, or a harness path (not
+    # indexed — the harness discovers it on the filesystem).
+    harness_path = getattr(args, "harness_path", None)
+    if harness_path:
+        dest_dir = os.path.join(os.path.abspath(harness_path), name)
+        copied, note = _copy_skill_tree(skill_dir, dest_dir)
+        if getattr(args, "format", "text") == "json":
+            json.dump({"ok": True, "installed": copied, "dest": dest_dir,
+                       "indexed": False, "provenance": provenance, "note": note},
+                      sys.stdout, ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+        else:
+            print("VET PASS (%s, ref %s)" % (trust, provenance["pinned_ref"]))
+            print("%s skill '%s' -> %s (harness path, not indexed)"
+                  % ("INSTALLED" if copied else "SKIPPED", name, dest_dir))
+        return 0
+
+    # Default: install into the external KB under skills/<name>/ and register
+    # via index add (the sole index writer, R-KB-01).
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    rel_dir = os.path.join("skills", name)
+    dest_dir = os.path.join(kdir, rel_dir)
+    copied, note = _copy_skill_tree(skill_dir, dest_dir)
+    rel_md = os.path.join(rel_dir, "SKILL.md")
+
+    idx, ierr = load_index(kdir)
+    if ierr is not None:
+        sys.stderr.write("agentware: %s\n" % ierr)
+        return 1
+    eid = "skill-%s" % name
+    already = any(e.get("id") == eid for e in idx.get("entries", []))
+    indexed = False
+    if not already:
+        fm = read_skill_frontmatter(os.path.join(dest_dir, "SKILL.md"))
+        summary = (fm.get("description") or
+                   (_catalog_skill(data, name) or {}).get("summary") or
+                   "Authored agentware skill.")
+        summary = summary.strip()
+        if len(summary) > 200:
+            summary = summary[:197].rstrip() + "..."
+        cat_entry = _catalog_skill(data, name) or {}
+        tags = cat_entry.get("tags") if isinstance(cat_entry.get("tags"), list) else []
+        tags = tags or ["skill"]
+        entry, aerr = _do_add(
+            kdir, idx, eid, "Skill: %s" % name, "skills", rel_md,
+            tags, summary)
+        if aerr is not None:
+            sys.stderr.write("agentware: index add failed: %s\n" % aerr)
+            return 1
+        ensure_entry_frontmatter(kdir, entry)
+        save_index(kdir, idx)
+        indexed = True
+
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "installed": copied, "dest": dest_dir,
+                   "indexed": indexed, "id": eid, "path": rel_md,
+                   "provenance": provenance, "note": note},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("VET PASS (%s, ref %s)" % (trust, provenance["pinned_ref"]))
+        print("%s skill '%s' -> %s" % ("INSTALLED" if copied else "SKIPPED",
+                                        name, dest_dir))
+        print("%s index entry '%s' (category=skills, path=%s)"
+              % ("REGISTERED" if indexed else "ALREADY-INDEXED", eid, rel_md))
+    return 0
+
+
+def cmd_skill_remove(args):
+    name = args.name
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    eid = "skill-%s" % name
+    idx, ierr = load_index(kdir)
+    if ierr is not None:
+        sys.stderr.write("agentware: %s\n" % ierr)
+        return 1
+    entries = idx.setdefault("entries", [])
+    tags_map = idx.setdefault("tags", {})
+    had_entry = any(e.get("id") == eid for e in entries)
+    if had_entry:
+        entries[:] = [e for e in entries if e.get("id") != eid]
+        remove_tags_from_map(tags_map, eid)
+        save_index(kdir, idx)
+
+    dest_dir = os.path.join(kdir, "skills", name)
+    removed_files = False
+    if not getattr(args, "keep_files", False) and os.path.isdir(dest_dir):
+        shutil.rmtree(dest_dir)
+        removed_files = True
+
+    if not had_entry and not removed_files:
+        sys.stderr.write("agentware: nothing to remove for skill '%s' "
+                         "(no index entry, no %s)\n" % (name, dest_dir))
+        return 1
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "id": eid, "unregistered": had_entry,
+                   "files_removed": removed_files, "dest": dest_dir},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("%s index entry '%s'%s"
+              % ("UNREGISTERED" if had_entry else "NOT-INDEXED", eid,
+                 (" + removed %s" % dest_dir) if removed_files else ""))
+    return 0
+
+
+# Package self-update gates (R-PKG-04 + R-PKG-05). Re-run AFTER a fast-forward
+# apply because `update` mutates package files exactly like any other package
+# edit. Trusted operator-default commands run with cwd = REPO_ROOT, so the
+# relative `scripts/agentware` resolves to this toolkit.
+PKG_UPDATE_GATES = (
+    "scripts/agentware steering lint",
+    "scripts/agentware eval --record --gate",
+)
+
+
+def _catalog_skill_names_at_ref(ref):
+    """Set of skill names in catalog/skills.json at a git ref, or None.
+
+    Read-only (`git show <ref>:catalog/skills.json`, no checkout). Returns None
+    when the blob is absent or unparseable so a `--catalog` diff can SKIP rather
+    than mis-report. Pure git — no new dependency.
+    """
+    cp = _git(REPO_ROOT, "show", "%s:catalog/skills.json" % ref)
+    if cp.returncode != 0:
+        return None
+    try:
+        data = json.loads(cp.stdout)
+    except (ValueError, TypeError):
+        return None
+    return {s.get("name") for s in data.get("skills", [])
+            if isinstance(s, dict) and s.get("name")}
+
+
+def cmd_update(args):
+    """User-initiated, fast-forward-only self-update of the agentware PACKAGE.
+
+    Modeled on `cmd_kb_git_pull` but targets REPO_ROOT (the package repo) and is
+    explicit/manual, never an automatic background pull. Preconditions: a git
+    work tree with a configured upstream. The fetch is READ-ONLY (touches only
+    remote-tracking refs, never the work tree), so `--check` is safe for a
+    SessionStart "updates available" nudge. Apply requires a CLEAN tree, runs
+    `git pull --ff-only` (never a merge commit, never destructive — R-GIT-02),
+    then re-runs the R-PKG-04 (steering lint) + R-PKG-05 (eval --record --gate)
+    package gates because the apply mutated package files. `--catalog` adds a
+    read-only diff of the authored skill catalog between HEAD and upstream so the
+    operator sees which skills a pending update would add/remove.
+    """
+    target = REPO_ROOT
+    check_only = getattr(args, "check", False)
+    show_catalog = getattr(args, "catalog", False)
+    fmt = getattr(args, "format", "text")
+
+    def emit(payload, lines, rc):
+        if fmt == "json":
+            json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+        else:
+            for line in lines:
+                print(line)
+        return rc
+
+    if not git_is_work_tree(target):
+        return emit(
+            {"ok": True, "status": "not-a-git-repo", "applied": False},
+            ["update: package is not a git work tree — no self-update available."],
+            0)
+
+    if not git_has_upstream(target):
+        return emit(
+            {"ok": True, "status": "no-upstream", "applied": False},
+            ["update: no upstream tracking branch configured — skipping "
+             "(set one with `git branch --set-upstream-to=origin/main`)."],
+            0)
+
+    # Read-only fetch: updates remote-tracking refs only; never the work tree.
+    fetch = git_fetch(target)
+    if fetch.returncode != 0:
+        detail = [l for l in (fetch.stderr or "").strip().splitlines() if l.strip()]
+        first = detail[0] if detail else "fetch failed"
+        return emit(
+            {"ok": True, "status": "fetch-failed", "applied": False,
+             "detail": first},
+            ["update: fetch failed — %s (offline or no remote access; not "
+             "blocking)." % first],
+            0)
+
+    upstream_ref = _git(target, "rev-parse", "--abbrev-ref",
+                        "--symbolic-full-name", "@{upstream}").stdout.strip()
+    behind_s = _git(target, "rev-list", "--count",
+                    "HEAD..@{upstream}").stdout.strip()
+    ahead_s = _git(target, "rev-list", "--count",
+                   "@{upstream}..HEAD").stdout.strip()
+    behind = int(behind_s) if behind_s.isdigit() else 0
+    ahead = int(ahead_s) if ahead_s.isdigit() else 0
+    cur = _pinned_ref()
+    up_cp = _git(target, "rev-parse", "--short", "@{upstream}")
+    up = up_cp.stdout.strip() if up_cp.returncode == 0 else "unknown"
+
+    changelog = []
+    if behind:
+        log = _git(target, "log", "--oneline", "--no-decorate",
+                   "HEAD..@{upstream}")
+        if log.returncode == 0:
+            changelog = [l for l in log.stdout.splitlines() if l.strip()]
+
+    catalog_changes = None
+    if show_catalog:
+        up_names = _catalog_skill_names_at_ref("@{upstream}")
+        if up_names is not None:
+            cur_names = _catalog_skill_names_at_ref("HEAD") or set()
+            catalog_changes = {
+                "added": sorted(up_names - cur_names),
+                "removed": sorted(cur_names - up_names),
+            }
+
+    lines = ["update: current %s  upstream %s (%s)" % (cur, up, upstream_ref)]
+    if behind == 0:
+        lines.append("update: already up to date (0 commit(s) behind upstream).")
+    else:
+        lines.append("update: %d commit(s) behind upstream:" % behind)
+        for entry in changelog[:50]:
+            lines.append("  %s" % entry)
+        if len(changelog) > 50:
+            lines.append("  … (%d more)" % (len(changelog) - 50))
+    if ahead:
+        lines.append("update: %d local commit(s) ahead of upstream "
+                     "(blocks a fast-forward apply until pushed/rebased)." % ahead)
+    if catalog_changes is not None:
+        if catalog_changes["added"]:
+            lines.append("update: catalog skills added upstream: %s"
+                         % ", ".join(catalog_changes["added"]))
+        if catalog_changes["removed"]:
+            lines.append("update: catalog skills removed upstream: %s"
+                         % ", ".join(catalog_changes["removed"]))
+        if not catalog_changes["added"] and not catalog_changes["removed"]:
+            lines.append("update: no catalog skill changes in this update.")
+
+    payload = {
+        "ok": True, "current": cur, "upstream": up, "upstream_ref": upstream_ref,
+        "behind": behind, "ahead": ahead, "changelog": changelog,
+        "catalog_changes": catalog_changes, "applied": False,
+    }
+
+    if check_only:
+        payload["mode"] = "check"
+        return emit(payload, lines, 0)
+
+    payload["mode"] = "apply"
+    if behind == 0:
+        lines.append("update: nothing to apply.")
+        return emit(payload, lines, 0)
+
+    # Apply precondition: a CLEAN tree — never fast-forward onto uncommitted
+    # package edits (R-GIT-02 non-destructive).
+    if not git_is_clean(target):
+        payload["ok"] = False
+        payload["error"] = "dirty-work-tree"
+        lines.append("update: package work tree has uncommitted changes — "
+                     "commit or stash them first (never applying onto "
+                     "uncommitted edits).")
+        return emit(payload, lines, 1)
+
+    pull = git_pull_ff(target)
+    if pull.returncode != 0:
+        detail = [l for l in (pull.stderr or "").strip().splitlines() if l.strip()]
+        first = detail[0] if detail else "fast-forward refused"
+        payload["ok"] = False
+        payload["error"] = "ff-failed"
+        lines.append("update: fast-forward apply failed — %s (diverged or "
+                     "offline; nothing applied)." % first)
+        return emit(payload, lines, 1)
+
+    payload["applied"] = True
+    lines.append("update: applied fast-forward to %s." % up)
+
+    # R-PKG-04 / R-PKG-05: the apply mutated package files, so re-run the gates.
+    gate_kdir = require_knowledge_dir() or target
+    gate_results = []
+    gate_failed = False
+    for gate in PKG_UPDATE_GATES:
+        rc, _out = _run_gate(gate, target, gate_kdir)
+        gate_results.append({"gate": gate, "rc": rc})
+        lines.append("update: gate `%s` → %s"
+                     % (gate, "PASS" if rc == 0 else "FAIL (rc %d)" % rc))
+        if rc != 0:
+            gate_failed = True
+    payload["gates"] = gate_results
+    if gate_failed:
+        payload["ok"] = False
+        payload["error"] = "gate-failed"
+        lines.append("update: applied, but a post-update package gate FAILED — "
+                     "review before relying on this package (R-PKG-04/05).")
+        return emit(payload, lines, 1)
+    lines.append("update: post-update gates passed "
+                 "(R-PKG-04 steering lint, R-PKG-05 eval gate).")
+    return emit(payload, lines, 0)
+
+
 def build_parser():
     fmt_parent = argparse.ArgumentParser(add_help=False)
     fmt_parent.add_argument("--format", choices=("text", "json"), default="text",
@@ -14459,6 +15120,73 @@ def build_parser():
         "rebuild", parents=[fmt_parent],
         help="regenerate index.json + rosters + FEATURES.md from entry frontmatter")
     p_rebuild.set_defaults(func=cmd_index_rebuild)
+
+    # skill ------------------------------------------------------------------
+    # The authored skill catalog + installer. EXTENSIBLE: Plan A
+    # (auto-skill-promotion) adds promotion verbs (scan/candidates/show/approve/
+    # reject) to this SAME group — keep `list` == installed catalog skills.
+    p_skill = sub.add_parser(
+        "skill", help="manage the authored skill catalog (list/search/add/remove/validate)")
+    skill_sub = p_skill.add_subparsers(dest="skill_command", metavar="<subcommand>")
+    skill_sub.required = True
+
+    p_sk_list = skill_sub.add_parser(
+        "list", parents=[fmt_parent], help="list authored catalog skills")
+    p_sk_list.add_argument("--category", default=None,
+                           help="filter by category (security|productivity|gap-filler)")
+    p_sk_list.set_defaults(func=cmd_skill_list)
+
+    p_sk_search = skill_sub.add_parser(
+        "search", parents=[fmt_parent], help="search the catalog by name/summary/tag")
+    p_sk_search.add_argument("query", help="case-insensitive substring query")
+    p_sk_search.set_defaults(func=cmd_skill_search)
+
+    p_sk_val = skill_sub.add_parser(
+        "validate", parents=[fmt_parent],
+        help="validate catalog skills (frontmatter name==folder, vet clean)")
+    p_sk_val.add_argument("--name", default=None,
+                          help="validate only this skill (default: all)")
+    p_sk_val.set_defaults(func=cmd_skill_validate)
+
+    p_sk_add = skill_sub.add_parser(
+        "add", parents=[fmt_parent],
+        help="vet + install a TRUSTED catalog skill into the KB (or a harness path)")
+    p_sk_add.add_argument("name", nargs="?", default=None,
+                          help="catalog skill name (omit only with --source)")
+    p_sk_add.add_argument("--source", default=None,
+                          help="LOCAL path to a non-catalog skill (gated; never a URL)")
+    p_sk_add.add_argument("--allow-external", action="store_true",
+                          dest="allow_external",
+                          help="confirm install of an external (--source) skill")
+    p_sk_add.add_argument("--harness-path", default=None, dest="harness_path",
+                          help="install into this harness skills dir instead of the "
+                               "indexed external KB (e.g. .agents/skills)")
+    p_sk_add.set_defaults(func=cmd_skill_add)
+
+    p_sk_rm = skill_sub.add_parser(
+        "remove", parents=[fmt_parent],
+        help="unregister + remove a KB-installed skill")
+    p_sk_rm.add_argument("name", help="skill name to remove")
+    p_sk_rm.add_argument("--keep-files", action="store_true", dest="keep_files",
+                         help="unregister from the index but leave the files on disk")
+    p_sk_rm.set_defaults(func=cmd_skill_remove)
+
+    # update -----------------------------------------------------------------
+    # User-initiated, fast-forward-only self-update of the agentware PACKAGE
+    # repo. Read-only fetch + status; apply re-runs the R-PKG-04/05 gates.
+    p_update = sub.add_parser(
+        "update", parents=[fmt_parent],
+        help="self-update the agentware package (fast-forward-only; re-runs "
+             "R-PKG-04/05 gates on apply)")
+    p_update.add_argument(
+        "--check", action="store_true",
+        help="report current vs upstream + changelog, then STOP (read-only; "
+             "safe for a SessionStart updates-available nudge)")
+    p_update.add_argument(
+        "--catalog", action="store_true",
+        help="also show which authored skill-catalog entries the pending "
+             "update would add/remove (read-only)")
+    p_update.set_defaults(func=cmd_update)
 
     # query ------------------------------------------------------------------
     p_query = sub.add_parser(

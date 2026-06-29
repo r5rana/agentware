@@ -36,8 +36,12 @@ an `AGENTWARE_STATUS:` line each session reporting whether it is initialized.
 3. The roles are two Claude Code subagents in `.claude/agents/`: `agentware-planner`
    (plan only, never executes) and `agentware-execution` (implements the loop; the
    loop's POST phase self-assesses via this agent).
-4. Skills live in `.claude/skills/` (onboarding, knowledge-base, self-improvement,
-   ui-verification). The `/agentware-plan` command scaffolds a feature plan.
+4. Skills live in `.claude/skills/` — the loop skills (onboarding, knowledge-base,
+   self-improvement, ui-verification) plus the 14 authored default skills (6
+   security, 6 productivity, 2 gap-fillers) catalogued in `.claude/skills/README.md`
+   and `catalog/skills.json`; manage them with `scripts/agentware skill
+   list/search/add/remove/validate`. The `/agentware-plan` command scaffolds a
+   feature plan.
 5. On failure, follow the **failure-handling escalation ladder** in `AGENTS.md`
    (`R-FAIL-01..08`): KB → own reasoning → change inputs → switch approach (after ≤3 tries)
    → web search. Keep moving; never re-loop a tier.

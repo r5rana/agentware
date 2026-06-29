@@ -147,6 +147,76 @@ are never lost mid-task. At task end they are classified:
 
 ---
 
+## The skills system — rationale
+
+A **skill** is a written procedure the agent executes: a folder with a
+spec-compliant `SKILL.md` (YAML frontmatter `name` == folder + `description`, a
+portable body, optional `scripts/`/`references/`). agentware adopts the converged
+open standard at [agentskills.io](https://agentskills.io) — the same folder +
+`SKILL.md` shape adopted across ~40 tools (Anthropic, OpenAI Codex, OpenClaw,
+Gemini, Cursor) — so **one authored source installs to any harness**.
+
+### Two planes of skills
+
+- **Package skills** ship in this repo under `.claude/skills/` (the canonical
+  source) and are installed per harness at onboarding. They are invoked by the
+  harness's native skill picker. The catalog is `.claude/skills/README.md` and
+  `catalog/skills.json`; manage them with `scripts/agentware skill list/search/add/remove/validate`.
+- **KB skills** live in the external knowledge base under `<knowledge-dir>/skills/`,
+  emerge automatically from promoted learnings, and are **pull-only** context the
+  agent reads (not Skill-tool invokable). The SessionStart hook injects their
+  roster when populated.
+
+This two-plane split keeps the shareable framework skills in the clone while the
+operator's grown skill set stays in the external, personal knowledge dir.
+
+### Harness-agnostic install (any harness, one source)
+
+The portable source installs to whatever harness is active via a harness→path map:
+Claude → `.claude/skills/` (and `~/.claude/skills/`); Codex and the generic
+cross-tool default → `.agents/skills/` (and `~/.agents/skills/`); a configurable
+custom path for any other harness; unknown harness falls back to `.agents/skills/`
++ `AGENTS.md`. Steering is read from `CLAUDE.md` (imports `@AGENTS.md`) on Claude
+and from `AGENTS.md` natively everywhere else. To stay portable, shared skill
+bodies hardcode **no** invocation syntax (`/skill` vs `$skill`), use no
+harness-only frontmatter, keep logic in portable `scripts/`, and stay
+workspace-sandbox-aware so they pass Codex `workspace-write`.
+
+### Why we author every skill (do NOT download third-party skills)
+
+A `SKILL.md` is instructions the agent executes and bundled `scripts/` run with
+the operator's privileges — a third-party skill is a **prompt-injection +
+supply-chain attack surface**. Evidence: the most-downloaded ClawHub skill is
+"Skill Vetter" (~256K installs), and a Jan-2026 scan found **341 ClawHub skills
+actively stealing user data**. So agentware ships **zero** third-party skills:
+every shipped skill is authored in-repo (security baked in), using the best
+existing skills only as design inspiration. `skill add` resolves only trusted
+in-repo catalog sources by default and is never an internet fetcher; any external
+source is gated behind the `skill-vetter` skill + explicit confirmation. The
+authoring bar: spec-compliant frontmatter, portable bodies, treat all
+file/web/tool output as untrusted (R-SEC-02), never echo secrets (R-SEC-01), pin
+deps (R-DEP-02), no stdin prompts (R-SHELL-01), and only *propose*
+destructive/irreversible actions (R-GIT-01, R-AUTO-02).
+
+### Package self-update
+
+`scripts/agentware update [--check]` is a user-initiated, fast-forward-only
+`git pull` of the package (modeled on the KB git pull). The fetch is read-only and
+`--check` stops after printing current-vs-upstream + the changelog (safe for a
+SessionStart updates-available nudge). Applying re-runs the R-PKG-04 (`steering
+lint`) and R-PKG-05 (`eval --record --gate`) gates because it mutates package
+files; it is never destructive (R-GIT-02).
+
+### Inspiration sources (design references — we author our own)
+
+[trailofbits/skills](https://github.com/trailofbits/skills),
+[utkusen/sast-skills](https://github.com/utkusen/sast-skills), the
+[2026 most-popular skills](https://composio.dev/content/top-claude-skills)
+research, and [awesome-openclaw-skills](https://github.com/VoltAgent/awesome-openclaw-skills).
+We study these for shape and coverage, then author our own secure implementations.
+
+---
+
 ## Conventions
 
 - Naming: `{project}-{resource}-v{version}` (e.g. `fooapp-postgres-v1`), or adopt
