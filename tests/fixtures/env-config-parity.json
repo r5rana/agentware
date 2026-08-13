@@ -1,0 +1,4570 @@
+{
+  "schema_version": 1,
+  "binding": true,
+  "feature": "260813-modular-core-adoption",
+  "task": 8,
+  "derived_from": {
+    "local": {
+      "root": "~/workspace/agentware",
+      "git_head": "ebf8569f42fd"
+    },
+    "donor": {
+      "root": "/tmp/aw-scratch/Agentware",
+      "git_head": "745cc3421ead"
+    },
+    "union_surface": "tests/fixtures/surface-union.json"
+  },
+  "inclusion_rule": "AGENTWARE_* names read or written through an environment API in either language, plus any other name that can only come from the environment (Python: os.environ / os.getenv or a copy of it; shell: UPPERCASE, read but never assigned anywhere in the tree's shell surface, excluding bash specials). A name MENTION is not a read -- detection is syntactic. Dynamically constructed families (AGENTWARE_%s_%s) are expanded through a closed table; an unadjudicated template halts the capture.",
+  "dynamic_expansions": {
+    "AGENTWARE_%s_%s": {
+      "domains": [
+        [
+          "PRE",
+          "MAIN",
+          "POST"
+        ],
+        [
+          "CLI",
+          "MODEL",
+          "LOCAL"
+        ]
+      ],
+      "evidence": "config.PHASES = ('pre','main','post') x the axis literals at the three _phase_key(phase, ...) call sites (CLI/MODEL/LOCAL)",
+      "config_key": true
+    }
+  },
+  "counts": {
+    "keys": 80,
+    "side_attributed": 80,
+    "shared": 40,
+    "local_only": 28,
+    "donor_only": 12,
+    "kill_switches": 6,
+    "config_keys": 36,
+    "with_flag": 29,
+    "dynamic": 9,
+    "agentware_namespace": 67,
+    "external_namespace": 13,
+    "read_sites": 203
+  },
+  "pending_in_destination": [
+    "AGENTWARE_CONFIG_HOME",
+    "AGENTWARE_DISABLE_RECALL_GATE",
+    "AGENTWARE_ORG_PACKAGE",
+    "AGENTWARE_ORG_ROOT",
+    "AGENTWARE_REPOINT_AUTOPROVISION",
+    "AGENTWARE_SKILL_PROPOSE_THRESHOLD",
+    "AGENTWARE_TEAM",
+    "CLAUDE_TOOL_INPUT",
+    "CLAUDE_TOOL_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_AUTHOR_NAME",
+    "USER"
+  ],
+  "keys": [
+    {
+      "key": "AGENTWARE_CHECKUP",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_checkup",
+      "flag_dests": [
+        "checkup_only",
+        "set_checkup"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 30714,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 30717,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_CHECKUP_EFFORT",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 31571,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_CHECKUP_LLM",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 30728,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 30731,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_CHECKUP_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 31570,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_CLI",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "$(scripts/agentware config --cli-only 2>/dev/null || echo claude)",
+      "default_divergent": false,
+      "defaults_observed": [
+        "$(scripts/agentware config --cli-only 2>/dev/null || echo claude)"
+      ],
+      "has_explicit_default": true,
+      "flag": "set_cli",
+      "flag_dests": [
+        "cli_only",
+        "set_cli"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 28,
+            "lang": "shell",
+            "form": "${AGENTWARE_CLI:-}",
+            "default": "$(scripts/agentware config --cli-only 2>/dev/null || echo claude)",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 1214,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2708,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2711,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 41,
+            "lang": "shell",
+            "form": "${AGENTWARE_CLI:-}",
+            "default": "$(scripts/agentware config --cli-only 2>/dev/null || echo claude)",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 574,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 577,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_CODEX_SANDBOX",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1470,
+            "lang": "shell",
+            "form": "${AGENTWARE_CODEX_SANDBOX:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "agentware.sh",
+            "line": 1529,
+            "lang": "shell",
+            "form": "${AGENTWARE_CODEX_SANDBOX:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/loop/spawn.sh",
+            "line": 115,
+            "lang": "shell",
+            "form": "${AGENTWARE_CODEX_SANDBOX:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/spawn.sh",
+            "line": 152,
+            "lang": "shell",
+            "form": "${AGENTWARE_CODEX_SANDBOX:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_CONFIG_HOME",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": true,
+      "defaults_observed": [
+        "",
+        "$HOME/.agentware"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 44,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 24,
+            "lang": "shell",
+            "form": "${AGENTWARE_CONFIG_HOME:-}",
+            "default": "$HOME/.agentware",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DISABLE_PREMISE_GATE",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 898,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_PREMISE_GATE:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25536,
+            "lang": "python",
+            "form": "registry:GRAPH_KILL_SWITCH_VARS",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DISABLE_RECALL_GATE",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/loop/hooks.sh",
+            "line": 199,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RECALL_GATE:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DISABLE_RELEASE_GATE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 988,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RELEASE_GATE:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 19694,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25536,
+            "lang": "python",
+            "form": "registry:GRAPH_KILL_SWITCH_VARS",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/ops/releasegate.py",
+            "line": 233,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/hooks.sh",
+            "line": 214,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RELEASE_GATE:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DISABLE_RETRIEVAL_LINT",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/hooks/retrieval-state.sh",
+            "line": 17,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RETRIEVAL_LINT:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/hooks/retrieval-state.sh",
+            "line": 17,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RETRIEVAL_LINT:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DISABLE_TARGET_GATE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 854,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_TARGET_GATE:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25536,
+            "lang": "python",
+            "form": "registry:GRAPH_KILL_SWITCH_VARS",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/loop/hooks.sh",
+            "line": 100,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_TARGET_GATE:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DREAM",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_dream",
+      "flag_dests": [
+        "dream_only",
+        "set_dream"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2857,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2860,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 172,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 175,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DREAM_MAX_RUNTIME",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_dream_max_runtime",
+      "flag_dests": [
+        "dream_max_runtime_only",
+        "set_dream_max_runtime"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2937,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2940,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 252,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 255,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_DREAM_SCHEDULE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_dream_schedule",
+      "flag_dests": [
+        "dream_schedule_only",
+        "set_dream_schedule"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2893,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2898,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 208,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 213,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_EMBEDDER_BACKEND",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_embedder",
+      "flag_dests": [
+        "embedder_only",
+        "set_embedder"
+      ],
+      "flag_source": "curated",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 3108,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 3111,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 308,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 311,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_EMBED_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_embed_model",
+      "flag_dests": [
+        "embed_model_only",
+        "set_embed_model"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 3123,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 3126,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 323,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 326,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_FANOUT_DIR",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 23631,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/features/fanout.py",
+            "line": 84,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_INVOKED_FROM",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 7399,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 33191,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 31,
+            "lang": "shell",
+            "form": "${AGENTWARE_INVOKED_FROM:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 32,
+            "lang": "shell",
+            "form": "$AGENTWARE_INVOKED_FROM",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 132,
+            "lang": "shell",
+            "form": "${AGENTWARE_INVOKED_FROM:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 134,
+            "lang": "shell",
+            "form": "$AGENTWARE_INVOKED_FROM",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/cli.py",
+            "line": 101,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 79,
+            "lang": "shell",
+            "form": "${AGENTWARE_INVOKED_FROM:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 80,
+            "lang": "shell",
+            "form": "$AGENTWARE_INVOKED_FROM",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/session-start.sh",
+            "line": 87,
+            "lang": "shell",
+            "form": "$AGENTWARE_INVOKED_FROM",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_KB_AUTOCOMMIT",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_autocommit",
+      "flag_dests": [
+        "kb_autocommit_only",
+        "set_autocommit"
+      ],
+      "flag_source": "curated",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2522,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2525,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 388,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 391,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_KB_MODE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_kb_mode",
+      "flag_dests": [
+        "kb_mode_only",
+        "set_kb_mode"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2664,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2667,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 530,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 533,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_KB_PUSH",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_push",
+      "flag_dests": [
+        "kb_push_only",
+        "set_push"
+      ],
+      "flag_source": "curated",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2540,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2543,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 406,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 409,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_KNOWLEDGE_DIR",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "both",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": "set_knowledge_dir",
+      "flag_dests": [
+        "--knowledge-dir",
+        "knowledge_dir",
+        "knowledge_dir_only",
+        "set_knowledge_dir"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2417,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 27502,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 27503,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 47,
+            "lang": "shell",
+            "form": "${AGENTWARE_KNOWLEDGE_DIR:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 48,
+            "lang": "shell",
+            "form": "$AGENTWARE_KNOWLEDGE_DIR",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/codex-stream.py",
+            "line": 107,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 307,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamrepoint.py",
+            "line": 208,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamrepoint.py",
+            "line": 210,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsteps.py",
+            "line": 446,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsteps.py",
+            "line": 447,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 81,
+            "lang": "shell",
+            "form": "${AGENTWARE_KNOWLEDGE_DIR:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 82,
+            "lang": "shell",
+            "form": "$AGENTWARE_KNOWLEDGE_DIR",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/codex-stream.py",
+            "line": 84,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 13655,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 14309,
+            "lang": "python",
+            "form": "pop()",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 18186,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 23963,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25584,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 29516,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 29726,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/features/fanout.py",
+            "line": 396,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/audit.py",
+            "line": 116,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/bench.py",
+            "line": 555,
+            "lang": "python",
+            "form": "pop()",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/regressiongate.py",
+            "line": 328,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ]
+      }
+    },
+    {
+      "key": "AGENTWARE_LIVE_LOG",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "both",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/hooks/codex-stream.py",
+            "line": 203,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/log-tool.sh",
+            "line": 118,
+            "lang": "shell",
+            "form": "${AGENTWARE_LIVE_LOG:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/log-tool.sh",
+            "line": 119,
+            "lang": "shell",
+            "form": "$AGENTWARE_LIVE_LOG",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/hooks/codex-stream.py",
+            "line": 180,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/log-tool.sh",
+            "line": 94,
+            "lang": "shell",
+            "form": "${AGENTWARE_LIVE_LOG:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/hooks/log-tool.sh",
+            "line": 95,
+            "lang": "shell",
+            "form": "$AGENTWARE_LIVE_LOG",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 225,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 237,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          }
+        ]
+      }
+    },
+    {
+      "key": "AGENTWARE_MAIN_CLI",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_main_cli",
+      "flag_dests": [
+        "main_cli_only",
+        "set_main_cli"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MAIN_FALLBACK",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1827,
+            "lang": "shell",
+            "form": "${AGENTWARE_MAIN_FALLBACK:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 562,
+            "lang": "shell",
+            "form": "${AGENTWARE_MAIN_FALLBACK:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MAIN_LOCAL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_main_local",
+      "flag_dests": [
+        "main_local_only",
+        "set_main_local"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MAIN_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_main_model",
+      "flag_dests": [
+        "main_model_only",
+        "set_main_model"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_METRICS_EMIT",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "1",
+      "default_divergent": false,
+      "defaults_observed": [
+        "1"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 595,
+            "lang": "shell",
+            "form": "${AGENTWARE_METRICS_EMIT:-}",
+            "default": "1",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/loop/metrics.sh",
+            "line": 17,
+            "lang": "shell",
+            "form": "${AGENTWARE_METRICS_EMIT:-}",
+            "default": "1",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MINER_ERRREC_DEDUP",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 9051,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 9053,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MINER_RECURRENCE_CUE_REQUIRED",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 8263,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 8265,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MINER_RECURRENCE_MIN_LEN",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 8256,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 8259,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MINER_RECURRENCE_STOPWORDS",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 8270,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 8273,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 29,
+            "lang": "shell",
+            "form": "${AGENTWARE_MODEL:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2798,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2798,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 42,
+            "lang": "shell",
+            "form": "${AGENTWARE_MODEL:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 113,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 113,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_NESTED_UNITTEST",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "both",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "1",
+      "default_divergent": false,
+      "defaults_observed": [
+        "1"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 13070,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 27653,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 28433,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 28756,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 28792,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 30054,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 30093,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/features/dream.py",
+            "line": 256,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsched.py",
+            "line": 165,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsched.py",
+            "line": 201,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsteps.py",
+            "line": 597,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/ledger.py",
+            "line": 114,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 13073,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 18147,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 29517,
+            "lang": "python",
+            "form": "setdefault()",
+            "default": "1",
+            "kind": "write"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/ops/audit.py",
+            "line": 78,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/ledger.py",
+            "line": 117,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ]
+      }
+    },
+    {
+      "key": "AGENTWARE_NOPROGRESS_LIMIT",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "3",
+      "default_divergent": false,
+      "defaults_observed": [
+        "3"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1771,
+            "lang": "shell",
+            "form": "${AGENTWARE_NOPROGRESS_LIMIT:-}",
+            "default": "3",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 507,
+            "lang": "shell",
+            "form": "${AGENTWARE_NOPROGRESS_LIMIT:-}",
+            "default": "3",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_NO_STREAM",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 137,
+            "lang": "shell",
+            "form": "${AGENTWARE_NO_STREAM:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 149,
+            "lang": "shell",
+            "form": "${AGENTWARE_NO_STREAM:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_OLLAMA_HOST",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware_embedder_ollama.py",
+            "line": 50,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_embedder_ollama.py",
+            "line": 50,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_ORG_PACKAGE",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_org_package",
+      "flag_dests": [
+        "set_org_package"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 269,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_ORG_ROOT",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_org_root",
+      "flag_dests": [
+        "set_org_root"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 222,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_ORIGIN",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "both",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/hooks/log-prompt.sh",
+            "line": 29,
+            "lang": "shell",
+            "form": "${AGENTWARE_ORIGIN:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1587,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "agentware.sh",
+            "line": 1783,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_POST_CLI",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_post_cli",
+      "flag_dests": [
+        "post_cli_only",
+        "set_post_cli"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_POST_LOCAL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_post_local",
+      "flag_dests": [
+        "post_local_only",
+        "set_post_local"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_POST_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_post_model",
+      "flag_dests": [
+        "post_model_only",
+        "set_post_model"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_PRE_CLI",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_pre_cli",
+      "flag_dests": [
+        "pre_cli_only",
+        "set_pre_cli"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_PRE_LOCAL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_pre_local",
+      "flag_dests": [
+        "pre_local_only",
+        "set_pre_local"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_PRE_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": true,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_pre_model",
+      "flag_dests": [
+        "pre_model_only",
+        "set_pre_model"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REPOINT_AUTOPROVISION",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/features/dreamrepoint.py",
+            "line": 125,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamrepoint.py",
+            "line": 127,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_RETRIEVAL_LINT_MODE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "warn",
+      "default_divergent": false,
+      "defaults_observed": [
+        "warn"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/hooks/retrieval-state.sh",
+            "line": 22,
+            "lang": "shell",
+            "form": "${AGENTWARE_RETRIEVAL_LINT_MODE:-}",
+            "default": "warn",
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/hooks/retrieval-state.sh",
+            "line": 22,
+            "lang": "shell",
+            "form": "${AGENTWARE_RETRIEVAL_LINT_MODE:-}",
+            "default": "warn",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_RETRIEVAL_MODE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_retrieval",
+      "flag_dests": [
+        "--retrieval",
+        "retrieval",
+        "retrieval_mode_only",
+        "set_retrieval"
+      ],
+      "flag_source": "curated",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2620,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2623,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 486,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 489,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1055,
+            "lang": "shell",
+            "form": "${AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "agentware.sh",
+            "line": 1056,
+            "lang": "shell",
+            "form": "$AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REVIEW_DIFF_RANGE",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "HEAD",
+      "default_divergent": false,
+      "defaults_observed": [
+        "HEAD"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1097,
+            "lang": "shell",
+            "form": "${AGENTWARE_REVIEW_DIFF_RANGE:-}",
+            "default": "HEAD",
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REVIEW_EFFORT",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "both",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 668,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 1238,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REVIEW_FANOUT",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 670,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REVIEW_MAX_ROUNDS",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "1",
+      "default_divergent": false,
+      "defaults_observed": [
+        "1"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1095,
+            "lang": "shell",
+            "form": "${AGENTWARE_REVIEW_MAX_ROUNDS:-}",
+            "default": "1",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 672,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_REVIEW_MODEL",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 667,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKILLS_HARNESS_DIR",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 32473,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKILLS_LOCK_PATH",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 32265,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKILL_PROMOTE",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_skill_promote",
+      "flag_dests": [
+        "set_skill_promote",
+        "skill_promote_only"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 2979,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 2982,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKILL_PROMOTE_CAP",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_skill_promote_cap",
+      "flag_dests": [
+        "set_skill_promote_cap"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 3005,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 3008,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKILL_PROPOSE_THRESHOLD",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_skill_propose_threshold",
+      "flag_dests": [
+        "set_skill_propose_threshold",
+        "skill_propose_threshold_only"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 678,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 680,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKIP_ADVERSARIAL_REVIEW",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1074,
+            "lang": "shell",
+            "form": "${AGENTWARE_SKIP_ADVERSARIAL_REVIEW:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 745,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25536,
+            "lang": "python",
+            "form": "registry:GRAPH_KILL_SWITCH_VARS",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_SKIP_ADVERSARIAL_REVIEW_REASON",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 761,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_STAGE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "write",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "agentware.sh",
+            "line": 1583,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "agentware.sh",
+            "line": 1782,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": [
+          {
+            "file": "agentware.sh",
+            "line": 518,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/loop/phase.sh",
+            "line": 25,
+            "lang": "shell",
+            "form": "export",
+            "default": null,
+            "kind": "write"
+          }
+        ]
+      }
+    },
+    {
+      "key": "AGENTWARE_TEAM",
+      "namespace": "agentware",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_team",
+      "flag_dests": [
+        "--team",
+        "set_team",
+        "team"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/config.py",
+            "line": 230,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_UPDATE",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_updater",
+      "flag_dests": [
+        "set_updater",
+        "updater_only"
+      ],
+      "flag_source": "curated",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 30214,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 30217,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "AGENTWARE_USER_HANDLE",
+      "namespace": "agentware",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": "set_user_handle",
+      "flag_dests": [
+        "set_user_handle",
+        "user_handle_only"
+      ],
+      "flag_source": "derived",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 3090,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 3093,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 290,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 293,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "CI",
+      "namespace": "external",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "write",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 1233,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25586,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": []
+      }
+    },
+    {
+      "key": "CLAUDE_TOOL_INPUT",
+      "namespace": "external",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/hooks/retrieval-state.sh",
+            "line": 46,
+            "lang": "shell",
+            "form": "${CLAUDE_TOOL_INPUT:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "CLAUDE_TOOL_NAME",
+      "namespace": "external",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/hooks/retrieval-state.sh",
+            "line": 45,
+            "lang": "shell",
+            "form": "${CLAUDE_TOOL_NAME:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "COMPUTERNAME",
+      "namespace": "external",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 22086,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "GIT_AUTHOR_EMAIL",
+      "namespace": "external",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "agentware@local",
+      "default_divergent": false,
+      "defaults_observed": [
+        "agentware@local"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/loop/kbsync.sh",
+            "line": 70,
+            "lang": "shell",
+            "form": "${GIT_AUTHOR_EMAIL:-}",
+            "default": "agentware@local",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "GIT_AUTHOR_NAME",
+      "namespace": "external",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": "agentware",
+      "default_divergent": false,
+      "defaults_observed": [
+        "agentware"
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/loop/kbsync.sh",
+            "line": 69,
+            "lang": "shell",
+            "form": "${GIT_AUTHOR_NAME:-}",
+            "default": "agentware",
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "GIT_EDITOR",
+      "namespace": "external",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "write",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 23146,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/gitio.py",
+            "line": 65,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ]
+      }
+    },
+    {
+      "key": "GIT_TERMINAL_PROMPT",
+      "namespace": "external",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "write",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 22929,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 22943,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 23145,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 23964,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25585,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/core/gitio.py",
+            "line": 64,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/features/fanout.py",
+            "line": 397,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/staging.py",
+            "line": 335,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/staging.py",
+            "line": 349,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ]
+      }
+    },
+    {
+      "key": "HOME",
+      "namespace": "external",
+      "sides": [
+        "local",
+        "donor"
+      ],
+      "side": "shared",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 18,
+            "lang": "shell",
+            "form": "$HOME",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 24,
+            "lang": "shell",
+            "form": "$HOME",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 25,
+            "lang": "shell",
+            "form": "$HOME",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": [
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 24,
+            "lang": "shell",
+            "form": "$HOME",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 30,
+            "lang": "shell",
+            "form": "$HOME",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 31,
+            "lang": "shell",
+            "form": "$HOME",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "HOMEBREW_NO_AUTO_UPDATE",
+      "namespace": "external",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "write",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 1235,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": []
+      }
+    },
+    {
+      "key": "HOSTNAME",
+      "namespace": "external",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 22086,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "USER",
+      "namespace": "external",
+      "sides": [
+        "donor"
+      ],
+      "side": "donor-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": [
+          {
+            "file": "scripts/agentware_lib/ops/fleet.py",
+            "line": 218,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/fleet.py",
+            "line": 548,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/team.py",
+            "line": 186,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ]
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
+      "key": "npm_config_yes",
+      "namespace": "external",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "write",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware",
+            "line": 1234,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware",
+            "line": 25587,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          }
+        ],
+        "donor": []
+      }
+    }
+  ]
+}
