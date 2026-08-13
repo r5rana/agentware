@@ -326,7 +326,11 @@ and its test file. The full contract lives in
 
 ## Contributing
 
-PRs and issues welcome. agentware governs *itself* the same way it governs your work — changes to its own steering/skills/loop go through a plan, a `!! WARNING !!` self-extension gate, and the `steering lint` + benchmark gates before they ship. Run `python3 -m unittest discover -s tests` and `scripts/agentware audit --with-tests` before opening a PR.
+PRs and issues welcome. agentware governs *itself* the same way it governs your work — changes to its own steering/skills/loop go through a plan, a `!! WARNING !!` self-extension gate, and the `steering lint` + benchmark gates before they ship.
+
+Start with **[`CONTRIBUTING.md`](CONTRIBUTING.md)**: where code goes in the layered package, the checks to run before you open a PR (the suite is four tier-scoped runs — see [`tests/README.md`](tests/README.md)), and the commit and PR conventions. Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md); release notes live in the [Changelog](CHANGELOG.md).
+
+**Found a security problem?** Do not open a public issue — [`SECURITY.md`](SECURITY.md) has the private reporting process, the supported versions and the scope.
 
 ## License
 

@@ -13,16 +13,16 @@ _Last updated: 2026-07-19._
 ## Vision
 
 > *"The vision for agentware is to have an agent that **learns on demand what is required and how it is
-> required, so I don't have to manage it** — it is self-managed by the agent."* — rahul
+> required, so I don't have to manage it** — it is self-managed by the agent."* — the operator
 
 > *"I found out about ralph loops and that was the final part for my framework to be **self-sufficient
 > and self-learning** — I could build **non-hallucinating context each time in a deterministic fashion**,
 > so each loop only gets correct and relevant information to make informed decisions. Small context, low
-> hallucination during execution."* — rahul
+> hallucination during execution."* — the operator
 
 > *"If you use a long-memory tool you don't get an agent that utilises it the best way — **there are no
 > guardrails and deterministic functions built in**. Looping + memory integration, especially with
-> **self-learning, self-healing, and self-extension**, is the moat."* — rahul
+> **self-learning, self-healing, and self-extension**, is the moat."* — the operator
 
 The through-line: **today most agents capture but forget, and make you re-explain yourself.** agentware
 turns that into an agent that *learns from your talking and its own mistakes, keeps its memory

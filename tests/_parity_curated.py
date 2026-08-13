@@ -257,6 +257,47 @@ CURATED_ROWS = MERGE_ROWS + [
          "other: `skill validate` and the installed-and-catalogued assertion "
          "redden; make the skill always-on steering and the not-always-on "
          "assertion reddens"),
+    _row("docs:community-health-corpus", "docs_templates",
+         "The community-health corpus a public repository is judged by — "
+         "contributing guide (with the modular contract written for a HUMAN "
+         "contributor), security policy, code of conduct, changelog, and the "
+         "issue and pull-request templates — each gated for existence, "
+         "substance, its required sections and a README route to it, because a "
+         "community file nothing points at is one nobody finds",
+         LOCAL, 77, "tests.gates.test_repo_standard",
+         "delete a required file, replace one with a stub, drop a required "
+         "section, unroute one from the README, gut the PR checklist, break a "
+         "template's frontmatter, or disable blank issues with no template "
+         "left to file: each arm (A/D) must name its own offender on a copy of "
+         "the shipped files"),
+    _row("docs:licensing-declared-once", "docs_templates",
+         "One licence, declared identically on every surface that declares one "
+         "(the LICENSE text including its patent grant, the README badge and "
+         "footer, the NOTICE, the contribution terms, the dashboard's "
+         "package.json) with third-party adopted text attributed in BOTH "
+         "directions — the NOTICE names the work, its licence and canonical "
+         "URL, and the adopting file must still carry its own attribution "
+         "witness",
+         LOCAL, 77, "tests.gates.test_repo_standard",
+         "strip the patent grant from LICENSE, drop a licence declaration, set "
+         "a different licence in package.json, name an undeclared foreign "
+         "licence, delete the NOTICE's attribution block, or stop adopting the "
+         "text the NOTICE still attributes: each arm (B/C) names its own "
+         "offender — and the twin mutation proves an ADOPTED licence stays "
+         "LEGAL, since a ban that forbids attribution defeats the NOTICE"),
+    _row("docs:no-operator-identity-in-the-tree", "docs_templates",
+         "The shipped tree carries ZERO live operator identity (R-LOC-03), "
+         "pinned by a gate rather than only by the advisory audit row: the "
+         "preserved ROADMAP's three by-name vision quotes and eight sample "
+         "handles in the test corpus were redacted, and the roadmap's "
+         "byte-identity claim was NARROWED to enumerate that one sanctioned "
+         "deviation instead of being waived",
+         LOCAL, 77, "tests.gates.test_repo_standard",
+         "reintroduce the live operator handle anywhere in a tracked file: arm "
+         "F reports it through the same scanner `agentware audit` runs; "
+         "re-personalise a redacted ROADMAP attribution, or change any other "
+         "line of the preserved file, and the narrowed preservation test in "
+         "tests.gates.test_readme_union names the line"),
     _row("docs:guidance-surface-contract", "docs_templates",
          "The guidance-surface contract check over every persona, skill, doc "
          "and always-on steering file: a retired path may be named only inside "

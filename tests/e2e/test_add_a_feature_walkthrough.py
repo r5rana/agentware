@@ -189,11 +189,11 @@ class WalkthroughExecutesTest(unittest.TestCase):
 
     def test_the_scaffolded_verb_is_served_by_the_scratch_checkout(self):
         proc = subprocess.run([sys.executable, "scripts/agentware", "greet",
-                               "--name", "rahul", "--format", "json"],
+                               "--name", "world", "--format", "json"],
                               cwd=self.root, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, timeout=STEP_TIMEOUT)
         self.assertEqual(proc.returncode, 0, proc.stdout)
-        self.assertIn("hello, rahul", proc.stdout.decode("utf-8", "replace"))
+        self.assertIn("hello, world", proc.stdout.decode("utf-8", "replace"))
 
     def test_the_end_state_passes_the_wiring_audit(self):
         """`scaffold check` from the outside: the five wiring questions at once."""

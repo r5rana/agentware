@@ -214,9 +214,9 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(judged["allow_changed"], [".schema"])
 
     def test_an_allowlist_prefix_covers_a_subtree_but_not_a_sibling(self):
-        _, judged = self._judge(added=["teams/rahul/MAIN.md", "teams-old/x.md"],
+        _, judged = self._judge(added=["teams/atlas/MAIN.md", "teams-old/x.md"],
                                 allow_added=("teams",))
-        self.assertEqual(judged["added_expected"], ["teams/rahul/MAIN.md"])
+        self.assertEqual(judged["added_expected"], ["teams/atlas/MAIN.md"])
         self.assertEqual(judged["added_unexpected"], ["teams-old/x.md"])
         self.assertFalse(judged["additive_only"])
 
@@ -278,7 +278,7 @@ class CommandLineTest(unittest.TestCase):
         """The migration's own shape: `.schema` restamped, `teams/` scaffolded."""
         before, _ = self._capture("before.json")
         _write(os.path.join(self.root, ".schema"), "2\n")
-        _write(os.path.join(self.root, "teams", "rahul", "MAIN.md"), "# t\n")
+        _write(os.path.join(self.root, "teams", "atlas", "MAIN.md"), "# t\n")
         after, _ = self._capture("after.json")
         proc = self._run("compare", before, after, "--allow-changed", ".schema",
                          "--allow-added", "teams", "--allow-added", ".schema")
@@ -287,7 +287,7 @@ class CommandLineTest(unittest.TestCase):
 
     def test_an_unexpected_add_exits_nonzero_once_a_prefix_is_declared(self):
         before, _ = self._capture("before.json")
-        _write(os.path.join(self.root, "teams", "rahul", "MAIN.md"), "# t\n")
+        _write(os.path.join(self.root, "teams", "atlas", "MAIN.md"), "# t\n")
         _write(os.path.join(self.root, "surprise.md"), "?\n")
         after, _ = self._capture("after.json")
         proc = self._run("compare", before, after, "--allow-added", "teams")

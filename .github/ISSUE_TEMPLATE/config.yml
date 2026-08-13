@@ -1,0 +1,9 @@
+# Blank issues are disabled on purpose: the two templates ask for the fields
+# that decide whether a report is actionable (the exact command, the full
+# output, and how it was verified). A blank issue skips all of them.
+#
+# No `contact_links` entry points at security reporting, because GitHub already
+# surfaces "Report a vulnerability" from SECURITY.md when private vulnerability
+# reporting is enabled — a second, hand-maintained link would be one more thing
+# to rot.
+blank_issues_enabled: false

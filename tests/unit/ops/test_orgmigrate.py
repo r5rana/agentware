@@ -70,7 +70,7 @@ def write_entry(path, fields, body="\nbody text\n"):
 
 STD_FIELDS = [("id", "learn-x"), ("title", "X"), ("category", "learnings"),
               ("tags", "[a, b]"), ("created", "2026-08-01"),
-              ("author", "rahul"), ("source", "auto"),
+              ("author", "casey"), ("source", "auto"),
               ("last_verified", "2026-08-01")]
 
 

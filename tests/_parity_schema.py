@@ -323,7 +323,7 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor carries a decision template, declared "
                                  "frontmatter on every template, an architecture "
                                  "README section and the artifact capture standard"),
-        "plan_tasks": [20, 51, 61, 74, 75, 76],
+        "plan_tasks": [20, 51, 61, 74, 75, 76, 77],
     },
     {
         "name": "evaluation_quality",

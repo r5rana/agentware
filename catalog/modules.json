@@ -1655,6 +1655,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_repo_standard.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_security_policy.py"
     },
     {
@@ -1996,6 +2001,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_readme_union.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_repo_standard.py"
     },
     {
       "layer": "tests",

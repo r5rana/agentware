@@ -378,8 +378,8 @@ class KbCommittedSinkPredicateTest(unittest.TestCase):
         return staging._is_committed_sink(inner, inner.rsplit("/", 1)[-1])
 
     def test_every_sink_shape_is_recognised(self):
-        for inner in ("teams/core/fleet/rahul.jsonl",
-                      "fleet/rahul.jsonl",
+        for inner in ("teams/core/fleet/casey.jsonl",
+                      "fleet/casey.jsonl",
                       "benchmarks/history.jsonl",
                       "benchmarks/history-gold-fixture.jsonl",
                       "configurations/assets/diagram.png",

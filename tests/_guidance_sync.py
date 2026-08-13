@@ -100,7 +100,24 @@ def _surfaces(root):
     for rel in ("AGENTS.md", "CLAUDE.md", "README.md"):
         if os.path.isfile(os.path.join(root, rel)):
             found.append((rel, "steering"))
+    for rel in COMMUNITY:
+        if os.path.isfile(os.path.join(root, rel)):
+            found.append((rel, "community"))
+    for path in sorted(glob.glob(os.path.join(root, ".github/**/*.md"),
+                                 recursive=True)):
+        found.append((os.path.relpath(path, root), "community"))
     return found
+
+
+#: The community-health documents (task 77). A HUMAN reads these rather than an
+#: agent, which is why they are a separate class -- but the rot is identical: a
+#: contributing guide that names a checker this tree never had, or a security
+#: policy pointing at a deleted module, sends a contributor exactly as far
+#: astray as a persona does an agent. `tests/_repo_standard.py` owns whether they
+#: EXIST and what they must contain; this gate owns whether their pointers still
+#: resolve.
+COMMUNITY = ("CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
+             "CHANGELOG.md")
 
 
 #: (needle regex, what it was, the task that retired it). A surface may name one

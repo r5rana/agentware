@@ -183,7 +183,7 @@ discovery contract. `_EXPORTS` is *what cross-module consumers need*, not every
 public name.
 
 ```bash
-scripts/agentware greet --name rahul --format json
+scripts/agentware greet --name world --format json
 ```
 
 ### Step 3 — fill the owning test

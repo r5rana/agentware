@@ -2,6 +2,7 @@
   "name": "agentware-dashboard-webui",
   "private": true,
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "agentware observability dashboard — Vite + React 19 + TypeScript (strict) SPA served from webui/dist by the stdlib dashboard sidecar.",
   "scripts": {

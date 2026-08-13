@@ -124,8 +124,21 @@ class PositiveControlTest(ScratchTreeTest):
         self.assertNoErrors()
 
     def test_the_scratch_tree_holds_every_class_of_surface(self):
+        """WIDENED at task 77: the community-health documents joined the
+        declared set. A human reads them rather than an agent, but a pointer
+        that no longer resolves misleads either one, so they are a fifth CLASS
+        rather than an exception."""
         kinds = set(kind for _rel, kind in gs._surfaces(self.root))
-        self.assertEqual(kinds, {"persona", "skill", "doc", "steering"})
+        self.assertEqual(kinds,
+                         {"persona", "skill", "doc", "steering", "community"})
+
+    def test_every_community_document_is_in_the_declared_set(self):
+        """The class is not decorative: each named file must really be scanned,
+        or arm B stops seeing the documents most likely to name a stale path."""
+        scanned = set(rel for rel, _kind in gs._surfaces(self.root))
+        for rel in gs.COMMUNITY:
+            self.assertIn(rel, scanned)
+        self.assertIn(".github/PULL_REQUEST_TEMPLATE.md", scanned)
 
 
 class RetiredNameTest(ScratchTreeTest):
