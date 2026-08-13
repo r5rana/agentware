@@ -14,9 +14,15 @@ ranking/retrieval. Stdlib-only (subprocess `git`), zero new dependencies.
 
 agentware has **two write surfaces** that collide under naïve parallelism:
 
-1. **The package repo** funnels almost every feature into one ~10k-line file
-   (`scripts/agentware`). Concurrent branches collide on the argparse dispatch
-   table + shared helpers, and a careless rebase can *silently drop a subcommand*.
+1. **The package repo** no longer funnels features into one file — the toolkit is
+   a layered package of ~200 modules (`docs/architecture.md`) and a verb is
+   declared in its own module's `__verbs__`, so two lanes adding two verbs touch
+   two different files. What they still share is the **generated and pinned
+   registries** every lane regenerates: `catalog/modules.json`,
+   `tests/fixtures/parity-manifest.json`, `catalog/skills.json`, the parser golden
+   pins, the shrink-only debt ledgers and the rendered doc maps. A careless rebase
+   there can *silently drop a subcommand's row* — the same failure the dispatch
+   table used to produce, moved one level up.
 2. **The external KB** is shared state: every loop writes `index.json`, the
    `*/index.md` rosters, `FEATURES.md`, the append-only
    `benchmarks/history.jsonl` / `SCORECARD.md`, and worklog/plan markers.
@@ -108,14 +114,18 @@ scripts/agentware fanout merge-queue        # all completed lanes, in order
 `fanout merge-queue` integrates lanes **one at a time** onto an `integration`
 branch (in both repos):
 
-- **Package side** — the monolith is the serial chokepoint, embraced. Each lane's
-  `feat/<f>` is merged into `integration`. On a `scripts/agentware` conflict the
-  queue **HALTS deterministically** — non-zero exit + an actionable message naming
-  the lane/branch/region — and aborts the in-progress merge so the repo is left
+- **Package side** — the shared registries are the serial chokepoint, embraced.
+  Each lane's `feat/<f>` is merged into `integration`. On a conflict the queue
+  **HALTS deterministically** — non-zero exit + an actionable message naming the
+  lane/branch/region — and aborts the in-progress merge so the repo is left
   clean. It **never** runs a blanket `-X ours/theirs` (the exact mode that
   silently drops a subcommand). The operator resolves the conflict by hand and
   re-runs; the queue skips already-merged lanes (it is resumable). This is an
-  `R-EXEC-06` operator handoff, not an interactive prompt.
+  `R-EXEC-06` operator handoff, not an interactive prompt. A generated registry
+  is resolved by RE-RUNNING its generator (`python3 tests/_manifest_gen.py --write`,
+  `python3 tests/_parity_manifest.py --out`), never by hand-picking hunks — the
+  file is derived, so the merge question is "which inputs survived", not "which
+  lines".
 - **KB side** — `kb/<f>` is merged into the KB `integration`. Derived/append-only
   conflicts resolve via the merge policy + `index rebuild`; the nothing-lost
   ID-superset gate runs **before** the commit, so a lossy merge is rejected. A
@@ -139,17 +149,19 @@ never runs `reset --hard` or a force-push (R-GIT-02).
 
 ---
 
-## Region grouping is guidance, not automation
+## Module grouping is guidance, not automation
 
 `fanout` parallelizes whatever lanes you pass; it does **not** auto-decide which
-features are conflict-safe — that is judgment. Group lanes so their `scripts/agentware`
-edits touch **disjoint** regions (different commands/helpers); two lanes editing the
-same dispatch block will conflict at `merge-queue` time and halt (by design).
+features are conflict-safe — that is judgment. Group lanes so they own **disjoint
+modules**: the layer map in `docs/architecture.md` §2 is the partition to read,
+and two lanes editing the same module — or the same hand-maintained region of a
+shared ledger such as `tests/_parity_curated.py` — will conflict at `merge-queue`
+time and halt (by design).
 
 Keep these **serial** (do not fan them out against each other):
 
 - retrieval-core changes that touch ranking/recall internals,
-- anything that rewrites large shared regions of the monolith,
+- anything that moves modules between layers or rewrites a shared ledger's shape,
 - the README/overhaul-style capstones.
 
 Everything else — additive subcommands, new skills, new KB connectors, separate
@@ -161,9 +173,10 @@ repos — parallelizes cleanly.
 
 - No two lanes share a working tree or a KB.
 - Lane state lives outside both repos; neither repo's `git status` is perturbed.
-- The merge queue is serial + gated; a monolith conflict or a gate FAIL halts it
+- The merge queue is serial + gated; a code conflict or a gate FAIL halts it
   deterministically rather than dropping or mis-merging a feature.
 - Destructive git only ever runs behind an explicit `--force` (R-GIT-02).
 
-See `docs/loop.md` for the single-feature loop this builds on, and `AGENTS.md`
-for the canonical methodology.
+See `docs/loop.md` for the single-feature loop this builds on, `AGENTS.md`
+for the canonical methodology, and `docs/architecture.md` for the module map a
+lane partition is read from.

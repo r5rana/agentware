@@ -34,11 +34,11 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 556,
+    "rows": 558,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
-      "docs_templates": 8,
+      "docs_templates": 10,
       "dream_maintenance": 7,
       "env_config": 82,
       "evaluation_quality": 4,
@@ -51,13 +51,13 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 547,
+      "required": 549,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 69,
+      "curated": 71,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -249,7 +249,8 @@
         51,
         61,
         74,
-        75
+        75,
+        76
       ]
     },
     {
@@ -1944,6 +1945,21 @@
       }
     },
     {
+      "id": "docs:guidance-surface-contract",
+      "dimension": "docs_templates",
+      "capability": "The guidance-surface contract check over every persona, skill, doc and always-on steering file: a retired path may be named only inside a retirement sentence (and must still be absent from disk), every repo-relative path must be present or CLAIMED by catalog/modules.json, every agentware_lib name must resolve to a published module, every runnable checker command must exist, and every exemption must carry a witness the surface still holds",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 76,
+      "evidence": {
+        "test": "tests.gates.test_guidance_sync",
+        "mutation": "name the retired monolith as a live fact, point a doc at an unclaimed path (including inside a backticked command), rename a module the manifest publishes, print a ghost `python3 tests/_x.py`, strip an exemption's witness, or stop naming a required claim: each arm (A/B/C/D/E/F) must name its own offender on a scratch copy of the real tree, and the retirement-sentence twin must stay GREEN"
+      }
+    },
+    {
       "id": "docs:module-map-two-way-parity",
       "dimension": "docs_templates",
       "capability": "Both documented module maps \u2014 the `scripts/agentware_lib/README.md` router and the architecture doc's map \u2014 are complete and exact against the manifest in BOTH directions, the state that let task 73's 82-row doc-row debt ledger be deleted rather than carried",
@@ -2017,6 +2033,21 @@
       "evidence": {
         "test": "tests.e2e.test_add_a_feature_walkthrough",
         "mutation": "break any command in the document, or quote a line the tree no longer holds: the run reddens naming the block's line number \u2014 proven live by planting a bad flag on the third of five generator lines (caught only because the runner prepends `set -e`) and by a hunk quoting a stale pin value"
+      }
+    },
+    {
+      "id": "skills:modular-development-procedure",
+      "dimension": "docs_templates",
+      "capability": "The on-demand modular-development skill: the R-MOD-01..12 PROCEDURE (triage, layer from the import direction, the five artifacts a unit lands with, the split-at-the-obligation rule, the gate-to-fix table) authored as a catalog skill so an agent loads it when code is about to move and pays nothing for it otherwise \u2014 the rules stay always-on in AGENTS.md, the procedure does not",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 76,
+      "evidence": {
+        "test": "tests.gates.test_guidance_sync",
+        "mutation": "delete the skill folder, drop its catalog row, or point either at the other: `skill validate` and the installed-and-catalogued assertion redden; make the skill always-on steering and the not-always-on assertion reddens"
       }
     },
     {

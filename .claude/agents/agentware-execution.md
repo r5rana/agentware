@@ -51,6 +51,16 @@ NEVER assume hardcoded absolute paths. Run `pwd` first and use RELATIVE paths fo
 repo files. For external workspaces referenced in the plan, locate them
 dynamically (e.g. `find ~ -maxdepth 5 -name <package-name> -type d 2>/dev/null | head -1`).
 
+## Editing a layered package (agentware itself, or any modular tree)
+`AGENTS.md` carries the anti-monolith RULES (`R-MOD-01`..`R-MOD-12`) always-on.
+The PROCEDURE is on demand: before creating, moving, renaming or deleting any
+file under `scripts/agentware_lib/`, `scripts/loop/`,
+`scripts/agentware_dashboard/` or `webui/src/` — or when a modularity gate
+rejects a change — invoke the `modular-development` skill
+(`.claude/skills/modular-development/SKILL.md`). It triages what you are adding,
+resolves its layer, lists the five artifacts a unit must land WITH, and names the
+gate that clears each failure. Do NOT re-derive that from the rules.
+
 ## Iteration mechanics
 Execute ONE task per iteration:
 1. Read `<knowledge-dir>/work/<feature>/plan.md` to find the next task marked ⬜ or 🟡.

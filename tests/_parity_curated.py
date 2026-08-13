@@ -245,4 +245,31 @@ CURATED_ROWS = MERGE_ROWS + [
          "by planting a bad flag on the third of five generator lines (caught "
          "only because the runner prepends `set -e`) and by a hunk quoting a "
          "stale pin value"),
+    _row("skills:modular-development-procedure", "docs_templates",
+         "The on-demand modular-development skill: the R-MOD-01..12 PROCEDURE "
+         "(triage, layer from the import direction, the five artifacts a unit "
+         "lands with, the split-at-the-obligation rule, the gate-to-fix table) "
+         "authored as a catalog skill so an agent loads it when code is about "
+         "to move and pays nothing for it otherwise — the rules stay always-on "
+         "in AGENTS.md, the procedure does not",
+         LOCAL, 76, "tests.gates.test_guidance_sync",
+         "delete the skill folder, drop its catalog row, or point either at the "
+         "other: `skill validate` and the installed-and-catalogued assertion "
+         "redden; make the skill always-on steering and the not-always-on "
+         "assertion reddens"),
+    _row("docs:guidance-surface-contract", "docs_templates",
+         "The guidance-surface contract check over every persona, skill, doc "
+         "and always-on steering file: a retired path may be named only inside "
+         "a retirement sentence (and must still be absent from disk), every "
+         "repo-relative path must be present or CLAIMED by catalog/modules.json, "
+         "every agentware_lib name must resolve to a published module, every "
+         "runnable checker command must exist, and every exemption must carry a "
+         "witness the surface still holds",
+         LOCAL, 76, "tests.gates.test_guidance_sync",
+         "name the retired monolith as a live fact, point a doc at an unclaimed "
+         "path (including inside a backticked command), rename a module the "
+         "manifest publishes, print a ghost `python3 tests/_x.py`, strip an "
+         "exemption's witness, or stop naming a required claim: each arm "
+         "(A/B/C/D/E/F) must name its own offender on a scratch copy of the "
+         "real tree, and the retirement-sentence twin must stay GREEN"),
 ]

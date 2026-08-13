@@ -596,7 +596,8 @@ file, whether the edit is **LOCAL** (one module) or touches a **SHARED** registr
    best-effort, guarded `_dream_step_<name>` in its own file under
    `features/dreamsteps/` and append its entry to the ordered `DREAM_STEP_FUNCS`
    tuple, which `_dream_parse_steps` validates `--steps` against.
-   *Test:* `tests/unit/features/test_dreamsteps.py`.
+   *Test:* `tests/unit/features/test_registry.py` — the owning file `R-MOD-06`
+   mirrors onto `features.dreamsteps.registry`.
 6. **Add a fanout gate** — anchor `FANOUT_DEFAULT_GATES`. *Owner:*
    `scripts/agentware_lib/features/fanoutmq/mqintegrate.py`. *LOCAL:* append the
    gate token to the tuple consumed as the default gate list when `--gate` is

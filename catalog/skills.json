@@ -101,6 +101,13 @@
       "source": ".claude/skills/safe-migration",
       "tags": ["migration", "data", "safety"],
       "summary": "Change data, schema, config, or file layout safely -- backup + tested rollback before touching anything."
+    },
+    {
+      "name": "modular-development",
+      "category": "gap-filler",
+      "source": ".claude/skills/modular-development",
+      "tags": ["architecture", "modularity", "refactoring", "gates"],
+      "summary": "Add, move or split code in a layered package without growing a monolith: triage, layer, land the unit whole, clear every ratchet (R-MOD-01..12)."
     }
   ]
 }

@@ -37,8 +37,8 @@ an `AGENTWARE_STATUS:` line each session reporting whether it is initialized.
    (plan only, never executes) and `agentware-execution` (implements the loop; the
    loop's POST phase self-assesses via this agent).
 4. Skills live in `.claude/skills/` — the loop skills (onboarding, knowledge-base,
-   self-improvement, ui-verification) plus the 14 authored default skills (6
-   security, 6 productivity, 2 gap-fillers) catalogued in `.claude/skills/README.md`
+   self-improvement, ui-verification) plus the 15 authored default skills (6
+   security, 6 productivity, 3 gap-fillers) catalogued in `.claude/skills/README.md`
    and `catalog/skills.json`; manage them with `scripts/agentware skill
    list/search/add/remove/validate`. The `/agentware-plan` command scaffolds a
    feature plan.

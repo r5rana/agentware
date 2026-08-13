@@ -1510,6 +1510,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_guidance_sync.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_help_golden.py"
     },
     {
@@ -1861,6 +1866,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_gatebaseline.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_guidance_sync.py"
     },
     {
       "layer": "tests",

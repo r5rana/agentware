@@ -34,7 +34,7 @@ see onboarding and `docs/methodology.md` for the harness→path map:
 | Other | configurable custom path | — | `AGENTS.md` |
 | Unknown | fall back to `.agents/skills/` | — | `AGENTS.md` |
 
-## The 14 authored skills
+## The 15 authored skills
 
 ### Security (6)
 
@@ -58,12 +58,13 @@ see onboarding and `docs/methodology.md` for the harness→path map:
 | **env-doctor** | "set up the dev environment", "why won't this build", "the project won't run", or a fresh clone/CI runner failing before real work — verify toolchain/runtime versions, deps, env vars, ports, services; PROPOSE remediation. |
 | **frontend-design** | "design this screen", "make this look good", "make it less generic", or scaffolding any new frontend surface (web or React Native) — tokens → deliberate layout/hierarchy → responsiveness + accessibility. |
 
-### agentware gap-fillers (2)
+### agentware gap-fillers (3)
 
 | Skill | Use when |
 |-------|----------|
 | **backend-verification** | "verify this endpoint", "test the API", "did the request succeed", or whenever a change adds/modifies an HTTP/RPC/GraphQL endpoint — call it with valid AND invalid inputs, assert status/headers/body, read-after-write for mutations, check authz negatives (R-VERIFY-03/04). |
 | **safe-migration** | "run this migration", "alter the schema", "backfill this data", "move these files", or whenever a change rewrites persisted state — confirm backup + rollback first, prefer expand-contract, idempotent steps, scratch-copy verify, before/after counts in the worklog (R-VERIFY-04 / R-AUTO-02). |
+| **modular-development** | "add a verb", "add a module", "which layer does this belong in", "this file is too long", "the modularity gate rejected my change", or before creating/moving/deleting any file in a layered source tree — triage, resolve the layer from the import direction, land the unit WHOLE (module + registration + manifest entry + mirrored owning test + parity row), clear every ratchet (R-MOD-01..12). |
 
 > The harness also ships non-catalog package skills used by the loop itself
 > (`onboarding`, `knowledge-base`, `self-improvement`, `ui-verification`).

@@ -200,7 +200,7 @@ State clearly that this is **proposed** — the user runs it.
 
 ## See also
 
-- `.claude/skills/code-review/SKILL.md` (or the harness `code-review` command) —
+- the harness's own `code-review` command (this repo ships no such skill) —
   review the diff's correctness BEFORE you commit it.
 - `.claude/skills/test-authoring/SKILL.md` — make the change's tests green so the
   commit and PR land on a verified diff.
