@@ -4,10 +4,9 @@
 Owns: cmd_bench (the `bench scorecard` handler, which regenerates
 benchmarks/SCORECARD.md from history.jsonl via the scorecard sibling) and
 register_bench -- the single `bench` parser registrar that wires all four
-subverbs (scorecard / redact / swe / lint). register_bench is resolved by the
-assembler via importlib from _PARSER_REGISTRATION off the PACKAGE
-`agentware_lib.retrieval.bench`, so the aggregator __init__ re-exports it;
-handler+registrar travel together.
+subverbs (scorecard / redact / swe / lint). register_bench is declared in THIS module's
+`__verbs__` and the assembler resolves it from here; the aggregator __init__ also
+re-exports it for pre-split call sites. Handler+registrar travel together.
 
 Does NOT own: the SWE-task domain logic + the `bench swe` runner
 (-> agentware_lib.retrieval.bench.benchswe); the gold_path redactor + the
@@ -46,6 +45,14 @@ def cmd_bench(args):
     print("bench scorecard: wrote %s (%d ledger row%s)" % (
         path, n, "" if n == 1 else "s"))
     return 0
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("bench", 2100, "register_bench"),
+)
 
 
 def register_bench(sub, fmt_parent):

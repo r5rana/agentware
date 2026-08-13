@@ -25,9 +25,9 @@ so the bytecode global-resolve gate never cascades into them.
 _EXPORTS is imported BY NAME onto the scripts/agentware facade because tests reach
 _stamp_work_artifact / _ensure_work_frontmatter as CLI.<name> and the parser-golden
 dispatch contract requires the `work stamp` leaf's func=cmd_work_stamp to be an attribute
-of the entrypoint namespace. The `work` registrar is resolved via importlib from
-_PARSER_REGISTRATION (pointing at the PACKAGE agentware_lib.ops.planauthor, whose
-aggregator re-imports it), NOT re-exported.
+of the entrypoint namespace. The `work` registrar is declared in THIS module's
+`__verbs__` (the aggregator still re-imports it for pre-split call sites), NOT
+re-exported.
 
 Determinism: idempotent in-place stamping over the team's work/ tree, stdlib json/os/re/sys
 only (INV-2, INV-6). Stamping is a pure function of (file bytes, team, author); no
@@ -240,6 +240,14 @@ def cmd_work_stamp(args):
         print("work stamp: team=%s scanned=%d prose-stamped=%d frontmatter=%d"
               % (team, scanned, stamped, fm_added))
     return 0
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("work", 1600, "register_work"),
+)
 
 
 def register_work(sub, fmt_parent):

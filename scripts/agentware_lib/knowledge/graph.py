@@ -263,6 +263,14 @@ def cmd_query(args):
     return 0
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("query", 800, "register_query"),
+)
+
+
 def register_query(sub, fmt_parent):
     # query ------------------------------------------------------------------
     p_query = sub.add_parser(

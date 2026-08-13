@@ -36,8 +36,8 @@ load_cli tests reach the gates as CLI.<name>; the facade ALSO binds the `_steeri
 module alias so the facade-held gate functions' `_steering.lint_steering` resolves
 (the other aliases _goldfixture/_ledger/_metrics_rank/_regressiongate + the constants
 are already on the facade from the retrieval seams). The `gate` registrar moved WITH
-its cmd_gate_release handler and is resolved via importlib from _PARSER_REGISTRATION
-(repointed to agentware_lib.ops.releasegate), NOT re-exported.
+its cmd_gate_release handler and is declared in this module's `__verbs__`,
+NOT re-exported.
 
 Determinism: read-only reporting (INV-2). The gates lint files / read the eval
 ledger / probe a subcommand; cmd_gate_release NEVER mutates the KB or the index
@@ -286,6 +286,14 @@ def cmd_gate_release(args):
             for d in g.get("details", []):
                 print("      %s" % d)
     return 0 if all_passed else 1
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("gate", 3200, "register_gate"),
+)
 
 
 def register_gate(sub, fmt_parent):

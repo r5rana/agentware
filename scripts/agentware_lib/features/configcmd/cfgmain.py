@@ -241,6 +241,14 @@ def _register_dream_flags(p_cfg):
                             "fully offline, no network")
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("config", 200, "register_config"),
+)
+
+
 def register_config(sub, fmt_parent):
     # config -----------------------------------------------------------------
     # The helper CALL ORDER below IS the rendered --help order (golden-pinned).

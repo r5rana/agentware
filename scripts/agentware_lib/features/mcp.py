@@ -26,7 +26,8 @@ Layer deps: features.mcp -> core (config, dates) + knowledge (index) + retrieval
 imports it (fan-in 0); the scripts/agentware entrypoint re-exports its _EXPORTS BY
 NAME so the entrypoint-facade oracle (test_mcp_server: CLI.handle_mcp_request /
 CLI._mcp_error / CLI.MCP_PROTOCOL_VERSION) resolves them; register_mcp is NOT in
-_EXPORTS -- the assembler resolves it via importlib from _PARSER_REGISTRATION.
+_EXPORTS -- it is declared in this module's `__verbs__` and the assembler resolves
+it from there.
 
 Determinism: read-only (INV-2). The index is loaded ONCE at startup and never
 written; request ids are echoed, never generated (no RNG); tool-call arguments are
@@ -343,6 +344,14 @@ def cmd_mcp(args):
             out.write(json.dumps(resp, ensure_ascii=False) + "\n")
             out.flush()
     return 0
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("mcp", 1900, "register_mcp"),
+)
 
 
 def register_mcp(sub, fmt_parent):

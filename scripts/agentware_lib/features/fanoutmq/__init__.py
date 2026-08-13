@@ -2,10 +2,9 @@
 
 AGGREGATOR ONLY. This package holds NO logic: it re-imports the public names of
 its three domain submodules so every pre-split call site — which reaches the
-module under an alias (`import agentware_lib.features.fanoutmq as fanoutmq`) or
-resolves it by dotted name (`_registration.py`'s
-`("fanout", "agentware_lib.features.fanoutmq", "register_fanout")` row) — keeps
-resolving unchanged.
+module under an alias (`import agentware_lib.features.fanoutmq as fanoutmq`) —
+keeps resolving unchanged. The `fanout` verb itself is declared in `mqteardown`'s
+`__verbs__`, beside the registrar that serves it.
 
 Owns: nothing but the re-export surface. The union of the submodules' `_EXPORTS`
 equals the pre-split module's `_EXPORTS` EXACTLY — 16 names, none added, none

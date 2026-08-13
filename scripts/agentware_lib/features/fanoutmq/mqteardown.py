@@ -178,6 +178,14 @@ def cmd_fanout_teardown(args):
     return rc
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("fanout", 3500, "register_fanout"),
+)
+
+
 def register_fanout(sub, fmt_parent):
     # fanout -----------------------------------------------------------------
     p_fanout = sub.add_parser(

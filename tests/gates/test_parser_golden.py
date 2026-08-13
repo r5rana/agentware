@@ -63,10 +63,15 @@ FROZEN_SURFACE_FIXTURE = os.path.join(TESTS_DIR, "fixtures",
 
 #: The 44 top-level verbs in EXACT ``--help`` display order.
 #:
-#: An INDEPENDENT pin, deliberately NOT derived from ``_PARSER_REGISTRATION``:
-#: the parser is BUILT from that tuple, so a self-consistency check would move
-#: on both sides in lockstep and certify its own regression. Adding a real verb
-#: is a genuine ``--help`` change -- update this list AND regenerate the corpus.
+#: An INDEPENDENT pin, deliberately NOT derived from the discovered verb rows:
+#: the parser is BUILT from those, so a self-consistency check would move on both
+#: sides in lockstep and certify its own regression. Since task 70 the rows come
+#: from 41 separate ``__verbs__`` declarations rather than one frozen tuple,
+#: which makes this pin MORE load-bearing, not less: it is now the only place the
+#: whole ordered surface is written down in one piece, so a declaration silently
+#: dropped, renamed or re-keyed in any of those 41 files lands here as a diff.
+#: Adding a real verb is a genuine ``--help`` change -- update this list AND
+#: regenerate the corpus.
 EXPECTED_VERBS = [
     "init", "config", "profile", "attach", "index", "skill", "update",
     "query", "learn", "decide", "relate", "ingest", "features",
@@ -422,32 +427,37 @@ class HelpGoldenVersionScope(unittest.TestCase):
 
 
 class ParserRegistrationContract(unittest.TestCase):
-    """The frozen ``_PARSER_REGISTRATION`` tuple and the display-order pin.
+    """The DISCOVERED verb registration and the display-order pin.
 
-    Class name frozen: it carries five donor node ids.
+    Class name frozen: it carries five donor node ids. What it reads changed at
+    task 70 -- ``agentware_lib.verbs.registration()`` walking the package
+    replaced the frozen ``_PARSER_REGISTRATION`` tuple -- but what it ASSERTS did
+    not: the ordered ``(verb, module, attr)`` surface still has to equal
+    ``EXPECTED_VERBS`` and still has to be what ``build_parser()`` produces.
     """
 
     @classmethod
     def setUpClass(cls):
         cls.parser = HG.build_parser()
         cls.verbs = HG.top_level_verbs(cls.parser)
-        from agentware_lib._registration import _PARSER_REGISTRATION
-        cls.registration = _PARSER_REGISTRATION
+        from agentware_lib import verbs as verbmod
+        cls.registration = verbmod.registration()
 
     # ---- frozen donor node ids ------------------------------------------
 
     def test_registration_matches_pinned_display_order(self):
         self.assertEqual(
             [v for (v, _m, _a) in self.registration], EXPECTED_VERBS,
-            "the registration tuple drifted from the pinned %d-verb display "
-            "order (a dropped, added or reordered entry). If a verb was "
-            "legitimately added, update EXPECTED_VERBS AND regenerate the "
-            "corpus -- a new verb IS a --help change." % len(EXPECTED_VERBS))
+            "the DISCOVERED verb order drifted from the pinned %d-verb display "
+            "order (a dropped, added, re-keyed or reordered `__verbs__` row). If "
+            "a verb was legitimately added, update EXPECTED_VERBS AND regenerate "
+            "the corpus -- a new verb IS a --help change." % len(EXPECTED_VERBS))
 
     def test_build_parser_top_level_order_matches_registration(self):
         self.assertEqual(self.verbs,
                          [v for (v, _m, _a) in self.registration],
-                         "build_parser() top-level --help order != tuple order")
+                         "build_parser() top-level --help order != discovered "
+                         "order")
 
     def test_every_registered_verb_resolves_to_callable_registrar(self):
         """Every ``(verb, module, attr)`` row names a real callable in a real

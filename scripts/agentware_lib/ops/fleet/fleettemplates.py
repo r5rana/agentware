@@ -164,6 +164,14 @@ def cmd_templates_lint(args):
     return 0 if result["ok"] else 1
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("templates", 3100, "register_templates"),
+)
+
+
 def register_templates(sub, fmt_parent):
     # templates --------------------------------------------------------------
     # Per-team template contract (feature 260721 follow-up): a team may keep its own

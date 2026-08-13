@@ -658,7 +658,7 @@ _KBLAYOUT = "scripts/agentware_lib/core/kblayout.py"
 
 #: The COMPLETE registration surface -- every `register_*` / `_register_*` in the
 #: lib, not just the 44 verb entry points. The monolith inlined ONE `add_parser`
-#: sequence; the lib walks the frozen registration tuple, and each verb registrar
+#: sequence; the lib walks the DISCOVERED verb rows, and each verb registrar
 #: in turn delegates to per-group helpers (`register_config` alone fans out to
 #: nine flag groups). Counting only the entry points left a 27% shortfall against
 #: the monolith's single body, which is the fan-out, not a missing surface.
@@ -738,14 +738,14 @@ ADJUDICATIONS.update({
         "floor_chars": 399,
         "absorbs": list(_ALL_REGISTRARS),
         "rationale": "The monolith built the whole CLI in ONE `build_parser`; the "
-                     "lib's `assemble_parser` walks the frozen registration tuple "
-                     "and each verb owns its own registrar. The maintenance "
-                     "protocol above said to append each verb's registrar as it "
-                     "ported, and while the monolith's 65k-char body was still "
+                     "lib's `assemble_parser` walks the verb rows agentware_lib."
+                     "verbs DISCOVERS and each verb owns its own registrar. The "
+                     "maintenance protocol above said to append each registrar as "
+                     "it ported, and while the monolith's 65k-char body was still "
                      "present it paid the floor by itself, so a missing row cost "
                      "nothing and the list stopped at task 38. This is that list "
-                     "completed -- all 44, generated from _PARSER_REGISTRATION so "
-                     "it cannot drift from what actually registers.",
+                     "completed -- all 44, read from the per-module `__verbs__` "
+                     "declarations (task 70), so it cannot drift from what runs.",
     },
     "validate_index": {
         "adjudication": "decomposed",

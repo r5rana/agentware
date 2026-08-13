@@ -4,9 +4,9 @@ AGGREGATOR ONLY. This package holds NO logic: it re-imports the public names of
 its four domain submodules so every pre-split call site -- which reaches the module
 under an alias (`import agentware_lib.ops.fleet as _fleet`) and reads
 `_fleet.guard_shared_write` / `_fleet.FLEET_TERMINAL_REQUIRED` / `_fleet.lint_templates`
--- keeps resolving unchanged, so `_registration.py`'s three rows (`fleet`,
-`fleet-emit`, `templates`) keep resolving their registrars off THIS dotted name,
-and so every existing monkeypatch target keeps working. The submodules are:
+-- keeps resolving unchanged, and so does every existing monkeypatch target. The
+three verbs (`fleet`, `fleet-emit`, `templates`) are declared in the SUBMODULES'
+`__verbs__`, each beside the registrar that serves it. The submodules are:
 
   * `fleetshard`     -- the committed telemetry SINK: the steering-version join key
                         resolve_steering_sha, the per-USER shard paths, the tolerant

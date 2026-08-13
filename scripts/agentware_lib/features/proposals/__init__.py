@@ -3,8 +3,7 @@
 AGGREGATOR ONLY. This package holds NO logic: it re-imports the public names of
 its three domain submodules so every pre-split call site — which reaches the
 module under an alias (`from agentware_lib.features import proposals`) and reads
-`proposals.cmd_skill_propose`, and the `_registration.py` row that resolves
-`register_skill` off THIS package — keeps working byte-identically after the
+`proposals.cmd_skill_propose` — keeps working byte-identically after the
 split, and so does every existing monkeypatch target (`proposals.config.<name>`,
 `proposals._fleet.<name>`, `proposals._skills.<name>`). The submodules:
 

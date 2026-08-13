@@ -416,6 +416,14 @@ def cmd_review_report(args):
     return 0
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("review-report", 4300, "register_review_report"),
+)
+
+
 def register_review_report(sub, fmt_parent):
     # review-report ----------------------------------------------------------
     p_review_report = sub.add_parser(

@@ -464,6 +464,14 @@ def cmd_audit(args):
     return 0 if ok else 1
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("audit", 1700, "register_audit"),
+)
+
+
 def register_audit(sub, fmt_parent):
     # audit ------------------------------------------------------------------
     p_audit = sub.add_parser(

@@ -3,8 +3,7 @@
 AGGREGATOR ONLY. This package holds NO logic: it re-imports the public names of
 its eight domain submodules so every pre-split call site — which reaches the
 module under an alias (`from agentware_lib.features import configcmd`) and reads
-`configcmd.cmd_config`, and the `_registration.py` row that resolves
-`register_config` off THIS package — keeps working byte-identically after the
+`configcmd.cmd_config` — keeps working byte-identically after the
 split, and so does every existing monkeypatch target (`configcmd.config.<name>`,
 `configcmd._vectorcache.<name>`, `configcmd._metrics.<name>`). The submodules:
 

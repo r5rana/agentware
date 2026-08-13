@@ -13,7 +13,7 @@ import importlib.util
 import os
 
 # Layer subpackages (in dependency order). Top-level modules (cli.py,
-# _registration.py) are treated as the `cli` leaf layer.
+# verbs.py, strangler.py) are treated as the `cli` leaf layer.
 LAYERS = ("core", "knowledge", "retrieval", "ops", "features")
 CLI_LAYER = "cli"
 

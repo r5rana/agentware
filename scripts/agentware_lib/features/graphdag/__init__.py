@@ -39,8 +39,9 @@ own submodule:
                       add-edge / rm-edge / show / validate).
   * `graphrun`      — the six EXECUTION subverbs (run / resume / status /
                       checkpoint / cancel / teardown).
-  * `graphcmd`      — `register_graph`, resolved by the assembler through
-                      `_PARSER_REGISTRATION` (so it is NOT in `_EXPORTS`).
+  * `graphcmd`      — `register_graph`, declared in that module's `__verbs__`
+                      and resolved from there by the assembler (so it is NOT
+                      in `_EXPORTS`).
 
 THE SEAM THAT DEFINES THIS PACKAGE
 ----------------------------------

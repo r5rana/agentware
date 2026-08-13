@@ -25,8 +25,8 @@ _scaffold_team_dir is idempotent (makedirs exist_ok, never clobbers).
 
 _EXPORTS is imported BY NAME onto the scripts/agentware facade so the resident org-lint
 consumer + the moved cmd_team/_scaffold_team_dir resolve the registry names as bare names
-and load_cli tests reach them as CLI.<name>. register_team is NOT exported (the assembler
-resolves it via _PARSER_REGISTRATION importlib).
+and load_cli tests reach them as CLI.<name>. register_team is NOT exported (it is declared
+in this module's `__verbs__`).
 Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 
@@ -221,6 +221,14 @@ def cmd_team(args):
 
     sys.stderr.write("agentware team: unknown subcommand (list|create|register)\n")
     return 1
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("team", 2500, "register_team"),
+)
 
 
 def register_team(sub, fmt_parent):

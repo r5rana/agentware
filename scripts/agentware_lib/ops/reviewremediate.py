@@ -36,8 +36,8 @@ Layer deps: ops -> ops (`reviewschema` for `REVIEW_FIX_STATUSES` /
 `_review_normalize_fix`, `reviewconfig` for the fixer persona and axes,
 `reviewprompts` for the fixer prompt, `reviewaudit._review_resolve_diff` -- the
 one sibling edge, acyclic: reviewaudit does not import this module), ops ->
-features (`reviewagent`, `reviewoutput`), ops -> core (`paths.REPO_ROOT`). The registrar is resolved by
-the assembler through `_PARSER_REGISTRATION`, not through `_EXPORTS`.
+features (`reviewagent`, `reviewoutput`), ops -> core (`paths.REPO_ROOT`). The registrar is declared in this
+module's `__verbs__` and resolved from there, not through `_EXPORTS`.
 Determinism: the driver is deterministic given its inputs; the agent it spawns is
 not, which is exactly why the gate chain and not the agent decides the outcome.
 """
@@ -289,6 +289,14 @@ def cmd_remediate(args):
     else:
         _review_print_remediation(result)
     return 0 if result["all_fixed"] else 1
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("remediate", 4200, "register_remediate"),
+)
 
 
 def register_remediate(sub, fmt_parent):

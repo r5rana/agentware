@@ -14,8 +14,8 @@ Does NOT own: the skill PROPOSAL/PROMOTION lifecycle (-> agentware_lib.features.
 and the package self-update (cmd_update); the `skill` PARSER REGISTRAR (register_skill)
 -- it registers BOTH catalog AND proposal sub-verbs, so it was homed WITH the proposal
 handlers in agentware_lib.features.proposals (wave-6 seam 21), reaching this module's 6
-catalog handlers via the `_skills` sibling alias; it is resolved by the assembler via
-_PARSER_REGISTRATION, NOT re-exported.
+catalog handlers via the `_skills` sibling alias; it is declared in that module's
+`__verbs__` and resolved by the assembler from there, NOT re-exported.
 
 Layer deps: features.skills -> core (config, frontmatter, paths, gitio._git) +
 knowledge (index), all DOWNWARD. read_skill_frontmatter is CONSUMED UP by

@@ -16,8 +16,8 @@ Layer deps: features -> features (`graphconst` for the bounds and vocabulary the
 help strings quote, `graphedit`, `graphrun`), features -> ops
 (`plangraph._CHECKPOINT_POLICIES` -- the checkpoint policy names come from the
 PLAN's vocabulary, so `graph add-node --checkpoint` and the plan that declares it
-cannot offer different sets). Resolved by the parser
-assembler through `_PARSER_REGISTRATION`, so `register_graph` is deliberately
+cannot offer different sets). Declared in this module's `__verbs__` and
+resolved from there by the parser assembler, so `register_graph` is deliberately
 absent from `_EXPORTS`.
 """
 
@@ -49,6 +49,14 @@ from agentware_lib.features.graphdag.graphrun import (
     cmd_graph_run,
     cmd_graph_status,
     cmd_graph_teardown,
+)
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("graph", 4400, "register_graph"),
 )
 
 

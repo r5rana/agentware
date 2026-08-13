@@ -23,8 +23,8 @@ fleet/team/staging imports orglint. Nothing above ops imports orglint.
 Determinism: lint_org is a read-only walk of the org tree (INV-2 tolerant); no mutation,
 deterministic error ordering, sort_keys/indent JSON output in cmd_org_lint.
 
-_EXPORTS lists the two org-lint entry points; register_org is NOT exported (the assembler
-resolves it via _PARSER_REGISTRATION importlib). This module is dispatch-reached only
+_EXPORTS lists the two org-lint entry points; register_org is NOT exported (it is declared
+in this module's `__verbs__`). This module is dispatch-reached only
 (the `org lint` verb), so it is NOT re-exported onto the scripts/agentware facade.
 Fan-in: 0 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
@@ -210,6 +210,15 @@ def cmd_org_lint(args):
         for e in result["errors"]:
             print("  [%s] %s:%s — %s" % (e["rule"], e["file"], e["line"], e["message"]))
     return 0 if result["ok"] else 1
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("org", 3000, "register_org"),
+)
+
 
 def register_org(sub, fmt_parent):
     # org --------------------------------------------------------------------

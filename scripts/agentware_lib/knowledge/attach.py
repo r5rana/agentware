@@ -134,6 +134,14 @@ def cmd_attach(args):
     return 0 if ok else 1
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("attach", 400, "register_attach"),
+)
+
+
 def register_attach(sub, fmt_parent):
     # attach -----------------------------------------------------------------
     p_attach = sub.add_parser(

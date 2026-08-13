@@ -4,8 +4,8 @@ ranked retrieval CLI.
 Owns: the canonical recall payload builder (build_recall_payload -- the single
 source of truth shared with the MCP recall tool), the `recall` CLI handler
 (cmd_recall, incl. the scope=work ephemeral-corpus path) and the `recall` parser
-registrar (register_recall, resolved by the assembler via importlib from
-_PARSER_REGISTRATION; handler+registrar travel together).
+registrar (register_recall, declared in this module's `__verbs__` and resolved
+from there by the assembler; handler+registrar travel together).
 
 Does NOT own: the ranking core (recall_ranked/scope_entries_for_team ->
 agentware_lib.retrieval.skillpin), the tokenizer/corpus builders (tokenize/
@@ -373,6 +373,14 @@ def _print_recall_overflow(overflow):
     for o in overflow:
         print("    [%.4f] %s (~%d tokens) %s"
               % (o["score"], o["id"], o["estimated_tokens"], o["path"]))
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("recall", 1800, "register_recall"),
+)
 
 
 def register_recall(sub, fmt_parent):

@@ -208,6 +208,14 @@ def cmd_fleet(args):
     return 1
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("fleet", 2300, "register_fleet"),
+)
+
+
 def register_fleet(sub, fmt_parent):
     # fleet ------------------------------------------------------------------
     # Org fleet observability. Reads the committed per-user sink

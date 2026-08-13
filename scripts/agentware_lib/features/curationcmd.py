@@ -24,7 +24,8 @@ init/config/profile handler split) while the pure writers stay in knowledge.
 A LEAF: nothing imports it at module level (fan-in 0); the scripts/agentware
 entrypoint re-exports cmd_learn / cmd_decide BY NAME so the legacy load_cli oracle
 (CLI.cmd_learn / CLI.cmd_decide) and the global-resolve gate resolve them, and the
-registrars are resolved by agentware_lib.cli.assemble_parser via _PARSER_REGISTRATION.
+registrars are declared in this module's `__verbs__` and resolved from there by
+agentware_lib.cli.assemble_parser.
 
 Determinism: read-mostly w.r.t. the index EXCEPT the explicit entry writes, which go
 through index.save_index / index._do_add (the sole index writer, R-KB-01). A default
@@ -356,6 +357,15 @@ def cmd_decide(args):
         else:
             print("DECISION entry '%s' -> %s (registered in index)" % (eid, abs_path))
         return 0
+
+
+#: Verb declarations — the ONE place these verbs are registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("learn", 900, "register_learn"),
+    ("decide", 1000, "register_decide"),
+)
 
 
 def register_learn(sub, fmt_parent):

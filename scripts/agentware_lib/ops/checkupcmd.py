@@ -79,6 +79,14 @@ from agentware_lib.ops.checkupprobes import (
 )
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("checkup", 3900, "register_checkup"),
+)
+
+
 def register_checkup(sub, fmt_parent):
     """Declare the `checkup` verb. Lifted verbatim from the monolith's build_parser."""
     p_checkup = sub.add_parser(

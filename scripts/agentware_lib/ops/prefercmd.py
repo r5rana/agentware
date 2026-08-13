@@ -70,6 +70,14 @@ from agentware_lib.ops.sessionparse.minerstate import (
 )
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("prefer", 4000, "register_prefer"),
+)
+
+
 def register_prefer(sub, fmt_parent):
     """Declare the `prefer` verb. Lifted verbatim from the monolith's build_parser."""
     p_prefer = sub.add_parser(

@@ -237,6 +237,14 @@ def cmd_fleet_emit(args):
     return 0
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("fleet-emit", 2400, "register_fleet_emit"),
+)
+
+
 def register_fleet_emit(sub, fmt_parent):
     # fleet-emit (internal; called by run_kb_sync to write+stage the committed sink)
     p_fleet_emit = sub.add_parser(

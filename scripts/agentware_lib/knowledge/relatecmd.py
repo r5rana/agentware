@@ -339,6 +339,14 @@ def cmd_relate(args):
     return 0
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("relate", 1100, "register_relate"),
+)
+
+
 def register_relate(sub, fmt_parent):
     # relate -----------------------------------------------------------------
     # Declare a closed-vocab graph edge on an EXISTING entry in ONE call, routed

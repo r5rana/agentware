@@ -98,8 +98,8 @@ class AllowlistTest(unittest.TestCase):
                         % sorted(set(SR.PORTED_VERBS) - union_verbs))
         # ...and each one is registered in the modular parser, or the router
         # would hand it to a lib that cannot parse it.
-        from agentware_lib._registration import _PARSER_REGISTRATION
-        registered = {verb for verb, _mod, _attr in _PARSER_REGISTRATION}
+        from agentware_lib import verbs
+        registered = {verb for verb, _mod, _attr in verbs.registration()}
         self.assertTrue(set(SR.PORTED_VERBS) <= registered,
                         "ported but unregistered in the lib parser: %s"
                         % sorted(set(SR.PORTED_VERBS) - registered))

@@ -243,6 +243,54 @@ class DoorTest(unittest.TestCase):
         self.fx["ratchet"]["undecided_max"] = 0
         self.assertIn("ratchet", _kinds(self._check()))
 
+class ConvergedLibDecisionTest(unittest.TestCase):
+    """A `lib` decision whose value stops diverging (task 70's shape).
+
+    `FANOUT_MERGE_UNION_PATHS` was decided `lib` because the lib carried a sixth
+    path the monolith did not: the single-file verb registry every fanout lane
+    edited. Task 70 deleted that registry, so the lib tuple converged onto the
+    monolith's five and the row's two literals became equal. That is the
+    decision SUCCEEDING, not reverting -- and the row must still be pinned
+    afterwards, or a decided value becomes free to change the moment it agrees
+    with the value it replaced.
+
+    The shape half of this (a `lib` row is judged on carrying its decided value,
+    never on still LOOKING divergent) lives in `test_constant_baseline`; what is
+    proven here is that the pin still bites.
+    """
+
+    @staticmethod
+    def _row(lib_literal, prev_decided):
+        return cd._divergent_row(
+            "D_LIB", {"D_LIB": [("m.py", "(1,)")]},
+            {"D_LIB": [("l.py", lib_literal)]},
+            _StubAdjudications, {"decided_literal": prev_decided,
+                                 "legacy_literal": "(1,)"})
+
+    def test_a_converged_lib_row_keeps_its_decision_and_its_literal(self):
+        row = self._row("(1,)", "(1,)")
+        self.assertEqual(row["decision"], "lib")
+        self.assertEqual(row["lib_literal"], row["decided_literal"])
+        # The state the old shape rule could not express: no visible divergence
+        # left, and the row still standing.
+        self.assertEqual(row["legacy_literal"], row["lib_literal"])
+
+    def test_a_lib_row_still_carrying_its_own_value_is_unaffected(self):
+        row = self._row("(2,)", "(2,)")
+        self.assertEqual(row["lib_literal"], row["decided_literal"])
+        self.assertNotEqual(row["legacy_literal"], row["lib_literal"])
+
+    def test_the_pin_still_bites_after_convergence(self):
+        # The point of the whole class: equal literals must not mean "nothing
+        # left to guard". Move the lib off the decided value and the gate reds.
+        fixture = {"legacy_only": [], "multi_literal": {},
+                   "ratchet": {"unresolved_max": 0, "undecided_max": 0},
+                   "divergent": [self._row("(1,)", "(1,)")]}
+        report = cd.check(fixture, {"D_LIB": [("m.py", "(1,)")]},
+                          {"D_LIB": [("l.py", "(1, 2)")]}, terminal=True)
+        self.assertIn("D_LIB", _named(report, "decision_mismatch"))
+
+
 class RuntimeProbeTest(unittest.TestCase):
     """The half a static read cannot do: compare the live objects."""
 

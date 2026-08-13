@@ -297,6 +297,14 @@ def cmd_dream(args):
         dreamgate.dream_release_lock(kdir)
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("dream", 2700, "register_dream"),
+)
+
+
 def register_dream(sub, fmt_parent):
     # dream ------------------------------------------------------------------
     p_dream = sub.add_parser(

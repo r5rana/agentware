@@ -5,8 +5,8 @@ Owns: ``PORTED_VERBS`` (the routing allowlist — EMPTY at this commit), ``GLOBA
 global flags to the first positional), ``route`` (the allowlist decision) and ``dispatch``
 (the two-way call). This is the whole of the strangler's control flow.
 Does NOT own: the parser (agentware_lib.cli.assemble_parser / build_parser), any verb
-HANDLER (each lives in its owning agentware_lib module — see agentware_lib._registration
-for the verb->module map), or the legacy passthrough itself (``scripts/agentware`` execs
+HANDLER (each lives in its owning agentware_lib module, which declares the verb in its
+own `__verbs__` — see agentware_lib.verbs for the discovery contract), or the legacy passthrough itself (``scripts/agentware`` execs
 ``scripts/agentware_legacy.py`` into its own globals; see that entrypoint's docstring).
 Layer deps: cli -> core, features, knowledge, ops, retrieval. This module imports NOTHING
 from the lib AT MODULE SCOPE — the routing decision must be payable without importing the

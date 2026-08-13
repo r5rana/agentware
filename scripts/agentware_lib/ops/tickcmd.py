@@ -400,6 +400,14 @@ def cmd_tick(args):
     return 0
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("tick", 3800, "register_tick"),
+)
+
+
 def register_tick(sub, fmt_parent):
     """Declare the `tick` verb. Lifted verbatim from the monolith's build_parser.
 

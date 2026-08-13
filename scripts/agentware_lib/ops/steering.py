@@ -36,8 +36,8 @@ network. _write_rule_count_baseline is the only writer and touches ONLY .rule-co
 _EXPORTS is imported BY NAME onto the scripts/agentware facade so the resident consumers
 _audit_steering_lint_check + _gate1_content_lint (both -> lint_steering) resolve every name
 as a bare name and load_cli tests reach them as CLI.<name>. register_steering is NOT in
-_EXPORTS: it moved WITH its handler and is resolved via importlib from _PARSER_REGISTRATION
-(repointed to agentware_lib.ops.steering), so the `steering` --help surface is unchanged.
+_EXPORTS: it moved WITH its handler and is declared in this module's `__verbs__`,
+so the `steering` --help surface is unchanged.
 Fan-in: 2 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 
@@ -287,6 +287,14 @@ def cmd_steering_lint(args):
         for ce in result.get("content_errors", []):
             print("  [%s] %s" % (ce["rule"], ce["text"]))
     return 0 if result["ok"] else 1
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("steering", 2900, "register_steering"),
+)
 
 
 def register_steering(sub, fmt_parent):

@@ -85,11 +85,19 @@ _LIB_ROWS = {
                      "valid. The monolith's 2 is the thing being replaced.",
     },
     "FANOUT_MERGE_UNION_PATHS": {
-        "rationale": "the lib's tuple is a strict superset: it adds the "
-                     "generated `_registration.py`, which every fanout lane "
-                     "regenerates and must union-merge rather than conflict on. "
-                     "Task 70 retires that file and must re-adjudicate this row.",
-        "follow_up": "task 70",
+        "rationale": "RE-ADJUDICATED by task 70, which is what the previous "
+                     "rationale asked for. The lib's tuple used to be a strict "
+                     "superset -- it carried a seventh entry, "
+                     "`scripts/agentware_lib/_registration.py`, because every "
+                     "fanout lane that added a verb edited that one registry "
+                     "file and lanes had to union-merge it rather than conflict "
+                     "on it. Task 70 deleted the registry: a verb is now "
+                     "declared in its OWN module's `__verbs__`, so two lanes "
+                     "adding two verbs edit two different files and there is "
+                     "nothing left to union. The lib value is now the "
+                     "monolith's five, and the decision stays `lib` because it "
+                     "is the lib that reached it -- by removing the cause, not "
+                     "by reverting the workaround.",
     },
 }
 

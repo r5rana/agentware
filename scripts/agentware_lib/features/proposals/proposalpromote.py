@@ -14,8 +14,8 @@ alias, and the 3 LIFECYCLE sub-verbs (propose / proposals / promote) wired to th
 handlers of this package's three submodules. This is register_skill's designed
 home: proposals already imports skills (acyclic), so its catalog-handler refs
 ride the existing edge; homing it in skills.py would instead close a
-skills<->proposals cycle. register_skill is NOT in `_EXPORTS`; the assembler
-resolves it via `_PARSER_REGISTRATION` importlib off the package aggregator.
+skills<->proposals cycle. register_skill is NOT in `_EXPORTS`; it is
+declared in THIS module's `__verbs__` and the assembler resolves it from here.
 
 Does NOT own: the read-only proposal-ledger + integrity reads (proposal_dir /
 proposal_ledger_path / read_proposal_ledger / proposal_count /
@@ -221,6 +221,13 @@ def cmd_skill_promote(args):
         print("Now an always-on skill: skill-%s (category=skills)." % slug)
     return 0
 
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("skill", 600, "register_skill"),
+)
 
 
 def register_skill(sub, fmt_parent):

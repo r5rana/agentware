@@ -59,13 +59,19 @@ from agentware_lib.ops.planlint import _PLAN_OPEN_MARKER_PY
 FANOUT_FEATURE_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
+#: Append-only artifacts every lane writes to, so a concurrent-lane merge unions
+#: them instead of conflicting. Plan task 70 REMOVED the seventh entry,
+#: `scripts/agentware_lib/_registration.py`: the single-file verb registry it
+#: named no longer exists, because each module now declares its own verbs in
+#: `__verbs__` (see agentware_lib.verbs). Two lanes adding two verbs now edit two
+#: DIFFERENT files, so there is nothing left to union — the merge driver was
+#: treating a symptom of the centralised registry, and the registry is gone.
 FANOUT_MERGE_UNION_PATHS = (
     "benchmarks/history.jsonl",
     "benchmarks/SCORECARD.md",
     "index.json",
     "FEATURES.md",
     "**/index.md",
-    "scripts/agentware_lib/_registration.py",
 )
 
 

@@ -114,10 +114,19 @@ class FixtureShapeTest(unittest.TestCase):
         # unlanded row must still show the divergence it is tracking, and a landed
         # one must show the DECIDED literal actually in the lib — which the blanket
         # form never checked at all.
+        # A `lib` decision is a THIRD state the landed/unlanded pair cannot
+        # express, and task 70 produced one: FANOUT_MERGE_UNION_PATHS was
+        # decided `lib` because the lib carried a sixth path (the single-file
+        # verb registry every fanout lane edited), and deleting that registry
+        # CONVERGED the lib tuple onto the monolith's five. The literals are now
+        # equal -- the decision succeeding, not reverting -- so demanding a
+        # visible divergence would redden a row that got what it asked for. What
+        # a lib row must show instead is stronger and always true: the lib
+        # actually carries the value that was decided.
         for row in self.fx["divergent"]:
             self.assertIn(row["decision"], cd.DECISIONS, row["name"])
             self.assertTrue(row["rationale"], row["name"])
-            if row.get("landed"):
+            if row["decision"] == "lib" or row.get("landed"):
                 self.assertEqual(row["lib_literal"], row["decided_literal"],
                                  row["name"])
             else:

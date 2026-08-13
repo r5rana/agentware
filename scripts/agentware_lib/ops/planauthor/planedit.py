@@ -34,9 +34,8 @@ _EXPORTS is imported BY NAME onto the scripts/agentware facade because RESIDENT 
 references moved names (_atomic_write from fanout _fanout_provision_lane /
 _install_merge_policy / save_lanes; _plan_path from cmd_metrics) and the parser-golden
 dispatch contract requires each plan leaf's func=cmd_* to be an attribute of the entrypoint
-namespace. The `plan` registrar is resolved via importlib from _PARSER_REGISTRATION
-(pointing at the PACKAGE agentware_lib.ops.planauthor, whose aggregator re-imports it),
-NOT re-exported.
+namespace. The `plan` registrar is declared in THIS module's `__verbs__`
+(the aggregator still re-imports it for pre-split call sites), NOT re-exported.
 
 Determinism: pure deterministic text generation, stdlib json/os/re/sys only (INV-2,
 INV-6). Plan structure/order is a pure function of inputs; no wall-clock enters ranking
@@ -414,6 +413,14 @@ def _register_plan_tdirs(plan_sub, fmt_parent):
         help="print declared target-package dirs from a plan (one per line)")
     p_plan_tdirs.add_argument("--path", required=True, help="path to a plan.md")
     p_plan_tdirs.set_defaults(func=cmd_plan_target_dirs)
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("plan", 3400, "register_plan"),
+)
 
 
 def register_plan(sub, fmt_parent):

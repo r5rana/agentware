@@ -75,7 +75,7 @@ CATALOG_PATH = os.path.join(REPO_ROOT, "catalog", "modules.json")
 GRANULAR_UNIT_ROOT = os.path.join(REPO_ROOT, "tests", "unit")
 STATIC_PATH = os.path.join(_TESTS_DIR, "fixtures", "manifest-static.json")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 STATIC_SCHEMA = "agentware/manifest-static@1"
 SOURCE_REPO = "github.com/r5rana/agentware"
 
@@ -88,7 +88,8 @@ DESCRIPTION = (
     "GENERATED discovery manifest for the agentware tree. `modules` is the rich "
     "per-module view of scripts/agentware_lib (the ONE domain each owns, what it "
     "does NOT own + a pointer, its test file, layer, allowed dependency "
-    "direction, grep anchors, fan-out and fan-in). `files` is the tree-wide "
+    "direction, grep anchors, the CLI verbs it declares in its `__verbs__`, "
+    "fan-out and fan-in). `files` is the tree-wide "
     "claim: every Python and shell file under scripts, the orchestrator, tests "
     "and the webui source, each with its layer and line cap, so no file can be "
     "added without an owner. `caps` publishes the ceilings, including the "
@@ -168,6 +169,56 @@ def anchor_symbols(mod_path):
         elif isinstance(node, ast.Assign):
             names.update(_export_names(node))
     return sorted(names)
+
+
+#: The module attribute an owning module declares its verbs in. Duplicated from
+#: ``agentware_lib.verbs.DECLARATION`` on purpose and asserted equal by
+#: ``tests/gates/test_verb_discovery.py``: the manifest is generated from the
+#: AST WITHOUT importing the package, so it cannot read the runtime constant,
+#: and a gate whose two halves import each other proves nothing about either.
+VERB_DECLARATION = "__verbs__"
+
+
+def declared_verbs(mod_path):
+    """The ``__verbs__`` rows a module declares, as ``{verb, order, attr}``.
+
+    Read from the AST, never by importing. This is the manifest's half of the
+    verb-discovery completeness gate (plan task 70): `agentware_lib.verbs` finds
+    declarations by IMPORTING the package, this finds them by READING it, and
+    `tests/gates/test_verb_discovery.py` asserts the two agree. A declaration
+    only one of them can see -- a module that fails to import, a module the walk
+    never reaches, a tuple built at runtime rather than written down -- is
+    exactly the silent divergence that pairing makes loud.
+
+    Order is the DECLARED order within the module, not the sort order: the
+    manifest records what each file says, and the display order the sparse key
+    produces is the CLI's business.
+    """
+    out = []
+    for node in _parse(mod_path).body:
+        if VERB_DECLARATION not in _targets(node):
+            continue
+        for elt in getattr(node.value, "elts", []):
+            row = [_literal(e) for e in getattr(elt, "elts", [])]
+            if len(row) == 3:
+                out.append({"verb": row[0], "order": row[1], "attr": row[2]})
+    return out
+
+
+def _targets(node):
+    """Assigned names of a module-level assignment (plain or annotated)."""
+    if isinstance(node, ast.Assign):
+        return [t.id for t in node.targets if isinstance(t, ast.Name)]
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return [node.target.id]
+    return []
+
+
+def _literal(node):
+    """A str/int constant's value, or None for anything else."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, (str, int)):
+        return node.value
+    return None
 
 
 def _export_names(node):
@@ -302,6 +353,7 @@ def _module_entry(mod_path, edges, fanin):
         "test_file_present": os.path.exists(test_file),
         "dependency_direction": _dependency_direction(layer),
         "anchor_symbols": anchor_symbols(mod_path),
+        "verbs": declared_verbs(mod_path),
         "depends_on": edges[dotted],
         "depended_on_by": sorted(fanin[dotted]),
     }

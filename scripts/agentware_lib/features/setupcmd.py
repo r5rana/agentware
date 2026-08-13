@@ -183,6 +183,15 @@ def cmd_profile(args):
     return 0
 
 
+#: Verb declarations — the ONE place these verbs are registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("init", 100, "register_init"),
+    ("profile", 300, "register_profile"),
+)
+
+
 def register_init(sub, fmt_parent):
     # init -------------------------------------------------------------------
     p_init = sub.add_parser(

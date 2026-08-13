@@ -33,7 +33,7 @@ only execs the read-only sidecar bound to 127.0.0.1.
 _EXPORTS is imported BY NAME onto the scripts/agentware facade so the parser-golden
 dispatch contract (metrics -> cmd_metrics, dashboard -> cmd_dashboard) + the dashboard
 + load_cli tests reach them as bare names / CLI.<name>. The two registrars are NOT in
-_EXPORTS -- the assembler resolves them via importlib from _PARSER_REGISTRATION.
+_EXPORTS -- they are declared in this module's `__verbs__`.
 Fan-in: 0 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 import json
@@ -255,6 +255,15 @@ def cmd_metrics(args):
         return 1
     _print_metrics_text(rows, agg, flt)
     return 0
+
+
+#: Verb declarations — the ONE place these verbs are registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("metrics", 2200, "register_metrics"),
+    ("dashboard", 2600, "register_dashboard"),
+)
 
 
 def register_metrics(sub, fmt_parent):

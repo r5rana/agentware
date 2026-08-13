@@ -5,10 +5,10 @@ its three domain submodules so every pre-split call site — which reaches the
 module under an alias (`import agentware_lib.knowledge.curation as curation`) and
 reads `curation._slugify` / `curation._render_features` — keeps resolving
 unchanged, and so every existing monkeypatch target (`<consumer>.curation.<name>`)
-keeps working. It ALSO re-imports the two parser registrars, because
-`_PARSER_REGISTRATION` keeps naming this PACKAGE (`("ingest",
-"agentware_lib.knowledge.curation", "register_ingest")`) and the assembler
-resolves them with importlib + getattr on the module object. The submodules are:
+keeps working. It ALSO re-imports the two parser registrars, so a
+pre-split call site reading them off this package keeps resolving; the verbs
+themselves are declared in the SUBMODULES' `__verbs__`, beside the handlers they
+serve. The submodules are:
 
   * `curationrender`   — the entry RENDERERS (_render_learning with its
                          `back_label` seam, _render_decision_body) + the two pure

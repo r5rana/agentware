@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "8f3ce23a0445"
+      "git_head": "67ac11fe0a48"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -124,7 +124,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/ops/checkupcmd.py",
-            "line": 286,
+            "line": 294,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -206,7 +206,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/ops/checkupcmd.py",
-            "line": 285,
+            "line": 293,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1111,7 +1111,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/features/fanout.py",
-            "line": 84,
+            "line": 90,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1160,7 +1160,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/cli.py",
-            "line": 120,
+            "line": 113,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1586,7 +1586,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/features/fanout.py",
-            "line": 398,
+            "line": 404,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4439,7 +4439,7 @@
           },
           {
             "file": "scripts/agentware_lib/features/fanout.py",
-            "line": 399,
+            "line": 405,
             "lang": "python",
             "form": "environ[]",
             "default": null,

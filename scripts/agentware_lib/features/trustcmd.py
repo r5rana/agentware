@@ -55,6 +55,14 @@ from agentware_lib.core.pkgtrust import (
 from agentware_lib.core.pkghome import _PkgStateError
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("trust", 3600, "register_trust"),
+)
+
+
 def register_trust(sub, fmt_parent):
     """Declare the `trust` verb and its four subverbs.
 

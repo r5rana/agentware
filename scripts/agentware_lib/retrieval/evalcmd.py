@@ -3,9 +3,9 @@
 Owns: the ablation instrument (_ABLATE_METRIC_KEYS + evaluate_ablation), the
 `eval` CLI handler family (cmd_eval + the suite/gate sub-runners _run_acr_gate,
 _run_longmemeval_suite, _run_gold_fixture_suite and the ACR-gate text printers
-_ok / _print_acr_gate) and the `eval` parser registrar (register_eval, resolved by
-the assembler via importlib from _PARSER_REGISTRATION; handler+registrar travel
-together).
+_ok / _print_acr_gate) and the `eval` parser registrar (register_eval, declared in
+this module's `__verbs__` and resolved from there by the assembler;
+handler+registrar travel together).
 
 Does NOT own: the gold-set scorer/loader (evaluate/load_gold ->
 agentware_lib.retrieval.metrics_rank), the ACR win gate (acr_gate_decision + the
@@ -481,6 +481,15 @@ def cmd_eval(args):
     _regressiongate._print_gate(gate)
     _regressiongate._print_ab(ab)
     return _regressiongate._gate_exit(gate, ab)
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("eval", 2000, "register_eval"),
+)
+
 
 def register_eval(sub, fmt_parent):
     # eval -------------------------------------------------------------------

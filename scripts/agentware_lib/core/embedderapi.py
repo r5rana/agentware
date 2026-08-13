@@ -2,7 +2,7 @@
 
 Owns: the embedder protocol contract (BACKEND_FACTORY_ATTR / REQUIRED_EMBEDDER_ATTRS / OPTIONAL_EMBEDDER_ATTRS), its named rejection error (EmbedderProtocolError), the two validators (validate_backend_module / validate_embedder), the registry of shipped backends (REGISTERED_BACKENDS / registered_names / registered_summary / resolve_registered) and the ONE definition of the embedding rounding constant (EMBED_ROUND_DP / round_vector).
 Does NOT own: loading a backend, memoizing it, or falling back to Mode A — that is agentware_lib.retrieval.vectorcache (load_embedder); the backend/model config resolvers (agentware_lib.core.routing); the ranking that consumes the vectors (agentware_lib.retrieval.hybrid); the backends themselves (scripts/agentware_embedder_*.py, optional sidecars that import THIS module for the constant).
-Layer deps: core -> stdlib only (imports nothing at all — a pure contract leaf, like agentware_lib._registration).
+Layer deps: core -> stdlib only (imports nothing at all — a pure contract leaf).
 Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 
 Why this module exists
@@ -71,9 +71,11 @@ REQUIRED_EMBEDDER_ATTRS = ("embed",)
 #: backends; absent on a perfectly usable minimal one.
 OPTIONAL_EMBEDDER_ATTRS = ("dim",)
 
-#: The shipped extension points, as ``(name, module, summary)`` — the same
-#: shape, and the same "frozen tuple of registrations" discipline, as
-#: ``agentware_lib._registration._PARSER_REGISTRATION``. A registered NAME is
+#: The shipped extension points, as ``(name, module, summary)`` — a frozen
+#: tuple of registrations, deliberately NOT the per-module discovery the CLI
+#: verbs use (``agentware_lib.verbs``): a backend is a THIRD-PARTY module that
+#: may live outside this package entirely, so there is no package to walk and
+#: the shipped set has to be enumerable from one place. A registered NAME is
 #: what ``config --set-embedder`` should be given; the dotted module still
 #: works, and so does a path, so nothing that already resolved stops resolving.
 REGISTERED_BACKENDS = (

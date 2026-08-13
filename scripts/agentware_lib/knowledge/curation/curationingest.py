@@ -460,12 +460,21 @@ def cmd_ingest(args):
     return 0
 
 
-# --- parser registrars (owned here; assembled by agentware_lib.cli via the
-# frozen _PARSER_REGISTRATION tuple). The registrar travels with its handler:
+# --- parser registrars (owned here; assembled by agentware_lib.cli from this
+# module's own `__verbs__`). The registrar travels with its handler:
 # cmd_ingest lives in this module, so its `ingest` verb registers here.
 # register_* are resolved by the assembler through importlib (module field of
 # the tuple, which names the PACKAGE whose aggregator re-imports this name),
 # NOT via the _EXPORTS facade. --------------------------------------------------
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("ingest", 1200, "register_ingest"),
+)
+
+
 def register_ingest(sub, fmt_parent):
     # ingest -----------------------------------------------------------------
     p_ingest = sub.add_parser(

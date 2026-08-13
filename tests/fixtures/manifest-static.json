@@ -674,12 +674,12 @@
     {
       "layer": "cli",
       "name": "agentware_lib.cli",
-      "owns": "parser assembly from the frozen registration tuple"
+      "owns": "parser assembly from the verb rows agentware_lib.verbs discovers"
     },
     {
       "layer": "cli",
-      "name": "agentware_lib._registration",
-      "owns": "frozen _PARSER_REGISTRATION (verb, module, attr) map"
+      "name": "agentware_lib.verbs",
+      "owns": "per-module __verbs__ discovery -> the ordered (verb, module, attr) registration"
     }
   ]
 }

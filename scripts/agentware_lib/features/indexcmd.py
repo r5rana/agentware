@@ -27,7 +27,8 @@ while knowledge.index stays a clean knowledge-layer module.
 A LEAF: nothing imports it at module level (fan-in 0); the scripts/agentware
 entrypoint re-exports the 6 cmd_index_* handlers BY NAME so the legacy load_cli oracle
 (CLI.cmd_index_*) and the global-resolve gate resolve them, and register_index is
-resolved by agentware_lib.cli.assemble_parser via _PARSER_REGISTRATION importlib.
+declared in this module's `__verbs__` and resolved from there by
+agentware_lib.cli.assemble_parser.
 The proposal_integrity_errors / rebuild_vector_cache cross-module functions are reached
 via the proposals / vectorcache MODULE aliases (never by-name imports, whose foreign
 __code__ the global-resolve gate would walk against this namespace and FAIL).
@@ -311,6 +312,14 @@ def cmd_index_rebuild(args):
             sys.stderr.write("agentware: vector cache not rebuilt (%s); Mode A "
                              "unaffected.\n" % vc.get("reason"))
     return 0
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("index", 500, "register_index"),
+)
 
 
 def register_index(sub, fmt_parent):

@@ -27,10 +27,9 @@ shared writers, strictly one-way — `planedit` defers its only reference back
 exists. The union of the submodules' `_EXPORTS` is exactly the pre-split module's
 `_EXPORTS`, in the pre-split ORDER — no name added, none dropped.
 
-`register_plan`/`register_work` are re-imported (NOT exported) because
-`_registration.py` names this PACKAGE — `("plan", "agentware_lib.ops.planauthor",
-"register_plan")` — and the assembler resolves the registrar with importlib + getattr on
-the module object.
+`register_plan`/`register_work` are re-imported (NOT exported) so pre-split call
+sites reading them off this package keep resolving; the two verbs themselves are
+declared in `planedit`'s and `workstamp`'s `__verbs__`, beside their registrars.
 
 Owns: nothing of its own — only the re-export surface that keeps the pre-split import
 path and every monkeypatch target resolving unchanged.

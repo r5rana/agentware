@@ -370,6 +370,15 @@ def cmd_worklog_scan(args):
                 print("  line %d: %s" % (item["line"], item["id"]))
     return 0 if ok else 1
 
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("worklog", 1500, "register_worklog"),
+)
+
+
 def register_worklog(sub, fmt_parent):
     # worklog ----------------------------------------------------------------
     p_wl = sub.add_parser("worklog", help="worklog utilities")

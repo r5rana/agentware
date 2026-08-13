@@ -522,6 +522,14 @@ def cmd_migrate(args):
     return 0
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("migrate", 1400, "register_migrate"),
+)
+
+
 def register_migrate(sub, fmt_parent):
     # migrate ----------------------------------------------------------------
     p_mig = sub.add_parser(

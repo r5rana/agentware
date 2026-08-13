@@ -50,6 +50,14 @@ from agentware_lib.core.pkghome import _PkgStateError
 from agentware_lib.core.pkgtrust import _pkg_list_signers
 
 
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("release", 3700, "register_release"),
+)
+
+
 def register_release(sub, fmt_parent):
     """Declare the `release` verb. Lifted verbatim from the monolith's build_parser."""
     p_release = sub.add_parser(

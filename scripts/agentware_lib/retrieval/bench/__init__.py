@@ -4,10 +4,9 @@ logic + the bench CLI handlers + the parser registrar (layer: retrieval).
 AGGREGATOR ONLY. This package holds NO logic: it re-imports the public names of
 its three domain submodules so every pre-split call site — which reaches the
 module under an alias (`import agentware_lib.retrieval.bench as _bench`) and reads
-`_bench.redact_ledger_gold_paths` — keeps resolving unchanged, and so the
-`_PARSER_REGISTRATION` row `("bench", "agentware_lib.retrieval.bench",
-"register_bench")` keeps resolving the registrar off THIS package. The submodules
-are:
+`_bench.redact_ledger_gold_paths` — keeps resolving unchanged. The `bench` verb
+itself is declared in `benchcmd`'s `__verbs__`, beside the registrar that serves
+it. The submodules are:
 
   * `benchswe`    — the 4 frozen SWE-task suite constants + the 10 deterministic
                     swe_*/`_dirs_identical` scorer/aggregator/decision/builder

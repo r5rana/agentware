@@ -90,8 +90,8 @@ def cli_source():
     "removed" rather than as "moved", and by task 56 — when the monolith is gone —
     it would scan a facade with no `def` in it and report every guarded property as
     satisfied. The set is resolved LIVE from `strangler.PORTED_VERBS` crossed with
-    the frozen registration tuple, so it grows with each port and needs no edit
-    here; ordering is the registration tuple's, so the concatenation is
+    the DISCOVERED verb registration, so it grows with each port and needs no
+    edit here; ordering is that registration's, so the concatenation is
     deterministic. Every part starts its defs at column 0, so line-order scans that
     track the enclosing definition are unaffected by the concatenation.
     """
@@ -109,16 +109,15 @@ def cli_source():
 def ported_module_paths():
     """Absolute paths of the lib modules owning a verb in ``PORTED_VERBS``.
 
-    In registration-tuple order, de-duplicated (one module may own several verbs)
+    In discovered display order, de-duplicated (one module may own several verbs)
     and filtered to files that exist. Importing the facade first is what puts
     `scripts/` on `sys.path`, so this resolves under a bare
     `python3 -m unittest` from the repo root exactly as `load_lib` does.
     """
     load_cli()
-    from agentware_lib import strangler
-    from agentware_lib._registration import _PARSER_REGISTRATION
+    from agentware_lib import strangler, verbs
     seen, out = set(), []
-    for verb, module, _attr in _PARSER_REGISTRATION:
+    for verb, module, _attr in verbs.registration():
         if verb not in strangler.PORTED_VERBS or module in seen or not module:
             continue
         seen.add(module)

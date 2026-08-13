@@ -31,7 +31,7 @@ BEFORE the network push, so a lossy/invalid merge is rejected, never pushed.
 _EXPORTS is imported BY NAME onto the scripts/agentware facade so the resident fanout
 merge-queue gate (kb_nothing_lost_gate) + the dream repoint step (cmd_kb_git_push) resolve
 them as bare names, and load_cli tests reach them as CLI.<name>. register_kb_git is NOT
-exported (the assembler resolves it via _PARSER_REGISTRATION importlib).
+exported (it is declared in this module's `__verbs__`).
 Fan-in: 2 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 
@@ -392,6 +392,15 @@ def cmd_kb_git_merge_continue(args):
     stream = sys.stdout if rc == 0 else sys.stderr
     stream.write("kb-git merge-continue: %s\n" % note)
     return rc
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("kb-git", 2800, "register_kb_git"),
+)
+
 
 def register_kb_git(sub, fmt_parent):
     # kb-git -----------------------------------------------------------------

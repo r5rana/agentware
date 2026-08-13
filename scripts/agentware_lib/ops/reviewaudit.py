@@ -38,7 +38,7 @@ Layer deps: ops -> core (`gitio._git`, `paths.REPO_ROOT`), ops -> ops
 (`reviewschema`, `reviewconfig`, `reviewprompts`, `reviewdiag`), ops -> features
 (`reviewagent._review_invoke_agent` + `REVIEW_REVIEWER_PERSONA`,
 `reviewoutput._review_extract_json` and the fencing helpers). The registrar is
-resolved by the assembler through `_PARSER_REGISTRATION`, not through `_EXPORTS`.
+declared in this module's `__verbs__` and resolved from there, not `_EXPORTS`.
 Security: the diff and the acceptance criteria are UNTRUSTED (R-SEC-02) and reach
 the prompts fenced, never as executable or instruction lines.
 """
@@ -371,6 +371,14 @@ def cmd_review(args):
                 result.get("verify_unavailable", 0), REVIEW_SKIP_ENV))
         return 3
     return 1 if result["confirmed_blocking"] > 0 else 0
+
+
+#: Verb declaration — the ONE place this verb is registered. Discovered by
+#: `agentware_lib.verbs`, whose docstring explains the dunder name and the
+#: sparse order key (the key IS the top-level --help position).
+__verbs__ = (
+    ("review", 4100, "register_review"),
+)
 
 
 def register_review(sub, fmt_parent):
