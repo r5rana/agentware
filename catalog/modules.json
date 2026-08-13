@@ -1625,7 +1625,22 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_parity_mutation_rows.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_parity_mutations.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_parity_schema.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_parity_sweep.py"
     },
     {
       "layer": "tests",
@@ -1986,6 +2001,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_parity_manifest.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_parity_sweep.py"
     },
     {
       "layer": "tests",
@@ -3070,6 +3090,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/retrieval/test_bm25_exact_scores.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/retrieval/test_cache_freshness.py"
     },
     {
@@ -3126,6 +3151,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/retrieval/test_recall.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_recall_ladder.py"
     },
     {
       "layer": "tests",
@@ -9376,6 +9406,7 @@
         "next_order",
         "render_doc_row",
         "render_parity_row",
+        "render_probe_entry",
         "render_test",
         "render_unit",
         "repo_root",
@@ -9407,6 +9438,7 @@
         "emit",
         "insert_doc_row",
         "insert_parity_row",
+        "insert_probe_entry",
         "next_steps",
         "regenerate",
         "write_text"

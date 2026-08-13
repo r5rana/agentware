@@ -40,6 +40,17 @@ README_STUB = """# agentware_lib — module router
 nothing here yet.
 """
 
+PROBE_STUB = '''"""A stand-in for the runnable mutation-probe table."""
+
+MUTATION_PROBES = {
+}
+
+
+def probe_for(row_id):
+    spec = MUTATION_PROBES.get(row_id)
+    return dict(spec) if spec else None
+'''
+
 CURATED_STUB = '''"""A stand-in for the curated parity table."""
 
 LOCAL = ["local"]
@@ -69,6 +80,11 @@ class ScratchTreeTestCase(unittest.TestCase):
              "modules": []}))
         self._write(su.README_REL, README_STUB)
         self._write(su.CURATED_REL, CURATED_STUB)
+        # Task 79: a curated row's runnable mutation probe lives in its own
+        # table, and `emit` writes into it in the same transaction. A scratch
+        # tree without it half-completes and the failure reads as a scaffold
+        # bug rather than a missing fixture.
+        self._write(su.PROBE_REL, PROBE_STUB)
         os.makedirs(os.path.join(self.tmp, "scripts", "agentware_lib", "ops"))
         os.makedirs(os.path.join(self.tmp, "tests", "unit", "ops"))
 
@@ -198,6 +214,15 @@ class EmitTest(ScratchTreeTestCase):
         self.assertEqual(planned["edited"], done["edited"])
 
     def test_it_lands_all_five_artifacts_for_a_verb(self):
+        """R-MOD-11's whole unit — now SIX artifacts, not five.
+
+        The name is left alone deliberately (`tests/README.md`: the preserved-
+        surface freeze cannot tell a rename from a deletion). Task 79 split a
+        curated row's proof out of the row: the claim stays in
+        `_parity_curated.py` and the runnable mutation lands in
+        `_parity_mutation_rows.py`, so a unit that lands its row without its
+        probe has landed a claim nothing can refute.
+        """
         unit = self._unit(su.KIND_VERB, verb="widget")
         self._emit(unit)
         self.assertTrue(os.path.exists(os.path.join(self.tmp, unit["path"])))
@@ -205,6 +230,20 @@ class EmitTest(ScratchTreeTestCase):
         self.assertIn(unit["dotted"], sc.doc_rows(self.tmp))
         self.assertEqual(self._curated_rows()[-1]["id"], "surface:widget")
         self.assertIn("__verbs__", self._read(unit["path"]))
+        self.assertIn('"surface:widget": {', self._read(su.PROBE_REL))
+
+    def test_the_probe_entry_lands_keyed_by_the_rows_id(self):
+        unit = self._unit(su.KIND_VERB, verb="widget")
+        self._emit(unit)
+        table = self._read(su.PROBE_REL)
+        self.assertIn(unit["row_id"], table)
+        self.assertIn(unit["path"], table,
+                      "the probe must address the module the unit just landed")
+
+    def test_a_probe_table_with_no_closing_brace_is_refused(self):
+        self._write(su.PROBE_REL, "MUTATION_PROBES = {}\n")
+        with self.assertRaises(su.ScaffoldError):
+            sw.insert_probe_entry(self.tmp, self._unit())
 
     def test_a_panel_gets_no_doc_row_because_the_table_is_the_lib_router(self):
         unit = self._unit(su.KIND_PANEL, name="readwidget")

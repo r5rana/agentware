@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 565,
+    "rows": 567,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
@@ -44,20 +44,20 @@
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
-      "modularity": 13,
+      "modularity": 15,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 556,
+      "required": 558,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 78,
+      "curated": 80,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -287,7 +287,8 @@
         69,
         70,
         73,
-        78
+        78,
+        79
       ]
     }
   ],
@@ -1545,7 +1546,13 @@
       "task": 73,
       "evidence": {
         "test": "tests.unit.ops.test_scaffoldcmd",
-        "mutation": "drop the `check` subcommand, collapse the two exit codes (2 for an invalid unit description, 1 for a standing finding) into one, or let `new` write without --kind: each reddens its own surface assertion"
+        "mutation": "drop the `check` subcommand, collapse the two exit codes (2 for an invalid unit description, 1 for a standing finding) into one, or let `new` write without --kind: each reddens its own surface assertion",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/scaffoldcmd.py",
+          "find": "RC_BAD_UNIT = 2",
+          "replace": "RC_BAD_UNIT = 1"
+        }
       }
     },
     {
@@ -1560,7 +1567,13 @@
       "task": 73,
       "evidence": {
         "test": "tests.unit.ops.test_scaffoldcmd",
-        "mutation": "return 0 from cmd_scaffold_check while findings stand, or drop the subcommand from the parser: the exit-code and subcommand assertions redden"
+        "mutation": "return 0 from cmd_scaffold_check while findings stand, or drop the subcommand from the parser: the exit-code and subcommand assertions redden",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/scaffoldcmd.py",
+          "find": "        return 0 if result[\"ok\"] else 1",
+          "replace": "        return 0"
+        }
       }
     },
     {
@@ -1575,7 +1588,13 @@
       "task": 73,
       "evidence": {
         "test": "tests.unit.ops.test_scaffoldcmd",
-        "mutation": "drop --kind or --task from the `new` parser, or widen --kind's choices past the four kinds: the required-argument and choices assertions redden by name"
+        "mutation": "drop --kind or --task from the `new` parser, or widen --kind's choices past the four kinds: the required-argument and choices assertions redden by name",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/scaffoldcmd.py",
+          "find": "choices=list(scaffoldunit.KIND_NAMES),",
+          "replace": "choices=list(scaffoldunit.KIND_NAMES) + [\"gadget\"],"
+        }
       }
     },
     {
@@ -1913,7 +1932,14 @@
       "task": 75,
       "evidence": {
         "test": "tests.gates.test_doc_walkthrough",
-        "mutation": "rename a named gate to a path that does not exist, delete a required gate's row, blank a row's fix column, add a runnable block naming a dead verb or a ghost checker, or change a `norun:` reason to one outside the declared allowlist: each arm (A/B/C/D/E) must name its own offender on a scratch copy of the real tree"
+        "mutation": "rename a named gate to a path that does not exist, delete a required gate's row, blank a row's fix column, add a runnable block naming a dead verb or a ghost checker, or change a `norun:` reason to one outside the declared allowlist: each arm (A/B/C/D/E) must name its own offender on a scratch copy of the real tree",
+        "probe": {
+          "kind": "replace",
+          "path": "docs/add-a-feature.md",
+          "find": "tests/gates/test_suite_delta.py",
+          "replace": "tests/gates/test_suite_delta_gone.py",
+          "count": 0
+        }
       }
     },
     {
@@ -1928,7 +1954,13 @@
       "task": 74,
       "evidence": {
         "test": "tests.gates.test_doc_architecture",
-        "mutation": "delete a recipe anchor, drop a chokepoint row, remove a module row from either documented map, add a row naming no module, hand-edit a managed block by one character, or RENAME the symbol a recipe points at: each arm (A/B/C/D/E/F) must name the offender in a scratch copy of the real tree"
+        "mutation": "delete a recipe anchor, drop a chokepoint row, remove a module row from either documented map, add a row naming no module, hand-edit a managed block by one character, or RENAME the symbol a recipe points at: each arm (A/B/C/D/E/F) must name the offender in a scratch copy of the real tree",
+        "probe": {
+          "kind": "replace",
+          "path": "docs/architecture.md",
+          "find": "| `lib` file | 600 lines |",
+          "replace": "| `lib` file | 601 lines |"
+        }
       }
     },
     {
@@ -1943,7 +1975,13 @@
       "task": 61,
       "evidence": {
         "test": "tests.unit.knowledge.test_artifact_capture_standard",
-        "mutation": "store the reference without the artifact: the captured body no longer reproduces the cited artifact"
+        "mutation": "store the reference without the artifact: the captured body no longer reproduces the cited artifact",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/curation/curationrender.py",
+          "find": "fields.get(\"category\") or \"learnings\", body.rstrip(\"\\n\"), back_label)",
+          "replace": "fields.get(\"category\") or \"learnings\", \"\\n\".join(body.rstrip(\"\\n\").split(\"```\")[::2]), back_label)"
+        }
       }
     },
     {
@@ -1958,7 +1996,13 @@
       "task": 77,
       "evidence": {
         "test": "tests.gates.test_repo_standard",
-        "mutation": "delete a required file, replace one with a stub, drop a required section, unroute one from the README, gut the PR checklist, break a template's frontmatter, or disable blank issues with no template left to file: each arm (A/D) must name its own offender on a copy of the shipped files"
+        "mutation": "delete a required file, replace one with a stub, drop a required section, unroute one from the README, gut the PR checklist, break a template's frontmatter, or disable blank issues with no template left to file: each arm (A/D) must name its own offender on a copy of the shipped files",
+        "probe": {
+          "kind": "replace",
+          "path": "SECURITY.md",
+          "find": "## Reporting a vulnerability",
+          "replace": "## How to shout about it"
+        }
       }
     },
     {
@@ -1973,7 +2017,13 @@
       "task": 76,
       "evidence": {
         "test": "tests.gates.test_guidance_sync",
-        "mutation": "name the retired monolith as a live fact, point a doc at an unclaimed path (including inside a backticked command), rename a module the manifest publishes, print a ghost `python3 tests/_x.py`, strip an exemption's witness, or stop naming a required claim: each arm (A/B/C/D/E/F) must name its own offender on a scratch copy of the real tree, and the retirement-sentence twin must stay GREEN"
+        "mutation": "name the retired monolith as a live fact, point a doc at an unclaimed path (including inside a backticked command), rename a module the manifest publishes, print a ghost `python3 tests/_x.py`, strip an exemption's witness, or stop naming a required claim: each arm (A/B/C/D/E/F) must name its own offender on a scratch copy of the real tree, and the retirement-sentence twin must stay GREEN",
+        "probe": {
+          "kind": "replace",
+          "path": ".claude/skills/modular-development/SKILL.md",
+          "find": "python3 tests/_ceiling_gate.py",
+          "replace": "python3 tests/_ceiling_gate_v2.py"
+        }
       }
     },
     {
@@ -1988,7 +2038,13 @@
       "task": 77,
       "evidence": {
         "test": "tests.gates.test_repo_standard",
-        "mutation": "strip the patent grant from LICENSE, drop a licence declaration, set a different licence in package.json, name an undeclared foreign licence, delete the NOTICE's attribution block, or stop adopting the text the NOTICE still attributes: each arm (B/C) names its own offender \u2014 and the twin mutation proves an ADOPTED licence stays LEGAL, since a ban that forbids attribution defeats the NOTICE"
+        "mutation": "strip the patent grant from LICENSE, drop a licence declaration, set a different licence in package.json, name an undeclared foreign licence, delete the NOTICE's attribution block, or stop adopting the text the NOTICE still attributes: each arm (B/C) names its own offender \u2014 and the twin mutation proves an ADOPTED licence stays LEGAL, since a ban that forbids attribution defeats the NOTICE",
+        "probe": {
+          "kind": "replace",
+          "path": "LICENSE",
+          "find": "3. Grant of Patent License",
+          "replace": "3. No Patent License"
+        }
       }
     },
     {
@@ -2003,7 +2059,12 @@
       "task": 74,
       "evidence": {
         "test": "tests.unit.ops.test_scaffoldcheck",
-        "mutation": "re-create tests/fixtures/doc-row-debt.json, or delete a router row: `check_docs` reports doc_row_missing and the ledger-is-gone assertion reddens"
+        "mutation": "re-create tests/fixtures/doc-row-debt.json, or delete a router row: `check_docs` reports doc_row_missing and the ledger-is-gone assertion reddens",
+        "probe": {
+          "kind": "write",
+          "path": "tests/fixtures/doc-row-debt.json",
+          "text": "{\n \"rows\": [\n  {\n   \"kind\": \"module_without_doc_row\",\n   \"location\": \"scripts/agentware_lib/ops/scaffoldcmd.py\",\n   \"value\": \"agentware_lib.ops.scaffoldcmd\"\n  }\n ]\n}\n"
+        }
       }
     },
     {
@@ -2018,7 +2079,13 @@
       "task": 77,
       "evidence": {
         "test": "tests.gates.test_repo_standard",
-        "mutation": "reintroduce the live operator handle anywhere in a tracked file: arm F reports it through the same scanner `agentware audit` runs; re-personalise a redacted ROADMAP attribution, or change any other line of the preserved file, and the narrowed preservation test in tests.gates.test_readme_union names the line"
+        "mutation": "reintroduce the live operator handle anywhere in a tracked file: arm F reports it through the same scanner `agentware audit` runs; re-personalise a redacted ROADMAP attribution, or change any other line of the preserved file, and the narrowed preservation test in tests.gates.test_readme_union names the line",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/privacy.py",
+          "find": "    needles = [n for n in (needles or []) if n]\n    if not needles:\n        return []",
+          "replace": "    needles = [n for n in (needles or []) if n]\n    if needles:\n        return []"
+        }
       }
     },
     {
@@ -2033,8 +2100,14 @@
       "verification": "curated",
       "task": 20,
       "evidence": {
-        "test": "tests.test_docs_union",
-        "mutation": "drop any one of the six local or two donor anchors: the anchor assertion names the missing one"
+        "test": "tests.gates.test_readme_union",
+        "mutation": "drop any one of the six local or two donor anchors: the anchor assertion names the missing one",
+        "probe": {
+          "kind": "replace",
+          "path": "README.md",
+          "find": "\n## Architecture\n",
+          "replace": "\n## How it is put together\n"
+        }
       }
     },
     {
@@ -2048,8 +2121,12 @@
       "verification": "curated",
       "task": 20,
       "evidence": {
-        "test": "tests.test_docs_union",
-        "mutation": "regenerate or drop ROADMAP.md: the byte-identity assertion reddens"
+        "test": "tests.gates.test_readme_union",
+        "mutation": "regenerate or drop ROADMAP.md: the byte-identity assertion reddens",
+        "probe": {
+          "kind": "delete-path",
+          "path": "ROADMAP.md"
+        }
       }
     },
     {
@@ -2064,7 +2141,13 @@
       "task": 51,
       "evidence": {
         "test": "tests.unit.knowledge.test_templates_lint",
-        "mutation": "remove a required field from any template: the linter must redden naming the field"
+        "mutation": "remove a required field from any template: the linter must redden naming the field",
+        "probe": {
+          "kind": "replace",
+          "path": "templates/learning-template.md",
+          "find": "\nsummary: ",
+          "replace": "\nsummry: "
+        }
       }
     },
     {
@@ -2079,7 +2162,13 @@
       "task": 75,
       "evidence": {
         "test": "tests.e2e.test_add_a_feature_walkthrough",
-        "mutation": "break any command in the document, or quote a line the tree no longer holds: the run reddens naming the block's line number \u2014 proven live by planting a bad flag on the third of five generator lines (caught only because the runner prepends `set -e`) and by a hunk quoting a stale pin value"
+        "mutation": "break any command in the document, or quote a line the tree no longer holds: the run reddens naming the block's line number \u2014 proven live by planting a bad flag on the third of five generator lines (caught only because the runner prepends `set -e`) and by a hunk quoting a stale pin value",
+        "probe": {
+          "kind": "replace",
+          "path": "docs/add-a-feature.md",
+          "find": "-EXPECTED_SURFACES = 128\n+EXPECTED_SURFACES = 129",
+          "replace": "-EXPECTED_SURFACES = 127\n+EXPECTED_SURFACES = 129"
+        }
       }
     },
     {
@@ -2094,7 +2183,11 @@
       "task": 76,
       "evidence": {
         "test": "tests.gates.test_guidance_sync",
-        "mutation": "delete the skill folder, drop its catalog row, or point either at the other: `skill validate` and the installed-and-catalogued assertion redden; make the skill always-on steering and the not-always-on assertion reddens"
+        "mutation": "delete the skill folder, drop its catalog row, or point either at the other: `skill validate` and the installed-and-catalogued assertion redden; make the skill always-on steering and the not-always-on assertion reddens",
+        "probe": {
+          "kind": "delete-path",
+          "path": ".claude/skills/modular-development"
+        }
       }
     },
     {
@@ -2108,8 +2201,14 @@
       "verification": "curated",
       "task": 46,
       "evidence": {
-        "test": "tests.unit.features.test_dream_min_interval",
-        "mutation": "restore the donor acquisition: the double-acquire probe shows two winners"
+        "test": "tests.integration.test_pkg_state_lock",
+        "mutation": "restore the donor acquisition: the double-acquire probe shows two winners",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/dreamgate.py",
+          "find": "    with _dream_acquire_critsec(path):",
+          "replace": "    with contextlib.nullcontext():"
+        }
       },
       "superseded_by": "dream:race-free-lock"
     },
@@ -2125,7 +2224,13 @@
       "task": 46,
       "evidence": {
         "test": "tests.unit.features.test_dream",
-        "mutation": "unregister any one restored step: the registry stops matching this tree's full set"
+        "mutation": "unregister any one restored step: the registry stops matching this tree's full set",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/dreamsteps/registry.py",
+          "find": "    (\"s\", \"stale-propose\", _dream_step_stale_propose),\n",
+          "replace": ""
+        }
       }
     },
     {
@@ -2140,7 +2245,13 @@
       "task": 61,
       "evidence": {
         "test": "tests.unit.features.test_dream_min_interval",
-        "mutation": "remove the interval check: a second dream inside the window runs"
+        "mutation": "remove the interval check: a second dream inside the window runs",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/dream.py",
+          "find": "    if age < DREAM_CADENCE_INTERVAL_SEC:",
+          "replace": "    if False:"
+        }
       }
     },
     {
@@ -2155,7 +2266,12 @@
       "task": 16,
       "evidence": {
         "test": "tests.gates.test_dreampkg_retire_gate",
-        "mutation": "register any step whose body reads the package root, or restore a hard-reset in the dream corpus: the mutation check names the step and the file"
+        "mutation": "register any step whose body reads the package root, or restore a hard-reset in the dream corpus: the mutation check names the step and the file",
+        "probe": {
+          "kind": "append",
+          "path": "scripts/agentware_lib/features/dreamsteps/dreamgit.py",
+          "text": "\n\ndef _dream_revert_worktree(target, sha):\n    \"\"\"Restored hard-reset in the dream corpus (the invariant this row gates).\"\"\"\n    return _git_timed(target, \"reset\", \"--hard\", sha)\n"
+        }
       }
     },
     {
@@ -2192,8 +2308,14 @@
       "verification": "curated",
       "task": 46,
       "evidence": {
-        "test": "tests.unit.features.test_dream_min_interval",
-        "mutation": "restore read-decide-write acquisition: a concurrent double-acquire shows two winners"
+        "test": "tests.integration.test_pkg_state_lock",
+        "mutation": "restore read-decide-write acquisition: a concurrent double-acquire shows two winners",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/dreamgate.py",
+          "find": "fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)",
+          "replace": "fd = os.open(path, os.O_CREAT | os.O_WRONLY, 0o644)"
+        }
       }
     },
     {
@@ -2207,8 +2329,13 @@
       "verification": "curated",
       "task": 21,
       "evidence": {
-        "test": "tests.test_dream_steps_package",
-        "mutation": "collapse the package back to one module: the per-step file ceiling stops being enforceable"
+        "test": "tests.gates.test_module_ceilings",
+        "mutation": "collapse the package back to one module: the per-step file ceiling stops being enforceable",
+        "probe": {
+          "kind": "write",
+          "path": "scripts/agentware_lib/features/dreamsteps.py",
+          "text": "\"\"\"The dream maintenance steps, collapsed back into ONE flat module.\n\nThis re-monolith undoes the task-21 split: the per-step files behind the\nregistry are folded back into a single module, so no per-step file ceiling can\nbe enforced any more.\n\"\"\"\n\nfrom agentware_lib.features.dreamsteps.registry import *  # noqa: F401,F403\n"
+        }
       }
     },
     {
@@ -3099,7 +3226,13 @@
       "task": 26,
       "evidence": {
         "test": "tests.unit.retrieval.test_eval_pinning",
-        "mutation": "extract only the entrypoint blob: the HEAD arm reports unavailable instead of a score, and the gate silently stops gating"
+        "mutation": "extract only the entrypoint blob: the HEAD arm reports unavailable instead of a score, and the gate silently stops gating",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/regressiongate/abgate.py",
+          "find": "[\"git\", \"archive\", \"HEAD\", \"scripts\"], cwd=root,",
+          "replace": "[\"git\", \"archive\", \"HEAD\", \"scripts/agentware\"], cwd=root,"
+        }
       }
     },
     {
@@ -3114,7 +3247,13 @@
       "task": 59,
       "evidence": {
         "test": "tests.unit.retrieval.test_eval",
-        "mutation": "drop the skills-category document: the skills query stops ranking it first and the loader returns no category for it"
+        "mutation": "drop the skills-category document: the skills query stops ranking it first and the loader returns no category for it",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/fixtures/gold_fixture_suite.json",
+          "find": "\"category\": \"skills\",",
+          "replace": "\"category\": \"learnings\","
+        }
       }
     },
     {
@@ -3130,7 +3269,11 @@
       "task": 60,
       "evidence": {
         "test": "tests.gates.test_parser_golden",
-        "mutation": "delete one committed golden: the surface-set check names it as an unpinned live surface and the frozen-donor-member check reddens"
+        "mutation": "delete one committed golden: the surface-set check names it as an unpinned live surface and the frozen-donor-member check reddens",
+        "probe": {
+          "kind": "delete-path",
+          "path": "tests/fixtures/help_golden/attach.txt"
+        }
       }
     },
     {
@@ -3145,7 +3288,12 @@
       "task": 27,
       "evidence": {
         "test": "tests.gates.test_invariants",
-        "mutation": "add an unclaimed Python file under scripts: the coverage assertion must redden rather than silently skip it"
+        "mutation": "add an unclaimed Python file under scripts: the coverage assertion must redden rather than silently skip it",
+        "probe": {
+          "kind": "write",
+          "path": "scripts/_unclaimed_coverage_probe.py",
+          "text": "import os\n\n\ndef probe():\n    return os.getcwd()\n"
+        }
       }
     },
     {
@@ -3160,7 +3308,13 @@
       "task": 22,
       "evidence": {
         "test": "tests.unit.knowledge.test_atomic_save",
-        "mutation": "replace the temp-file+rename+fsync with a truncating open(): a concurrent reader can observe a torn index"
+        "mutation": "replace the temp-file+rename+fsync with a truncating open(): a concurrent reader can observe a torn index",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/index/indexwrite.py",
+          "find": "    fd, tmp = tempfile.mkstemp(prefix=\".index.\", suffix=\".tmp\", dir=d)\n    try:\n        with os.fdopen(fd, \"w\", encoding=\"utf-8\") as f:\n            json.dump(data, f, indent=2, ensure_ascii=False)\n            f.write(\"\\n\")\n            f.flush()\n            os.fsync(f.fileno())\n        os.chmod(tmp, _replace_mode(path))\n        os.replace(tmp, path)\n    except BaseException:",
+          "replace": "    tmp = os.path.join(d, \".index.donor.unused\")\n    try:\n        with open(path, \"w\", encoding=\"utf-8\") as f:\n            json.dump(data, f, indent=2, ensure_ascii=False)\n            f.write(\"\\n\")\n    except BaseException:"
+        }
       }
     },
     {
@@ -3174,8 +3328,14 @@
       "verification": "curated",
       "task": 22,
       "evidence": {
-        "test": "tests.unit.features.test_rebuild",
-        "mutation": "remove the auto-rebuild-once recovery: a corrupt index stops self-recovering on load"
+        "test": "tests.unit.ops.test_decommit",
+        "mutation": "remove the auto-rebuild-once recovery: a corrupt index stops self-recovering on load",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/index/indexread.py",
+          "find": "def load_index(kdir, _allow_rebuild=True):",
+          "replace": "def load_index(kdir, _allow_rebuild=False):"
+        }
       }
     },
     {
@@ -3190,7 +3350,13 @@
       "task": 24,
       "evidence": {
         "test": "tests.unit.retrieval.test_bm25_cache",
-        "mutation": "restore the monotonic generation counter as the authority: an entry arriving via a pull stops invalidating the cache"
+        "mutation": "restore the monotonic generation counter as the authority: an entry arriving via a pull stops invalidating the cache",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/bm25.py",
+          "find": "    cache_fp = cache.get(\"fingerprint\")\n    if not cache_fp:\n        return False\n    stored_fp = data.get(\"corpus_fingerprint\") if isinstance(data, dict) else None\n    if stored_fp:\n        return cache_fp == stored_fp  # tier 1: O(1) in-memory \u2014 no tree re-read\n    cache_sig = cache.get(\"stat_signature\")\n    if cache_sig and cache_sig == _corpus_stat_signature(kdir, data):\n        return True  # tier 2: stat-only short-circuit \u2014 still no body reads\n    # tier 3: re-derive from the tree (the only tier that reads entry bodies).\n    live_fp = _corpus.eval_corpus_fingerprint(_corpus.build_corpus(kdir, data))\n    return cache_fp == live_fp",
+          "replace": "    # RETIRED DESIGN RESTORED: the monotonic `generation` counter is the\n    # freshness authority again, with no content fingerprint or stat proxy.\n    cache_gen = cache.get(\"generation\")\n    live_gen = data.get(\"generation\") if isinstance(data, dict) else None\n    if cache_gen is None:\n        cache_gen = live_gen\n    return cache_gen == live_gen"
+        }
       }
     },
     {
@@ -3205,7 +3371,13 @@
       "task": 57,
       "evidence": {
         "test": "tests.unit.ops.test_decommit",
-        "mutation": "track any derived artifact again: a simulated two-clone sync conflicts on it"
+        "mutation": "track any derived artifact again: a simulated two-clone sync conflicts on it",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/kblayout.py",
+          "find": "KB_DERIVED_GITIGNORE_RELS = (\"index.json\", \"FEATURES.md\") + tuple(",
+          "replace": "KB_DERIVED_GITIGNORE_RELS = (\"FEATURES.md\",) + tuple("
+        }
       }
     },
     {
@@ -3221,7 +3393,13 @@
       "task": 24,
       "evidence": {
         "test": "tests.unit.retrieval.test_cache_freshness",
-        "mutation": "accept a cache written under either legacy version number: a foreign schema loads as valid at the same cache path"
+        "mutation": "accept a cache written under either legacy version number: a foreign schema loads as valid at the same cache path",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/bm25.py",
+          "find": "BM25_CACHE_VERSION = 3",
+          "replace": "BM25_CACHE_VERSION = 1"
+        }
       }
     },
     {
@@ -3237,7 +3415,13 @@
       "task": 15,
       "evidence": {
         "test": "tests.gates.test_kbtarget_guard",
-        "mutation": "narrow the trigger back to sentinel-only, or return the generic exit 1 without the JSON body: a half-onboarded pointer is clobbered silently, or a caller can no longer tell a clobber refusal from a filesystem failure"
+        "mutation": "narrow the trigger back to sentinel-only, or return the generic exit 1 without the JSON body: a half-onboarded pointer is clobbered silently, or a caller can no longer tell a clobber refusal from a filesystem failure",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/setupcmd.py",
+          "find": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir):\n            pointable, reason = kblayout.kb_pointable(existing)\n",
+          "replace": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir) \\\n                and os.path.isfile(os.path.join(existing, kblayout.SENTINEL_REL)):\n            pointable, reason = kblayout.kb_pointable(existing)\n"
+        }
       }
     },
     {
@@ -3252,7 +3436,13 @@
       "task": 15,
       "evidence": {
         "test": "tests.gates.test_kbtarget_guard",
-        "mutation": "drop the guard from either repoint path, or make it require the derived index: a fresh checkout stops being pointable, or a directory that is not a knowledge base is silently accepted"
+        "mutation": "drop the guard from either repoint path, or make it require the derived index: a fresh checkout stops being pointable, or a directory that is not a knowledge base is silently accepted",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/kblayout.py",
+          "find": "    idx = os.path.join(path, INDEX_REL)\n    if os.path.isfile(idx):",
+          "replace": "    idx = os.path.join(path, INDEX_REL)\n    if not os.path.isfile(idx):\n        return False, \"no %s\" % INDEX_REL\n    if os.path.isfile(idx):"
+        }
       }
     },
     {
@@ -3267,7 +3457,14 @@
       "task": 23,
       "evidence": {
         "test": "tests.unit.knowledge.test_index_reader_safety",
-        "mutation": "read a list field raw at any one site: a mapping where a list is expected raises an uncaught type or hashability error"
+        "mutation": "read a list field raw at any one site: a mapping where a list is expected raises an uncaught type or hashability error",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/graph.py",
+          "find": "        for tok in frontmatter._entry_list_field(e, \"relates\"):",
+          "replace": "        for tok in (e.get(\"relates\") or []):",
+          "count": 1
+        }
       }
     },
     {
@@ -3282,7 +3479,13 @@
       "task": 22,
       "evidence": {
         "test": "tests.unit.knowledge.test_quarantine",
-        "mutation": "raise on the first malformed entry: a single bad file takes down the rebuild and the index with it"
+        "mutation": "raise on the first malformed entry: a single bad file takes down the rebuild and the index with it",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/index/indexrebuild.py",
+          "find": "            problems.append(\"missing frontmatter id (un-migrated?): %s\" % rel)\n            continue",
+          "replace": "            raise ValueError(\"missing frontmatter id (un-migrated?): %s\" % rel)"
+        }
       }
     },
     {
@@ -3297,7 +3500,13 @@
       "task": 22,
       "evidence": {
         "test": "tests.unit.knowledge.test_indexlock",
-        "mutation": "remove the flock acquisition: the 5,000-poll concurrent probe records torn reads"
+        "mutation": "remove the flock acquisition: the 5,000-poll concurrent probe records torn reads",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/index/indexlock.py",
+          "find": "    st[\"rlock\"].acquire()  # RLock: reentrant per-thread, serializes threads\n",
+          "replace": "    yield\n    return\n"
+        }
       }
     },
     {
@@ -3311,8 +3520,14 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.unit.features.test_skill_roster",
-        "mutation": "blank a roster row: index validate must fail rather than pass"
+        "test": "tests.integration.test_adopted_capabilities",
+        "mutation": "blank a roster row: index validate must fail rather than pass",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/index/indexvalidate.py",
+          "find": "        if title.replace(\"*\", \"\").strip():\n            return True",
+          "replace": "        if title:\n            return True"
+        }
       }
     },
     {
@@ -3345,7 +3560,13 @@
       "task": 18,
       "evidence": {
         "test": "tests.gates.test_whereami_gate",
-        "mutation": "reintroduce a parent-directory-name constraint on the project dir, add a non-standard marker to the root table (directly or via a table it composes), home the resolver in the cli leaf where the features-layer caller cannot import it, or drop a deprecated key mirror"
+        "mutation": "reintroduce a parent-directory-name constraint on the project dir, add a non-standard marker to the root table (directly or via a table it composes), home the resolver in the cli leaf where the features-layer caller cannot import it, or drop a deprecated key mirror",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/projectcontext.py",
+          "find": "    (\"package_name\", \"project_name\"),\n",
+          "replace": ""
+        }
       }
     },
     {
@@ -3360,7 +3581,13 @@
       "task": 47,
       "evidence": {
         "test": "tests.integration.test_loop_selfheal_gate",
-        "mutation": "make the review gate return PROCEED unconditionally: a diff violating an acceptance criterion stops being caught"
+        "mutation": "make the review gate return PROCEED unconditionally: a diff violating an acceptance criterion stops being caught",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/loop/review.sh",
+          "find": "run_selfheal_review() {\n  # Toolkit / init guards",
+          "replace": "run_selfheal_review() {\n  return 0  # gate neutered: PROCEED unconditionally\n  # Toolkit / init guards"
+        }
       }
     },
     {
@@ -3375,7 +3602,13 @@
       "task": 33,
       "evidence": {
         "test": "tests.integration.test_loop_org_lint",
-        "mutation": "remove either call site: an org-invalid artifact passes the phase gate"
+        "mutation": "remove either call site: an org-invalid artifact passes the phase gate",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/loop/hooks.sh",
+          "find": "  run_org_lint_gate pre-hook\n",
+          "replace": "  :\n"
+        }
       }
     },
     {
@@ -3390,7 +3623,13 @@
       "task": 34,
       "evidence": {
         "test": "tests.integration.test_loop_emission",
-        "mutation": "drop either locally-emitted outcome value from the accepted set: the pre-hook hard-blocks the next run in team mode"
+        "mutation": "drop either locally-emitted outcome value from the accepted set: the pre-hook hard-blocks the next run in team mode",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/fleet/fleetshard.py",
+          "find": "\"premise_falsified\", \"adversarial_review_blocked\",",
+          "replace": "\"adversarial_review_blocked\","
+        }
       }
     },
     {
@@ -3405,7 +3644,13 @@
       "task": 33,
       "evidence": {
         "test": "tests.integration.test_loop_retrieval_gate",
-        "mutation": "remove the post-hook call site: a run that degraded retrieval quality completes clean"
+        "mutation": "remove the post-hook call site: a run that degraded retrieval quality completes clean",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/loop/hooks.sh",
+          "find": "  run_retrieval_quality_gate\n",
+          "replace": "  :\n"
+        }
       }
     },
     {
@@ -3420,7 +3665,13 @@
       "task": 53,
       "evidence": {
         "test": "tests.integration.test_skill_hook",
-        "mutation": "make the injectable predicate return False for an always-on skill: the roster stops being injected at session start"
+        "mutation": "make the injectable predicate return False for an always-on skill: the roster stops being injected at session start",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/skillsync.py",
+          "find": "    if not installed and not pending:\n        return 0",
+          "replace": "    if True:\n        return 0"
+        }
       }
     },
     {
@@ -3434,8 +3685,14 @@
       "verification": "curated",
       "task": 45,
       "evidence": {
-        "test": "tests.integration.test_loop_worklog_gate",
-        "mutation": "relax a marker regex to the donor form: an unpromoted marker stops blocking the promise"
+        "test": "tests.unit.knowledge.test_worklog_promotion",
+        "mutation": "relax a marker regex to the donor form: an unpromoted marker stops blocking the promise",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/worklog.py",
+          "find": "LEARNED_RE = re.compile(r\"^\\s*(?:[-*+]\\s+)?>?\\s*LEARNED:\\s*(.*?)\\s*$\")",
+          "replace": "LEARNED_RE = re.compile(r\"^\\s*>?\\s*LEARNED:\\s*(.*?)\\s*$\")"
+        }
       }
     },
     {
@@ -3450,7 +3707,13 @@
       "task": 78,
       "evidence": {
         "test": "tests.gates.test_ci_workflow",
-        "mutation": "inline a gate command in the workflow (a `-m unittest` step, or a checker inside a block scalar): arm B names the offending run line \u2014 and the twin proves `git config` setup and the sanctioned entrypoint stay LEGAL, since an arm that banned those would ban working CI. Drop a stage and arm C fails naming task 78's own words for it"
+        "mutation": "inline a gate command in the workflow (a `-m unittest` step, or a checker inside a block scalar): arm B names the offending run line \u2014 and the twin proves `git config` setup and the sanctioned entrypoint stay LEGAL, since an arm that banned those would ban working CI. Drop a stage and arm C fails naming task 78's own words for it",
+        "probe": {
+          "kind": "replace",
+          "path": ".github/workflows/ci.yml",
+          "find": "      - name: Run the gate\n        run: python3 tests/_ci_gate.py",
+          "replace": "      - name: Run the tests\n        run: python3 -m unittest discover -s tests/unit -t .\n\n      - name: Run the gate\n        run: python3 tests/_ci_gate.py"
+        }
       }
     },
     {
@@ -3466,7 +3729,13 @@
       "task": 69,
       "evidence": {
         "test": "tests.integration.test_dashboard_api",
-        "mutation": "drop any route from the served union: the route-set assertion names it"
+        "mutation": "drop any route from the served union: the route-set assertion names it",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_dashboard/routes.py",
+          "find": "    \"/api/alerts\": readevals.api_alerts,\n",
+          "replace": ""
+        }
       }
     },
     {
@@ -3481,7 +3750,13 @@
       "task": 32,
       "evidence": {
         "test": "tests.gates.test_presence_gate",
-        "mutation": "delete any one of the six from the modular parser, reduce one to a stub with no subcommands and no arguments of its own, or allowlist one under a token the router's argv scan cannot resolve: the gate names that verb"
+        "mutation": "delete any one of the six from the modular parser, reduce one to a stub with no subcommands and no arguments of its own, or allowlist one under a token the router's argv scan cannot resolve: the gate names that verb",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/team.py",
+          "find": "    (\"team\", 2500, \"register_team\"),\n",
+          "replace": ""
+        }
       }
     },
     {
@@ -3496,7 +3771,11 @@
       "task": 78,
       "evidence": {
         "test": "tests.e2e.test_ci_bootstrap",
-        "mutation": "break any step of the health sequence (delete a lib package, stop init scaffolding a subdir, seed an index that fails its validator, make recall emit non-JSON, break a steering rule): each is caught by its own step. Point the clone at a non-empty directory and it is REFUSED, since 'from an empty directory' is the claim under test"
+        "mutation": "break any step of the health sequence (delete a lib package, stop init scaffolding a subdir, seed an index that fails its validator, make recall emit non-JSON, break a steering rule): each is caught by its own step. Point the clone at a non-empty directory and it is REFUSED, since 'from an empty directory' is the claim under test",
+        "probe": {
+          "kind": "delete-path",
+          "path": "scripts/agentware_lib/knowledge/index"
+        }
       }
     },
     {
@@ -3511,7 +3790,13 @@
       "task": 78,
       "evidence": {
         "test": "tests.gates.test_ci_gate_stages",
-        "mutation": "add an undeclared failure and the tier reddens UNDECLARED; fix a declared one without deleting its row and it reddens STALE naming the row \u2014 proven live in ONE real unit-tier run against a deliberately wrong ledger. Give a row an owner that is not a plan task, or a reason under 80 chars, and the schema refuses it; kill the tier child before it reports and the result is a FAILURE, never a clean empty one"
+        "mutation": "add an undeclared failure and the tier reddens UNDECLARED; fix a declared one without deleting its row and it reddens STALE naming the row \u2014 proven live in ONE real unit-tier run against a deliberately wrong ledger. Give a row an owner that is not a plan task, or a reason under 80 chars, and the schema refuses it; kill the tier child before it reports and the result is a FAILURE, never a clean empty one",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_suite_gate.py",
+          "find": "    for node_id, row in sorted(declared.items()):\n        if node_id not in live:",
+          "replace": "    for node_id, row in sorted(declared.items()):\n        if False and node_id not in live:"
+        }
       }
     },
     {
@@ -3526,7 +3811,13 @@
       "task": 32,
       "evidence": {
         "test": "tests.gates.test_legacy_ratchet",
-        "mutation": "raise the high-water mark: legacy is allowed to grow again"
+        "mutation": "raise the high-water mark: legacy is allowed to grow again",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/fixtures/legacy-ratchet.json",
+          "find": "\"legacy_lines\": 0,",
+          "replace": "\"legacy_lines\": 500,"
+        }
       }
     },
     {
@@ -3541,7 +3832,13 @@
       "task": 32,
       "evidence": {
         "test": "tests.gates.test_legacy_ratchet",
-        "mutation": "delete one handler that no newly-ported verb accounts for while porting another, or credit a shrink to a token outside the union fixture: --record must refuse and name the orphan"
+        "mutation": "delete one handler that no newly-ported verb accounts for while porting another, or credit a shrink to a token outside the union fixture: --record must refuse and name the orphan",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_legacy_ratchet.py",
+          "find": "    for verb in sorted(set(ported) - (verbs if verbs is not None\n                                      else union_verbs())):\n",
+          "replace": "    for verb in sorted(set()):\n"
+        }
       }
     },
     {
@@ -3556,7 +3853,12 @@
       "task": 25,
       "evidence": {
         "test": "tests.gates.test_module_manifest",
-        "mutation": "add a file under the lib with no manifest entry: the completeness check must redden"
+        "mutation": "add a file under the lib with no manifest entry: the completeness check must redden",
+        "probe": {
+          "kind": "write",
+          "path": "scripts/agentware_lib/ops/undeclared_module.py",
+          "text": "\"\"\"Owns: nothing yet - a lib module added without its manifest entry.\n\nDoes NOT own: anything.\n\"\"\"\n\n\ndef helper():\n    return 1\n"
+        }
       }
     },
     {
@@ -3571,7 +3873,55 @@
       "task": 67,
       "evidence": {
         "test": "tests.gates.test_module_manifest",
-        "mutation": "regenerate the manifest twice: the second run must produce no diff"
+        "mutation": "regenerate the manifest twice: the second run must produce no diff",
+        "probe": {
+          "kind": "replace",
+          "path": "catalog/modules.json",
+          "find": "    {\n      \"layer\": \"scripts\",\n      \"line_cap\": 250,\n      \"path\": \"scripts/agentware_dashboard/confine.py\"\n    },\n",
+          "replace": ""
+        }
+      }
+    },
+    {
+      "id": "mod:mutation-proof-is-executed",
+      "dimension": "modularity",
+      "capability": "Every curated row's `mutation` is a RUNNABLE probe over a closed grammar that the sweep EXECUTES against that row's named test, not a sentence checked for being longer than twenty characters \u2014 the sweep reports STALE-PROBE for a no-op, NOT-REDDENED for an unguarded capability and LOAD-ERROR for a mutation that only breaks an import, and refuses a probe aimed at the named test itself",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 79,
+      "evidence": {
+        "test": "tests.gates.test_parity_sweep",
+        "mutation": "take one row's probe out of the table: the coverage arm names that row rather than passing over a shorter table",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_parity_mutation_rows.py",
+          "find": "    \"docs:roadmap-preserved\": {\n        \"kind\": \"delete-path\",\n        \"path\": \"ROADMAP.md\"\n    },\n",
+          "replace": ""
+        }
+      }
+    },
+    {
+      "id": "mod:mutation-sweep-runs-in-ci",
+      "dimension": "modularity",
+      "capability": "The sweep is a DECLARED CI stage, so the proof is executed on every run rather than the once its author ran it: `--check` in both profiles for milliseconds, the full 78-row `--all` in the full profile",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 79,
+      "evidence": {
+        "test": "tests.gates.test_ci_workflow",
+        "mutation": "delete the sweep stage from the declared table: the coverage arm names it by id rather than passing over a shorter table",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_ci_gate.py",
+          "find": "        _stage(\"parity-sweep\", \"parity mutation sweep (every curated row)\",",
+          "replace": "        _stage(\"parity-sweep-RENAMED\", \"parity mutation sweep (every curated row)\","
+        }
       }
     },
     {
@@ -3585,8 +3935,14 @@
       "verification": "curated",
       "task": 78,
       "evidence": {
-        "test": "tests.gates.test_ci_workflow",
-        "mutation": "delete a checker's __main__ dispatch, or shrink a declared debt fixture by one row: arm D fails \u2014 the first statically, the second behaviourally by running the command and demanding rc 1 naming the offending location, because 'the gate ran' and 'the gate could have failed' are different claims"
+        "test": "tests.gates.test_ci_gate_stages",
+        "mutation": "delete a checker's __main__ dispatch, or shrink a declared debt fixture by one row: arm D fails \u2014 the first statically, the second behaviourally by running the command and demanding rc 1 naming the offending location, because 'the gate ran' and 'the gate could have failed' are different claims",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_ceiling_gate.py",
+          "find": "if __name__ == \"__main__\":\n    sys.exit(main())",
+          "replace": "# the dispatch task 78 found missing, removed again\n"
+        }
       }
     },
     {
@@ -3601,8 +3957,13 @@
       "verification": "curated",
       "task": 68,
       "evidence": {
-        "test": "tests.test_modularity_negative",
-        "mutation": "add a function over the per-function cap inside a small file: the negative test must redden on that shape alone"
+        "test": "tests.gates.test_modularity_negative",
+        "mutation": "add a function over the per-function cap inside a small file: the negative test must redden on that shape alone",
+        "probe": {
+          "kind": "append",
+          "path": "scripts/agentware_lib/core/dates.py",
+          "text": "\n\ndef _over_the_per_function_cap():\n    total = 0\n    total = total + 0\n    total = total + 1\n    total = total + 2\n    total = total + 3\n    total = total + 4\n    total = total + 5\n    total = total + 6\n    total = total + 7\n    total = total + 8\n    total = total + 9\n    total = total + 10\n    total = total + 11\n    total = total + 12\n    total = total + 13\n    total = total + 14\n    total = total + 15\n    total = total + 16\n    total = total + 17\n    total = total + 18\n    total = total + 19\n    total = total + 20\n    total = total + 21\n    total = total + 22\n    total = total + 23\n    total = total + 24\n    total = total + 25\n    total = total + 26\n    total = total + 27\n    total = total + 28\n    total = total + 29\n    total = total + 30\n    total = total + 31\n    total = total + 32\n    total = total + 33\n    total = total + 34\n    total = total + 35\n    total = total + 36\n    total = total + 37\n    total = total + 38\n    total = total + 39\n    total = total + 40\n    total = total + 41\n    total = total + 42\n    total = total + 43\n    total = total + 44\n    total = total + 45\n    total = total + 46\n    total = total + 47\n    total = total + 48\n    total = total + 49\n    total = total + 50\n    total = total + 51\n    total = total + 52\n    total = total + 53\n    total = total + 54\n    total = total + 55\n    total = total + 56\n    total = total + 57\n    total = total + 58\n    total = total + 59\n    total = total + 60\n    total = total + 61\n    total = total + 62\n    total = total + 63\n    total = total + 64\n    total = total + 65\n    total = total + 66\n    total = total + 67\n    total = total + 68\n    total = total + 69\n    total = total + 70\n    total = total + 71\n    total = total + 72\n    total = total + 73\n    total = total + 74\n    total = total + 75\n    total = total + 76\n    total = total + 77\n    total = total + 78\n    total = total + 79\n    total = total + 80\n    total = total + 81\n    total = total + 82\n    total = total + 83\n    total = total + 84\n    total = total + 85\n    total = total + 86\n    total = total + 87\n    total = total + 88\n    total = total + 89\n    total = total + 90\n    total = total + 91\n    total = total + 92\n    total = total + 93\n    total = total + 94\n    total = total + 95\n    total = total + 96\n    total = total + 97\n    total = total + 98\n    total = total + 99\n    total = total + 100\n    total = total + 101\n    total = total + 102\n    total = total + 103\n    total = total + 104\n    total = total + 105\n    total = total + 106\n    total = total + 107\n    total = total + 108\n    total = total + 109\n    total = total + 110\n    total = total + 111\n    total = total + 112\n    total = total + 113\n    total = total + 114\n    total = total + 115\n    total = total + 116\n    total = total + 117\n    total = total + 118\n    total = total + 119\n    total = total + 120\n    total = total + 121\n    total = total + 122\n    total = total + 123\n    total = total + 124\n    total = total + 125\n    total = total + 126\n    total = total + 127\n    total = total + 128\n    total = total + 129\n    return total\n"
+        }
       }
     },
     {
@@ -3617,7 +3978,13 @@
       "task": 73,
       "evidence": {
         "test": "tests.unit.ops.test_scaffoldcheck",
-        "mutation": "delete any one check from `audit`, accept an undeclared testless or undocumented module, or keep a doc-row debt row after its module gains a README row: each planted gap must be named by its own finding kind"
+        "mutation": "delete any one check from `audit`, accept an undeclared testless or undocumented module, or keep a doc-row debt row after its module gains a README row: each planted gap must be named by its own finding kind",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/scaffoldcheck.py",
+          "find": "        findings.extend(check_docs(root, manifest))\n",
+          "replace": ""
+        }
       }
     },
     {
@@ -3633,7 +4000,13 @@
       "task": 32,
       "evidence": {
         "test": "tests.gates.test_promotion_gate",
-        "mutation": "narrow a choices set, move a default off its decided value, drop a required flag or rename a subparsers dest while leaving every option string spelled the same: each must redden on its own, naming the field"
+        "mutation": "narrow a choices set, move a default off its decided value, drop a required flag or rename a subparsers dest while leaving every option string spelled the same: each must redden on its own, naming the field",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/recallcmd.py",
+          "find": "p_recall.add_argument(\"--strategy\", choices=(\"bm25\", \"bm25+acr\"),",
+          "replace": "p_recall.add_argument(\"--strategy\", choices=(\"bm25\",),"
+        }
       }
     },
     {
@@ -3648,7 +4021,13 @@
       "task": 63,
       "evidence": {
         "test": "tests.unit.features.test_migrate_runner",
-        "mutation": "make the step non-idempotent: a second apply changes entry counts"
+        "mutation": "make the step non-idempotent: a second apply changes entry counts",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/migratecmd.py",
+          "find": "    return [m for m in _KB_MIGRATIONS if m[0] > cur]",
+          "replace": "    return [m for m in _KB_MIGRATIONS if m[0] >= cur]"
+        }
       }
     },
     {
@@ -3663,7 +4042,13 @@
       "task": 36,
       "evidence": {
         "test": "tests.integration.test_resolver_parity",
-        "mutation": "diverge either resolver's org-root tier: the hooks and the CLI resolve different knowledge dirs in the same session \u2014 TestParityGateBites.test_dropping_the_org_tier_reddens runs exactly that mutation against a copy of the script, alongside the config-home, abspath and blank-value arms"
+        "mutation": "diverge either resolver's org-root tier: the hooks and the CLI resolve different knowledge dirs in the same session \u2014 TestParityGateBites.test_dropping_the_org_tier_reddens runs exactly that mutation against a copy of the script, alongside the config-home, abspath and blank-value arms",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/aw-knowledge-dir",
+          "find": "  org=\"$(aw_lookup_key AGENTWARE_ORG_ROOT",
+          "replace": "  return 1\n  org=\"$(aw_lookup_key AGENTWARE_ORG_ROOT"
+        }
       }
     },
     {
@@ -3678,7 +4063,13 @@
       "task": 50,
       "evidence": {
         "test": "tests.unit.retrieval.test_org_scoping",
-        "mutation": "scope after the build: two-team recall isolation breaks and scores are computed over the unscoped corpus"
+        "mutation": "scope after the build: two-team recall isolation breaks and scores are computed over the unscoped corpus",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/recallcmd.py",
+          "find": "    scoped_entries = _skillpin.scope_entries_for_team(",
+          "replace": "    ranked = _skillpin.recall_ranked(kdir, data, query)\n    scoped_entries = _skillpin.scope_entries_for_team("
+        }
       }
     },
     {
@@ -3693,7 +4084,13 @@
       "task": 50,
       "evidence": {
         "test": "tests.unit.core.test_org_isolation",
-        "mutation": "drop the target-team assertion: a cross-team write succeeds"
+        "mutation": "drop the target-team assertion: a cross-team write succeeds",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/orglint.py",
+          "find": "            if declared and declared != team:",
+          "replace": "            if False:"
+        }
       }
     },
     {
@@ -3708,7 +4105,13 @@
       "task": 50,
       "evidence": {
         "test": "tests.unit.ops.test_org_curator",
-        "mutation": "allow a non-curator shared write: the shared corpus becomes writable by every teammate"
+        "mutation": "allow a non-curator shared write: the shared corpus becomes writable by every teammate",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/fleet/fleetguard.py",
+          "find": "    if not _is_curator(org_root, handle):",
+          "replace": "    if False:"
+        }
       }
     },
     {
@@ -3723,7 +4126,13 @@
       "task": 17,
       "evidence": {
         "test": "tests.gates.test_orgidentity_gate",
-        "mutation": "relax the match to a substring (a sibling checkout named <Name>V2 satisfies <Name>), shrink the marker table below its floor, or stop reading the deprecated key spelling (the guard silently disarms for every operator who configured it before the rename)"
+        "mutation": "relax the match to a substring (a sibling checkout named <Name>V2 satisfies <Name>), shrink the marker table below its floor, or stop reading the deprecated key spelling (the guard silently disarms for every operator who configured it before the rename)",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_orgidentity_gate.py",
+          "find": "            elif declared != PROBE_NAME_MATCH and matched:",
+          "replace": "            elif False:"
+        }
       }
     },
     {
@@ -3737,8 +4146,14 @@
       "verification": "curated",
       "task": 50,
       "evidence": {
-        "test": "tests.e2e.test_team_mode_e2e",
-        "mutation": "return a constant team: a knowledge dir under another team's root resolves to the wrong shard"
+        "test": "tests.unit.retrieval.test_org_scoping",
+        "mutation": "return a constant team: a knowledge dir under another team's root resolves to the wrong shard",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/config/orgresolve.py",
+          "find": "    if not kdir:\n        return None\n    norm = os.path.normpath(kdir).replace(os.sep, \"/\")",
+          "replace": "    return \"alpha\"\n    norm = os.path.normpath(kdir).replace(os.sep, \"/\")"
+        }
       }
     },
     {
@@ -3752,8 +4167,14 @@
       "verification": "curated",
       "task": 59,
       "evidence": {
-        "test": "tests.test_bm25_exact_scores",
-        "mutation": "perturb K1 or B by a value that preserves ranking ORDER: the exact score assertions must still redden"
+        "test": "tests.unit.retrieval.test_bm25_exact_scores",
+        "mutation": "perturb K1 or B by a value that preserves ranking ORDER: the exact score assertions must still redden",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/bm25.py",
+          "find": "_BM25_K1 = 1.5",
+          "replace": "_BM25_K1 = 1.45"
+        }
       }
     },
     {
@@ -3768,7 +4189,13 @@
       "task": 49,
       "evidence": {
         "test": "tests.unit.features.test_trust_surface",
-        "mutation": "emit the RELATIVE path instead of re-anchoring to the live knowledge dir, or drop any one of the six trust fields from the record"
+        "mutation": "emit the RELATIVE path instead of re-anchoring to the live knowledge dir, or drop any one of the six trust fields from the record",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/freshsignals.py",
+          "find": "    return {\"stale\": sig[\"stale\"],\n            \"superseded_by\": list(sig[\"superseded_by\"]),\n            \"trust\": sig[\"trust\"]}",
+          "replace": "    return {\"stale\": sig[\"stale\"],\n            \"superseded_by\": list(sig[\"superseded_by\"])}"
+        }
       }
     },
     {
@@ -3783,7 +4210,13 @@
       "task": 49,
       "evidence": {
         "test": "tests.unit.ops.test_skill_pin_floor",
-        "mutation": "set SKILL_PIN_FLOOR to the donor's None, or drop the pin from the pre-trim branch: a skill scoring above the floor stops ranking first"
+        "mutation": "set SKILL_PIN_FLOOR to the donor's None, or drop the pin from the pre-trim branch: a skill scoring above the floor stops ranking first",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/skillpin.py",
+          "find": "        scored = _apply_skill_pin(scored, SKILL_PIN_FLOOR, top_k)\n        if top_k is not None:",
+          "replace": "        if top_k is not None:"
+        }
       }
     },
     {
@@ -3798,7 +4231,13 @@
       "task": 49,
       "evidence": {
         "test": "tests.unit.knowledge.test_staleness_downweight",
-        "mutation": "return a flat 1.0 multiplier: a superseded entry stops ranking below its successor"
+        "mutation": "return a flat 1.0 multiplier: a superseded entry stops ranking below its successor",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/knowledge/freshsignals.py",
+          "find": "    eid = entry.get(\"id\") if isinstance(entry, dict) else None\n    if eid is not None and eid in superseded:\n        return STALENESS_SUPERSEDED_MULT",
+          "replace": "    eid = entry.get(\"id\") if isinstance(entry, dict) else None\n    if eid is not None and eid in superseded:\n        return 1.0"
+        }
       }
     },
     {
@@ -3813,8 +4252,15 @@
       "verification": "curated",
       "task": 49,
       "evidence": {
-        "test": "tests.unit.retrieval.test_recall",
-        "mutation": "raise the default token budget to the donor's 10000: stage 1 and stage 2 become indistinguishable"
+        "test": "tests.unit.retrieval.test_recall_ladder",
+        "mutation": "raise the default token budget to the donor's 10000: stage 1 and stage 2 become indistinguishable",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/recallcmd.py",
+          "find": "1500",
+          "replace": "10000",
+          "count": 0
+        }
       }
     },
     {
@@ -3829,7 +4275,13 @@
       "task": 55,
       "evidence": {
         "test": "tests.unit.retrieval.test_workcache",
-        "mutation": "always read work bodies: the warm path stops being O(1) in body reads"
+        "mutation": "always read work bodies: the warm path stops being O(1) in body reads",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/workcorpus.py",
+          "find": "    cached = _load_work_corpus_cache(kdir, digest)\n    if cached is not None:\n        return cached\n",
+          "replace": "    _load_work_corpus_cache(kdir, digest)\n"
+        }
       }
     },
     {
@@ -3844,7 +4296,13 @@
       "task": 55,
       "evidence": {
         "test": "tests.unit.retrieval.test_scopework_recall",
-        "mutation": "flatten every plan-status multiplier to 1.0: a sibling worklog under a done plan stops scoring its recorded fraction"
+        "mutation": "flatten every plan-status multiplier to 1.0: a sibling worklog under a done plan stops scoring its recorded fraction",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/retrieval/workcorpus.py",
+          "find": "_WORK_STATUS_MULT = {\"superseded\": 0.3, \"cancelled\": 0.3, \"done\": 0.7}",
+          "replace": "_WORK_STATUS_MULT = {\"superseded\": 1.0, \"cancelled\": 1.0, \"done\": 1.0}"
+        }
       }
     },
     {
@@ -3859,7 +4317,13 @@
       "task": 41,
       "evidence": {
         "test": "tests.unit.features.test_pkg_channel",
-        "mutation": "restore the plain fetch: an unsigned update installs"
+        "mutation": "restore the plain fetch: an unsigned update installs",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/pkgchannel.py",
+          "find": "        sha = _resolve_candidate(target, tag, signers, result)",
+          "replace": "        sha = _pkg_tag_sha(target, tag)"
+        }
       },
       "superseded_by": "sec:signed-semver-update-channel"
     },
@@ -3875,7 +4339,13 @@
       "task": 53,
       "evidence": {
         "test": "tests.integration.test_target_injection",
-        "mutation": "skip the scan: a poisoned knowledge file reaches the session prompt"
+        "mutation": "skip the scan: a poisoned knowledge file reaches the session prompt",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/planauthor/plansanitize.py",
+          "find": "    v = _sanitize_provenance(value)",
+          "replace": "    return value"
+        }
       }
     },
     {
@@ -3890,7 +4360,13 @@
       "task": 53,
       "evidence": {
         "test": "tests.integration.test_kb_push",
-        "mutation": "remove the retry loop: simulated push contention fails the run"
+        "mutation": "remove the retry loop: simulated push contention fails the run",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/kbsync.py",
+          "find": "    for attempt in range(1, attempts + 1):",
+          "replace": "    for attempt in range(1, 1):"
+        }
       }
     },
     {
@@ -3904,8 +4380,14 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.unit.ops.test_kb_git",
-        "mutation": "restore a blanket add at any one of the eight sites: one survivor defeats staging isolation"
+        "test": "tests.unit.ops.test_kb_git_contract",
+        "mutation": "restore a blanket add at any one of the eight sites: one survivor defeats staging isolation",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/kbstage.py",
+          "find": "    allow, rejected = [], []\n    for rel in git_changed_paths(target):",
+          "replace": "    allow, rejected = [], []\n    return list(git_changed_paths(target)), []\n    for rel in git_changed_paths(target):"
+        }
       }
     },
     {
@@ -3920,7 +4402,13 @@
       "task": 41,
       "evidence": {
         "test": "tests.unit.features.test_pkg_channel",
-        "mutation": "accept an unsigned or untrusted tag: the updater installs an unverified package"
+        "mutation": "accept an unsigned or untrusted tag: the updater installs an unverified package",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/pkgchannel.py",
+          "find": "    if cp.returncode == 0:\n        return True, \"verified signed tag\"",
+          "replace": "    if True:\n        return True, \"verified signed tag\""
+        }
       }
     },
     {
@@ -3935,7 +4423,13 @@
       "task": 61,
       "evidence": {
         "test": "tests.unit.ops.test_prefer_queue_redaction",
-        "mutation": "drop the redaction call in `_prefer_queue_scan`: a credential in a preference-shaped prompt reaches work/auto/pref-*/plan.md, learnings/pref-*.md and index.json, all of them committed"
+        "mutation": "drop the redaction call in `_prefer_queue_scan`: a credential in a preference-shaped prompt reaches work/auto/pref-*/plan.md, learnings/pref-*.md and index.json, all of them committed",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/preferqueue.py",
+          "find": "            body = _transcript_redact_secrets(body)",
+          "replace": "            body = body  # redaction dropped"
+        }
       }
     },
     {
@@ -3950,7 +4444,13 @@
       "task": 40,
       "evidence": {
         "test": "tests.unit.core.test_pkg_trust_anchor",
-        "mutation": "accept a key absent from the anchor: any publisher can sign a release"
+        "mutation": "accept a key absent from the anchor: any publisher can sign a release",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/core/pkgtrust.py",
+          "find": "    for fp in sorted(intree_fps - pinned):",
+          "replace": "    for fp in sorted(intree_fps & pinned):"
+        }
       }
     },
     {

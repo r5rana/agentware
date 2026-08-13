@@ -212,7 +212,11 @@ class EndToEndScratchTreeTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="aw-scaffold-cmd-")
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        for rel in (su.CATALOG_REL, su.README_REL, su.CURATED_REL):
+        # Every ledger `emit` writes into must exist in the scratch tree, or
+        # the transaction half-completes and the failure reads as a scaffold
+        # bug rather than a missing fixture. PROBE_REL joined this set at task
+        # 79, when a curated row gained its runnable mutation.
+        for rel in (su.CATALOG_REL, su.README_REL, su.CURATED_REL, su.PROBE_REL):
             src = os.path.join(REPO_ROOT, rel)
             dest = os.path.join(self.tmp, rel)
             os.makedirs(os.path.dirname(dest), exist_ok=True)

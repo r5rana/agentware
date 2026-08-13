@@ -144,7 +144,7 @@ Green means *no worse than the recorded baseline*, not *zero failures* — read
 
 **The structural checkers** run in a second each and catch most review comments
 before a reviewer has to write them. Each prints a verdict and exits non-zero on
-a finding — `python3 tests/_ci_gate.py --profile bootstrap` runs all five:
+a finding — `python3 tests/_ci_gate.py --profile bootstrap` runs all six:
 
 ```bash
 python3 tests/_ceiling_gate.py            # file and per-function ceilings
@@ -152,7 +152,20 @@ python3 tests/_modularity_rules.py        # layer direction, module naming
 python3 tests/_test_ownership.py          # every module has an owning unit file
 python3 tests/_manifest_gen.py --check    # catalog/modules.json matches the tree
 python3 tests/_parity_manifest.py --check # every capability carries a row
+python3 tests/_parity_sweep.py --check    # every row's mutation probe is runnable
 ```
+
+**If you added or changed a curated parity row**, prove its mutation actually
+reddens the test it names. The row is a claim; the probe is what refutes it:
+
+```bash
+python3 tests/_parity_sweep.py --row <row-id>   # PASS is the only good answer
+python3 tests/_parity_sweep.py --all --jobs 4   # the whole ledger, ~5 minutes
+```
+
+`NOT-REDDENED` means the capability is unguarded and the row is a promise
+nothing keeps — fix the gap. Do not reach for a different mutation that happens
+to redden something else.
 
 **If you touched `AGENTS.md` or `steering/`**, the steering linter is mandatory:
 

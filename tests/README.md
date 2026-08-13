@@ -97,7 +97,7 @@ scripts/agentware audit --with-tests
 
 ## Gates that guard the suite itself (feature 260813)
 
-Five of the gates here do not test the toolkit — they test whether the suite is
+Six of the gates here do not test the toolkit — they test whether the suite is
 still *measuring* the toolkit. Every one exists because a green suite and an
 absent suite look identical from the outside.
 
@@ -107,6 +107,7 @@ absent suite look identical from the outside.
 | `test_mutation_canary.py` | WRITE seam: does rebinding a symbol on the loaded CLI module still change what the dispatched command prints? `hasattr` cannot tell — it is satisfied by a photograph — so the canary patches, dispatches, and demands the output change. It is proven to bite against a facade whose passthrough is removed and one whose passthrough is an `import` + `globals().update(...)` namespace copy. |
 | `test_suite_delta.py` | Per-commit accounting: did any module's pass count rise without a new test node id? A rise nobody added a test for is a test that stopped exercising something. See `tests/baselines/README.md` for the re-stamp workflow. |
 | `test_parser_golden.py` | PROSE seam: the surface gates are deliberately help-blind (`_surface_capture.py` records `required`/`nargs`/`choices`/`default` and never reads `help=`), so every rendered `--help` string was unpinned. This is a byte golden over all 125 surfaces plus the top-level display-order pin. |
+| `test_parity_sweep.py` | PROOF seam: does each parity row's stated `mutation` actually redden the test it names? Until task 79 the only thing enforced about that field was `len(...) > 20`, so seventy-eight capability claims rested on sentences nobody had run. The sweep applies each probe in a throwaway `git clone` and demands a red, distinguishing a no-op probe (`STALE-PROBE`) from an unguarded capability (`NOT-REDDENED`) from a mutation that merely breaks an import (`LOAD-ERROR`). Its first run found eight rows whose named test could not observe the capability at all, one capability nothing guarded, and one assertion satisfied by a docstring. |
 | `test_test_ownership.py` | OWNERSHIP seam: when a module breaks, is there a test file whose SUBJECT is that module? A module is owned by exactly one file, `tests/unit/<layer>/test_<stem>.py`; a test elsewhere that merely references it owns nothing. Task 71 ported the donor's M11 without its carve-out (which let any flat white-box `tests/test_*.py` referencing an export claim ownership — and a file reaching through the facade references them all). The residual is declared in `tests/fixtures/test-ownership-debt.json` and shrinks only. |
 
 ### Regenerating the `--help` golden corpus

@@ -31,6 +31,11 @@ import _parity_gate_checks as pgc  # noqa: E402
 import _parity_schema as psch  # noqa: E402
 
 
+def _restore(module, saved):
+    module.MUTATION_PROBES.clear()
+    module.MUTATION_PROBES.update(saved)
+
+
 def _write(tmp, rel, text):
     dest = os.path.join(tmp, rel)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
@@ -227,12 +232,52 @@ class RenderedRowsTest(unittest.TestCase):
         found = sc.DOC_ROW_RE.findall(su.render_doc_row(unit))
         self.assertEqual(found, ["agentware_lib.ops.widgetthing"])
 
+    def _probe(self, unit):
+        """The rendered `MUTATION_PROBES` entry, re-read as the mapping it joins."""
+        namespace = {}
+        exec(compile("ENTRY = {\n%s}\n" % su.render_probe_entry(unit),  # noqa: S102
+                     "probe.py", "exec"), namespace)
+        return namespace["ENTRY"]
+
     def _row(self, unit):
+        """The rendered row, built with its rendered probe INSTALLED.
+
+        A curated row and its runnable mutation are one unit of work (task 79):
+        `_row()` attaches the probe by row id from `MUTATION_PROBES`, so a row
+        re-read without its entry is schema-INVALID by construction. Installing
+        the rendered entry first is what makes this a test of what the scaffold
+        emits rather than of half of it.
+        """
+        import _parity_mutation_rows as pmr
+        saved = dict(pmr.MUTATION_PROBES)
+        pmr.MUTATION_PROBES.update(self._probe(unit))
+        self.addCleanup(_restore, pmr, saved)
         namespace = {}
         src = ("from tests._parity_curated import _row, LOCAL\nROW = [\n%s]\n"
                % su.render_parity_row(unit))
         exec(compile(src, "row.py", "exec"), namespace)  # noqa: S102
         return namespace["ROW"][0]
+
+    def test_the_probe_entry_is_keyed_by_the_rows_id_and_valid_under_the_grammar(self):
+        import _parity_mutations as pmut
+        unit = su.resolve(su.KIND_MODULE, "widgetthing", layer="ops", task=73)
+        entry = self._probe(unit)
+        self.assertEqual(list(entry), [unit["row_id"]])
+        self.assertEqual([], pmut.spec_errors(entry[unit["row_id"]], unit["row_id"]))
+        self.assertEqual(entry[unit["row_id"]]["path"], unit["path"])
+
+    def test_the_probe_entry_is_not_runnable_until_a_human_fills_it_in(self):
+        """The scaffold may not certify a claim nobody made.
+
+        A generator cannot know which byte breaks a capability, so the entry it
+        writes is deliberately STALE: structurally valid, addressed at the real
+        module, and carrying two TODO markers whose `find` matches nothing. The
+        sweep reports STALE-PROBE until the author replaces them.
+        """
+        unit = su.resolve(su.KIND_MODULE, "widgetthing", layer="ops", task=73)
+        spec = self._probe(unit)[unit["row_id"]]
+        self.assertIn(su.TODO, spec["find"])
+        self.assertIn(su.TODO, spec["replace"])
 
     def test_the_parity_row_is_valid_python_and_a_schema_valid_row(self):
         unit = su.resolve(su.KIND_VERB, "widgetthing", layer="ops",

@@ -132,6 +132,32 @@ def insert_parity_row(root, unit):
     return rel
 
 
+def insert_probe_entry(root, unit):
+    """Append the unit's runnable mutation probe to `MUTATION_PROBES` (task 79).
+
+    Same transaction as the curated row, and for the same reason `R-MOD-11`
+    gives: a unit that lands its claim without the proof that can refute the
+    claim is a unit that landed half-built. The insertion point is the table's
+    closing brace -- the last line of the file that is exactly `}` -- so the
+    entry joins the mapping rather than following it.
+    """
+    rel = unitmod.PROBE_REL
+    path = _abs(root, rel)
+    with open(path, encoding="utf-8") as fh:
+        lines = fh.read().splitlines(True)
+    close = None
+    for i, line in enumerate(lines):
+        if line.rstrip("\n") == "}":
+            close = i
+    if close is None:
+        raise ScaffoldError("%s does not end in a closing `}`: refusing to guess "
+                            "where MUTATION_PROBES ends" % rel)
+    lines.insert(close, unitmod.render_probe_entry(unit))
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("".join(lines))
+    return rel
+
+
 def regenerate(root=None):
     """Run every derived-artifact regenerator. Returns `[(name, rc, output)]`."""
     top = unitmod.repo_root(root)
@@ -151,7 +177,11 @@ def regenerate(root=None):
 def next_steps(unit):
     """The follow-ups a generator must not fake, in the order they are done."""
     steps = ["fill in every %s marker in %s and %s"
-             % (unitmod.TODO, unit["path"], unit["test_path"])]
+             % (unitmod.TODO, unit["path"], unit["test_path"]),
+             "replace the two %s markers in this unit's %s entry in %s with the "
+             "real mutation, then prove it: python3 tests/_parity_sweep.py --row "
+             "%s must print PASS"
+             % (unitmod.TODO, unit["row_id"], unitmod.PROBE_REL, unit["row_id"])]
     if unit["kind"] == unitmod.KIND_VERB:
         steps.append("add %r to EXPECTED_VERBS (last) in "
                      "tests/gates/test_parser_golden.py" % unit["verb"])
@@ -174,7 +204,8 @@ def emit(unit, root=None, dry_run=False, force=False, regen=True):
     every path a scaffold would claim before it claims any of them.
     """
     plan = {"unit": unit, "created": [unit["path"], unit["test_path"]],
-            "edited": [unitmod.CURATED_REL], "regenerated": [],
+            "edited": [unitmod.CURATED_REL, unitmod.PROBE_REL],
+            "regenerated": [],
             "next_steps": next_steps(unit), "dry_run": bool(dry_run)}
     if unit["doc_row"]:
         plan["edited"].insert(0, unitmod.README_REL)
@@ -185,6 +216,7 @@ def emit(unit, root=None, dry_run=False, force=False, regen=True):
     if unit["doc_row"]:
         insert_doc_row(root, unit)
     insert_parity_row(root, unit)
+    insert_probe_entry(root, unit)
     if regen:
         plan["regenerated"] = [{"generator": name, "rc": rc, "output": out}
                                for name, rc, out in regenerate(root)]
@@ -196,6 +228,7 @@ _EXPORTS = [
     "write_text",
     "insert_doc_row",
     "insert_parity_row",
+    "insert_probe_entry",
     "regenerate",
     "next_steps",
     "emit",

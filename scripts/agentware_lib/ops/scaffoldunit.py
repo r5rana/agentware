@@ -143,6 +143,12 @@ KIND_NAMES = tuple(sorted(KINDS))
 CATALOG_REL = "catalog/modules.json"
 README_REL = "scripts/agentware_lib/README.md"
 CURATED_REL = "tests/_parity_curated.py"
+#: The runnable half of a curated parity row (task 79). The row states the claim
+#: and names the test; this table holds the MUTATION the sweep executes against
+#: that test. They are separate files because the row is prose a reviewer reads
+#: and the probe is a path-and-literal fixture that goes stale on every rename --
+#: so a scaffolded unit owes an entry in BOTH.
+PROBE_REL = "tests/_parity_mutation_rows.py"
 
 
 def repo_root(root=None):
@@ -492,6 +498,29 @@ def _pysafe(text):
     return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
 
 
+def render_probe_entry(unit):
+    """The `MUTATION_PROBES` entry this unit's parity row owes (task 79).
+
+    A generator cannot know which byte of a module, when changed, breaks the
+    capability its owning test guards -- that is the author's judgement and the
+    whole content of the claim. So the entry it writes is STRUCTURALLY valid and
+    DELIBERATELY not yet runnable: `python3 tests/_parity_sweep.py --check`
+    accepts it (the shape and the path are real), and the sweep reports it
+    STALE-PROBE until the author replaces the two markers. That asymmetry is the
+    point. A scaffold that invented a plausible-looking mutation would be
+    certifying a claim nobody made, which is the exact failure mode the sweep
+    was built to remove; leaving the row red until a human fills it in is the
+    honest default.
+    """
+    return ('    "%s": {\n'
+            '        "kind": "replace",\n'
+            '        "path": "%s",\n'
+            '        "find": "%s: the literal whose change breaks this unit",\n'
+            '        "replace": "%s: what it becomes when the capability is gone",\n'
+            '    },\n'
+            % (unit["row_id"], unit["path"], TODO, TODO))
+
+
 def render_parity_row(unit):
     """The curated `tests/_parity_curated.py` row this unit owes (R-MOD-08)."""
     what = ("the `agentware %s` verb surface and its handler" % unit["verb"]
@@ -522,4 +551,5 @@ _EXPORTS = [
     "render_test",
     "render_doc_row",
     "render_parity_row",
+    "render_probe_entry",
 ]

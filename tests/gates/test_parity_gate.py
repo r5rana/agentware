@@ -336,11 +336,35 @@ class PendingRatchetTest(unittest.TestCase):
     """The shrink-only backlog has to bite in BOTH directions."""
 
     def test_a_row_with_no_test_and_no_pending_entry_reddens(self):
+        """Constructed, not borrowed from the live backlog (task 79).
+
+        This arm used to empty `pending_verification` and expect the rows that
+        had been in it to be reported. Task 79 emptied the backlog for real --
+        all five entries were rows whose named test had MOVED at task 58 and
+        still existed under its new path -- so clearing an already-empty list
+        changed nothing and the arm passed on an empty violation list, which is
+        precisely the vacuous shape this file exists to reject. The condition
+        is now built: a real row is re-pointed at a module that does not exist,
+        with the backlog empty.
+        """
         manifest, ratchet = load()
-        thinned = dict(ratchet, pending_verification=[])
-        bad = pm.check_curated(manifest, REPO, thinned)
+        broken = copy.deepcopy(manifest)
+        row = next(r for r in broken["rows"] if r["verification"] == "curated")
+        row["evidence"]["test"] = "tests.unit.core.test_no_such_module_anywhere"
+        bad = pm.check_curated(broken, REPO, dict(ratchet,
+                                                  pending_verification=[]))
         self.assertIn("does not exist and is not in pending_verification",
                       joined(bad))
+
+    def test_the_live_backlog_is_empty_and_that_is_the_point(self):
+        """The ratchet may only shrink, and task 79 shrank it to nothing.
+
+        Pinned so the emptiness is a RECORDED state rather than an accident: if
+        a future row ships with an unresolvable test, this fails and the author
+        has to decide deliberately whether to reopen the backlog.
+        """
+        _manifest, ratchet = load()
+        self.assertEqual([], ratchet["pending_verification"])
 
     def test_a_pending_row_that_now_resolves_must_be_removed(self):
         manifest, ratchet = load()

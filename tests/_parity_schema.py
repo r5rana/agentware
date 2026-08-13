@@ -17,8 +17,9 @@ and THREE verification modes bound by a closed compatibility matrix:
 
     generated      re-derived from a binding fixture; the row cannot drift from
                    its source because `--out` regenerates it byte-for-byte.
-    curated        hand-written; carries a named test AND the mutation that must
-                   redden that test, so the row is falsifiable, not prose.
+    curated        hand-written; carries a named test, the mutation that must
+                   redden that test, and (task 79) the RUNNABLE probe that
+                   mechanises it, so the row is falsifiable, not prose.
     absence_probe  a runnable probe over the CLOSED grammar below, proving the
                    capability is genuinely ABSENT rather than merely undocumented.
 
@@ -65,9 +66,13 @@ VERIFICATION_FIELDS = {
     "absence_probe": ("absence_probe",),
 }
 
-#: A curated row's evidence is a named test plus the mutation that must redden
-#: it. Prose alone is not evidence; a mutation nobody can run is not a proof.
-EVIDENCE_FIELDS = ("test", "mutation")
+#: A curated row's evidence is a named test, the mutation that must redden it,
+#: and -- since task 79 -- the RUNNABLE probe that mechanises that mutation.
+#: Prose alone is not evidence; a mutation nobody can run is not a proof, and
+#: for the first seventy-eight rows of this ledger that is exactly what shipped:
+#: the only thing enforced about `mutation` was that it was longer than twenty
+#: characters. `probe` is what `tests/_parity_sweep.py` executes.
+EVIDENCE_FIELDS = ("test", "mutation", "probe")
 
 SIDE_VALUES = ("donor", "local")
 
@@ -94,6 +99,13 @@ GREP_EXCLUDE_PATHS = (
     "tests/fixtures/parity-manifest.json",
     "tests/gates/test_parity_gate.py",
     "tests/gates/test_parity_manifest.py",
+    # Task 79's mutation sweep and its probe table: both name retired paths and
+    # removed literals BY DESIGN, so a grep-absent probe would otherwise find
+    # its own subject quoted back at it.
+    "tests/_parity_mutation_rows.py",
+    "tests/_parity_mutations.py",
+    "tests/_parity_sweep.py",
+    "tests/gates/test_parity_sweep.py",
 )
 
 GREP_EXCLUDE_DIRS = (".git", "__pycache__", ".venv", "node_modules", ".mypy_cache")
@@ -350,8 +362,10 @@ DIMENSIONS = [
                                  "equivalent"),
         # 78 adds continuous integration: the ratchets this dimension owns are
         # only worth what RUNNING them is worth, and task 78 found three of the
-        # five documented checker commands could not fail at all.
-        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78],
+        # five documented checker commands could not fail at all. 79 closes the
+        # last seam of the same kind — the parity ledger's own `mutation` field,
+        # which until then was a sentence nobody executed.
+        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78, 79],
     },
 ]
 

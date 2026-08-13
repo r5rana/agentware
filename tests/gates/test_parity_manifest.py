@@ -16,6 +16,7 @@ Stdlib `unittest` only. Never touches the real knowledge base.
 
 from tests._paths import TESTS_DIR
 
+import ast
 import json
 import os
 import sys
@@ -284,7 +285,23 @@ class CuratedTierTest(unittest.TestCase):
             self.assertTrue(os.path.exists(path), row["id"])
             with open(path, encoding="utf-8") as fh:
                 body = fh.read()
-            self.assertIn("unittest.TestCase", body, row["id"])
+            # Narrowed at task 79 from a substring search for the literal
+            # "unittest.TestCase". That heuristic was WRONG about this corpus
+            # rather than strict: most modules here subclass a shared fixture
+            # base (`SyntheticKBTestCase`), which is a TestCase but never
+            # spells the words, so the check demanded a particular authoring
+            # style and would have rejected a perfectly collected module. The
+            # claim is "this file defines collected test classes", so it is
+            # read from the AST: at least one class whose base name ends in
+            # `TestCase` or `Test`, and more than two `test_` methods.
+            classes = [n for n in ast.walk(ast.parse(body))
+                       if isinstance(n, ast.ClassDef)
+                       and any((getattr(b, "attr", None) or getattr(b, "id", ""))
+                               .endswith(("TestCase", "Test"))
+                               for b in n.bases)]
+            self.assertTrue(classes,
+                            "%s: %s defines no TestCase subclass"
+                            % (row["id"], dotted))
             self.assertGreater(body.count("    def test_"), 2, row["id"])
             checked += 1
         self.assertGreater(checked, 30)

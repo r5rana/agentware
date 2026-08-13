@@ -48,13 +48,13 @@ CURATED_ROWS = MERGE_ROWS + [
     _row("docs:roadmap-preserved", "docs_templates",
          "ROADMAP.md preserved byte-identical to aw-pre-merge (the donor deleted "
          "it outright)",
-         LOCAL, 20, "tests.test_docs_union",
+         LOCAL, 20, "tests.gates.test_readme_union",
          "regenerate or drop ROADMAP.md: the byte-identity assertion reddens"),
     _row("docs:readme-union-anchors", "docs_templates",
          "The README as a UNION: this tree's hero, badges, maturity rows, "
          "roadmap and licence sections plus the donor's architecture section and "
          "its not-the-source-of-truth note",
-         BOTH, 20, "tests.test_docs_union",
+         BOTH, 20, "tests.gates.test_readme_union",
          "drop any one of the six local or two donor anchors: the anchor "
          "assertion names the missing one"),
     _row("docs:template-frontmatter-corpus", "docs_templates",
@@ -114,7 +114,7 @@ CURATED_ROWS = MERGE_ROWS + [
     _row("mod:per-function-caps", "modularity",
          "The per-function ceilings (120 lines, 12 branches) — a file cap alone "
          "is insufficient, configcmd.py is 799 lines with 2 defs",
-         BOTH, 68, "tests.test_modularity_negative",
+         BOTH, 68, "tests.gates.test_modularity_negative",
          "add a function over the per-function cap inside a small file: the "
          "negative test must redden on that shape alone"),
     _row("mod:dashboard-package-route-union", "modularity",
@@ -319,7 +319,7 @@ CURATED_ROWS = MERGE_ROWS + [
          "could not fail — _ceiling_gate.py and _modularity_rules.py had no "
          "__main__ at all (running them imported a module and exited 0) and "
          "_manifest_gen.py --check ignored the flag and printed the manifest",
-         LOCAL, 78, "tests.gates.test_ci_workflow",
+         LOCAL, 78, "tests.gates.test_ci_gate_stages",
          "delete a checker's __main__ dispatch, or shrink a declared debt "
          "fixture by one row: arm D fails — the first statically, the second "
          "behaviourally by running the command and demanding rc 1 naming the "
@@ -370,4 +370,22 @@ CURATED_ROWS = MERGE_ROWS + [
          "exemption's witness, or stop naming a required claim: each arm "
          "(A/B/C/D/E/F) must name its own offender on a scratch copy of the "
          "real tree, and the retirement-sentence twin must stay GREEN"),
+    _row("mod:mutation-proof-is-executed", "modularity",
+         "Every curated row's `mutation` is a RUNNABLE probe over a closed "
+         "grammar that the sweep EXECUTES against that row's named test, not a "
+         "sentence checked for being longer than twenty characters — the sweep "
+         "reports STALE-PROBE for a no-op, NOT-REDDENED for an unguarded "
+         "capability and LOAD-ERROR for a mutation that only breaks an import, "
+         "and refuses a probe aimed at the named test itself",
+         LOCAL, 79, "tests.gates.test_parity_sweep",
+         "take one row's probe out of the table: the coverage arm names that "
+         "row rather than passing over a shorter table"),
+    _row("mod:mutation-sweep-runs-in-ci", "modularity",
+         "The sweep is a DECLARED CI stage, so the proof is executed on every "
+         "run rather than the once its author ran it: `--check` in both "
+         "profiles for milliseconds, the full 78-row `--all` in the full "
+         "profile",
+         LOCAL, 79, "tests.gates.test_ci_workflow",
+         "delete the sweep stage from the declared table: the coverage arm "
+         "names it by id rather than passing over a shorter table"),
 ]

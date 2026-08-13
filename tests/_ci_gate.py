@@ -145,6 +145,22 @@ STAGES = tuple(
         # day one for something no contributor introduced. The ledger is
         # shrink-only and may never forgive an `operator_product` finding, so
         # running under it subtracts history without weakening the rule.
+        _stage("parity-probes", "parity mutation probes are runnable",
+               ("python3", "tests/_parity_sweep.py", "--check"),
+               (FULL, BOOTSTRAP),
+               "Task 79: every curated row's mutation is a spec over the closed "
+               "grammar, addressed at a path the tree still has and not at the "
+               "row's own test. Milliseconds, no clone -- it catches a probe "
+               "gone stale from a rename before the sweep spends five minutes "
+               "reporting the same thing as a no-op."),
+        _stage("parity-sweep", "parity mutation sweep (every curated row)",
+               ("python3", "tests/_parity_sweep.py", "--all", "--jobs", "4"),
+               (FULL,),
+               "THE proof behind the parity ledger: each row's mutation is "
+               "applied in a throwaway clone and its named test must go RED. "
+               "Costs ~5 minutes and is worth it -- the first run of this stage "
+               "found eight rows whose named test could not observe the "
+               "capability at all and one capability nothing guarded."),
         _stage("portability", "portability gate (under the debt ratchet)",
                ("python3", "tests/_portability_gate.py", "--debt"), (FULL,),
                "The shipped tree is vendor- and operator-neutral across all "
@@ -187,7 +203,7 @@ STAGES = tuple(
 TASK_COVERAGE = (
     ("the full suite", tuple("suite-" + t for t in SUITE_TIERS)),
     ("the portability gate", ("portability",)),
-    ("the parity gate", ("parity",)),
+    ("the parity gate", ("parity", "parity-probes", "parity-sweep")),
     ("the body differ", ("body-differ",)),
     ("the constant differ", ("constant-differ",)),
     ("the modularity ratchet",

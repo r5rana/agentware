@@ -18,12 +18,24 @@ table — this module is never the published surface, so no gate, no generator a
 no `R-MOD-08` instruction changes path.
 """
 
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+from _parity_mutation_rows import probe_for  # noqa: E402
+
 BOTH = ["donor", "local"]
 DONOR = ["donor"]
 LOCAL = ["local"]
 
 
 def _row(rid, dimension, capability, sides, task, test, mutation, **extra):
+    """One curated row. `mutation` is the SENTENCE; the runnable probe that
+    mechanises it is attached from `_parity_mutation_rows` by row id, so the
+    ledger publishes the claim and its proof as one object while the volatile
+    path-and-literal half lives in its own file (task 79).
+    """
     row = {
         "id": rid,
         "dimension": dimension,
@@ -32,7 +44,8 @@ def _row(rid, dimension, capability, sides, task, test, mutation, **extra):
         "status": extra.pop("status", "required"),
         "verification": "curated",
         "task": task,
-        "evidence": {"test": test, "mutation": mutation},
+        "evidence": {"test": test, "mutation": mutation,
+                     "probe": probe_for(rid)},
     }
     row.update(extra)
     return row
@@ -87,7 +100,7 @@ MERGE_ROWS = [
     _row("retrieval:token-budget-ladder", "retrieval_policy",
          "The committed R-RET-03/R-RET-04 ladder: default token budget 1500 with "
          "a stage-2 escalation to 3000, not the donor's collapsing 10000",
-         BOTH, 49, "tests.unit.retrieval.test_recall",
+         BOTH, 49, "tests.unit.retrieval.test_recall_ladder",
          "raise the default token budget to the donor's 10000: stage 1 and "
          "stage 2 become indistinguishable"),
     _row("retrieval:work-scope-plan-status-multipliers", "retrieval_policy",
@@ -104,7 +117,7 @@ MERGE_ROWS = [
     _row("retrieval:bm25-exact-score-pin", "retrieval_policy",
          "The donor's exact-score BM25 pin — order-based assertions alone let a "
          "mutated K1 or B survive every test in this tree",
-         DONOR, 59, "tests.test_bm25_exact_scores",
+         DONOR, 59, "tests.unit.retrieval.test_bm25_exact_scores",
          "perturb K1 or B by a value that preserves ranking ORDER: the exact "
          "score assertions must still redden"),
 
@@ -130,7 +143,7 @@ MERGE_ROWS = [
     _row("kb:auto-rebuild-once-recovery", "kb_integrity",
          "load_index auto-rebuild-once on a missing or corrupt index, which is "
          "what makes a fresh clone recover instead of hard-failing",
-         LOCAL, 22, "tests.unit.features.test_rebuild",
+         LOCAL, 22, "tests.unit.ops.test_decommit",
          "remove the auto-rebuild-once recovery: a corrupt index stops self-"
          "recovering on load"),
     _row("kb:poisoned-index-list-normalizer", "kb_integrity",
@@ -164,7 +177,7 @@ MERGE_ROWS = [
          "on it"),
     _row("kb:roster-and-injection-lint", "kb_integrity",
          "The donor's roster and injection lint wired into index validate",
-         DONOR, 53, "tests.unit.features.test_skill_roster",
+         DONOR, 53, "tests.integration.test_adopted_capabilities",
          "blank a roster row: index validate must fail rather than pass"),
     _row("kb:pointer-target-guard", "kb_integrity",
          "The knowledge-dir TARGET guard — the only 'is this directory safe to "
@@ -213,7 +226,7 @@ MERGE_ROWS = [
     _row("loop:worklog-marker-regexes-fail-closed", "loop_orchestration",
          "The R-SI-03 marker regexes fail CLOSED: an unpromoted `> LEARNED:` "
          "marker blocks the completion promise (they fail open donor-side)",
-         LOCAL, 45, "tests.integration.test_loop_worklog_gate",
+         LOCAL, 45, "tests.unit.knowledge.test_worklog_promotion",
          "relax a marker regex to the donor form: an unpromoted marker stops "
          "blocking the promise"),
     _row("loop:outcome-value-union", "loop_orchestration",
@@ -243,7 +256,7 @@ MERGE_ROWS = [
     # ----------------------------------------------------------------- org/team
     _row("org:team-inference-from-knowledge-dir", "org_team",
          "Team inference from the knowledge-dir path plus shared-root detection",
-         DONOR, 50, "tests.e2e.test_team_mode_e2e",
+         DONOR, 50, "tests.unit.retrieval.test_org_scoping",
          "return a constant team: a knowledge dir under another team's root "
          "resolves to the wrong shard"),
     _row("org:corpus-scoping-and-shared-precedence", "org_team",
@@ -326,7 +339,7 @@ MERGE_ROWS = [
     _row("sec:scoped-staging-allowlist", "security_trust",
          "The donor's scoped staging allowlist with its 256 KiB blob cap, "
          "converting ALL eight blanket `git add -A` call sites",
-         DONOR, 53, "tests.unit.ops.test_kb_git",
+         DONOR, 53, "tests.unit.ops.test_kb_git_contract",
          "restore a blanket add at any one of the eight sites: one survivor "
          "defeats staging isolation"),
     _row("sec:push-retry-backoff-jitter", "security_trust",
@@ -358,20 +371,20 @@ MERGE_ROWS = [
     _row("dream:race-free-lock", "dream_maintenance",
          "The race-free dream lock critical section, replacing the donor's "
          "read-decide-write TOCTOU",
-         LOCAL, 46, "tests.unit.features.test_dream_min_interval",
+         LOCAL, 46, "tests.integration.test_pkg_state_lock",
          "restore read-decide-write acquisition: a concurrent double-acquire "
          "shows two winners"),
     _row("dream:donor-toctou-lock", "dream_maintenance",
          "The donor's read-decide-write dream lock, replaced by this tree's "
          "atomic critical section",
-         DONOR, 46, "tests.unit.features.test_dream_min_interval",
+         DONOR, 46, "tests.integration.test_pkg_state_lock",
          "restore the donor acquisition: the double-acquire probe shows two "
          "winners",
          status="superseded", superseded_by="dream:race-free-lock"),
     _row("dream:step-registry-package", "dream_maintenance",
          "The donor's dream step PACKAGE — one file per step behind a registry, "
          "which is the destination shape the restored steps land in",
-         DONOR, 21, "tests.test_dream_steps_package",
+         DONOR, 21, "tests.gates.test_module_ceilings",
          "collapse the package back to one module: the per-step file ceiling "
          "stops being enforceable"),
     _row("dream:min-interval-guard", "dream_maintenance",

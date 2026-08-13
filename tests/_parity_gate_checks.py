@@ -160,7 +160,16 @@ def test_module_path(root, dotted):
 
 
 def check_curated(manifest, root, ratchet):
-    """The shrink-only pending ratchet, live in BOTH directions."""
+    """The shrink-only pending ratchet, live in BOTH directions.
+
+    Since task 79 it also STATICALLY validates each row's runnable mutation
+    probe -- its kind, its field set, that the path it names still exists, and
+    that it is not the named test's own file. The sweep proves the probe
+    reddens; this proves the probe still ADDRESSES the tree, in milliseconds,
+    inside the gate CI already runs. A probe naming a moved file would otherwise
+    be discovered only by the sweep, and its no-op reads exactly like a missing
+    capability.
+    """
     bad = []
     pending = set(ratchet.get("pending_verification", []))
     known = {r["id"] for r in manifest["rows"]}
@@ -168,6 +177,7 @@ def check_curated(manifest, root, ratchet):
         if row["verification"] != "curated":
             continue
         dotted = row.get("evidence", {}).get("test")
+        bad.extend(_probe_violations(row, root, dotted))
         if not dotted:
             continue
         resolves = os.path.exists(test_module_path(root, dotted))
@@ -181,6 +191,20 @@ def check_curated(manifest, root, ratchet):
     for rid in sorted(pending - known):
         bad.append("pending_verification lists %s, which is not a row" % rid)
     return bad
+
+
+def _probe_violations(row, root, dotted):
+    """One curated row's mutation probe, checked without running anything."""
+    from _parity_mutations import spec_errors
+    from _parity_sweep import _probe_target_errors
+    spec = row.get("evidence", {}).get("probe")
+    if not spec:
+        return ["row %s carries no runnable mutation probe: its `mutation` is "
+                "prose, and prose cannot refute a parity claim" % row["id"]]
+    errors = spec_errors(spec, row["id"])
+    if errors:
+        return errors
+    return _probe_target_errors(root, row["id"], spec, dotted)
 
 
 def check_ratchet(manifest, ratchet):
