@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "generated_by": "tests/_parity_manifest.py --stamp-ratchet",
-  "stamped_at_head": "ea66a4b8eb80",
+  "stamped_at_head": "a8c6ea0f4cb1",
   "note": "Per-dimension row floors live OUTSIDE the manifest on purpose: a count stored beside the rows it counts is trivially self-consistent, so deleting a row and its count in one edit would leave nothing to compare against. pending_verification is the shrink-only backlog of curated rows whose named test does not exist yet; it may only get shorter.",
   "row_floor": {
     "assets": 20,
     "cli_surface": 130,
-    "docs_templates": 6,
+    "docs_templates": 8,
     "dream_maintenance": 7,
     "env_config": 82,
     "evaluation_quality": 4,
@@ -18,7 +18,7 @@
     "security_trust": 7,
     "test_corpus": 256
   },
-  "total_floor": 554,
+  "total_floor": 556,
   "pending_verification": [
     "docs:readme-union-anchors",
     "docs:roadmap-preserved",

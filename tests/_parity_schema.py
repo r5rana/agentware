@@ -88,6 +88,7 @@ PROBE_KINDS = {
 #: exclusion is visible rather than a silent regex quirk.
 GREP_EXCLUDE_PATHS = (
     "tests/_parity_curated.py",
+    "tests/_parity_merge_rows.py",
     "tests/_parity_manifest.py",
     "tests/_parity_schema.py",
     "tests/fixtures/parity-manifest.json",
@@ -322,7 +323,7 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor carries a decision template, declared "
                                  "frontmatter on every template, an architecture "
                                  "README section and the artifact capture standard"),
-        "plan_tasks": [20, 51, 61, 74],
+        "plan_tasks": [20, 51, 61, 74, 75],
     },
     {
         "name": "evaluation_quality",

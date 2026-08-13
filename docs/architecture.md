@@ -483,6 +483,12 @@ emits a compliant unit and all its hand-maintained wiring, then runs the two
 generators; `agentware scaffold check` audits an already-written unit and is
 usable in CI. Read §9 for what each of its five checks means.
 
+> **The worked version of this section is [`docs/add-a-feature.md`](add-a-feature.md)**
+> — the same recipes as real commands in order, a shorter path for extending an
+> existing verb, and a troubleshooting entry for every gate that can reject a
+> change. It is executed end to end by
+> `tests/e2e/test_add_a_feature_walkthrough.py`, so its commands cannot rot.
+
 ### (i) Add a SUBCOMMAND (a new top-level verb)
 
 1. In the OWNING module `scripts/agentware_lib/<layer>/<mod>.py`, define
@@ -536,11 +542,22 @@ owner propagates to every consumer.
 
 A symbol used as a **default-arg value** cannot be lazily imported (defaults
 evaluate at import time), so it must live in a module importable at module level
-from its user. Two stdlib AST/bytecode gates enforce it:
+from its user — which makes it the one case where §3's function-local escape
+hatch is unavailable, and the reason a default-arg symbol belongs in a layer
+BELOW its user rather than beside it.
+
+The two stdlib AST/bytecode checkers that enforced this in the donor tree
+(`_ast_forward_edges`, `_global_resolve`) were **never ported** — they are named
+in `tests/fixtures/staging-manifest.json` and in two module docstrings that
+predate the merge, and nothing in this tree runs them. What holds the rule here
+today is narrower and worth knowing exactly: the layer-direction arm of
+`python3 tests/_modularity_rules.py` (a module-level upward import is a failure
+wherever it comes from, default-arg or not), plus the import-time failure itself,
+which is loud. A lazily-imported symbol used as a default value raises
+`NameError` on the first import of its module, so it cannot reach a green suite.
 
 ```bash
-python3 tests/_ast_forward_edges.py scripts/agentware $(find scripts/agentware_lib -name '*.py')
-python3 tests/_global_resolve.py   scripts/agentware $(find scripts/agentware_lib -name '*.py')
+python3 tests/_modularity_rules.py
 ```
 
 ### (v) Recipes for the non-subcommand extension points

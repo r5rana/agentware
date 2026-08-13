@@ -34,11 +34,11 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 554,
+    "rows": 556,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
-      "docs_templates": 6,
+      "docs_templates": 8,
       "dream_maintenance": 7,
       "env_config": 82,
       "evaluation_quality": 4,
@@ -51,13 +51,13 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 545,
+      "required": 547,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 67,
+      "curated": 69,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -248,7 +248,8 @@
         20,
         51,
         61,
-        74
+        74,
+        75
       ]
     },
     {
@@ -1898,6 +1899,21 @@
       "verification": "generated"
     },
     {
+      "id": "docs:add-a-feature-walkthrough",
+      "dimension": "docs_templates",
+      "capability": "The worked add-a-feature walkthrough and its structural gate: a verb taken from nothing to green in the real commands in order, a shorter path for extending an existing verb, and a troubleshooting entry naming every gate that can reject a change with what its message means and how to clear it \u2014 gated so a named gate that does not exist, a required gate with no row, a row with an empty fix column and a `python3 tests/_x.py` command naming a missing checker are each a failure",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 75,
+      "evidence": {
+        "test": "tests.gates.test_doc_walkthrough",
+        "mutation": "rename a named gate to a path that does not exist, delete a required gate's row, blank a row's fix column, add a runnable block naming a dead verb or a ghost checker, or change a `norun:` reason to one outside the declared allowlist: each arm (A/B/C/D/E) must name its own offender on a scratch copy of the real tree"
+      }
+    },
+    {
       "id": "docs:architecture-extensibility",
       "dimension": "docs_templates",
       "capability": "The contributor ARCHITECTURE doc and its runnable R-DATA-01 gate: the module map, the layer contract and its rationale, the `__verbs__` registration mechanism, the ceiling table, the gate table, a recipe per non-subcommand extension point and the shared-file chokepoints with their mitigations \u2014 with the map, the layer table and the ceiling table RENDERED from catalog/modules.json between managed markers, so the documentation cannot drift from the manifest by a hand edit on either side",
@@ -1986,6 +2002,21 @@
       "evidence": {
         "test": "tests.unit.knowledge.test_templates_lint",
         "mutation": "remove a required field from any template: the linter must redden naming the field"
+      }
+    },
+    {
+      "id": "docs:walkthrough-is-executed",
+      "dimension": "docs_templates",
+      "capability": "The walkthrough is EXECUTABLE, not merely proofread: every command block is run in a scratch checkout in document order and its exit code read, every quoted `-`/`+` hunk must match the live tree exactly once, and the only blocks exempt from execution are the two carrying a declared reason (the suite cannot run itself; the R-PKG chain records baselines and reads the operator's knowledge dir)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 75,
+      "evidence": {
+        "test": "tests.e2e.test_add_a_feature_walkthrough",
+        "mutation": "break any command in the document, or quote a line the tree no longer holds: the run reddens naming the block's line number \u2014 proven live by planting a bad flag on the third of five generator lines (caught only because the runner prepends `set -e`) and by a hunk quoting a stale pin value"
       }
     },
     {

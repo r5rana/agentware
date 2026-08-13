@@ -1605,6 +1605,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_parity_merge_rows.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_parity_schema.py"
     },
     {
@@ -1680,12 +1685,22 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_walkthrough_check.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_whereami_gate.py"
     },
     {
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/e2e/__init__.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/e2e/test_add_a_feature_walkthrough.py"
     },
     {
       "layer": "tests",
@@ -1821,6 +1836,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_doc_architecture.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_doc_walkthrough.py"
     },
     {
       "layer": "tests",

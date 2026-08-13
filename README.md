@@ -171,7 +171,7 @@ Nothing personal is ever committed: the repo is **pure steering**, and your know
 
 The toolkit guarantees *how* knowledge is written; the agent decides *what*. Retrieval is byte-identical (no LLM/RNG/network/wall-clock in ranking), proven by guard tests: `test_recall_json_is_byte_identical_across_runs`, `test_cli_imports_are_stdlib_only`, `test_recall_leaves_entire_kb_tree_unchanged` (`tests/gates/test_invariants.py`).
 
-Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](docs/loop.md) · rationale: [docs/methodology.md](docs/methodology.md) · changing agentware itself: [docs/architecture.md](docs/architecture.md).
+Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](docs/loop.md) · rationale: [docs/methodology.md](docs/methodology.md) · changing agentware itself: [docs/architecture.md](docs/architecture.md) · adding a feature step by step: [docs/add-a-feature.md](docs/add-a-feature.md).
 
 ---
 

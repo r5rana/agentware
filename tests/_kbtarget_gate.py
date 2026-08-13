@@ -76,9 +76,9 @@ RETIRED_REL = os.path.join(LIB_REL, "features", RETIRED_STEM + ".py")
 #: live regression, and `_assert_no_package_path` enforces that in code so a
 #: future author cannot quiet a real reintroduction by adding a row.
 RETIRED_NAME_RECORDS = {
-    "tests/_parity_curated.py": "task 79 — the curated parity row that RECORDS "
-                                "the retirement as an excluded capability; the "
-                                "row must name what was excluded to be auditable",
+    "tests/_parity_merge_rows.py": "task 79 — the curated row RECORDING "
+                                   "the retirement as an excluded "
+                                   "capability; it must name what went",
     "tests/_parity_manifest.py": "task 79 — same row, in the manifest builder",
     "tests/baselines/baseline-donor.json": "task 58 — the task-5 donor test "
                                            "baseline, a capture at a pinned "
