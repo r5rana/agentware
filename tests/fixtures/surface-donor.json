@@ -1,0 +1,4784 @@
+{
+  "schema_version": 1,
+  "label": "donor",
+  "root": "/tmp/aw-scratch/Agentware",
+  "git_head": "745cc34",
+  "python": "3.13",
+  "counting_convention": {
+    "node": "one ArgumentParser: the root plus every reachable subparser",
+    "action_excludes": [
+      "_HelpAction",
+      "_SubParsersAction"
+    ],
+    "action_fields": [
+      "kind",
+      "dest",
+      "option_strings",
+      "required",
+      "nargs",
+      "default",
+      "choices",
+      "type"
+    ],
+    "prose_recorded": false
+  },
+  "counts": {
+    "nodes": 80,
+    "actions": 301,
+    "top_level_verbs": 33
+  },
+  "top_level_verbs": [
+    "attach",
+    "audit",
+    "bench",
+    "config",
+    "dashboard",
+    "decide",
+    "dream",
+    "eval",
+    "fanout",
+    "features",
+    "fleet",
+    "fleet-emit",
+    "gate",
+    "index",
+    "ingest",
+    "init",
+    "kb-git",
+    "learn",
+    "mcp",
+    "metrics",
+    "org",
+    "plan",
+    "profile",
+    "query",
+    "recall",
+    "skill",
+    "steering",
+    "team",
+    "templates",
+    "update",
+    "whereami",
+    "work",
+    "worklog"
+  ],
+  "nodes": [
+    {
+      "path": [],
+      "depth": 0,
+      "subcommand_dest": "command",
+      "subcommands": [
+        "init",
+        "config",
+        "profile",
+        "attach",
+        "index",
+        "skill",
+        "update",
+        "query",
+        "learn",
+        "decide",
+        "ingest",
+        "features",
+        "worklog",
+        "work",
+        "audit",
+        "recall",
+        "mcp",
+        "eval",
+        "bench",
+        "metrics",
+        "fleet",
+        "fleet-emit",
+        "team",
+        "dashboard",
+        "dream",
+        "kb-git",
+        "steering",
+        "org",
+        "templates",
+        "gate",
+        "whereami",
+        "plan",
+        "fanout"
+      ],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "init"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "knowledge_dir",
+          "option_strings": [
+            "--knowledge-dir"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "force",
+          "option_strings": [
+            "--force"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "config"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "knowledge_dir_only",
+          "option_strings": [
+            "--knowledge-dir-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_knowledge_dir",
+          "option_strings": [
+            "--set-knowledge-dir"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_org_root",
+          "option_strings": [
+            "--set-org-root"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_team",
+          "option_strings": [
+            "--set-team"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_org_package",
+          "option_strings": [
+            "--set-org-package"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "unset_knowledge_dir",
+          "option_strings": [
+            "--unset-knowledge-dir"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "kb_autocommit_only",
+          "option_strings": [
+            "--kb-autocommit-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_autocommit",
+          "option_strings": [
+            "--set-autocommit"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "kb_push_only",
+          "option_strings": [
+            "--kb-push-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_push",
+          "option_strings": [
+            "--set-push"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "retrieval_mode_only",
+          "option_strings": [
+            "--retrieval-mode-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_mode",
+          "option_strings": [
+            "--set-mode"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_retrieval",
+          "option_strings": [
+            "--set-retrieval"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_embedder",
+          "option_strings": [
+            "--set-embedder"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "embedder_only",
+          "option_strings": [
+            "--embedder-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_embed_model",
+          "option_strings": [
+            "--set-embed-model"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "embed_model_only",
+          "option_strings": [
+            "--embed-model-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "kb_mode_only",
+          "option_strings": [
+            "--kb-mode-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_kb_mode",
+          "option_strings": [
+            "--set-kb-mode"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "cli_only",
+          "option_strings": [
+            "--cli-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_cli",
+          "option_strings": [
+            "--set-cli"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_pre_cli",
+          "option_strings": [
+            "--set-pre-cli"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "pre_cli_only",
+          "option_strings": [
+            "--pre-cli-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_pre_model",
+          "option_strings": [
+            "--set-pre-model"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "pre_model_only",
+          "option_strings": [
+            "--pre-model-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_pre_local",
+          "option_strings": [
+            "--set-pre-local"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "pre_local_only",
+          "option_strings": [
+            "--pre-local-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_main_cli",
+          "option_strings": [
+            "--set-main-cli"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "main_cli_only",
+          "option_strings": [
+            "--main-cli-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_main_model",
+          "option_strings": [
+            "--set-main-model"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "main_model_only",
+          "option_strings": [
+            "--main-model-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_main_local",
+          "option_strings": [
+            "--set-main-local"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "main_local_only",
+          "option_strings": [
+            "--main-local-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_post_cli",
+          "option_strings": [
+            "--set-post-cli"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "post_cli_only",
+          "option_strings": [
+            "--post-cli-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_post_model",
+          "option_strings": [
+            "--set-post-model"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "post_model_only",
+          "option_strings": [
+            "--post-model-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_post_local",
+          "option_strings": [
+            "--set-post-local"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "post_local_only",
+          "option_strings": [
+            "--post-local-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "user_handle_only",
+          "option_strings": [
+            "--user-handle-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_user_handle",
+          "option_strings": [
+            "--set-user-handle"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "record_onboarding",
+          "option_strings": [
+            "--record-onboarding"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "skill_propose_threshold_only",
+          "option_strings": [
+            "--skill-propose-threshold-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_skill_propose_threshold",
+          "option_strings": [
+            "--set-skill-propose-threshold"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dream_only",
+          "option_strings": [
+            "--dream-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_dream",
+          "option_strings": [
+            "--set-dream"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dream_schedule_only",
+          "option_strings": [
+            "--dream-schedule-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_dream_schedule",
+          "option_strings": [
+            "--set-dream-schedule"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dream_max_runtime_only",
+          "option_strings": [
+            "--dream-max-runtime-only"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "set_dream_max_runtime",
+          "option_strings": [
+            "--set-dream-max-runtime"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "profile"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "handle",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "attach"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "migrate",
+          "option_strings": [
+            "--migrate"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "index"
+      ],
+      "depth": 1,
+      "subcommand_dest": "index_command",
+      "subcommands": [
+        "add",
+        "remove",
+        "validate",
+        "sync",
+        "migrate-frontmatter",
+        "rebuild"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "index",
+        "add"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "id",
+          "option_strings": [
+            "--id"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "title",
+          "option_strings": [
+            "--title"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "category",
+          "option_strings": [
+            "--category"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tags",
+          "option_strings": [
+            "--tags"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "summary",
+          "option_strings": [
+            "--summary"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "created",
+          "option_strings": [
+            "--created"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "last_verified",
+          "option_strings": [
+            "--last-verified"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "index",
+        "remove"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "id",
+          "option_strings": [
+            "--id"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "index",
+        "validate"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "index",
+        "sync"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "fix",
+          "option_strings": [
+            "--fix"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "index",
+        "migrate-frontmatter"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "index",
+        "rebuild"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill"
+      ],
+      "depth": 1,
+      "subcommand_dest": "skill_command",
+      "subcommands": [
+        "list",
+        "search",
+        "validate",
+        "add",
+        "remove",
+        "roster-injectable",
+        "propose",
+        "proposals",
+        "promote"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "skill",
+        "list"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "category",
+          "option_strings": [
+            "--category"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "search"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "query",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "validate"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "name",
+          "option_strings": [
+            "--name"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "source",
+          "option_strings": [
+            "--source"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "add"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "name",
+          "option_strings": [],
+          "required": false,
+          "nargs": "?",
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "source",
+          "option_strings": [
+            "--source"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "allow_external",
+          "option_strings": [
+            "--allow-external"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "harness_path",
+          "option_strings": [
+            "--harness-path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "remove"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "name",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "keep_files",
+          "option_strings": [
+            "--keep-files"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "roster-injectable"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "propose"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "slug",
+          "option_strings": [
+            "--slug"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "ref",
+          "option_strings": [
+            "--ref"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "body",
+          "option_strings": [
+            "--body"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "run",
+          "option_strings": [
+            "--run"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "worklog_line",
+          "option_strings": [
+            "--worklog-line"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "to_shared",
+          "option_strings": [
+            "--to-shared"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "proposals"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "ripe",
+          "option_strings": [
+            "--ripe"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "skill",
+        "promote"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "slug",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "reviewed_by",
+          "option_strings": [
+            "--reviewed-by"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "update"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "check",
+          "option_strings": [
+            "--check"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "catalog",
+          "option_strings": [
+            "--catalog"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "query"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "id",
+          "option_strings": [
+            "--id"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "category",
+          "option_strings": [
+            "--category"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tag",
+          "option_strings": [
+            "--tag"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "depends_on",
+          "option_strings": [
+            "--depends-on"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "impact",
+          "option_strings": [
+            "--impact"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "relates",
+          "option_strings": [
+            "--relates"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "depth",
+          "option_strings": [
+            "--depth"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 1,
+          "choices": null,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "path": [
+        "learn"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "topic",
+          "option_strings": [
+            "--topic"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "summary",
+          "option_strings": [
+            "--summary"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tags",
+          "option_strings": [
+            "--tags"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "content",
+          "option_strings": [
+            "--content"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "author",
+          "option_strings": [
+            "--author"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "source",
+          "option_strings": [
+            "--source"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "to_shared",
+          "option_strings": [
+            "--to-shared"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "decide"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "topic",
+          "option_strings": [
+            "--topic"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "summary",
+          "option_strings": [
+            "--summary"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "options",
+          "option_strings": [
+            "--options"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "choice",
+          "option_strings": [
+            "--choice"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "rationale",
+          "option_strings": [
+            "--rationale"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "reversible",
+          "option_strings": [
+            "--reversible"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tags",
+          "option_strings": [
+            "--tags"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "author",
+          "option_strings": [
+            "--author"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "to_shared",
+          "option_strings": [
+            "--to-shared"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "ingest"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "source",
+          "option_strings": [
+            "--source"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": [
+            "docs",
+            "github-issues"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tags",
+          "option_strings": [
+            "--tags"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "only",
+          "option_strings": [
+            "--only"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "commit",
+          "option_strings": [
+            "--commit"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "features"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "worklog"
+      ],
+      "depth": 1,
+      "subcommand_dest": "worklog_command",
+      "subcommands": [
+        "scan"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "worklog",
+        "scan"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "work"
+      ],
+      "depth": 1,
+      "subcommand_dest": "work_command",
+      "subcommands": [
+        "stamp"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "work",
+        "stamp"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "author",
+          "option_strings": [
+            "--author"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "frontmatter",
+          "option_strings": [
+            "--frontmatter"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "audit"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "with_tests",
+          "option_strings": [
+            "--with-tests"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "stale",
+          "option_strings": [
+            "--stale"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "max_age_days",
+          "option_strings": [
+            "--max-age-days"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 120,
+          "choices": null,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "path": [
+        "recall"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "query",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "top_k",
+          "option_strings": [
+            "--top-k"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 5,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "token_budget",
+          "option_strings": [
+            "--token-budget"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 10000,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "category",
+          "option_strings": [
+            "--category"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "strategy",
+          "option_strings": [
+            "--strategy"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": [
+            "bm25",
+            "bm25+acr"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreConstAction",
+          "dest": "strategy",
+          "option_strings": [
+            "--acr"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "as_of",
+          "option_strings": [
+            "--as-of"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "scope",
+          "option_strings": [
+            "--scope"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": [
+            "curated",
+            "work",
+            "all",
+            "shared"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "team",
+          "option_strings": [
+            "--team"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "all_teams",
+          "option_strings": [
+            "--all-teams"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "include_shared",
+          "option_strings": [
+            "--include-shared"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "mcp"
+      ],
+      "depth": 1,
+      "subcommand_dest": "mcp_command",
+      "subcommands": [
+        "serve"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "mcp",
+        "serve"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": []
+    },
+    {
+      "path": [
+        "eval"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "gold",
+          "option_strings": [
+            "--gold"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "suite",
+          "option_strings": [
+            "--suite"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": [
+            "longmemeval",
+            "gold-fixture"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "dataset",
+          "option_strings": [
+            "--dataset"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "limit",
+          "option_strings": [
+            "--limit"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "top_k",
+          "option_strings": [
+            "--top-k"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 5,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "strategy",
+          "option_strings": [
+            "--strategy"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "tag",
+          "choices": [
+            "tag",
+            "bm25",
+            "bm25+acr",
+            "bm25+embed"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "ablate",
+          "option_strings": [
+            "--ablate"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "baseline",
+          "option_strings": [
+            "--baseline"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "tag",
+          "choices": [
+            "tag",
+            "bm25",
+            "bm25+acr",
+            "bm25+embed"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "treatment",
+          "option_strings": [
+            "--treatment"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "bm25",
+          "choices": [
+            "tag",
+            "bm25",
+            "bm25+acr",
+            "bm25+embed"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "record",
+          "option_strings": [
+            "--record"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "gate",
+          "option_strings": [
+            "--gate"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "ab",
+          "option_strings": [
+            "--ab"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tolerance",
+          "option_strings": [
+            "--tolerance"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0.02,
+          "choices": null,
+          "type": "float"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "as_of",
+          "option_strings": [
+            "--as-of"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "acr_gate",
+          "option_strings": [
+            "--acr-gate"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "acr_margin",
+          "option_strings": [
+            "--acr-margin"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0.01,
+          "choices": null,
+          "type": "float"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "acr_alpha",
+          "option_strings": [
+            "--acr-alpha"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0.05,
+          "choices": null,
+          "type": "float"
+        }
+      ]
+    },
+    {
+      "path": [
+        "bench"
+      ],
+      "depth": 1,
+      "subcommand_dest": "bench_command",
+      "subcommands": [
+        "scorecard",
+        "redact",
+        "swe",
+        "lint"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "bench",
+        "scorecard"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": []
+    },
+    {
+      "path": [
+        "bench",
+        "redact"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [],
+          "required": false,
+          "nargs": "?",
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "bench",
+        "swe"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "suite",
+          "option_strings": [
+            "--suite"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "seeds",
+          "option_strings": [
+            "--seeds"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 5,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "arms",
+          "option_strings": [
+            "--arms"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "with-context,no-context",
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dry_run",
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "bench",
+        "lint"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "min_coverage",
+          "option_strings": [
+            "--min-coverage"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0.25,
+          "choices": null,
+          "type": "float"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "metrics"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "session",
+          "option_strings": [
+            "--session"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "feature",
+          "option_strings": [
+            "--feature"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "since",
+          "option_strings": [
+            "--since"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "prices",
+          "option_strings": [
+            "--prices"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "context_window",
+          "option_strings": [
+            "--context-window"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "path": [
+        "fleet"
+      ],
+      "depth": 1,
+      "subcommand_dest": "fleet_cmd",
+      "subcommands": [
+        "issues",
+        "impact"
+      ],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fleet",
+        "issues"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "since",
+          "option_strings": [
+            "--since"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "team",
+          "option_strings": [
+            "--team"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fleet",
+        "impact"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "since",
+          "option_strings": [
+            "--since"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "team",
+          "option_strings": [
+            "--team"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fleet-emit"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "outcome",
+          "option_strings": [
+            "--outcome"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "unknown",
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "feature",
+          "option_strings": [
+            "--feature"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "",
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "ts",
+          "option_strings": [
+            "--ts"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "steering_sha",
+          "option_strings": [
+            "--steering-sha"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "iterations_used",
+          "option_strings": [
+            "--iterations-used"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "max",
+          "option_strings": [
+            "--max"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tasks_total",
+          "option_strings": [
+            "--tasks-total"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tasks_done",
+          "option_strings": [
+            "--tasks-done"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "promise_status",
+          "option_strings": [
+            "--promise-status"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "unknown",
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "team"
+      ],
+      "depth": 1,
+      "subcommand_dest": "team_cmd",
+      "subcommands": [
+        "list",
+        "create",
+        "register"
+      ],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "team",
+        "list"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "team",
+        "create"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "name",
+          "option_strings": [
+            "--name"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "handle",
+          "option_strings": [
+            "--handle"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreFalseAction",
+          "dest": "set_default",
+          "option_strings": [
+            "--no-set-default"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": true,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "team",
+        "register"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "name",
+          "option_strings": [
+            "--name"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "handle",
+          "option_strings": [
+            "--handle"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreFalseAction",
+          "dest": "set_default",
+          "option_strings": [
+            "--no-set-default"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": true,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "dashboard"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "port",
+          "option_strings": [
+            "--port"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 8765,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "host",
+          "option_strings": [
+            "--host"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "127.0.0.1",
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "no_open",
+          "option_strings": [
+            "--no-open"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "dream"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dry_run",
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "steps",
+          "option_strings": [
+            "--steps"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "force",
+          "option_strings": [
+            "--force"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "install_schedule",
+          "option_strings": [
+            "--install-schedule"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "uninstall_schedule",
+          "option_strings": [
+            "--uninstall-schedule"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "kb-git"
+      ],
+      "depth": 1,
+      "subcommand_dest": "kb_git_command",
+      "subcommands": [
+        "status",
+        "commit",
+        "pull",
+        "push",
+        "merge-continue"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "kb-git",
+        "status"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "kb-git",
+        "commit"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tag",
+          "option_strings": [
+            "--tag"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "type",
+          "option_strings": [
+            "--type"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "chore",
+          "choices": [
+            "feat",
+            "chore"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "message",
+          "option_strings": [
+            "--message"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "kb-git",
+        "pull"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "kb-git",
+        "push"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "on_prose_conflict",
+          "option_strings": [
+            "--on-prose-conflict"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "abort",
+          "choices": [
+            "abort",
+            "pause"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "max_retries",
+          "option_strings": [
+            "--max-retries"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 3,
+          "choices": null,
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "path": [
+        "kb-git",
+        "merge-continue"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "steering"
+      ],
+      "depth": 1,
+      "subcommand_dest": "steering_command",
+      "subcommands": [
+        "lint"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "steering",
+        "lint"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "strict",
+          "option_strings": [
+            "--strict"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "org"
+      ],
+      "depth": 1,
+      "subcommand_dest": "org_command",
+      "subcommands": [
+        "lint"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "org",
+        "lint"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "strict",
+          "option_strings": [
+            "--strict"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "templates"
+      ],
+      "depth": 1,
+      "subcommand_dest": "templates_command",
+      "subcommands": [
+        "lint"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "templates",
+        "lint"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "strict",
+          "option_strings": [
+            "--strict"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "gate"
+      ],
+      "depth": 1,
+      "subcommand_dest": "gate_command",
+      "subcommands": [
+        "release"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "gate",
+        "release"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "full",
+          "option_strings": [
+            "--full"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "tolerance",
+          "option_strings": [
+            "--tolerance"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 0.02,
+          "choices": null,
+          "type": "float"
+        }
+      ]
+    },
+    {
+      "path": [
+        "whereami"
+      ],
+      "depth": 1,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "dir",
+          "option_strings": [
+            "--dir"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "plan"
+      ],
+      "depth": 1,
+      "subcommand_dest": "plan_command",
+      "subcommands": [
+        "lint",
+        "new",
+        "add-task",
+        "set-status",
+        "target-dirs"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "plan",
+        "lint"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "strict",
+          "option_strings": [
+            "--strict"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "plan",
+        "new"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "feature",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "title",
+          "option_strings": [
+            "--title"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "max_iterations",
+          "option_strings": [
+            "--max-iterations"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": 30,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "self_extension",
+          "option_strings": [
+            "--self-extension"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "force",
+          "option_strings": [
+            "--force"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "author",
+          "option_strings": [
+            "--author"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "plan",
+        "add-task"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "feature",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "description",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "verify",
+          "option_strings": [
+            "--verify"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "e2e",
+          "option_strings": [
+            "--e2e"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "kb",
+          "option_strings": [
+            "--kb"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "plan",
+        "set-status"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "feature",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "number",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": "int"
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "status",
+          "option_strings": [],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": [
+            "todo",
+            "wip",
+            "done"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "plan",
+        "target-dirs"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fanout"
+      ],
+      "depth": 1,
+      "subcommand_dest": "fanout_command",
+      "subcommands": [
+        "spin-up",
+        "list",
+        "merge-policy",
+        "merge-queue",
+        "teardown"
+      ],
+      "actions": []
+    },
+    {
+      "path": [
+        "fanout",
+        "spin-up"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "features",
+          "option_strings": [],
+          "required": true,
+          "nargs": "+",
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "base",
+          "option_strings": [
+            "--base"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "kb_base",
+          "option_strings": [
+            "--kb-base"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "repo",
+          "option_strings": [
+            "--repo"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "kb_repo",
+          "option_strings": [
+            "--kb-repo"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dry_run",
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fanout",
+        "list"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fanout",
+        "merge-policy"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "kb",
+          "option_strings": [
+            "--kb"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fanout",
+        "merge-queue"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "features",
+          "option_strings": [],
+          "required": false,
+          "nargs": "*",
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "repo",
+          "option_strings": [
+            "--repo"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "kb_repo",
+          "option_strings": [
+            "--kb-repo"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "integration_branch",
+          "option_strings": [
+            "--integration-branch"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "base",
+          "option_strings": [
+            "--base"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "kb_base",
+          "option_strings": [
+            "--kb-base"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_AppendAction",
+          "dest": "gate",
+          "option_strings": [
+            "--gate"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "no_gates",
+          "option_strings": [
+            "--no-gates"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dry_run",
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    },
+    {
+      "path": [
+        "fanout",
+        "teardown"
+      ],
+      "depth": 2,
+      "subcommand_dest": null,
+      "subcommands": [],
+      "actions": [
+        {
+          "kind": "_StoreAction",
+          "dest": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": "text",
+          "choices": [
+            "text",
+            "json"
+          ],
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "features",
+          "option_strings": [],
+          "required": true,
+          "nargs": "+",
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "repo",
+          "option_strings": [
+            "--repo"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "kb_repo",
+          "option_strings": [
+            "--kb-repo"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreAction",
+          "dest": "integration_branch",
+          "option_strings": [
+            "--integration-branch"
+          ],
+          "required": false,
+          "nargs": null,
+          "default": null,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "force",
+          "option_strings": [
+            "--force"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        },
+        {
+          "kind": "_StoreTrueAction",
+          "dest": "dry_run",
+          "option_strings": [
+            "--dry-run"
+          ],
+          "required": false,
+          "nargs": 0,
+          "default": false,
+          "choices": null,
+          "type": null
+        }
+      ]
+    }
+  ]
+}
