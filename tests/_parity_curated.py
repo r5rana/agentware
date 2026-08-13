@@ -468,13 +468,13 @@ CURATED_ROWS = [
     _row("mod:lib-decomposition", "modularity",
          "The agentware_lib decomposition itself: a facade plus ~70 modules "
          "under the layer contract, replacing the 34,792-line monolith",
-         DONOR, 25, "tests.test_module_manifest",
+         DONOR, 25, "tests.gates.test_module_manifest",
          "add a file under the lib with no manifest entry: the completeness "
          "check must redden"),
     _row("mod:module-manifest-catalog", "modularity",
          "The generated module manifest (catalog/modules.json) as the "
          "completeness gate over every file on disk",
-         DONOR, 67, "tests.test_module_manifest",
+         DONOR, 67, "tests.gates.test_module_manifest",
          "regenerate the manifest twice: the second run must produce no diff"),
     _row("mod:per-function-caps", "modularity",
          "The per-function ceilings (120 lines, 12 branches) — a file cap alone "

@@ -1,0 +1,685 @@
+{
+  "schema": "agentware/manifest-static@1",
+  "note": "STATIC routing knowledge carried by catalog/modules.json but NOT derived from the filesystem: the ambiguous-term disambiguation table and the target module layout. Both name modules that may not exist yet, so R-DATA-01's filesystem validation applies to the generated `modules`/`files` arrays and never to these. Held here rather than as a Python literal in tests/_manifest_gen.py so the generator stays inside the 600-line tests/** ceiling it exists to enforce.",
+  "naming_disambiguation": {
+    "SWE suites": "agentware_lib.retrieval.bench",
+    "audit checks": "agentware_lib.ops.audit",
+    "dream journal / metric / output": "agentware_lib.features.dreamjournal",
+    "dream maintenance steps / step registry": "agentware_lib.features.dreamsteps",
+    "eval gate": "agentware_lib.retrieval.evaluate",
+    "index CRUD": "agentware_lib.knowledge.index",
+    "index command handlers": "agentware_lib.features.indexcmd",
+    "index rebuild": "agentware_lib.knowledge.index",
+    "learn / decide / ingest / features writers": "agentware_lib.knowledge.curation",
+    "learn / decide command handlers": "agentware_lib.features.curationcmd",
+    "ledger gate": "agentware_lib.retrieval.evaluate",
+    "loop analytics / trace / alerts": "agentware_lib.ops.loopview",
+    "metrics command / dashboard": "agentware_lib.ops.metricscmd",
+    "org lint": "agentware_lib.ops.orglint",
+    "package self-update command": "agentware_lib.features.updatecmd",
+    "plan authoring": "agentware_lib.ops.planauthor",
+    "plan lint": "agentware_lib.ops.planlint",
+    "release gate": "agentware_lib.ops.releasegate",
+    "session parsing + aggregation": "agentware_lib.ops.metrics",
+    "steering lint": "agentware_lib.ops.steering",
+    "template lint": "agentware_lib.ops.fleet",
+    "work stamp": "agentware_lib.ops.planauthor"
+  },
+  "planned_layout": [
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.paths",
+      "owns": "REPO_ROOT marker-walk + CLI_SELF"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.kblayout",
+      "owns": "KB on-disk layout: .initialized sentinel + MAIN.md/index.json names + .gitignore scaffold + non-indexed dirs + the kb_pointable target guard"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.orgkeys",
+      "owns": "org-mode env key resolution"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.orgidentity",
+      "owns": "project identity from standard marker files"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.projectcontext",
+      "owns": "marker-driven project/repo context resolution (whereami)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.dates",
+      "owns": "calendar-date primitives (_today + _is_valid_date)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config",
+      "owns": "config.env read/resolve + knowledge-dir precedence (AGGREGATOR package; the five rows below own the behaviour)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configkeys",
+      "owns": "the config.env locations + every settings key, default and token set"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configvalidate",
+      "owns": "the lenient + strict config value parsers"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configresolve",
+      "owns": "the env -> config.env (HOME->REPO) -> default resolution precedence"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configwrite",
+      "owns": "the config.env writers (_set/_unset/_write/_persisted)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.orgresolve",
+      "owns": "org root/team/project resolution + org path inference"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.routing",
+      "owns": "workspace/package routing resolvers"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.gitio",
+      "owns": "low-level git runners (_git, _git_capture)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.frontmatter",
+      "owns": "YAML frontmatter parse/emit"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index",
+      "owns": "index.json CRUD/validate/rebuild + graph (AGGREGATOR package; the four rows below own the behaviour)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexread",
+      "owns": "KB-layout constants, knowledge-dir-relative path helpers, load_index/entry_last_verified/indexed_paths/parse_tags"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexwrite",
+      "owns": "save_index (the fingerprint-drop rule), the (category, id) ordering + tag-map mutators, and the shared add core"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexlock",
+      "owns": "the same-host index mutation lock (_index_lock): reentrant depth counter + per-knowledge-dir threading.RLock + fcntl.flock sidecar, wrapped around every load_index -> mutate -> save_index"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexvalidate",
+      "owns": "validate_index (its error ORDERING is a byte contract), derived-roster rendering + injection lint, and the knowledge validators"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexrebuild",
+      "owns": "the entry-file scan/inference and the KB-rebuild orchestrators build_index_from_frontmatter + rebuild_kb"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.attach",
+      "owns": "attach entries to the index"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.graph",
+      "owns": "relates-to graph over indexed entries"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.privacy",
+      "owns": "privacy scrubbing of KB content"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.ingest",
+      "owns": "ingest external docs into the KB"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation",
+      "owns": "learn/decide/ingest/features writers (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationrender",
+      "owns": "the entry RENDERERS (_render_learning/_render_decision_body) and the title/slug string helpers"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationingest",
+      "owns": "the whole ingest PIPELINE: the source adapters, candidate extraction, validation, fingerprint dedup, staging write, metric emit and cmd_ingest"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationfeatures",
+      "owns": "the FEATURES.md derivation (_render_features + cmd_features)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.proposals",
+      "owns": "read-only skill-proposal ledger reads + integrity guard (proposal_integrity_errors folded into index validate)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.skillentry",
+      "owns": "the skill <-> index ENTRY seam: the two lock-wrapped index read-modify-writes the `skill` verb performs, plus the shared id/summary/tag derivation"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.worklog",
+      "owns": "the R-SI-03/R-AUTO-05 worklog-scan completion gate: LEARNED/DECISION promotion resolution + cmd_worklog_scan"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.corpus",
+      "owns": "corpus assembly for retrieval"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bm25",
+      "owns": "tokenize + BM25 scoring"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.hybrid",
+      "owns": "RRF hybrid fusion"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.vectorcache",
+      "owns": "embedder + vector cache"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.acr",
+      "owns": "ACR adaptive context ranking"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.skillpin",
+      "owns": "skill-precedence pinning in recall"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.metrics_rank",
+      "owns": "ranking metrics (nDCG/MRR)"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.longmemeval",
+      "owns": "LongMemEval harness"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.goldfixture",
+      "owns": "gold-fixture retrieval no-regression"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.acrgate",
+      "owns": "ACR gate thresholds"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.ledger",
+      "owns": "eval ledger rows + recording"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.regressiongate",
+      "owns": "reliability no-regression gate"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.scorecard",
+      "owns": "eval scorecard rendering"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.evaluate",
+      "owns": "eval gate + ledger gates orchestration"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.recallcmd",
+      "owns": "the `recall` verb: build_recall_payload + cmd_recall + register_recall"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.evalcmd",
+      "owns": "the `eval` verb: ablation instrument + cmd_eval handler family + register_eval"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench",
+      "owns": "SWE suites benchmark (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchswe",
+      "owns": "the frozen SWE suite: loading, per-task scoring, arm/seed aggregation, the regression decision, the dry-run plan and cmd_bench_swe"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchledger",
+      "owns": "the ledger surface: gold-path redaction, cmd_bench_redact and cmd_bench_lint (owns the lazy retrieval->knowledge edge)"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchcmd",
+      "owns": "the bench scorecard command (cmd_bench) and the register_bench registrar for all four subverbs"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessions",
+      "owns": "session file enumeration"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse",
+      "owns": "session read-cache + parse (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessioncache",
+      "owns": "the SINGLE-INSTANCE bounded LRU read cache + (mtime_ns,size) file keys + _cached_by_key/_cached_text/_reset_read_cache + _parse_iso/_duration_seconds"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessionusage",
+      "owns": "ONE-transcript JSONL aggregation (aggregate_jsonl), the usage-key tuples + transcript regexes + stage signals, and the usage/tool/model merge folds"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessionread",
+      "owns": "per-session parse (parse_session/_parse_session_uncached, the monkeypatch seam), classify_stage/_dominant_feature, the sessions-dir resolver and collect_sessions"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.derive",
+      "owns": "derive_* reporting family"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics",
+      "owns": "aggregation + pricing compute layer (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricspricing",
+      "owns": "the price table, model/context-window lookup, the pure usage->cost compute, the p50 helper and the cost-record rollups behind apply_pricing"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricsaggregate",
+      "owns": "cross-session AGGREGATION (aggregate_metrics/build_session_index/feature grouping) and session identity resolution"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricsemit",
+      "owns": "both ends of the logs/metrics.jsonl channel: the tolerant reader and emit_onboarding_metric"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metricscmd",
+      "owns": "the `metrics` + `dashboard` CLI verbs: cmd_metrics/cmd_dashboard + _print_metrics_text + register_metrics/register_dashboard"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.loopanalytics",
+      "owns": "loop analytics rollups"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.looptrace",
+      "owns": "loop trace reconstruction (named looptrace, not trace, to avoid shadowing the stdlib trace module)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.loophealth",
+      "owns": "loop health scoring"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.alerts",
+      "owns": "loop alert thresholds"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.loopview",
+      "owns": "loop analytics/trace/alerts surface"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet",
+      "owns": "org/fleet events + template lint (AGGREGATOR package; the four rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetshard",
+      "owns": "the committed fleet telemetry SINK: resolve_steering_sha, the per-user shard paths, the tolerant reader, the terminal-event schema constants, the org-root resolver and cmd_fleet_emit"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetguard",
+      "owns": "the shared-write governance guard (guard_shared_write/_is_curator) + the org read guards (injection/conflict constants + the read-denylist)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetreport",
+      "owns": "the `fleet issues|impact` reporter cmd_fleet + its sufficiency floor FLEET_IMPACT_FLOOR_N"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleettemplates",
+      "owns": "the per-team template contract T1..T5 (_template_kind/lint_templates/cmd_templates_lint + its frontmatter vocabularies)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.orglint",
+      "owns": "org-invariant lint O1..O13 (lint_org + cmd_org_lint + register_org)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.team",
+      "owns": "team registry + provenance"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.failureladder",
+      "owns": "failure-ladder escalation reporting"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.freshness",
+      "owns": "KB freshness/staleness reporting"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.steering",
+      "owns": "steering lint"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.releasegate",
+      "owns": "release-gate harness (Gate 1-4 + cmd_gate_release)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planlint",
+      "owns": "plan-lint checks"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.plans",
+      "owns": "SUPERSEDED -> split into ops.planlint (enforcement) + ops.planauthor (authoring); never built as one module"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor",
+      "owns": "plan authoring + work-artifact stamping (AGGREGATOR package; the two rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.planedit",
+      "owns": "the plan.md GENERATION half: the atomic writer, the lint-passing skeleton, task renumbering/marker indices and the four plan leaf handlers"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.workstamp",
+      "owns": "the work-artifact team/author STAMPING half: the both-layout stamp regex, the derived-roster detector, the prose stamper, the frontmatter ensurer and cmd_work_stamp"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.audit",
+      "owns": "audit checks (stale/duplicate)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbgit",
+      "owns": "KB git work-tree STATE helpers (kb-git status)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.staging",
+      "owns": "git staging allowlist + commit/pull workflow"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbsync",
+      "owns": "KB-git push/merge orchestration + nothing-lost gate + kb-git registrar"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanout",
+      "owns": "fanout lanes/base half: lane registry + provisioning + merge-policy + list + spin-up + gate runner"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq",
+      "owns": "fanout merge-queue + teardown half (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqbranch",
+      "owns": "the git branch/ancestry primitives and the lane-repo resolvers (package leaf; imports no sibling)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqintegrate",
+      "owns": "the serial gated INTEGRATION path: the append-only/gate constants, the package and KB integrators, the event emitter and cmd_fanout_merge_queue"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqteardown",
+      "owns": "the TEARDOWN path (blocker check + worktree removal + cmd_fanout_teardown) and the register_fanout registrar"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.mcp",
+      "owns": "MCP server integration"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dream",
+      "owns": "dream nightly loop"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamgate",
+      "owns": "dream idle-gate + single-writer lock + live-session guard (cycle admission control)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsched",
+      "owns": "dream scheduler install"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamjournal",
+      "owns": "dream cycle journal/failure-capture/metric event + terminal output rendering"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps",
+      "owns": "the dream cycle's maintenance STEP family (AGGREGATOR package; the eleven rows below own the behaviour, one file per step)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.dreamcapture",
+      "owns": "the cycle's measure/capture primitives: _dream_perf, _dream_capture, _dream_file_fp + the DREAM_REPORT_REL artifact path"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.dreamgit",
+      "owns": "the hard-timeout git runner _git_timed + DREAM_PULL_TIMEOUT + the post-pull conflict check"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepkbpull",
+      "owns": "dream step \"1\", the KNOWLEDGE-BASE pull (step \"0\", the package-repo pull, is RETIRED)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stephealthgate",
+      "owns": "dream step \"2\", the convergence verify-and-auto-fix battery + its nine named checks"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepindexrebuild",
+      "owns": "dream step \"a\", the derived-cache rebuild (the SOLE cache writer)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepbenchredact",
+      "owns": "dream step \"b\", benchmark redaction"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepaudit",
+      "owns": "dream step \"c\", the audit sweep + its unittest-count and capture readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepevalrecord",
+      "owns": "dream step \"d\", the retrieval eval record"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepdetectreport",
+      "owns": "dream step \"e\", the detect-report render + write and its three section renderers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepkbgit",
+      "owns": "dream step \"f\", the kb-git commit (+ optional push) nightly backup"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.registry",
+      "owns": "the ordered DREAM_STEP_FUNCS registry + the --steps subset parser _dream_parse_steps"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.skills",
+      "owns": "skill list/search/add/remove/validate"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals",
+      "owns": "skill proposal/promotion lifecycle (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposeauthor",
+      "owns": "the AUTHORING half: the slug grammar, the near-duplicate guard, the proposed-SKILL.md renderer and cmd_skill_propose"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposalreport",
+      "owns": "the READ-ONLY half: the unique-ref enumerator, the one deterministic row builder, the ripeness nudge report and cmd_skill_proposals"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposalpromote",
+      "owns": "the human-gated PROMOTION half (_promote_frontmatter + cmd_skill_promote) and the `skill` verb registrar register_skill"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd",
+      "owns": "the `config` settings command (AGGREGATOR package; the nine rows below own the behaviour)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgmain",
+      "owns": "the slim `cmd_config` route-walker + `register_config` and its per-group argparse registrars"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgroutes",
+      "owns": "CONFIG_ROUTES — the ORDER-BEARING flag->handler table, and nothing else; branch order lives here alone"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgidentity",
+      "owns": "the knowledge-dir pointer + provenance settings (--set-knowledge-dir with its target guard, user handle, propose threshold, onboarding record)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgorg",
+      "owns": "the org-mode keys + workspace kb-mode settings and their group predicate"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgkbgit",
+      "owns": "the KB git settings: autocommit + push setters and their bare readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgretrieval",
+      "owns": "the retrieval/embedding settings: mode, retrieval mode, embedder and embed-model setters + readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgdream",
+      "owns": "the dream + cli settings: cli, dream on/off, dream schedule and dream max-runtime setters + readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgphases",
+      "owns": "the per-phase routing settings — three phases x three axes — behind one group predicate"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgshow",
+      "owns": "the terminal resolved-config VIEW: the JSON dump, the knowledge-dir-only bare read and the human-readable report"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.setupcmd",
+      "owns": "the `init` + `profile` commands: cmd_init/cmd_profile + register_init/register_profile"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.curationcmd",
+      "owns": "the `learn` + `decide` command verbs: cmd_learn/cmd_decide + register_learn/register_decide"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.indexcmd",
+      "owns": "the `index` command verbs: cmd_index_add/remove/validate/sync/migrate/rebuild + register_index"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.updatecmd",
+      "owns": "the `update` verb: fast-forward-only package self-update (cmd_update + _catalog_skill_names_at_ref + PKG_UPDATE_GATES + register_update)"
+    },
+    {
+      "layer": "cli",
+      "name": "agentware_lib.cli",
+      "owns": "parser assembly from the frozen registration tuple"
+    },
+    {
+      "layer": "cli",
+      "name": "agentware_lib._registration",
+      "owns": "frozen _PARSER_REGISTRATION (verb, module, attr) map"
+    }
+  ]
+}

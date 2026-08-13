@@ -23,8 +23,6 @@
     "docs:readme-union-anchors",
     "docs:roadmap-preserved",
     "dream:step-registry-package",
-    "mod:lib-decomposition",
-    "mod:module-manifest-catalog",
     "mod:per-function-caps",
     "retrieval:bm25-exact-score-pin"
   ]

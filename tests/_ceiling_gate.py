@@ -64,24 +64,30 @@ Stdlib only, read-only, deterministic, py3.7-safe.
 import ast
 import json
 import os
+import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+import _corpus  # noqa: E402  (the ONE corpus + cap table, shared with the generator)
 
 # The tree under measurement. Defaults to the checkout this file lives in; the
 # override lets the gate run FROM the package repo AGAINST the staged merge tree
 # during the migration, which is the only window in which the two differ. Same
 # idiom as the staging tool's AGENTWARE_DONOR_STAGING, and it means one committed
 # gate covers both trees instead of a copy drifting in each.
-REPO_ROOT = os.environ.get("AGENTWARE_CEILING_ROOT") or os.path.dirname(HERE)
+REPO_ROOT = _corpus.REPO_ROOT
 LIB_DIR = os.path.join(REPO_ROOT, "scripts", "agentware_lib")
 
 DEBT_SCHEMA = "agentware/ceiling-debt@1"
 DEFAULT_DEBT = os.path.join(HERE, "fixtures", "ceiling-debt.json")
 
-# --- the ceilings (plan "Ceilings" section) ---------------------------------
-LIB_FILE_CAP = 600
-FUNC_LINE_CAP = 120
-FUNC_BRANCH_CAP = 12
+# --- the ceilings (plan "Ceilings" section; the table lives in _corpus) ------
+LIB_FILE_CAP = _corpus.LAYER_CAPS[_corpus.LIB_LAYER]
+FUNC_LINE_CAP = _corpus.FUNC_LINE_CAP
+FUNC_BRANCH_CAP = _corpus.FUNC_BRANCH_CAP
+LIB_PREFIX = _corpus.LIB_PREFIX
 
 # ROUND 1 — the four modules the plan names. These carried the worst FUNCTION as
 # well as the worst FILE (`cmd_config` was 622 lines / 119 branches), so they were
@@ -179,15 +185,31 @@ def lib_files():
     return sorted(out)
 
 
-def scan_file(path):
-    """Violations in ONE file: (kind, location, value, cap) tuples."""
+def corpus_files():
+    """Every corpus member on disk (task 67), repo-relative and sorted."""
+    return _corpus.corpus_files(REPO_ROOT)
+
+
+def scan_file(rel, parse=True):
+    """Violations in ONE corpus member, given its repo-relative path.
+
+    `parse` is False for the members the stdlib cannot parse — shell scripts and
+    the webui's TypeScript — which carry the FILE cap only. That is a real limit
+    of a zero-dependency gate (INV-6 forbids adding a parser), and it is stated
+    here rather than hidden: a 249-line shell script with one 200-line function
+    passes, so the 250 cap is doing all the work on that side.
+    """
+    path = os.path.join(REPO_ROOT, rel)
     with open(path, encoding="utf-8") as f:
         src = f.read()
-    rel = _rel(path)
+    layer = _corpus.layer_of(rel)
+    cap = _corpus.cap_of(layer)
     found = []
     n_lines = len(src.splitlines())
-    if n_lines > LIB_FILE_CAP:
-        found.append((FILE_OVER, rel, n_lines, LIB_FILE_CAP))
+    if n_lines > cap:
+        found.append((FILE_OVER, rel, n_lines, cap))
+    if not parse:
+        return found
     try:
         tree = ast.parse(src)
     except SyntaxError:
@@ -206,11 +228,24 @@ def scan_file(path):
 
 
 def scan():
-    """Every ceiling violation across agentware_lib, sorted deterministically."""
+    """Every ceiling violation across the WHOLE corpus, sorted deterministically.
+
+    Task 67 widened this from `agentware_lib/**` to every Python and shell file
+    under `scripts/`, the orchestrator, the test corpus and the webui source. The
+    narrow scan was the reason the 1,146-line dashboard and nine over-cap test
+    helpers were invisible: they were never measured, so the gate was green about
+    a tree it had not looked at.
+    """
+    parseable = set(_corpus.python_files(REPO_ROOT))
     found = []
-    for path in lib_files():
-        found.extend(scan_file(path))
+    for rel in corpus_files():
+        found.extend(scan_file(rel, parse=rel in parseable))
     return sorted(found, key=lambda r: (r[1], r[0]))
+
+
+def scan_lib():
+    """The lib-only slice of `scan()` — what task 21 asserts clean outright."""
+    return [r for r in scan() if r[1].startswith(LIB_PREFIX)]
 
 
 def load_debt(path=None):
@@ -261,17 +296,29 @@ def schema_errors(data):
             errors.append(
                 "row %r forgives a violation inside a package task 21 split; "
                 "those are asserted clean and may never carry debt" % loc)
-        if row.get("kind") == FILE_OVER:
+        if row.get("kind") == FILE_OVER and loc.startswith(LIB_PREFIX):
             # Task 21 round 2 brought EVERY lib file under the 600-line cap, so
-            # there is no residual left for a row to describe. Refusing the kind
-            # outright — rather than listing the twelve split packages as
-            # carve-outs — is what makes the file cap unbreakable: a NEW
-            # over-cap file cannot be legalised by declaring it, in any
-            # subsystem, by any later task.
+            # there is no residual left for a row to describe THERE. Refusing the
+            # kind outright under the lib — rather than listing the twelve split
+            # packages as carve-outs — is what makes that half of the file cap
+            # unbreakable: a NEW over-cap lib file cannot be legalised by
+            # declaring it, by any later task.
+            #
+            # Task 67 widened the corpus to the dashboard, the loop and hook
+            # scripts, the test corpus and the webui, and that widening DID find
+            # a residual: ten files already over their cap on the day the cap
+            # first applied to them. Those may be declared, because the plan
+            # itself assigns their removal elsewhere (task 69 decomposes the
+            # dashboard; task 71 owns the test corpus) — refusing the row would
+            # not split them, it would only force task 67 to do task 69's work or
+            # to lower the cap until the tree fit, which is the failure the
+            # ratchet exists to prevent. The refusal stays absolute where the
+            # claim is absolute: inside the lib.
             errors.append(
-                "row %r declares %s: the file cap is satisfied outright after "
-                "task 21, so no file may be forgiven for exceeding it — split "
-                "the file instead" % (loc, FILE_OVER))
+                "row %r declares %s under %s: the lib file cap is satisfied "
+                "outright after task 21, so no lib file may be forgiven for "
+                "exceeding it — split the file instead"
+                % (loc, FILE_OVER, LIB_PREFIX))
     return errors
 
 

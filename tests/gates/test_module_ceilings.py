@@ -9,8 +9,10 @@ Two claims, deliberately separated so they can never be confused for each other:
   2. RATCHET — every OTHER ceiling violation in the tree is declared in
      `tests/fixtures/ceiling-debt.json` with the task that removes it. The
      residual is real (~8 files and ~70 functions across fleet/orglint/planlint/
-     sessionparse/recallcmd and friends) and belongs to plan task 67, which
-     widens the manifest tree-wide and adds exactly these caps. Declaring it
+     sessionparse/recallcmd and friends). Task 67 widened the manifest and the
+     scan tree-wide and added exactly these caps; task 99 adjudicates the
+     residual they measured -- 154 rows across the lib, the dashboard, the
+     hooks, the webui and the test corpus itself. Declaring it
      keeps the gate GREEN and therefore meaningful: a new violation arriving
      tomorrow reddens it, instead of drowning in a permanently red wall.
 
@@ -31,9 +33,11 @@ import unittest
 
 try:
     from tests import _ceiling_gate as cg
+    from tests import _corpus
 except ImportError:  # allow `python3 -m unittest tests.gates.test_module_ceilings`
     sys.path.insert(0, TESTS_DIR)
     import _ceiling_gate as cg
+    import _corpus
 
 # The gate rides with the migration: before the modular core lands there is no
 # `agentware_lib` to measure, so the whole suite is inert rather than reporting
@@ -106,7 +110,11 @@ class LibFileCapIsSatisfiedOutrightTest(unittest.TestCase):
     """
 
     def test_no_lib_file_exceeds_the_600_line_cap(self):
-        over = [(r[2], r[1]) for r in cg.scan() if r[0] == cg.FILE_OVER]
+        # `scan()` is tree-wide after task 67, so the lib slice is taken
+        # explicitly. The claim is still absolute WHERE IT IS ABSOLUTE: no
+        # arrangement of the debt fixture can forgive a lib file, because
+        # `schema_errors` refuses the row kind under the lib prefix.
+        over = [(r[2], r[1]) for r in cg.scan_lib() if r[0] == cg.FILE_OVER]
         self.assertEqual(
             sorted(over, reverse=True), [],
             "file(s) over the %d-line agentware_lib cap, with no debt available "
@@ -119,12 +127,32 @@ class LibFileCapIsSatisfiedOutrightTest(unittest.TestCase):
         # by declaring it.
         bad = {"kind": cg.FILE_OVER,
                "location": "scripts/agentware_lib/ops/some_new_monolith.py",
-               "value": 4000, "owner": "task 67", "reason": "synthetic row that "
-               "must be refused because the file cap admits no forgiveness"}
+               "value": 4000, "owner": "task 99", "reason": "synthetic row that "
+               "must be refused because the lib file cap admits no forgiveness"}
         errors = cg.schema_errors({"schema": cg.DEBT_SCHEMA, "rows": [bad]})
         self.assertTrue(
             any(cg.FILE_OVER in e for e in errors),
-            "a file_over_cap debt row must be refused outright: %r" % (errors,))
+            "a file_over_cap debt row under the lib must be refused outright: "
+            "%r" % (errors,))
+
+    def test_a_file_over_cap_row_outside_the_lib_is_accepted(self):
+        # The other half of the same rule, pinned so the two cannot drift into
+        # one. Task 67's widening measured ten files already over a cap on the
+        # day it first applied to them, in subsystems whose decomposition the
+        # plan assigns elsewhere (task 69 for the dashboard, task 99 for the
+        # rest). Refusing the row would not split those files; it would only
+        # force the cap down until the tree fit, which is the failure the
+        # ratchet exists to prevent.
+        ok = {"kind": cg.FILE_OVER,
+              "location": "scripts/agentware_dashboard.py",
+              "value": 1146, "owner": "task 69", "reason": "the second "
+              "monolith, measured by task 67's widening and decomposed by "
+              "task 69"}
+        errors = cg.schema_errors({"schema": cg.DEBT_SCHEMA, "rows": [ok]})
+        self.assertEqual(
+            errors, [],
+            "a file_over_cap row OUTSIDE agentware_lib must be declarable: %r"
+            % (errors,))
 
 
 @unittest.skipIf(_NO_CORE, _NO_CORE_REASON)
@@ -244,11 +272,37 @@ class CeilingDebtRatchetTest(unittest.TestCase):
         self.assertTrue(any(p[0] == cg.OVER for p in problems),
                         "a violation worse than declared must be reported OVER")
 
+    def test_an_undeclared_over_cap_file_outside_the_lib_is_reported(self):
+        # The shape task 67's widening created: before it, a 300-line loop
+        # script or a 900-line webui panel produced NO violation at all, because
+        # the scan never looked there. Planting one proves the widened scan
+        # reaches the new layers rather than merely enumerating them.
+        for planted, cap in ((cg.FILE_OVER, "scripts/loop/newmonolith.sh"),
+                             (cg.FILE_OVER, "webui/src/panels/Huge.tsx"),
+                             (cg.FILE_OVER, "tests/gates/test_enormous.py")):
+            found = cg.scan() + [(planted, cap, 9999, 250)]
+            problems, clean = cg.reconcile(found=found)
+            self.assertFalse(clean)
+            self.assertTrue(
+                any(p[0] == cg.OVER and p[1] == cap for p in problems),
+                "an over-cap %s with no debt row must be reported" % cap)
+
+    def test_the_widened_scan_actually_measures_every_layer(self):
+        # Guards the vacuous pass: a corpus rule that matched nothing outside the
+        # lib would make every assertion above true of a tree nobody looked at.
+        measured = set(_corpus.layer_of(r[1].split("::")[0]) for r in cg.scan())
+        for layer in ("lib", "tests", "hooks", "scripts"):
+            self.assertIn(layer, measured,
+                          "the scan produced no finding in %s, so either that "
+                          "layer is genuinely clean or it is not being scanned "
+                          "-- check tests/_corpus.py" % layer)
+        self.assertGreater(len(cg.corpus_files()), 400)
+
     def test_ratchet_detects_a_stale_row(self):
         data = cg.load_debt()
         invented = {"kind": cg.FUNC_BRANCHES,
                     "location": "scripts/agentware_lib/core/does_not_exist.py::f",
-                    "value": 9999, "owner": "task 67", "reason": "synthetic row "
+                    "value": 9999, "owner": "task 99", "reason": "synthetic row "
                     "proving the ratchet reports debt the tree no longer has"}
         problems, clean = cg.reconcile(
             debt={"schema": cg.DEBT_SCHEMA, "rows": data["rows"] + [invented]})
@@ -263,7 +317,7 @@ class CeilingDebtRatchetTest(unittest.TestCase):
         bad = {"kind": cg.FUNC_BRANCHES,
                "location": "scripts/agentware_lib/features/dreamsteps/"
                            "registry.py::register",
-               "value": 9999, "owner": "task 67", "reason": "synthetic row that "
+               "value": 9999, "owner": "task 99", "reason": "synthetic row that "
                "must be refused because it forgives a task-21 split package"}
         errors = cg.schema_errors({"schema": cg.DEBT_SCHEMA, "rows": [bad]})
         self.assertTrue(
@@ -275,13 +329,13 @@ class CeilingDebtRatchetTest(unittest.TestCase):
         # The asymmetry is deliberate and worth pinning, because it is the one
         # place the two rounds differ. Round 1 split both axes; round 2 split
         # FILES only, so its inherited per-function complexity stays declared
-        # under task 67 rather than being rewritten here — task 30's body differ
+        # under task 99 rather than being rewritten here — task 30's body differ
         # would redden if these bodies were shortened.
         ok = {"kind": cg.FUNC_BRANCHES,
               "location": "scripts/agentware_lib/ops/fleet/fleetreport.py::cmd_fleet",
-              "value": 44, "owner": "task 67", "reason": "inherited donor "
+              "value": 44, "owner": "task 99", "reason": "inherited donor "
               "complexity in a round-2 package; the file cap is met, the "
-              "function cap is task 67's"}
+              "function cap is task 99's"}
         errors = cg.schema_errors({"schema": cg.DEBT_SCHEMA, "rows": [ok]})
         self.assertEqual(
             errors, [],

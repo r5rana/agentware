@@ -1,12 +1,12 @@
 {
   "schema": "agentware/ceiling-debt@1",
-  "note": "SHRINK-ONLY. Every row is a modularity-ceiling violation present in the merged tree TODAY, with the plan task that removes it. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces. The FILE cap is satisfied outright after task 21 round 2 -- no file_over_cap row is accepted anywhere, in any subsystem, by any task, so a new over-cap file must be split rather than declared. No row may sit inside a package task 21 round 1 split -- those are asserted clean directly. When the last row goes, the gate is simply green.",
-  "captured": "2026-08-14, branch merge/modularize, task 21 (regenerated from the live scan after the round-2 splits)",
+  "note": "SHRINK-ONLY. Every row is a modularity-ceiling violation present in the merged tree TODAY, with the plan task that removes it. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces. NO file_over_cap row is accepted under scripts/agentware_lib/ -- task 21 satisfied that cap outright, so a new over-cap LIB file must be split rather than declared. Outside the lib, task 67's widening found ten files already over a cap on the day it first applied to them; those are declared, per subsystem, with the task that removes each. No row may sit inside a package task 21 round 1 split -- those are asserted clean directly. When the last row goes, the gate is simply green.",
+  "captured": "2026-08-19, branch merge/modularize, task 67 (regenerated from the live scan after the corpus was widened tree-wide; the 116 pre-existing lib rows are unchanged in value and re-owned from task 67 to task 99, which adjudicates the residual the widening measured)",
   "rows": [],
   "groups": [
     {
-      "owner": "task 67",
-      "reason": "Pre-existing complexity inherited with the donor tree, in subsystems task 21 does not touch. Task 21's scope is the FOUR named modules (core.config, knowledge.index, features.configcmd, features.dreamsteps), which are asserted ceiling-clean with no debt available. Plan task 67 is the task that 'makes modularity permanent ACROSS THE WHOLE TREE ... and adds the per-function line and branch caps', so this residual is its work-list, measured and named rather than discovered later. Splitting ~70 functions across 40 unrelated modules here would be scope expansion into code no verb has been ported onto yet, and would churn exactly the files the later port waves rewrite.",
+      "owner": "task 99",
+      "reason": "Pre-existing complexity inherited with the donor tree, in subsystems task 21 does not touch. Task 21's scope is the FOUR named modules (core.config, knowledge.index, features.configcmd, features.dreamsteps), which are asserted ceiling-clean with no debt available. Plan task 67 MEASURED this residual by widening the corpus and adding the per-function caps; plan task 99 ADJUDICATES it (pay down, or convert to a justified permanent exemption with a named invariant). Splitting ~70 functions across 40 unrelated modules here would be scope expansion into code no verb has been ported onto yet, and would churn exactly the files the later port waves rewrite.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -72,7 +72,7 @@
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::_propose_author",
           "value": 17,
-          "note": "20 -> 21 at task 54. The union fixture requires `--dry-run` on `skill propose`, and the preview costs exactly ONE branch: the caller must test whether the dry-run path returned. The test itself was already pushed into `_report_dry_run` (which returns None when it is not a dry run) so the caller spends one branch rather than two, and every OTHER branch in the function is unchanged \u2014 each is a guard, a format switch or a loop that is doing real work, so there was no free branch to pay with. Recorded as a widening rather than dressed up as a paydown: this is a required capability growing a function by one, not a refactor hiding damage behind an existing row."
+          "note": "20 -> 21 at task 54. The union fixture requires `--dry-run` on `skill propose`, and the preview costs exactly ONE branch: the caller must test whether the dry-run path returned. The test itself was already pushed into `_report_dry_run` (which returns None when it is not a dry run) so the caller spends one branch rather than two, and every OTHER branch in the function is unchanged — each is a guard, a format switch or a loop that is doing real work, so there was no free branch to pay with. Recorded as a widening rather than dressed up as a paydown: this is a required capability growing a function by one, not a refactor hiding damage behind an existing row."
         },
         {
           "kind": "function_over_branch_cap",
@@ -362,8 +362,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "Per-function complexity inherited from the MONOLITH, arriving VERBATIM with a verb port (tasks 37..54). Distinct in provenance from the donor-inherited group above: these functions are not new code and were not written here \u2014 they are moved byte-identically out of scripts/agentware_legacy.py so the move is a MOVE, reviewable as such, and so the body differ's floor and the port's own byte-identity proof both hold. Decomposing them DURING the move would forfeit exactly that guarantee on the R-GND-01 grounding path, which is the single most safety-critical surface the loop runs, in exchange for a split that task 67 already owns and performs against the whole tree at once. Task 67 is 'make modularity permanent ACROSS THE WHOLE TREE ... and add the per-function line and branch caps', so this is its work-list, measured and named on arrival rather than discovered later. Shrink-only still applies: a value worse than declared, or a row the tree stops producing, fails the gate.",
+      "owner": "task 99",
+      "reason": "Per-function complexity inherited from the MONOLITH, arriving VERBATIM with a verb port (tasks 37..54). Distinct in provenance from the donor-inherited group above: these functions are not new code and were not written here — they are moved byte-identically out of scripts/agentware_legacy.py so the move is a MOVE, reviewable as such, and so the body differ's floor and the port's own byte-identity proof both hold. Decomposing them DURING the move would forfeit exactly that guarantee on the R-GND-01 grounding path, which is the single most safety-critical surface the loop runs, in exchange for a split that task 99 owns and performs against the whole tree at once. Task 67 measured it; task 99 adjudicates it (pay down, or convert to a justified permanent exemption with a named invariant). Shrink-only still applies: a value worse than declared, or a row the tree stops producing, fails the gate.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -393,8 +393,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "Pre-existing per-function complexity inherited with the PREFER steering-capture family and its offline transcript miner, moved into the lib at task 45 as a PURE MOVE (107 bodies byte-identical). None of these functions got worse: every one was already over the per-function caps in the monolith, where the caps are not enforced, and porting them is what made the existing complexity visible to the gate. Splitting eighteen dense, behaviour-critical functions \u2014 the queue scanner, the error reconciler, the two mining passes, the capture write \u2014 in the SAME commit that moves them would put a large behavioural risk into one change, which is exactly what this ratchet exists to prevent: a pure move can be verified byte-for-byte, a simultaneous move-and-split cannot. Plan task 67 'makes modularity permanent ACROSS THE WHOLE TREE ... and adds the per-function line and branch caps', so this residual joins its work-list, measured and named rather than discovered later. The two worst offenders WERE split here where the seam was clean (_prefer_queue_scan 40 -> 27 branches, register_prefer 156 -> 3 registrars), so the declared values are already better than what arrived.",
+      "owner": "task 99",
+      "reason": "Pre-existing per-function complexity inherited with the PREFER steering-capture family and its offline transcript miner, moved into the lib at task 45 as a PURE MOVE (107 bodies byte-identical). None of these functions got worse: every one was already over the per-function caps in the monolith, where the caps are not enforced, and porting them is what made the existing complexity visible to the gate. Splitting eighteen dense, behaviour-critical functions — the queue scanner, the error reconciler, the two mining passes, the capture write — in the SAME commit that moves them would put a large behavioural risk into one change, which is exactly what this ratchet exists to prevent: a pure move can be verified byte-for-byte, a simultaneous move-and-split cannot. Plan task 67 measured this residual tree-wide; plan task 99 adjudicates it (pay down, or convert to a justified permanent exemption with a named invariant). The two worst offenders WERE split here where the seam was clean (_prefer_queue_scan 40 -> 27 branches, register_prefer 156 -> 3 registrars), so the declared values are already better than what arrived.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -489,8 +489,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "The skill-promotion family, restored by task 46 as a PURE MOVE out of the monolith (dream steps s/k). Every function below was ALREADY over the branch cap inside agentware_legacy.py \u2014 the move added no branch, and the byte-identical bodies are what let that claim be checked by AST comparison rather than argued from a diff. Decomposing them in the SAME commit as the move would destroy exactly that property, which is the concentrated risk the ratchet exists to prevent. Two of the four are irreducible by nature rather than by neglect: `cluster_learnings` (23) is a density-gated quasi-clique grower whose branches ARE the admission rules \u2014 edge bar, density-during-growth, size clamp, separation margin, tag spine \u2014 and splitting them into helpers would scatter one decision across five call sites while the gate order (which is load-bearing: density is enforced DURING growth, not after) stopped being readable in one place. `_skill_promote_run` (16) is the single emit seam whose branches are the outcome taxonomy itself (proposed / extended / existing / deferred / blocked / skipped_cap), and collapsing any pair of them is precisely the bug the taxonomy exists to prevent. `_skill_cluster_scores` (14) and `_existing_skill_coverage` (13) sit one and two branches over and are the cheapest to pay down first. Owned by task 67 with the rest of the residual.",
+      "owner": "task 99",
+      "reason": "The skill-promotion family, restored by task 46 as a PURE MOVE out of the monolith (dream steps s/k). Every function below was ALREADY over the branch cap inside agentware_legacy.py — the move added no branch, and the byte-identical bodies are what let that claim be checked by AST comparison rather than argued from a diff. Decomposing them in the SAME commit as the move would destroy exactly that property, which is the concentrated risk the ratchet exists to prevent. Two of the four are irreducible by nature rather than by neglect: `cluster_learnings` (23) is a density-gated quasi-clique grower whose branches ARE the admission rules — edge bar, density-during-growth, size clamp, separation margin, tag spine — and splitting them into helpers would scatter one decision across five call sites while the gate order (which is load-bearing: density is enforced DURING growth, not after) stopped being readable in one place. `_skill_promote_run` (16) is the single emit seam whose branches are the outcome taxonomy itself (proposed / extended / existing / deferred / blocked / skipped_cap), and collapsing any pair of them is precisely the bug the taxonomy exists to prevent. `_skill_cluster_scores` (14) and `_existing_skill_coverage` (13) sit one and two branches over and are the cheapest to pay down first. Owned by task 99 with the rest of the residual.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -515,8 +515,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "The adversarial review gate, ported by task 47. Every branch count below was MEASURED against the pre-port monolith and is IDENTICAL there (normalize 20, run_audit 26/139, run_remediation 20, render_report 31) \u2014 the move added not one branch, and the byte-identical bodies let that be checked mechanically rather than asserted. These four are also the four functions where a decomposition is most likely to introduce the one bug this subsystem may not have. `_review_run_audit` (26) sequences review -> verify -> criticize and its branches ARE the degradation paths \u2014 every one of them turns a reviewer that crashed into a REPORTED failure rather than a silent zero, and the whole danger of a review gate is reporting clean when it did not review. `_review_normalize_finding` (20) is the trust boundary over language-model output: each branch coerces one untrusted field into a closed set, and a helper-per-field would scatter that boundary across a file. `_review_render_report` (31) is a renderer whose branches are presentation cases, and the botched decomposition of the checkup renderer under task 44 is the recorded precedent for what splitting one of these blind costs. `_review_run_remediation` (20) is the fixer loop whose branches are the accept/reject outcomes of the gate chain. Owned by task 67 with the rest.",
+      "owner": "task 99",
+      "reason": "The adversarial review gate, ported by task 47. Every branch count below was MEASURED against the pre-port monolith and is IDENTICAL there (normalize 20, run_audit 26/139, run_remediation 20, render_report 31) — the move added not one branch, and the byte-identical bodies let that be checked mechanically rather than asserted. These four are also the four functions where a decomposition is most likely to introduce the one bug this subsystem may not have. `_review_run_audit` (26) sequences review -> verify -> criticize and its branches ARE the degradation paths — every one of them turns a reviewer that crashed into a REPORTED failure rather than a silent zero, and the whole danger of a review gate is reporting clean when it did not review. `_review_normalize_finding` (20) is the trust boundary over language-model output: each branch coerces one untrusted field into a closed set, and a helper-per-field would scatter that boundary across a file. `_review_render_report` (31) is a renderer whose branches are presentation cases, and the botched decomposition of the checkup renderer under task 44 is the recorded precedent for what splitting one of these blind costs. `_review_run_remediation` (20) is the fixer loop whose branches are the accept/reject outcomes of the gate chain. Owned by task 99 with the rest.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -546,8 +546,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "The DAG scheduler, ported by task 48 into the graphdag package. Every count below was MEASURED against the pre-port monolith and is IDENTICAL there (execute 62/243, node_status 23/146, manifest_errors 32/124, resource_edges 18, checkpoint 22, cancel 15, merge_lane 13) \u2014 the move added not one branch, and the byte-identical bodies make that checkable rather than assertable. The port DID pay down what it could without touching a body: the monolith declared all thirteen subverbs in ONE 158-line inline registrar block, and that is now split into an authoring registrar and an execution registrar along the same seam the handlers use, so no registrar row appears here at all. What remains are four functions whose branches are load-bearing structure rather than accumulated mess. `_graph_execute` (62) is the tick loop: derive -> dispatch -> wait -> reconcile, plus every bound (tick ceiling, deadline, node timeout, concurrency) and every halt/block-subtree path. Splitting the loop that spawns real agent processes against a real repository, in the same commit that moves it, is the concentrated risk the ratchet exists to prevent. `_graph_node_status` (23/146) DERIVES a node's state from on-disk evidence, and its branches ARE the four ways a node can look done without being done \u2014 collapsing any of them is the bug. `graph_manifest_errors` (32/124) deliberately reports EVERY problem rather than the first, so its branch count is exactly its check count. `_graph_derive_resource_edges` (18) turns declared write sets into serialization edges, which is what stops two concurrent lanes racing on one file. Owned by task 67 with the rest of the residual.",
+      "owner": "task 99",
+      "reason": "The DAG scheduler, ported by task 48 into the graphdag package. Every count below was MEASURED against the pre-port monolith and is IDENTICAL there (execute 62/243, node_status 23/146, manifest_errors 32/124, resource_edges 18, checkpoint 22, cancel 15, merge_lane 13) — the move added not one branch, and the byte-identical bodies make that checkable rather than assertable. The port DID pay down what it could without touching a body: the monolith declared all thirteen subverbs in ONE 158-line inline registrar block, and that is now split into an authoring registrar and an execution registrar along the same seam the handlers use, so no registrar row appears here at all. What remains are four functions whose branches are load-bearing structure rather than accumulated mess. `_graph_execute` (62) is the tick loop: derive -> dispatch -> wait -> reconcile, plus every bound (tick ceiling, deadline, node timeout, concurrency) and every halt/block-subtree path. Splitting the loop that spawns real agent processes against a real repository, in the same commit that moves it, is the concentrated risk the ratchet exists to prevent. `_graph_node_status` (23/146) DERIVES a node's state from on-disk evidence, and its branches ARE the four ways a node can look done without being done — collapsing any of them is the bug. `graph_manifest_errors` (32/124) deliberately reports EVERY problem rather than the first, so its branch count is exactly its check count. `_graph_derive_resource_edges` (18) turns declared write sets into serialization edges, which is what stops two concurrent lanes racing on one file. Owned by task 99 with the rest of the residual.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -602,8 +602,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "The R-RET-03 stage-1 skill pin, restored by task 49 into `retrieval.pinpolicy` so all THREE call sites share one implementation. Measured against the monolith: 22 branches there, 22 here \u2014 the move added none. The branch count IS the learnings-eviction guarantee: the naive pin is a two-line pop-and-insert, and everything above that count is the machinery that stops the insert pushing a LEARNING out of the surfaced window to make room for a procedure. R-RET-03 guarantees learnings are always included precisely because they carry prior problems and errors, so silently dropping one at a small top-k is the failure this code exists to prevent \u2014 and it is a failure with no visible symptom, since the caller just sees a shorter list it never counted. Decomposing it would spread one guarantee across helpers whose individual correctness says nothing about whether the guarantee holds. Owned by task 67 with the rest of the residual.",
+      "owner": "task 99",
+      "reason": "The R-RET-03 stage-1 skill pin, restored by task 49 into `retrieval.pinpolicy` so all THREE call sites share one implementation. Measured against the monolith: 22 branches there, 22 here — the move added none. The branch count IS the learnings-eviction guarantee: the naive pin is a two-line pop-and-insert, and everything above that count is the machinery that stops the insert pushing a LEARNING out of the surfaced window to make room for a procedure. R-RET-03 guarantees learnings are always included precisely because they carry prior problems and errors, so silently dropping one at a small top-k is the failure this code exists to prevent — and it is a failure with no visible symptom, since the caller just sees a shorter list it never counted. Decomposing it would spread one guarantee across helpers whose individual correctness says nothing about whether the guarantee holds. Owned by task 99 with the rest of the residual.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -613,8 +613,8 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "The vetted skill INSTALL GATE, ported by task 54 as a pure move. Both counts are IDENTICAL in the pre-port monolith (reconcile 26, cmd_skill_sync 34) \u2014 the move added no branch. These two are also the functions where a decomposition is most likely to introduce the one bug this subsystem may not have: `--approve` is the ONLY path that installs a skill where a harness will EXECUTE it, and every branch in `_skill_reconcile` is one arm of the verdict table (installed / pending / changed-since-approval / blocked / foreign / shadowing a package skill / removed from the KB). Quarantine-on-change lives in those arms: approval binds to a CONTENT HASH, so a skill whose tree changed returns to PENDING rather than carrying the old approval forward \u2014 because the operator approved a body, not a title, and the second version is the one worth attacking precisely because the first was reviewed. `cmd_skill_sync` (34) is the mode dispatcher over that table: approve / reject / uninstall / reset / status / status-line, each with its own refusal conditions. Splitting either in the same commit that moves it is exactly the concentrated risk the ratchet prevents. Owned by task 67 with the rest of the residual.",
+      "owner": "task 99",
+      "reason": "The vetted skill INSTALL GATE, ported by task 54 as a pure move. Both counts are IDENTICAL in the pre-port monolith (reconcile 26, cmd_skill_sync 34) — the move added no branch. These two are also the functions where a decomposition is most likely to introduce the one bug this subsystem may not have: `--approve` is the ONLY path that installs a skill where a harness will EXECUTE it, and every branch in `_skill_reconcile` is one arm of the verdict table (installed / pending / changed-since-approval / blocked / foreign / shadowing a package skill / removed from the KB). Quarantine-on-change lives in those arms: approval binds to a CONTENT HASH, so a skill whose tree changed returns to PENDING rather than carrying the old approval forward — because the operator approved a body, not a title, and the second version is the one worth attacking precisely because the first was reviewed. `cmd_skill_sync` (34) is the mode dispatcher over that table: approve / reject / uninstall / reset / status / status-line, each with its own refusal conditions. Splitting either in the same commit that moves it is exactly the concentrated risk the ratchet prevents. Owned by task 99 with the rest of the residual.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
@@ -629,13 +629,227 @@
       ]
     },
     {
-      "owner": "task 67",
-      "reason": "The work-scope corpus builder, ported by task 55 alongside recall's promotion. 17 branches here, 17 in the pre-port monolith \u2014 the move added none. Its branches are the per-file guards over a directory that grows without bound and is written by humans: an unreadable file, a missing plan, a file with no heading, a non-.md sibling, a feature dir with no date prefix. Every one is a skip-this-file-and-continue arm, and collapsing them would make one malformed worklog able to empty the whole work-scope corpus \u2014 a silent zero-result recall over a directory that is visibly full of documents. Owned by task 67.",
+      "owner": "task 99",
+      "reason": "The work-scope corpus builder, ported by task 55 alongside recall's promotion. 17 branches here, 17 in the pre-port monolith — the move added none. Its branches are the per-file guards over a directory that grows without bound and is written by humans: an unreadable file, a missing plan, a file with no heading, a non-.md sibling, a feature dir with no date prefix. Every one is a skip-this-file-and-continue arm, and collapsing them would make one malformed worklog able to empty the whole work-scope corpus — a silent zero-result recall over a directory that is visibly full of documents. Owned by task 99.",
       "rows": [
         {
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/retrieval/workcorpus.py::_build_work_corpus_uncached",
           "value": 17
+        }
+      ]
+    },
+    {
+      "owner": "task 69",
+      "reason": "The DASHBOARD, measured for the first time by task 67's widening. `scripts/agentware_dashboard.py` is 1,146 lines against the plan's 250-line cap for a served script — the second monolith, and the plan names the task that removes it: task 69, 'Decompose the dashboard, the second monolith, into a package mirroring the lib layer discipline'. Task 67 could not fold that in without doing task 69's work inside the commit that lands the gate, which would leave the gate's own arrival unreviewable. The row is a MEASUREMENT the widening made, handed to the task that already owned the fix, and it reddens the moment the file grows. `_lib_lookup` (15 branches) rides with it: its branches are the import-resolution fallbacks the split rewrites anyway.",
+      "rows": [
+        {
+          "kind": "file_over_cap",
+          "location": "scripts/agentware_dashboard.py",
+          "value": 1146
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_dashboard.py::_lib_lookup",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "owner": "task 99",
+      "reason": "The HARNESS HOOK scripts, measured for the first time by task 67's widening. These four functions are the Claude/Codex transcript ingest path — `codex-stream.py::main` (124 lines / 24 branches) is the stream-event dispatcher whose branches ARE the event taxonomy, `codex_items.py::_tool_fields` (15) and `render-transcript.py::_render_content` (14) / `main` (14) are field-shape normalisers over a schema this package does not own. None got worse; they were simply never under a cap, which is the finding. They are NOT decomposed here for the reason the whole ratchet exists: hooks run on every session start, stop and tool call, they have no unit tier of their own, and a refactor whose only verification is 'the suite still passes' is exactly the change that breaks logging silently. Task 99 adjudicates: pay down behind a real hook test, or convert to a justified permanent exemption.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/codex-stream.py::main",
+          "value": 24
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/hooks/codex-stream.py::main",
+          "value": 124
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/codex_items.py::_tool_fields",
+          "value": 15
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/render-transcript.py::_render_content",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/render-transcript.py::main",
+          "value": 14
+        }
+      ]
+    },
+    {
+      "owner": "task 99",
+      "reason": "The WEBUI SOURCE, measured for the first time by task 67's widening, which is also the first time any cap applied to it. Two files exceed the 600-line module cap the webui inherits from `lib` and `tests`: `services/api/contract.ts` (1,012) is the hand-maintained mirror of the dashboard's JSON response shapes — its size tracks the API surface, so it shrinks when the surface is split, not before — and `panels/modules/AgentPanels.tsx` (677) holds several sibling agent panels in one file. Neither is decomposed here: the webui's verification is `vitest`, which is not installed in this environment (INV-6 keeps the package dependency-free), so a TypeScript split landing in this commit would ship UNVERIFIED — the one thing a modularity gate must not teach the tree to do. Task 99 adjudicates against a runnable webui toolchain.",
+      "rows": [
+        {
+          "kind": "file_over_cap",
+          "location": "webui/src/panels/modules/AgentPanels.tsx",
+          "value": 677
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "webui/src/services/api/contract.ts",
+          "value": 1012
+        }
+      ]
+    },
+    {
+      "owner": "task 99",
+      "reason": "The TEST CORPUS's own helper modules, measured for the first time by task 67's widening. Nine files exceed the 600-line cap `tests/README.md` already states and `test_test_layout.py` already enforces for `test_*.py` files — the helpers were never in that check's scope, so the corpus held its own code to a lower standard than the code it gates. That asymmetry is the finding, and it is exactly the shape task 71 (the test-corpus ratchet) exists to close. The seventeen function rows are the gate harnesses' decision tables: `_loop_wiring.py::evaluate` (25) and `_surface_union.py`'s five checkers report EVERY problem rather than the first, so their branch count is their check count, and collapsing any arm is the bug. `_loop_callsites.py::strip_comment` (22) is a shell tokenizer whose branches are quoting states. Not split here because a gate harness that changes shape in the same commit that widens the gate cannot be reviewed as either change. Task 99 adjudicates.",
+      "rows": [
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_body_adjudication.py",
+          "value": 950
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_cachefreshness_gate.py::_check_sole_writer",
+          "value": 16
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_cachefreshness_gate.py::_key_uses",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_cachefreshness_gate.py::check_coupling",
+          "value": 14
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_constant_differ.py",
+          "value": 611
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_constant_differ.py::check_divergent",
+          "value": 13
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_dreampkg_gate.py",
+          "value": 647
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_dreampkg_gate.py::check_registry",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_env_config_capture.py::_row",
+          "value": 15
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_fixtures.py",
+          "value": 1077
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_indexreader_gate.py::normalizer_errors",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_indexsafety_gate.py::atomic_write_errors",
+          "value": 18
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_indexsafety_gate.py::wiring_errors",
+          "value": 16
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_kbtarget_gate.py",
+          "value": 657
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_loop_callsites.py::strip_comment",
+          "value": 22
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_loop_wiring.py::evaluate",
+          "value": 25
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_markdown_links.py::check_one",
+          "value": 16
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_mutation_canary.py::verdict",
+          "value": 13
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_orgidentity_gate.py",
+          "value": 685
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_preserved_freeze.py",
+          "value": 721
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_security_policy.py",
+          "value": 607
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_surface_union.py",
+          "value": 618
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::check_shape",
+          "value": 18
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::check_tables",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::check_values",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::derive",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::superset_violations",
+          "value": 16
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "tests/e2e/test_transcript_miner_e2e.py::test_error_recovery_only_go_live_spine",
+          "value": 153
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/unit/features/test_dream.py::test_guard_no_destructive_no_autopromotion",
+          "value": 14
         }
       ]
     }

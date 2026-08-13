@@ -8,9 +8,15 @@
 > **Answer it as a command, too:** `scripts/agentware recall "<what you're changing>"`
 > surfaces the indexed KB entry that points here (id `learn-agentware-lib-module-discovery`).
 >
-> Regenerate the manifest + the per-module `Fan-in:` doclines after any wave:
-> `python3 tests/_manifest_gen.py --write`. `tests/test_module_manifest.py` fails
-> loudly if this router, the manifest, or a docstring drifts from the real tree.
+> Regenerate the manifest after any wave: `python3 tests/_manifest_gen.py --write`
+> (add `--sync-fanin` to also rewrite the per-module `Fan-in:` doclines).
+> `tests/gates/test_module_manifest.py` fails loudly if the manifest drifts from
+> the real tree, if a file on disk has no entry, or if a file is over its cap.
+>
+> The manifest is TREE-WIDE as of plan task 67: `modules` is this package's rich
+> per-module view, and `files` claims every Python and shell file under
+> `scripts/`, the orchestrator, the test corpus and the webui source, each with
+> its layer and its line cap.
 
 ## How to find the owning module (in order)
 

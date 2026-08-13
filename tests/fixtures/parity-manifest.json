@@ -3325,7 +3325,7 @@
       "verification": "curated",
       "task": 25,
       "evidence": {
-        "test": "tests.test_module_manifest",
+        "test": "tests.gates.test_module_manifest",
         "mutation": "add a file under the lib with no manifest entry: the completeness check must redden"
       }
     },
@@ -3340,7 +3340,7 @@
       "verification": "curated",
       "task": 67,
       "evidence": {
-        "test": "tests.test_module_manifest",
+        "test": "tests.gates.test_module_manifest",
         "mutation": "regenerate the manifest twice: the second run must produce no diff"
       }
     },
