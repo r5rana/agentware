@@ -1460,6 +1460,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_modularity_rules.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_mutation_canary.py"
     },
     {
@@ -1756,6 +1761,16 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_markdown_links.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_modularity_negative.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_modularity_rules.py"
     },
     {
       "layer": "tests",

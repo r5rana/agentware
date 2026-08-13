@@ -116,3 +116,58 @@ def direction_violations(mod_path, scripts_root):
     allowed = ALLOWED_BELOW.get(own, set())
     imported = imported_lib_layers(mod_path, scripts_root)
     return sorted(imported - allowed)
+
+
+def _module_level_nodes(tree):
+    """Every AST node that executes AT IMPORT TIME.
+
+    Everything except function bodies: a class body, a module-level `try` or an
+    `if TYPE_CHECKING:` block all run when the module is imported, so an import
+    inside one is a real load-time edge. A `def`/`lambda` body is not — it runs
+    only when something calls it, which is precisely what makes a function-local
+    import the documented escape hatch for an irreducible upward SYMBOL edge.
+    """
+    stack = list(ast.iter_child_nodes(tree))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        yield node
+        stack.extend(ast.iter_child_nodes(node))
+
+
+def module_level_lib_layers(mod_path, scripts_root):
+    """Set of agentware_lib layers this module imports AT MODULE LEVEL.
+
+    The MODULE-LEVEL restriction is the whole point of the distinction, not a
+    weakening of it: an import-time edge fixes the package's load order and can
+    deadlock it, while a call-time edge cannot. Its own layer is removed, so an
+    intra-layer import is never a direction violation.
+    """
+    with open(mod_path, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    dotted = module_dotted(mod_path, scripts_root)
+    pkg = dotted.rsplit(".", 1)[0] if "." in dotted else dotted
+    own = layer_of_dotted(dotted)
+
+    layers = set()
+    for node in _module_level_nodes(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                lyr = layer_of_dotted(alias.name)
+                if lyr:
+                    layers.add(lyr)
+        elif isinstance(node, ast.ImportFrom):
+            for tgt in _resolved_targets(node, pkg):
+                lyr = layer_of_dotted(tgt)
+                if lyr:
+                    layers.add(lyr)
+    layers.discard(own)
+    return layers
+
+
+def module_level_direction_violations(mod_path, scripts_root):
+    """Layers imported at MODULE LEVEL that this module's layer may not import."""
+    own = module_layer(mod_path, lib_dir(os.path.dirname(scripts_root)))
+    allowed = ALLOWED_BELOW.get(own, set())
+    return sorted(module_level_lib_layers(mod_path, scripts_root) - allowed)

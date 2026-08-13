@@ -1,0 +1,74 @@
+{
+  "schema": "agentware/modularity-debt@1",
+  "captured": "2026-08-19",
+  "note": "The residual the two STRUCTURAL modularity rules found on the day they were first enforced (plan task 68). Read tests/_modularity_rules.py for the rules and the ratchet semantics. A row here is subtracted from the live scan; a violation at an undeclared location, a violation worse than its row, and a row the tree no longer produces are all failures, so this file only shrinks. Rows are grouped: the group carries the owner and the paragraph, each row carries only what varies.",
+  "rows": [],
+  "groups": [
+    {
+      "owner": "task 100",
+      "reason": "ops -> features, module-level. These twelve modules are LOCAL-origin ports (the checkup family, the review family, the tick scheduler, the staging/pull pair, the preference capture) whose collaborators were ported into the features layer, so the import crosses upward at load time. The edge is real, not a mis-measurement: features holds the verb HANDLERS and the four subsystems these modules read from (dream, pkgupdater/pkgapply, skilllock, reviewagent/reviewoutput), and an ops module that imports a handler package has inverted the direction the folder names claim. It is declared rather than fixed here because the fix is a MOVE — either the shared constants and pure helpers drop into a layer both sides may import, or the whole subsystem lands in one layer — and a task whose contract is 'add the negative test that proves the invariant holds for future work' may not also be the task that rearranges fifteen product modules. Task 100 adjudicates each edge: pay it down by moving the shared symbol below, convert it to the function-local escape hatch where the edge is genuinely irreducible, or state why the module belongs in a different layer.",
+      "rows": [
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/checkupconfig.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/checkupemit.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/checkuphealth.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/kbpull.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/prefercapture.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/reviewaudit.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/reviewdiag.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/reviewprompts.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/reviewremediate.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/reviewreport.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/staging.py", "value": ["features"]},
+        {"kind": "module_level_upward_import", "location": "scripts/agentware_lib/ops/tickcmd.py", "value": ["features"]}
+      ]
+    },
+    {
+      "owner": "task 100",
+      "reason": "The three upward edges BELOW ops. Each is its own case rather than one class, so each carries its own row reason; they are grouped only by owner.",
+      "rows": [
+        {
+          "kind": "module_level_upward_import",
+          "location": "scripts/agentware_lib/core/projectcontext.py",
+          "value": ["knowledge"],
+          "reason": "core -> knowledge for `_slugify` alone: the project-context resolver derives a canonical project key and uses the curation writer's slug function so a resolved key and a written entry id can never disagree. That is the RIGHT coupling with the WRONG direction — the shared symbol is a pure string transform with no knowledge-layer state, so paying this down means moving `_slugify` into core (where every layer may import it) rather than severing the tie, which would let the two slug rules drift. core is the one layer allowed to import nothing at all, which is why this row is the most load-bearing of the fifteen."
+        },
+        {
+          "kind": "module_level_upward_import",
+          "location": "scripts/agentware_lib/knowledge/freshsignals.py",
+          "value": ["retrieval"],
+          "reason": "knowledge -> retrieval for `date_age_days` from retrieval.acr: an age-in-days helper that the ranking code owns and the freshness signals reuse. Same shape as the core row — a pure date computation sitting one layer above its second caller — and the same fix, which is to home the helper where both may read it."
+        },
+        {
+          "kind": "module_level_upward_import",
+          "location": "scripts/agentware_lib/retrieval/workcorpus.py",
+          "value": ["ops"],
+          "reason": "retrieval -> ops for `_PLAN_DEFAULT_STATE` and `_read_plan_status` from ops.plangraph: the work-scope corpus reads a plan's status to apply the plan-status ranking multipliers, and the plan state machine lives in ops. This one is NOT a helper move — the status vocabulary genuinely belongs to the plan graph — so task 100 must choose between publishing the status reader through a lower layer and accepting the edge as a function-local lazy import."
+        }
+      ]
+    },
+    {
+      "owner": "permanent",
+      "reason": "Grab-bag NAMES that are ecosystem positions rather than dumping grounds. The rule bans a module named for what it is NOT; each row below names a real position, and each is bounded by a size cap it cannot grow past without reddening the ceiling gate. A permanent row is still a row: it dies with the file, and `schema_errors` refuses one anywhere under scripts/agentware_lib/, where the ban is absolute.",
+      "rows": [
+        {
+          "kind": "grabbag_module_name",
+          "location": "scripts/loop/common.sh",
+          "value": "common",
+          "reason": "Shell has no import system — only `source` — so a prelude sourced FIRST is a structural position, not a leftovers bin. This file is 30 lines holding exactly three primitives (`log`, `notify`, `cleanup`); `log` alone has 68 call sites across the split libs, so it must be defined before anything that logs. Bounded by the 250-line loop cap."
+        },
+        {
+          "kind": "grabbag_module_name",
+          "location": "scripts/hooks/common.sh",
+          "value": "common",
+          "reason": "The hook-side mirror of the same position, created by plan task 35 to END a real defect: six hooks each carried their own copy of the same four resolutions and two copies had already diverged, so a machine without jq logged an EMPTY prompt with no error. One definition site per primitive is the fix; renaming it would not change what it is. Bounded by the 250-line hooks cap."
+        },
+        {
+          "kind": "grabbag_module_name",
+          "location": "webui/src/lib/utils.ts",
+          "value": "utils",
+          "reason": "shadcn/ui's generated `cn` helper at the exact path every generated component imports (`@/lib/utils`). The file holds one 3-line function; renaming it would fork the tree from its own component generator, and every future component would re-create the file. The name is fixed by the ecosystem, not chosen here."
+        }
+      ]
+    }
+  ]
+}
