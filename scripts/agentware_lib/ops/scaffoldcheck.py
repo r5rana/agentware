@@ -36,15 +36,22 @@ a second answer. Reading them means a stale ledger shows up HERE as a missing
 entry, which is the finding an author needs, rather than as agreement between two
 copies of the same mistake.
 
-WHY THE TWO DEBT LEDGERS EXIST
-------------------------------
-189 modules have no granular owning test and 82 have no README row — measured,
-declared, and owned by named follow-up tasks (101 and 74). A check that failed on
-all 271 would be switched off within a day, and a check that ignored them would
-pass a NEW module with no test. So both are shrink-only ratchets, on the same
+WHY THE DEBT LEDGERS EXIST, AND WHAT HAPPENS WHEN ONE IS PAID
+-------------------------------------------------------------
+189 modules have no granular owning test — measured, declared in
+`test-ownership-debt.json`, and owned by follow-up task 101. A check that failed
+on all of them would be switched off within a day, and a check that ignored them
+would pass a NEW module with no test. So it is a shrink-only ratchet, on the same
 discipline the ceiling and modularity ratchets already carry: an undeclared gap
 FAILS, and a declared row the tree no longer produces ALSO fails, so the file
 only ever shrinks and can never rot into an allowlist.
+
+The doc-row ledger is what that discipline looks like when it FINISHES. It
+declared 82 modules with no README router row; task 74 documented all 82 and
+DELETED the file. `debt_locations` reads an absent ledger as an EMPTY exemption
+set, which is the stricter reading — so `check_docs` now requires a row for every
+module the manifest publishes, and `DOC_DEBT_REL` names where a ledger would go
+if the tree ever earns a new one, not a file that must exist.
 
 Stdlib only, read-only, deterministic. Never touches the knowledge base.
 """

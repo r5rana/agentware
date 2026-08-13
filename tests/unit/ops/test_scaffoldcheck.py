@@ -238,15 +238,22 @@ class DocRowTest(SyntheticTreeTestCase):
         self.assertEqual(sc.check_docs(REPO_ROOT, manifest), [])
 
     def test_the_committed_debt_ledger_declares_its_own_row_count(self):
-        with open(os.path.join(REPO_ROOT, sc.DOC_DEBT_REL), encoding="utf-8") as fh:
-            data = json.load(fh)
-        rows = list(data["rows"])
-        for group in data["groups"]:
-            rows.extend(group["rows"])
-        self.assertEqual(data["ratchet"]["max_rows"], len(rows))
-        self.assertTrue(rows)
-        self.assertTrue(all(r["kind"] == "module_without_doc_row" for r in rows))
-        self.assertTrue(all(g["owner"].startswith("task ") for g in data["groups"]))
+        """NARROWED at task 74, which PAID the ledger off: every one of the 82
+        modules it declared now carries a router row, so the file is deleted and
+        the assertion is that it stays deleted. A zero-row ledger left on disk
+        is an invitation to re-add rows to it; a ledger that is absent has to be
+        re-created deliberately, and `check_docs` treats an absent one as an
+        EMPTY exemption set — which is strictly the stricter reading. The
+        ledger's shape (row count == `ratchet.max_rows`, one kind, an owning
+        task per group) is still asserted on the three surviving ledgers by
+        their own gates."""
+        self.assertFalse(os.path.exists(os.path.join(REPO_ROOT,
+                                                     sc.DOC_DEBT_REL)))
+        with open(os.path.join(REPO_ROOT, su.CATALOG_REL),
+                  encoding="utf-8") as fh:
+            manifest = json.load(fh)
+        self.assertEqual(sc.debt_locations(REPO_ROOT, sc.DOC_DEBT_REL), set())
+        self.assertEqual(sc.check_docs(REPO_ROOT, manifest), [])
 
     def test_the_group_flattening_agrees_with_the_corpus_loader(self):
         """This module cannot import the test corpus, so it re-implements the

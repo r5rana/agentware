@@ -171,7 +171,7 @@ Nothing personal is ever committed: the repo is **pure steering**, and your know
 
 The toolkit guarantees *how* knowledge is written; the agent decides *what*. Retrieval is byte-identical (no LLM/RNG/network/wall-clock in ranking), proven by guard tests: `test_recall_json_is_byte_identical_across_runs`, `test_cli_imports_are_stdlib_only`, `test_recall_leaves_entire_kb_tree_unchanged` (`tests/gates/test_invariants.py`).
 
-Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](docs/loop.md) · rationale: [docs/methodology.md](docs/methodology.md).
+Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](docs/loop.md) · rationale: [docs/methodology.md](docs/methodology.md) · changing agentware itself: [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -301,23 +301,26 @@ agentware is honest about where it's *not yet* industry-standard:
 
 ## Architecture
 
-`scripts/agentware` is a thin (~110-line) entrypoint: a `sys.path` bootstrap plus a
-frozen facade that re-exports the CLI **by name** from **`scripts/agentware_lib/`** — a
-stdlib-only, layered Python package. Layers import strictly downward —
+`scripts/agentware` is a thin entrypoint: a `sys.path` bootstrap and a guarded
+dispatch tail, and nothing else. Every line of domain code lives in
+**[`scripts/agentware_lib/`](scripts/agentware_lib/README.md)** — a stdlib-only,
+layered Python package of 203 modules. Layers import strictly downward —
 **core → knowledge → retrieval → ops → features → cli** (`cli` is the leaf that
-assembles the parser and `main()`) — and the layering boundary is enforced by tests.
-The generated `catalog/modules.json` manifest and `scripts/agentware_lib/README.md`
-router map each module to what it owns and its test file. The full contract lives in
-`docs/architecture.md`.
+assembles the parser and `main()`) — and an upward module-level import is a test
+failure, not a style note. Each of the 45 verbs is declared by the module that
+owns it, so adding one touches exactly one file. The generated
+[`catalog/modules.json`](catalog/modules.json) manifest and the
+[router table](scripts/agentware_lib/README.md) map each module to what it owns
+and its test file. The full contract lives in
+[`docs/architecture.md`](docs/architecture.md).
 
 > **This README is the public/marketing face — it is _not_ the source of truth.**
 > Badges and prose here (including any test-count badge) can lag the code. The
-> authoritative, machine-checked docs are `docs/architecture.md` (system of record),
-> `docs/agent-readme.md` (agent router), and `docs/human-readme.md` (operator guide).
-
-<!-- doc-links-pending: architecture.md, agent-readme.md, human-readme.md and the
-     agentware_lib router land with the modular core; task 74 turns the code spans
-     above into links once the files exist and the manifest claims them. -->
+> authoritative, machine-checked docs are
+> [`docs/architecture.md`](docs/architecture.md) (the contributor's map, whose
+> module map, layer table and ceiling table are rendered from the manifest and
+> gated against it), the [module router](scripts/agentware_lib/README.md), and
+> the [User Guide](docs/GUIDE.md) (operator-facing).
 
 ---
 

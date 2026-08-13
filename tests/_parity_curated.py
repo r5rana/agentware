@@ -558,4 +558,28 @@ CURATED_ROWS = [
          "delete any one check from `audit`, accept an undeclared testless or "
          "undocumented module, or keep a doc-row debt row after its module gains "
          "a README row: each planted gap must be named by its own finding kind"),
+    _row("docs:architecture-extensibility", "docs_templates",
+         "The contributor ARCHITECTURE doc and its runnable R-DATA-01 gate: the "
+         "module map, the layer contract and its rationale, the `__verbs__` "
+         "registration mechanism, the ceiling table, the gate table, a recipe "
+         "per non-subcommand extension point and the shared-file chokepoints "
+         "with their mitigations — with the map, the layer table and the "
+         "ceiling table RENDERED from catalog/modules.json between managed "
+         "markers, so the documentation cannot drift from the manifest by a "
+         "hand edit on either side",
+         DONOR, 74, "tests.gates.test_doc_architecture",
+         "delete a recipe anchor, drop a chokepoint row, remove a module row "
+         "from either documented map, add a row naming no module, hand-edit a "
+         "managed block by one character, or RENAME the symbol a recipe points "
+         "at: each arm (A/B/C/D/E/F) must name the offender in a scratch copy "
+         "of the real tree"),
+    _row("docs:module-map-two-way-parity", "docs_templates",
+         "Both documented module maps — the `scripts/agentware_lib/README.md` "
+         "router and the architecture doc's map — are complete and exact "
+         "against the manifest in BOTH directions, the state that let task 73's "
+         "82-row doc-row debt ledger be deleted rather than carried",
+         LOCAL, 74, "tests.unit.ops.test_scaffoldcheck",
+         "re-create tests/fixtures/doc-row-debt.json, or delete a router row: "
+         "`check_docs` reports doc_row_missing and the ledger-is-gone assertion "
+         "reddens"),
 ]

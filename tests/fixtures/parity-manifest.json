@@ -34,11 +34,11 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 552,
+    "rows": 554,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
-      "docs_templates": 4,
+      "docs_templates": 6,
       "dream_maintenance": 7,
       "env_config": 82,
       "evaluation_quality": 4,
@@ -51,19 +51,19 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 543,
+      "required": 545,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 65,
+      "curated": 67,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
       "assets": 19,
       "cli_surface": 82,
-      "docs_templates": 3,
+      "docs_templates": 4,
       "dream_maintenance": 3,
       "env_config": 52,
       "evaluation_quality": 1,
@@ -1898,6 +1898,21 @@
       "verification": "generated"
     },
     {
+      "id": "docs:architecture-extensibility",
+      "dimension": "docs_templates",
+      "capability": "The contributor ARCHITECTURE doc and its runnable R-DATA-01 gate: the module map, the layer contract and its rationale, the `__verbs__` registration mechanism, the ceiling table, the gate table, a recipe per non-subcommand extension point and the shared-file chokepoints with their mitigations \u2014 with the map, the layer table and the ceiling table RENDERED from catalog/modules.json between managed markers, so the documentation cannot drift from the manifest by a hand edit on either side",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 74,
+      "evidence": {
+        "test": "tests.gates.test_doc_architecture",
+        "mutation": "delete a recipe anchor, drop a chokepoint row, remove a module row from either documented map, add a row naming no module, hand-edit a managed block by one character, or RENAME the symbol a recipe points at: each arm (A/B/C/D/E/F) must name the offender in a scratch copy of the real tree"
+      }
+    },
+    {
       "id": "docs:artifact-capture-standard",
       "dimension": "docs_templates",
       "capability": "The donor's artifact capture standard: a learning referencing a concrete artifact captures it verbatim",
@@ -1910,6 +1925,21 @@
       "evidence": {
         "test": "tests.unit.knowledge.test_artifact_capture_standard",
         "mutation": "store the reference without the artifact: the captured body no longer reproduces the cited artifact"
+      }
+    },
+    {
+      "id": "docs:module-map-two-way-parity",
+      "dimension": "docs_templates",
+      "capability": "Both documented module maps \u2014 the `scripts/agentware_lib/README.md` router and the architecture doc's map \u2014 are complete and exact against the manifest in BOTH directions, the state that let task 73's 82-row doc-row debt ledger be deleted rather than carried",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 74,
+      "evidence": {
+        "test": "tests.unit.ops.test_scaffoldcheck",
+        "mutation": "re-create tests/fixtures/doc-row-debt.json, or delete a router row: `check_docs` reports doc_row_missing and the ledger-is-gone assertion reddens"
       }
     },
     {
