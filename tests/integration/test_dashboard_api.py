@@ -1,11 +1,18 @@
 """Tests for the read-only dashboard JSON API (Task 9).
 
-The HTTP server lives in `scripts/agentware_dashboard.py` (a sidecar the import
-guard never scans). These tests stand up a SYNTHETIC knowledge base (sessions +
-metrics.jsonl emission + benchmark ledger + a work feature), start the real
-server bound to it, urllib-GET every `/api/*` endpoint, and assert the JSON
-shape (aggregate + drill-down records). Tests may freely use urllib/http —
+The HTTP server lives in the `scripts/agentware_dashboard/` package (a sidecar
+the import guard never scans). These tests stand up a SYNTHETIC knowledge base
+(sessions + metrics.jsonl emission + benchmark ledger + a work feature), start
+the real server bound to it, urllib-GET every `/api/*` endpoint, and assert the
+JSON shape (aggregate + drill-down records). Tests may freely use urllib/http —
 only the CLI source is moat-guarded.
+
+Plan task 69 decomposed the sidecar, so a handler is named through the read-model
+module that owns it (`readevals.api_evals`) rather than through one flat
+namespace, and the toolkit functions a fixture needs come from `load_cli()` —
+the SUITE's CLI handle — instead of the sidecar's own loader. That is the point
+of the decomposition: the product no longer carries a name-resolution adapter for
+the tests' benefit.
 
 R-LOC-03: all fixtures are synthetic/hand-authored; no operator data is touched.
 """
@@ -21,18 +28,18 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
-from importlib.machinery import SourceFileLoader
 
-SERVER_PATH = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard.py")
+SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
 
 try:
-    from tests._fixtures import build_synthetic_kb
+    from tests._fixtures import build_synthetic_kb, load_cli
 except ImportError:  # allow `python3 -m unittest tests.integration.test_dashboard_api`
     sys.path.insert(0, TESTS_DIR)
-    from _fixtures import build_synthetic_kb
+    from _fixtures import build_synthetic_kb, load_cli
 
-
-SRV = SourceFileLoader("agentware_dashboard", SERVER_PATH).load_module()
+from agentware_dashboard import httpserver, readevals  # noqa: E402
 
 FEATURE = "260101-demo-feature"
 
@@ -129,7 +136,7 @@ class DashboardApiTestCase(unittest.TestCase):
         self.dist = tempfile.mkdtemp(prefix="agentware-api-dist-")
         self.addCleanup(shutil.rmtree, self.dist, True)
 
-        self.httpd = SRV.make_server(host="127.0.0.1", port=0,
+        self.httpd = httpserver.make_server(host="127.0.0.1", port=0,
                                      dist_dir=self.dist, kdir=self.kdir)
         self.addCleanup(self.httpd.server_close)
         self.thread = threading.Thread(target=self.httpd.serve_forever,
@@ -267,7 +274,7 @@ class DashboardApiTestCase(unittest.TestCase):
              "acr_gate": {"decided_strategy": "bm25", "passed": False,
                           "checks": {"primary": {"passed": False}}}},
         ])
-        _status, data = SRV.api_evals(types.SimpleNamespace(kdir=kdir))
+        _status, data = readevals.api_evals(types.SimpleNamespace(kdir=kdir))
         self.assertEqual(data["count"], 1)
         self.assertEqual(data["acr_count"], 1)
         self.assertEqual(data["series"][0]["commit"], "e1")
@@ -293,7 +300,7 @@ class DashboardApiTestCase(unittest.TestCase):
     def test_assessments_path_traversal_confined(self):
         # A `..` escape is canonicalized + confined under <kdir>/work (security).
         import types
-        _status, data = SRV.api_assessments(
+        _status, data = readevals.api_assessments(
             types.SimpleNamespace(kdir=self.kdir), "../../../etc/passwd")
         self.assertFalse(data["exists"])
         self.assertEqual(data.get("error"), "invalid feature")
@@ -368,7 +375,7 @@ class DashboardApiTestCase(unittest.TestCase):
     # -- graph status endpoint (Task 8) ---------------------------------------
     def _build_fixture_graph(self, name):
         """Write two non-self-ext plans + a manifest via the CLI single-writer."""
-        cli = SRV.get_cli()
+        cli = load_cli()
         for feat in ("gnode-a", "gnode-b"):
             d = os.path.join(self.kdir, "work", feat)
             os.makedirs(d, exist_ok=True)
@@ -446,7 +453,7 @@ class DashboardApiTestCase(unittest.TestCase):
         # `../../secret-graph`, which os.path.join resolves to a graph.json OUTSIDE
         # `work/graphs`. The endpoint must refuse it (404) before touching the
         # filesystem — never disclose an out-of-tree manifest (path traversal).
-        cli = SRV.get_cli()
+        cli = load_cli()
         secret = os.path.join(self.kdir, "secret-graph")
         os.makedirs(secret, exist_ok=True)
         with open(os.path.join(secret, "graph.json"), "w") as f:
@@ -520,7 +527,7 @@ class NoKdirGracefulTest(unittest.TestCase):
     def setUp(self):
         self.dist = tempfile.mkdtemp(prefix="agentware-api-dist-")
         self.addCleanup(shutil.rmtree, self.dist, True)
-        self.httpd = SRV.make_server(host="127.0.0.1", port=0,
+        self.httpd = httpserver.make_server(host="127.0.0.1", port=0,
                                      dist_dir=self.dist, kdir=None)
         self.addCleanup(self.httpd.server_close)
         self.thread = threading.Thread(target=self.httpd.serve_forever,

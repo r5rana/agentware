@@ -29,9 +29,14 @@ successor is still LOST, and a module not listed here is not relocated at all.
 
 TIERS
 -----
-  tests/unit/<layer>/   one lib layer's modules, mirroring
+  tests/unit/<layer>/   one PACKAGE layer's modules. Six mirror
                         `agentware_lib/<layer>/` (cli, core, features,
-                        knowledge, ops, retrieval)
+                        knowledge, ops, retrieval); `dashboard` mirrors
+                        `scripts/agentware_dashboard/`, which task 69
+                        decomposed into a package with the same discipline --
+                        its security kernel, route table, toolkit seam and
+                        entrypoint each own a unit file, while the tests that
+                        bind a port stay in `integration/`
   tests/integration/    two or more layers, or a seam this package owns but the
                         lib does not -- the orchestrator, the hooks, the
                         dashboard, the MCP server
@@ -53,8 +58,9 @@ import os
 TEST_FILE_LINE_CAP = 600
 
 #: The tier directories, relative to `tests/`.
-TIERS = ("unit/cli", "unit/core", "unit/features", "unit/knowledge",
-         "unit/ops", "unit/retrieval", "integration", "e2e", "gates")
+TIERS = ("unit/cli", "unit/core", "unit/dashboard", "unit/features",
+         "unit/knowledge", "unit/ops", "unit/retrieval", "integration", "e2e",
+         "gates")
 
 #: {old dotted module: (successor dotted module, ...)} -- the task-58 move.
 #: A tuple because task 58 also SPLITS a file over the line cap, and a split
@@ -95,7 +101,12 @@ RELOCATIONS = {
         "tests.gates.test_constant_differ",
         "tests.gates.test_constant_differ_refutation",
     ),
-    "tests.test_dashboard": ("tests.integration.test_dashboard",),
+    # Task 69 decomposed the dashboard: the path-confinement class moved to the
+    # security kernel's own unit file while the port-binding tests stayed put,
+    # so one old module has two successors (the same shape task 58's file splits
+    # produced).
+    "tests.test_dashboard": ("tests.integration.test_dashboard",
+                             "tests.unit.dashboard.test_confine"),
     "tests.test_dashboard_api": ("tests.integration.test_dashboard_api",),
     "tests.test_decisions": ("tests.unit.knowledge.test_decisions",),
     "tests.test_declare_habitual_e2e": ("tests.e2e.test_declare_habitual_e2e",),

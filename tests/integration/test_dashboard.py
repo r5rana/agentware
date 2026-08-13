@@ -1,8 +1,16 @@
 """Tests for the dashboard server sidecar (Task 8).
 
-The HTTP server lives in `scripts/agentware_dashboard.py` (a sidecar the import
-guard never scans, so it may use `http.server`). These tests import it directly
-and may freely use `urllib`/`http` (only the CLI source is moat-guarded).
+The HTTP server lives in the `scripts/agentware_dashboard/` package (a sidecar
+the import guard never scans, so it may use `http.server`). These tests import
+it directly and may freely use `urllib`/`http` (only the CLI source is
+moat-guarded).
+
+The package landed at plan task 69, which decomposed the 1,146-line single file
+into an entrypoint, a security kernel, the server, the handler, the route table
+and a read model split by domain — so this file now names the MODULE it is
+driving (`httpserver.make_server`, `routes.API_ROUTES`) instead of reaching for
+one flat namespace. The path-confinement unit coverage moved with the kernel to
+`tests/unit/dashboard/test_confine.py` (recorded in `_test_layout.RELOCATIONS`).
 
 Coverage:
   * binds 127.0.0.1 and a GET of the static bundle returns 200 (Task 8 verify);
@@ -22,9 +30,10 @@ import threading
 import unittest
 import urllib.request
 import urllib.error
-from importlib.machinery import SourceFileLoader
 
-SERVER_PATH = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard.py")
+SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
 
 try:
     from tests._fixtures import load_cli, build_synthetic_kb
@@ -32,12 +41,7 @@ except ImportError:  # allow `python3 -m unittest tests.integration.test_dashboa
     sys.path.insert(0, TESTS_DIR)
     from _fixtures import load_cli, build_synthetic_kb
 
-
-def _load_server():
-    return SourceFileLoader("agentware_dashboard", SERVER_PATH).load_module()
-
-
-SRV = _load_server()
+from agentware_dashboard import httpserver, routes  # noqa: E402
 
 
 class DashboardServerTestCase(unittest.TestCase):
@@ -56,7 +60,7 @@ class DashboardServerTestCase(unittest.TestCase):
         with open(os.path.join(self.dist, "secret.pem"), "w") as f:
             f.write("PRIVATE KEY")
 
-        self.httpd = SRV.make_server(host="127.0.0.1", port=0,
+        self.httpd = httpserver.make_server(host="127.0.0.1", port=0,
                                      dist_dir=self.dist, kdir=None)
         self.addCleanup(self.httpd.server_close)
         self.thread = threading.Thread(target=self.httpd.serve_forever,
@@ -102,7 +106,7 @@ class DashboardServerTestCase(unittest.TestCase):
     # -- security hardening ---------------------------------------------------
     def test_non_loopback_host_refused(self):
         with self.assertRaises(ValueError):
-            SRV.make_server(host="0.0.0.0", port=0, dist_dir=self.dist)
+            httpserver.make_server(host="0.0.0.0", port=0, dist_dir=self.dist)
 
     def test_path_traversal_rejected(self):
         # A real allowed-extension file SITTING OUTSIDE dist/ must be
@@ -149,54 +153,6 @@ class DashboardServerTestCase(unittest.TestCase):
         self.assertEqual(cm.exception.code, 404)
 
 
-class SafePathUnitTest(unittest.TestCase):
-    """Direct unit coverage of the path-confinement helper."""
-
-    def setUp(self):
-        import shutil
-        self.dist = tempfile.mkdtemp(prefix="agentware-dist-")
-        self.addCleanup(shutil.rmtree, self.dist, True)
-        with open(os.path.join(self.dist, "index.html"), "w") as f:
-            f.write("x")
-
-    def test_root_maps_to_index(self):
-        p = SRV._safe_static_path(self.dist, "/")
-        self.assertEqual(os.path.basename(p), "index.html")
-
-    def test_traversal_stays_confined(self):
-        # `..` segments are collapsed by normpath at the absolute root, so a
-        # traversal can only ever resolve to a path INSIDE dist (or None).
-        root = os.path.realpath(self.dist)
-        for p in ("/../agentware.js", "/a/../../b.js", "/../../x/y.js"):
-            got = SRV._safe_static_path(self.dist, p)
-            if got is not None:
-                self.assertTrue(got == root or got.startswith(root + os.sep),
-                                "%s escaped dist -> %s" % (p, got))
-
-    def test_symlink_escape_returns_none(self):
-        # A symlink inside dist pointing OUTSIDE must not be served.
-        import shutil
-        outside_dir = tempfile.mkdtemp(prefix="agentware-outside-")
-        self.addCleanup(shutil.rmtree, outside_dir, True)
-        with open(os.path.join(outside_dir, "leak.js"), "w") as f:
-            f.write("LEAK")
-        link = os.path.join(self.dist, "link.js")
-        try:
-            os.symlink(os.path.join(outside_dir, "leak.js"), link)
-        except (OSError, NotImplementedError):
-            self.skipTest("symlinks unsupported on this platform")
-        self.assertIsNone(SRV._safe_static_path(self.dist, "/link.js"))
-
-    def test_disallowed_ext_returns_none(self):
-        self.assertIsNone(SRV._safe_static_path(self.dist, "/x.pem"))
-        self.assertIsNone(SRV._safe_static_path(self.dist, "/x.py"))
-
-    def test_allowed_ext_confined(self):
-        p = SRV._safe_static_path(self.dist, "/assets/app.js")
-        self.assertTrue(p.endswith(os.path.join("assets", "app.js")))
-        self.assertTrue(p.startswith(os.path.realpath(self.dist) + os.sep))
-
-
 class LocalhostBoundMoatTest(unittest.TestCase):
     """Task 11 guard — localhost-bound: the EFFECTIVE bind host is 127.0.0.1.
 
@@ -213,7 +169,7 @@ class LocalhostBoundMoatTest(unittest.TestCase):
             f.write("<!doctype html><div id=root></div>")
 
     def _effective_host(self, host):
-        httpd = SRV.make_server(host=host, port=0, dist_dir=self.dist)
+        httpd = httpserver.make_server(host=host, port=0, dist_dir=self.dist)
         self.addCleanup(httpd.server_close)
         return httpd.server_address[0]
 
@@ -229,7 +185,7 @@ class LocalhostBoundMoatTest(unittest.TestCase):
     def test_non_loopback_host_refused(self):
         for evil in ("0.0.0.0", "::", "192.168.1.10", "example.com"):
             with self.assertRaises(ValueError, msg=evil):
-                SRV.make_server(host=evil, port=0, dist_dir=self.dist)
+                httpserver.make_server(host=evil, port=0, dist_dir=self.dist)
 
 
 class DashboardReadOnlyMoatTest(unittest.TestCase):
@@ -252,7 +208,7 @@ class DashboardReadOnlyMoatTest(unittest.TestCase):
         with open(os.path.join(self.dist, "index.html"), "w") as f:
             f.write("<!doctype html><div id=root></div>")
 
-        self.httpd = SRV.make_server(host="127.0.0.1", port=0,
+        self.httpd = httpserver.make_server(host="127.0.0.1", port=0,
                                      dist_dir=self.dist, kdir=self.kdir)
         self.addCleanup(self.httpd.server_close)
         self.thread = threading.Thread(target=self.httpd.serve_forever,
@@ -329,7 +285,7 @@ class DashboardReadOnlyMoatTest(unittest.TestCase):
 
         # `/` static route + every exact-match JSON endpoint.
         self._get("/")
-        for route in sorted(SRV.API_ROUTES):
+        for route in sorted(routes.API_ROUTES):
             self._get_json(route)
 
         # Every parameterized drill-down with REAL ids resolved from the KB.
@@ -392,7 +348,7 @@ class BuiltBundleIntegrationTest(unittest.TestCase):
                 "webui/dist/index.html missing — run `cd webui && npm run build`")
 
     def setUp(self):
-        self.httpd = SRV.make_server(host="127.0.0.1", port=0,
+        self.httpd = httpserver.make_server(host="127.0.0.1", port=0,
                                      dist_dir=DIST_DIR, kdir=None)
         self.addCleanup(self.httpd.server_close)
         self.thread = threading.Thread(target=self.httpd.serve_forever,

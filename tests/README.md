@@ -10,7 +10,7 @@ The corpus is layered; there are no flat test files under `tests/`.
 
 | Tier | Holds |
 |---|---|
-| `tests/unit/<layer>/` | one `agentware_lib/<layer>/` module's behaviour (`cli`, `core`, `features`, `knowledge`, `ops`, `retrieval`) |
+| `tests/unit/<layer>/` | one module's behaviour: an `agentware_lib/<layer>/` module (`cli`, `core`, `features`, `knowledge`, `ops`, `retrieval`) or a `scripts/agentware_dashboard/` module (`dashboard`, task 69) |
 | `tests/integration/` | two or more layers, or a seam the lib does not own — the orchestrator, the hooks, the dashboard, the MCP server |
 | `tests/e2e/` | a whole user-visible path: a full loop, a fresh clone, a benchmark run |
 | `tests/gates/` | the migration and repo-structure gates themselves, whose subject is a `tests/_*.py` harness module or a tree-wide invariant |

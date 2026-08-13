@@ -11,11 +11,11 @@ asserted over 0.3% of the code it claims to cover.
 
 A wider walk alone is not the fix either, because the tree is NOT uniform. Three
 `scripts/` sidecars exist precisely BECAUSE they may not obey the CLI's rules:
-the dashboard is a separate process so `http.server` never lands in the
-entrypoint (learn-agentware-dashboard-is-a-subprocess-http-sidecar), and the
-embedder backends are optional extension points that import `fastembed` or talk
-to a local model service. A single global rule would either false-positive on
-them or, far worse, be relaxed until it stops catching a real dependency.
+the dashboard is a separate process (a PACKAGE since task 69) so `http.server`
+never lands in the entrypoint (learn-agentware-dashboard-is-a-subprocess-http-
+sidecar), and the embedder backends are optional extension points importing
+`fastembed` or a local model service. A single global rule would either
+false-positive on them or be relaxed until it stops catching a real dependency.
 
 So the rule is per PATH CLASS, and the load-bearing addition is COVERAGE: every
 Python file on disk must be CLAIMED by some class. A file that matches no policy
@@ -138,10 +138,10 @@ POLICIES = (
         "hooks run on EVERY agent spawn on the operator's machine; a hook that "
         "needed installing would break the clone-and-go contract."),
     Policy(
-        "dashboard-sidecar", ("scripts/agentware_dashboard.py",), True, False,
-        "the read-only HTTP sidecar: it exists as a SEPARATE process so that "
-        "http/socket never enter the CLI corpus. It binds loopback only and "
-        "still imports stdlib exclusively.",
+        "dashboard-sidecar", ("scripts/agentware_dashboard/*.py",), True, False,
+        "the read-only HTTP sidecar (a PACKAGE since task 69): a SEPARATE "
+        "process, so http/socket never enter the CLI corpus. It binds loopback "
+        "only and still imports stdlib exclusively.",
     ),
     Policy(
         "embedder-sidecar", ("scripts/agentware_embedder_*.py",), False, False,

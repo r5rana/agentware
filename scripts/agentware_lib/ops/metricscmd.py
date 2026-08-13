@@ -15,8 +15,8 @@ _read_metrics_jsonl, imported DOWN as _metrics); the derive_* reporting family
 (agentware_lib.ops.derive, imported DOWN as _derive); session collection
 (agentware_lib.ops.sessionparse, as _sessionparse); the plan-path helper
 (agentware_lib.ops.planauthor._plan_path, as _planauthor); and the dashboard SERVER
-implementation itself (scripts/agentware_dashboard.py -- a guard-exempt sidecar
-launched by subprocess, NEVER imported here).
+implementation itself (the scripts/agentware_dashboard/ package -- a guard-exempt
+sidecar launched by subprocess, NEVER imported here).
 
 Layer deps: ops.metricscmd -> ops.metrics + ops.derive + ops.sessionparse +
 ops.planauthor (same layer, all DOWNWARD -- none of them imports metricscmd, so no
@@ -114,7 +114,11 @@ def _print_metrics_text(rows, agg, flt):
             print("    phase_costs: %s" % parts)
 
 
-DASHBOARD_SERVER = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard.py")
+#: The sidecar PACKAGE (plan task 69; it was a single 1,146-line file until then).
+#: Executed as a DIRECTORY: python runs its __main__.py with the package dir on
+#: sys.path, and that entrypoint puts scripts/ there too, so one path serves both
+#: this verb and a direct launch.
+DASHBOARD_SERVER = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard")
 
 
 def cmd_dashboard(args):
@@ -122,7 +126,7 @@ def cmd_dashboard(args):
 
     The HTTP server needs `http.server`, which the toolkit's import guards
     (INV-1/INV-6, tests/gates/test_invariants.py) forbid in this CLI source. So the
-    server lives in a SEPARATE sidecar file (`scripts/agentware_dashboard.py`)
+    server lives in a SEPARATE sidecar package (`scripts/agentware_dashboard/`)
     that the guards never scan, and we launch it via subprocess — the same
     pattern as the optional embedder backend. This keeps the toolkit's
     static-import surface stdlib-only while the dashboard still runs.
@@ -131,7 +135,7 @@ def cmd_dashboard(args):
     (webui/dist/) through a hardened static handler, and exposes the read-only
     JSON API. It adds NO writer.
     """
-    if not os.path.isfile(DASHBOARD_SERVER):
+    if not os.path.isdir(DASHBOARD_SERVER):
         print("error: dashboard server missing (%s)" % DASHBOARD_SERVER,
               file=sys.stderr)
         return 1

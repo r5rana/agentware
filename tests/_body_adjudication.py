@@ -362,25 +362,22 @@ ADJUDICATIONS = {
     # ----------------------------------------------------------------------
     # DEFERRED -- a real donor capability this tree has not adopted yet
     # ----------------------------------------------------------------------
-
-    # The donor's dashboard loads the CLI with spec_from_loader +
-    # module_from_spec + exec_module and puts `scripts/` on sys.path first; this
-    # tree still calls the DEPRECATED SourceFileLoader.load_module(). The donor
-    # is simply better here, and this is a genuine not-yet-adopted capability
-    # rather than a decision. It is not fixed in task 30 because the dashboard
-    # is task 69's subject -- that task decomposes it into a package and serves
-    # the union of both trees' routes, and this loader rides in with it. Floored
-    # at today's length so it cannot rot in the meantime.
-    "get_cli": {
-        "adjudication": "deferred",
-        "floor_chars": 473,
-        "follow_up": "task 69 (decompose the dashboard, serve the union)",
-        "rationale": "The donor dashboard's importlib loader (spec_from_loader "
-                     "+ module_from_spec + exec_module, with scripts/ on "
-                     "sys.path) supersedes this tree's deprecated "
-                     "loader.load_module(); the dashboard is not adopted until "
-                     "task 69.",
-    },
+    #
+    # EMPTY at task 69, and that is a discharge rather than a deletion. The one
+    # row here was `get_cli`: the donor's dashboard loaded the CLI with
+    # spec_from_loader + module_from_spec + exec_module and put `scripts/` on
+    # sys.path first, while this tree still called the DEPRECATED
+    # SourceFileLoader.load_module(). It was deferred to task 69 by NAME because
+    # that task owns the dashboard, and task 69 ADOPTED the donor loader when it
+    # decomposed the file into `scripts/agentware_dashboard/` -- so the row goes
+    # back to the default `longer-body`, floored at the donor's own 648 chars
+    # instead of the 473-char holding floor. A deferral is discharged by landing
+    # the capability, never by dropping the row: the floor RISES to the winner's
+    # length, which is exactly what a deferred row was protecting.
+    #
+    # `DEFERRED_NAMES` is derived from this table, so the suite's pinned
+    # deferred set empties with it and `test_head_is_a_SUPERSET...` keeps every
+    # other floor unchanged.
 }
 
 

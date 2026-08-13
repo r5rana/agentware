@@ -640,22 +640,6 @@
       ]
     },
     {
-      "owner": "task 69",
-      "reason": "The DASHBOARD, measured for the first time by task 67's widening. `scripts/agentware_dashboard.py` is 1,146 lines against the plan's 250-line cap for a served script — the second monolith, and the plan names the task that removes it: task 69, 'Decompose the dashboard, the second monolith, into a package mirroring the lib layer discipline'. Task 67 could not fold that in without doing task 69's work inside the commit that lands the gate, which would leave the gate's own arrival unreviewable. The row is a MEASUREMENT the widening made, handed to the task that already owned the fix, and it reddens the moment the file grows. `_lib_lookup` (15 branches) rides with it: its branches are the import-resolution fallbacks the split rewrites anyway.",
-      "rows": [
-        {
-          "kind": "file_over_cap",
-          "location": "scripts/agentware_dashboard.py",
-          "value": 1146
-        },
-        {
-          "kind": "function_over_branch_cap",
-          "location": "scripts/agentware_dashboard.py::_lib_lookup",
-          "value": 15
-        }
-      ]
-    },
-    {
       "owner": "task 99",
       "reason": "The HARNESS HOOK scripts, measured for the first time by task 67's widening. These four functions are the Claude/Codex transcript ingest path — `codex-stream.py::main` (124 lines / 24 branches) is the stream-event dispatcher whose branches ARE the event taxonomy, `codex_items.py::_tool_fields` (15) and `render-transcript.py::_render_content` (14) / `main` (14) are field-shape normalisers over a schema this package does not own. None got worse; they were simply never under a cap, which is the finding. They are NOT decomposed here for the reason the whole ratchet exists: hooks run on every session start, stop and tool call, they have no unit tier of their own, and a refactor whose only verification is 'the suite still passes' is exactly the change that breaks logging silently. Task 99 adjudicates: pay down behind a real hook test, or convert to a justified permanent exemption.",
       "rows": [

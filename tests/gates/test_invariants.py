@@ -108,14 +108,17 @@ class StdlibOnlyTest(unittest.TestCase):
             + policy.format_findings(findings))
 
     def test_sidecars_excluded_from_guarded_corpus(self):
-        # The three scripts/ SIDECARS are loaded by path/dotted name and
-        # legitimately import a non-stdlib backend or http.server, so none of
-        # them may sit in the FULLY guarded corpus the CLI's own contract covers
-        # — but they must still be CLAIMED, with the exemption written down and
-        # attributed per rule. If one rode into the guarded corpus INV-6 would
-        # false-positive; if the CLI body fell out, INV-6 would go vacuous.
-        # Assert both directions.
-        sidecars = ["scripts/agentware_dashboard.py",
+        # The scripts/ SIDECARS are loaded by path/dotted name and legitimately
+        # import a non-stdlib backend or http.server, so none of them may sit in
+        # the FULLY guarded corpus the CLI's own contract covers — but they must
+        # still be CLAIMED, with the exemption written down and attributed per
+        # rule. If one rode into the guarded corpus INV-6 would false-positive;
+        # if the CLI body fell out, INV-6 would go vacuous. Assert both
+        # directions. The dashboard is a PACKAGE since task 69, so its
+        # representative here is a MODULE of it — the one that imports
+        # `http.server`, which is the whole reason the exemption exists.
+        sidecars = ["scripts/agentware_dashboard/httpserver.py",
+                    "scripts/agentware_dashboard/__main__.py",
                     "scripts/agentware_embedder_fastembed.py",
                     "scripts/agentware_embedder_ollama.py"]
         guarded = set(policy.fully_guarded_corpus(_CORPUS))
@@ -331,8 +334,8 @@ class SecurityPolicyCoverageTest(unittest.TestCase):
         guarded = set(policy.guarded_corpus(_CORPUS))
         netfree = set(policy.network_free_corpus(_CORPUS))
         self.assertNotIn("scripts/agentware_embedder_fastembed.py", guarded)
-        self.assertNotIn("scripts/agentware_dashboard.py", netfree)
-        self.assertIn("scripts/agentware_dashboard.py", guarded,
+        self.assertNotIn("scripts/agentware_dashboard/httpserver.py", netfree)
+        self.assertIn("scripts/agentware_dashboard/httpserver.py", guarded,
                       "the sidecar is exempt from NO-NETWORK only; it still "
                       "may not add a third-party dependency")
 

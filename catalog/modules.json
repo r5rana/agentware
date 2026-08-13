@@ -50,7 +50,82 @@
     {
       "layer": "scripts",
       "line_cap": 250,
-      "path": "scripts/agentware_dashboard.py"
+      "path": "scripts/agentware_dashboard/__init__.py"
+    },
+    {
+      "layer": "entrypoint",
+      "line_cap": 120,
+      "path": "scripts/agentware_dashboard/__main__.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/confine.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/handler.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/httpserver.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readcost.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readevals.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readgraph.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readhealth.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readkb.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readloops.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/readruns.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/reqparams.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/routes.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/toolkit.py"
+    },
+    {
+      "layer": "scripts",
+      "line_cap": 250,
+      "path": "scripts/agentware_dashboard/workfeatures.py"
     },
     {
       "layer": "scripts",
@@ -2096,6 +2171,31 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/core/test_pkg_trust_anchor.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/dashboard/__init__.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/dashboard/test_confine.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/dashboard/test_entrypoint.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/dashboard/test_routes.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/dashboard/test_toolkit.py"
     },
     {
       "layer": "tests",
@@ -7571,7 +7671,7 @@
       ],
       "layer": "ops",
       "name": "agentware_lib.ops.metricscmd",
-      "not_owns": "the metrics COMPUTE itself (agentware_lib.ops.metrics -- aggregate_metrics / apply_pricing / load_price_table / _DEFAULT_PRICES / _read_metrics_jsonl, imported DOWN as _metrics); the derive_* reporting family (agentware_lib.ops.derive, imported DOWN as _derive); session collection (agentware_lib.ops.sessionparse, as _sessionparse); the plan-path helper (agentware_lib.ops.planauthor._plan_path, as _planauthor); and the dashboard SERVER implementation itself (scripts/agentware_dashboard.py -- a guard-exempt sidecar launched by subprocess, NEVER imported here).",
+      "not_owns": "the metrics COMPUTE itself (agentware_lib.ops.metrics -- aggregate_metrics / apply_pricing / load_price_table / _DEFAULT_PRICES / _read_metrics_jsonl, imported DOWN as _metrics); the derive_* reporting family (agentware_lib.ops.derive, imported DOWN as _derive); session collection (agentware_lib.ops.sessionparse, as _sessionparse); the plan-path helper (agentware_lib.ops.planauthor._plan_path, as _planauthor); and the dashboard SERVER implementation itself (the scripts/agentware_dashboard/ package -- a guard-exempt sidecar launched by subprocess, NEVER imported here).",
       "owns": "the two CLI surfaces over the metrics COMPUTE layer -- cmd_metrics (the read-only `metrics` handler: resolve kdir, load the price table, collect + aggregate + price sessions, attach the read-only derive_* rollups -- authoring / context-tax / plan-size / phase-costs / iterations / outcome -- then emit JSON or the text report), its text renderer (_print_metrics_text) + the wall-clock formatter (_fmt_duration), and cmd_dashboard (the thin localhost-only launcher that subprocess-execs the DASHBOARD_SERVER sidecar) + the DASHBOARD_SERVER path constant, plus the two parser registrars (register_metrics / register_dashboard).",
       "path": "scripts/agentware_lib/ops/metricscmd.py",
       "test_file": "tests/unit/ops/test_metricscmd.py",

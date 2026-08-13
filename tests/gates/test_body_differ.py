@@ -128,11 +128,21 @@ class BaselineShapeTest(unittest.TestCase):
             self.assertTrue(row.get("rationale"), row["name"])
 
     def test_the_deferred_set_is_pinned_by_name(self):
-        """Deferrals must be argued for one at a time, never accumulated."""
+        """Deferrals must be argued for one at a time, never accumulated.
+
+        EMPTY since task 69, and that is a discharge rather than a deletion.
+        The one deferral was `get_cli`, the donor's importlib CLI loader, whose
+        `follow_up` named task 69 by number; that task decomposed the dashboard
+        into `scripts/agentware_dashboard/` and ADOPTED the loader, so the row
+        went back to `longer-body` and its floor ROSE from the 473-char holding
+        value to the donor's own 648. A deferral is discharged by landing the
+        capability at the winner's length; dropping the row instead would lower
+        the floor to nothing, which is the move this pin exists to make visible.
+        """
         deferred = {row["name"] for row in self.rows
                     if row["adjudication"] == "deferred"}
         self.assertEqual(set(DEFERRED_NAMES), deferred)
-        self.assertEqual({"get_cli"}, deferred)
+        self.assertEqual(set(), deferred)
         for row in self.rows:
             if row["adjudication"] == "deferred":
                 self.assertTrue(row.get("follow_up"), row["name"])
@@ -338,17 +348,43 @@ class RefutationTest(unittest.TestCase):
         self.assertTrue(any(hit["name"] == row["name"]
                             for hit in report["donor_longer"]))
 
+    def _fixture_with_a_deferred_row(self):
+        """The live fixture, with ONE row re-adjudicated as deferred.
+
+        Task 69 discharged the last real deferral (`get_cli`), so both claims
+        below would otherwise go vacuous — and a deferral is the WEAKEST
+        adjudication the gate has, which makes it the one whose machinery most
+        needs proving. The row is synthesised the way this class synthesises
+        every other defect: by mutating a captured dict, never the checkout.
+        """
+        fx = copy.deepcopy(self.fx)
+        row = [r for r in fx["rows"]
+               if r["adjudication"] == "longer-body"][0]
+        row["adjudication"] = "deferred"
+        row["floor_chars"] = row["winner_chars"]
+        row["follow_up"] = "synthetic row (this test)"
+        row["rationale"] = "synthetic deferral proving the machinery bites"
+        return fx, row
+
     def test_a_deferred_row_still_ratchets(self):
         """A deferral floors the loss at today's value; it may not get worse."""
-        row = [r for r in self.fx["rows"]
-               if r["adjudication"] == "deferred"][0]
-        report = bd.check(self.fx, self._shrink(self.tree, row["name"]))
+        fx, row = self._fixture_with_a_deferred_row()
+        report = bd.check(fx, self._shrink(self.tree, row["name"]))
         self.assertTrue(bd.violations(report))
+        self.assertTrue(any(hit["name"] == row["name"]
+                            for hit in report["local_longer"]
+                            + report["donor_longer"]))
 
     def test_a_deferred_row_is_reported_rather_than_hidden(self):
-        report = bd.check(self.fx, self.tree)
-        self.assertEqual(sorted(DEFERRED_NAMES), sorted(report["deferred"]))
-        self.assertIn("get_cli", bd._render(report))
+        fx, row = self._fixture_with_a_deferred_row()
+        report = bd.check(fx, self.tree)
+        self.assertEqual([row["name"]], report["deferred"])
+        self.assertIn(row["name"], bd._render(report))
+        # ...and the LIVE fixture has none to report, which is the other half:
+        # the column is empty because the backlog is, not because the gate
+        # stopped filling it.
+        self.assertEqual(sorted(DEFERRED_NAMES),
+                         sorted(bd.check(self.fx, self.tree)["deferred"]))
 
 
 class NormalisationTest(unittest.TestCase):

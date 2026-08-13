@@ -25,6 +25,7 @@ Straight from the plan's "Ceilings" section, with one addition:
 | `hooks`        | `scripts/hooks/**` (harness hook scripts)       | 250 |
 | `loop`         | `scripts/loop/*.sh` (orchestrator libs)         | 250 |
 | `scripts`      | anything else under `scripts/` (dashboard, ...) | 250 |
+| (`entrypoint`) | also `scripts/agentware_dashboard/__main__.py`   | 120 |
 | `orchestrator` | `agentware.sh`                                  | 250 |
 | `tests`        | `tests/**/*.py` outside `tests/fixtures/`       | 600 |
 | `webui`        | `webui/src/**` source (`.ts`/`.tsx`/`.css`)     | 600 |
@@ -128,8 +129,16 @@ _PREFIX_RULES = (
 )
 
 #: Exact-path rules, checked before the prefixes.
+#:
+#: An ENTRYPOINT is a file whose whole job is argv in, a call into a package out.
+#: There are two: the CLI facade, and the dashboard sidecar's `__main__` (task 69
+#: decomposed the 1,146-line server into a package with the same discipline). The
+#: dashboard entrypoint is named HERE rather than left to the `scripts/` prefix
+#: rule at 250, because "at most 120 lines" is the claim task 69 makes about it,
+#: and a claim measured once is a claim about the day it was written.
 _EXACT_RULES = {
     "scripts/agentware": "entrypoint",
+    "scripts/agentware_dashboard/__main__.py": "entrypoint",
     "agentware.sh": "orchestrator",
 }
 

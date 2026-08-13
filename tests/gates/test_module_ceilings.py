@@ -139,15 +139,16 @@ class LibFileCapIsSatisfiedOutrightTest(unittest.TestCase):
         # The other half of the same rule, pinned so the two cannot drift into
         # one. Task 67's widening measured ten files already over a cap on the
         # day it first applied to them, in subsystems whose decomposition the
-        # plan assigns elsewhere (task 69 for the dashboard, task 99 for the
-        # rest). Refusing the row would not split those files; it would only
+        # plan assigns elsewhere (task 69 took the dashboard, which is why the
+        # example row moved off it; task 99 owns the rest). Refusing the row
+        # would not split those files; it would only
         # force the cap down until the tree fit, which is the failure the
         # ratchet exists to prevent.
         ok = {"kind": cg.FILE_OVER,
-              "location": "scripts/agentware_dashboard.py",
-              "value": 1146, "owner": "task 69", "reason": "the second "
-              "monolith, measured by task 67's widening and decomposed by "
-              "task 69"}
+              "location": "scripts/hooks/codex-stream.py",
+              "value": 900, "owner": "task 99", "reason": "an over-cap file in "
+              "a subsystem whose decomposition the plan assigns to a later "
+              "task, which is what a declarable row looks like"}
         errors = cg.schema_errors({"schema": cg.DEBT_SCHEMA, "rows": [ok]})
         self.assertEqual(
             errors, [],
@@ -290,12 +291,42 @@ class CeilingDebtRatchetTest(unittest.TestCase):
     def test_the_widened_scan_actually_measures_every_layer(self):
         # Guards the vacuous pass: a corpus rule that matched nothing outside the
         # lib would make every assertion above true of a tree nobody looked at.
-        measured = set(_corpus.layer_of(r[1].split("::")[0]) for r in cg.scan())
-        for layer in ("lib", "tests", "hooks", "scripts"):
-            self.assertIn(layer, measured,
-                          "the scan produced no finding in %s, so either that "
-                          "layer is genuinely clean or it is not being scanned "
-                          "-- check tests/_corpus.py" % layer)
+        #
+        # Narrowed at task 69, and the narrowing is the finding. This asserted
+        # that every layer PRODUCED a violation, which measured coverage only
+        # while each layer happened to be dirty -- so decomposing the dashboard
+        # (the `scripts` layer's only violation, and the fix this ratchet
+        # existed to demand) turned the gate red for a tree that had just got
+        # better. A vacuity check that reddens on a repair is measuring the
+        # residual, not the scan. So it now proves the scan REACHES each layer
+        # directly: take a REAL file from it, drop that layer's cap, and require
+        # the finding to come back naming that path.
+        by_layer = {}
+        for rel in cg.corpus_files():
+            by_layer.setdefault(_corpus.layer_of(rel), []).append(rel)
+        for layer in ("lib", "tests", "hooks", "scripts", "loop", "webui",
+                      "entrypoint", "orchestrator"):
+            rels = by_layer.get(layer, [])
+            self.assertTrue(rels, "the corpus enumerates no %s file -- check "
+                                  "tests/_corpus.py" % layer)
+            rel = sorted(rels)[0]
+            # Patched through the GATE's own corpus reference: `tests._corpus`
+            # and bare `_corpus` are two module objects under `discover`, and
+            # patching the wrong copy is a test that quietly measures the real
+            # cap (the seam `tests/_fixtures.load_cli` documents).
+            caps = cg._corpus.LAYER_CAPS
+            real_cap = caps[layer]
+            caps[layer] = 1
+            try:
+                found = cg.scan_file(rel, parse=False)
+            finally:
+                caps[layer] = real_cap
+            self.assertTrue(
+                any(kind == cg.FILE_OVER and loc == rel
+                    for kind, loc, _v, _c in found),
+                "the scan measured no line count for %s, so the %s layer is "
+                "enumerated but not measured -- check tests/_corpus.py"
+                % (rel, layer))
         self.assertGreater(len(cg.corpus_files()), 400)
 
     def test_ratchet_detects_a_stale_row(self):

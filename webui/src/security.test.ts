@@ -8,7 +8,8 @@
  *      NOT in the meta — browsers IGNORE it there (and log a console error), so it
  *      is delivered as a real HTTP header (`Content-Security-Policy:
  *      frame-ancestors 'none'` + `X-Frame-Options: DENY`) by the dashboard server
- *      (scripts/agentware_dashboard.py `_safe_headers`), where it is enforceable.
+ *      (scripts/agentware_dashboard/handler.py `_safe_headers`), where it is
+ *      enforceable.
  *   2. index.html references NO external origin — every resource (src=/href=) is
  *      relative/same-origin, so a fresh clone makes zero cross-origin requests.
  *

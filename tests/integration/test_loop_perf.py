@@ -247,15 +247,11 @@ class LoopPaginationTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import importlib.util
-        from importlib.machinery import SourceFileLoader
-        repo = REPO_ROOT
-        path = os.path.join(repo, "scripts", "agentware_dashboard.py")
-        loader = SourceFileLoader("agentware_dashboard", path)
-        spec = importlib.util.spec_from_loader("agentware_dashboard", loader)
-        mod = importlib.util.module_from_spec(spec)
-        loader.exec_module(mod)
-        cls.SRV = mod
+        scripts_dir = os.path.join(REPO_ROOT, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from agentware_dashboard import readloops
+        cls.SRV = readloops
         cls.cli = load_cli()
         cls.kdir = tempfile.mkdtemp(prefix="aw-loadpage-")
         cls.features = build_large_loop_kb(
@@ -312,19 +308,16 @@ class BrokenPipeHardeningTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import importlib.util
-        from importlib.machinery import SourceFileLoader
-        repo = REPO_ROOT
-        path = os.path.join(repo, "scripts", "agentware_dashboard.py")
-        loader = SourceFileLoader("agentware_dashboard", path)
-        spec = importlib.util.spec_from_loader("agentware_dashboard", loader)
-        mod = importlib.util.module_from_spec(spec)
-        loader.exec_module(mod)
-        cls.SRV = mod
+        scripts_dir = os.path.join(REPO_ROOT, "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from agentware_dashboard import handler, httpserver
+        cls.HANDLER = handler
+        cls.SERVER = httpserver
 
     def _make_handler(self):
         # Bypass the socket-bound __init__; we only exercise do_GET's dispatch.
-        h = self.SRV.DashboardHandler.__new__(self.SRV.DashboardHandler)
+        h = self.HANDLER.DashboardHandler.__new__(self.HANDLER.DashboardHandler)
         h.path = "/api/health"
         h.command = "GET"
         h.close_connection = False
@@ -344,7 +337,7 @@ class BrokenPipeHardeningTestCase(unittest.TestCase):
             sys.stderr = captured
             try:
                 # Must NOT raise.
-                result = self.SRV.DashboardHandler.do_GET(h)
+                result = self.HANDLER.DashboardHandler.do_GET(h)
             finally:
                 sys.stderr = real_stderr
             self.assertIsNone(result)
@@ -364,7 +357,7 @@ class BrokenPipeHardeningTestCase(unittest.TestCase):
             return None
 
         h._handle_api = ok
-        self.SRV.DashboardHandler.do_GET(h)
+        self.HANDLER.DashboardHandler.do_GET(h)
         self.assertTrue(seen["called"])
 
     def test_server_handle_error_swallows_disconnects(self):
@@ -372,7 +365,7 @@ class BrokenPipeHardeningTestCase(unittest.TestCase):
         # half of the exchange (request-read reset OR response-write broken pipe)
         # must be swallowed by _DashboardServer.handle_error WITHOUT delegating to
         # the stdlib base (which prints a traceback). Real errors still delegate.
-        srv = self.SRV._DashboardServer.__new__(self.SRV._DashboardServer)
+        srv = self.SERVER.DashboardServer.__new__(self.SERVER.DashboardServer)
         delegated = {"n": 0}
 
         # Monkeypatch the base handle_error to detect delegation.

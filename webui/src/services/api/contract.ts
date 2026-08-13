@@ -5,8 +5,8 @@
  * endpoint with inferred TS types, so the SPA validates every payload at the
  * boundary (runtime rejection of malformed data) and gets fully typed data.
  *
- * The backend (scripts/agentware_dashboard.py) adds fields ADDITIVELY and never
- * removes them, so object schemas that the panels render use `.passthrough()` to
+ * The backend (the scripts/agentware_dashboard/ package) adds fields ADDITIVELY
+ * and never removes them, so schemas the panels render use `.passthrough()` to
  * tolerate new backend fields without a breaking parse. Dynamic-key maps
  * (per-model / per-day / per-feature / per-phase rollups) use `z.record`.
  *
