@@ -113,10 +113,16 @@ def _rel(path):
 
 # --- module discovery -------------------------------------------------------
 
-def domain_modules():
-    """Every agentware_lib module file except package __init__.py files."""
+def domain_modules(root=None):
+    """Every agentware_lib module file except package __init__.py files.
+
+    ``root`` overrides the checkout, so a gate can enumerate a scratch tree
+    without writing inside the repository under test.
+    """
+    lib = LIB_DIR if root is None else os.path.join(root, "scripts",
+                                                    "agentware_lib")
     return sorted(
-        f for f in glob.glob(os.path.join(LIB_DIR, "**", "*.py"), recursive=True)
+        f for f in glob.glob(os.path.join(lib, "**", "*.py"), recursive=True)
         if os.path.basename(f) != "__init__.py")
 
 
@@ -130,16 +136,29 @@ def _lib_layer(mod_path):
     return parts[0] if len(parts) > 1 else _layerutil.CLI_LAYER
 
 
-def _test_file(mod_path):
+def granular_test_file(mod_path, root=None):
     """tests/unit/<layer>/test_<stem>.py — the CONVENTIONAL home for a module's
-    unit file. This is the target, not a claim that the file exists: whether it
-    does is `test_file_present`, and enforcing it is the test-corpus ratchet's
-    job (plan task 71), not the manifest's."""
-    rel = os.path.relpath(mod_path, LIB_DIR)
+    unit file, and the ONLY thing that can own it.
+
+    This is the target, not a claim that the file exists: whether it does is
+    `test_file_present`, and ENFORCING it is the test-corpus ownership ratchet's
+    job (`tests/_test_ownership.py`, plan task 71), not the manifest's. The
+    mapping lives here, once, and the ratchet reads it — the manifest's published
+    `test_file` column and the rule that enforces it cannot disagree, because
+    there is only one function to disagree with.
+
+    ``root`` overrides the checkout so the ratchet can answer for a scratch tree.
+    """
+    base = REPO_ROOT if root is None else root
+    lib = LIB_DIR if root is None else os.path.join(base, "scripts",
+                                                    "agentware_lib")
+    unit_root = (GRANULAR_UNIT_ROOT if root is None
+                 else os.path.join(base, "tests", "unit"))
+    rel = os.path.relpath(mod_path, lib)
     parts = rel.split(os.sep)
     stem = os.path.splitext(parts[-1])[0]
     layer = parts[0] if len(parts) > 1 else _layerutil.CLI_LAYER
-    return os.path.join(GRANULAR_UNIT_ROOT, layer, "test_%s.py" % stem.lstrip("_"))
+    return os.path.join(unit_root, layer, "test_%s.py" % stem.lstrip("_"))
 
 
 def _dependency_direction(layer):
@@ -342,7 +361,7 @@ def _module_entry(mod_path, edges, fanin):
     dotted = _dotted(mod_path)
     layer = _lib_layer(mod_path)
     meta = parse_docstring_meta(mod_path)
-    test_file = _test_file(mod_path)
+    test_file = granular_test_file(mod_path)
     return {
         "name": dotted,
         "path": _rel(mod_path),

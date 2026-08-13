@@ -23,6 +23,12 @@ Rules the suite enforces on itself (`tests/gates/test_test_layout.py`):
 - a test file that MOVES is recorded in `tests/_test_layout.py`'s
   `RELOCATIONS`, because a node id embeds its module path and the
   preserved-surface freeze reads a moved id as a lost one otherwise.
+- **every `agentware_lib` module is owned by `tests/unit/<layer>/test_<stem>.py`**
+  and by nothing else (`tests/gates/test_test_ownership.py`). A new module
+  without that file fails the gate; the pre-existing residual is declared in
+  `tests/fixtures/test-ownership-debt.json` and may only shrink. Run
+  `python3 tests/_test_ownership.py --report` for the map, or `--references`
+  for the triage list of same-layer files already exercising a testless module.
 
 **Never rename a test method or class to fix a name that has gone stale.** The
 freeze cannot tell a rename from a deletion, and it is right not to: narrow what
@@ -91,7 +97,7 @@ scripts/agentware audit --with-tests
 
 ## Gates that guard the suite itself (feature 260813)
 
-Three of the gates here do not test the toolkit — they test whether the suite is
+Five of the gates here do not test the toolkit — they test whether the suite is
 still *measuring* the toolkit. Every one exists because a green suite and an
 absent suite look identical from the outside.
 
@@ -101,6 +107,7 @@ absent suite look identical from the outside.
 | `test_mutation_canary.py` | WRITE seam: does rebinding a symbol on the loaded CLI module still change what the dispatched command prints? `hasattr` cannot tell — it is satisfied by a photograph — so the canary patches, dispatches, and demands the output change. It is proven to bite against a facade whose passthrough is removed and one whose passthrough is an `import` + `globals().update(...)` namespace copy. |
 | `test_suite_delta.py` | Per-commit accounting: did any module's pass count rise without a new test node id? A rise nobody added a test for is a test that stopped exercising something. See `tests/baselines/README.md` for the re-stamp workflow. |
 | `test_parser_golden.py` | PROSE seam: the surface gates are deliberately help-blind (`_surface_capture.py` records `required`/`nargs`/`choices`/`default` and never reads `help=`), so every rendered `--help` string was unpinned. This is a byte golden over all 125 surfaces plus the top-level display-order pin. |
+| `test_test_ownership.py` | OWNERSHIP seam: when a module breaks, is there a test file whose SUBJECT is that module? A module is owned by exactly one file, `tests/unit/<layer>/test_<stem>.py`; a test elsewhere that merely references it owns nothing. Task 71 ported the donor's M11 without its carve-out (which let any flat white-box `tests/test_*.py` referencing an export claim ownership — and a file reaching through the facade references them all). The residual is declared in `tests/fixtures/test-ownership-debt.json` and shrinks only. |
 
 ### Regenerating the `--help` golden corpus
 

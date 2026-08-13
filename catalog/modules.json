@@ -1645,6 +1645,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_test_ownership.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_whereami_gate.py"
     },
     {
@@ -1961,6 +1966,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_test_layout.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_test_ownership.py"
     },
     {
       "layer": "tests",
