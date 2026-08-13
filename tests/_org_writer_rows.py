@@ -159,6 +159,25 @@ def s_graph_edge(ctx):
     ctx.must(["graph", "add-edge", GRAPH, NODE_A, NODE_B])
 
 
+def s_second_operator(ctx):
+    """Name a SECOND person in the caller's shard, so `checkup` has a REAL
+    deterministic candidate to emit a workorder for.
+
+    `checkup` is classified COMMIT because a fired candidate emits a
+    `work/auto/<feature>/plan.md` workorder — the report itself lands under
+    `logs/`, which git never offers, so the workorder IS the committable
+    artifact. Until plan task 89 that candidate arrived by ACCIDENT: the
+    multi-tenancy signal counted the placeholder `author` default 'operator' as a
+    second identity, so every bare shard fired it and this row passed without
+    anyone aiming it. Fixing that false positive removed the accident, and with
+    it the row's only committable output — the probe was proving containment over
+    a write it had not asked for. So ask for it: a genuinely two-handle knowledge
+    base (the caller's own handle, plus a different person named in MAIN.md) is
+    what the signal is FOR, and the row now fires it deliberately.
+    """
+    ctx.write("MAIN.md", "# Team KB\n\n- **Handle**: someone-else\n")
+
+
 def s_worklog(ctx):
     ctx.write("work/%s/worklog.md" % NODE_A, "# Worklog\n")
 
@@ -177,7 +196,7 @@ def _w(node, argv, setup, writes, commits=COMMIT):
 
 
 WRITERS = (
-    _w("checkup", ["checkup"], no_setup,
+    _w("checkup", ["checkup"], s_second_operator,
        ["logs/checkup/checkup-latest.md"]),
     _w("migrate", ["migrate", "--apply"], no_setup,
        [".schema", "logs/migrations.jsonl"]),

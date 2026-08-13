@@ -192,6 +192,68 @@ class LegacyToleranceTests(SyntheticKBTestCase):
         self.assertEqual(fm.get("tags"), ["foo", "bar"])
 
 
+class OperatorHandleTests(SyntheticKBTestCase):
+    """The two halves of the operator-handle lookup (plan task 89).
+
+    `_operator_handle` answers "what string goes in the `author` field", and it
+    must always answer something. `_resolve_operator_handle` answers "who is
+    named in this knowledge base", and it must be allowed to answer "nobody" —
+    the placeholder is a render-boundary default, not a person, and a caller
+    that COUNTS identities has to be able to tell the two apart.
+    """
+
+    def _kb(self, main_text=None):
+        import shutil
+        import tempfile
+        kb = tempfile.mkdtemp(prefix="aw_oh_")
+        self.addCleanup(shutil.rmtree, kb, True)
+        if main_text is not None:
+            with open(os.path.join(kb, "MAIN.md"), "w", encoding="utf-8") as f:
+                f.write(main_text)
+        return kb
+
+    def test_resolver_reads_the_handle_line(self):
+        mod = load_cli()
+        kb = self._kb("# KB\n\n- **Handle**: ada\n")
+        self.assertEqual(mod._resolve_operator_handle(kb), "ada")
+        self.assertEqual(mod._operator_handle(kb), "ada")
+
+    def test_resolver_falls_back_to_the_operator_line(self):
+        mod = load_cli()
+        kb = self._kb("# KB\n\n> **Operator**: ada \u00b7 **Onboarded**: 2026-06-24\n")
+        self.assertEqual(mod._resolve_operator_handle(kb), "ada")
+
+    def test_resolver_returns_none_when_nobody_is_named(self):
+        mod = load_cli()
+        # three ways to be unresolved: no kdir, no MAIN.md, a MAIN.md with no
+        # handle line. NONE of them may answer with the placeholder.
+        self.assertIsNone(mod._resolve_operator_handle(None))
+        self.assertIsNone(mod._resolve_operator_handle(""))
+        self.assertIsNone(mod._resolve_operator_handle(self._kb()))
+        self.assertIsNone(mod._resolve_operator_handle(self._kb("# KB\n\nno profile\n")))
+
+    def test_author_default_still_applies_the_placeholder(self):
+        mod = load_cli()
+        # the RENDER boundary is unchanged — a writer never blocks on a missing
+        # profile, which is the property the placeholder exists for.
+        self.assertEqual(mod._operator_handle(None), "operator")
+        self.assertEqual(mod._operator_handle(self._kb()), "operator")
+        self.assertEqual(mod._operator_handle(self._kb("# KB\n\nno profile\n")),
+                         "operator")
+
+    def test_placeholder_is_indistinguishable_downstream_unless_asked_here(self):
+        # the REGRESSION this pair exists for: a KB that literally names the
+        # operator 'operator' is a resolved handle and must read as one, while an
+        # unresolved KB must not — the two cases are equal through
+        # `_operator_handle` and MUST differ through the resolver.
+        mod = load_cli()
+        named = self._kb("# KB\n\n- **Handle**: operator\n")
+        bare = self._kb()
+        self.assertEqual(mod._operator_handle(named), mod._operator_handle(bare))
+        self.assertEqual(mod._resolve_operator_handle(named), "operator")
+        self.assertIsNone(mod._resolve_operator_handle(bare))
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

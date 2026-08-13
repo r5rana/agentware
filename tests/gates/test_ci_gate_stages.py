@@ -203,9 +203,27 @@ class KnownFailureLedgerTest(unittest.TestCase):
     other declared-residual ledgers in this tree.
     """
 
+    #: A well-formed row that is NOT in the committed ledger. The direction
+    #: proofs below run against THIS rather than against whatever the real file
+    #: happens to declare today, because the ledger is shrink-only and its
+    #: intended end state is EMPTY — plan task 89 reached it by fixing the one
+    #: row. A proof that indexes `self.rows[0]` is a proof that evaporates on the
+    #: day the last defect is fixed, which is precisely when the mechanism most
+    #: needs to still be gated (a future row must land into a working ratchet,
+    #: not a vacuous one). The live ledger keeps its own checks below.
+    SYNTHETIC_ROW = {
+        "node_id": "tests.unit.ops.test_synthetic.SyntheticTest.test_declared",
+        "tier": "unit",
+        "owner": "task 89",
+        "reason": "A synthetic row used only to exercise the ratchet's two "
+                  "directions; it names no real test and is never loaded from "
+                  "the committed ledger, whose end state is empty.",
+    }
+
     def setUp(self):
         self.data = sg.load_ledger()
         self.rows = self.data["rows"]
+        self.synthetic = [dict(self.SYNTHETIC_ROW)]
 
     def test_ciwf_the_committed_ledger_is_schema_valid(self):
         self.assertEqual(sg.schema_errors(self.data), [])
@@ -235,32 +253,56 @@ class KnownFailureLedgerTest(unittest.TestCase):
         """Direction one: a NEW break may not hide behind an old one."""
         problems, clean = sg.reconcile(
             [("FAIL", "tests.unit.ops.test_new.NewTest.test_broke_today")],
-            self.rows, "unit")
+            self.synthetic, "unit")
         self.assertFalse(clean)
         self.assertEqual(problems[0][0], "UNDECLARED")
         self.assertIn("test_broke_today", problems[0][1])
 
     def test_ciwf_a_declared_failure_that_now_passes_reddens_the_tier(self):
         """Direction two: the ledger may only SHRINK, so a fix removes its row."""
-        problems, clean = sg.reconcile([], self.rows, "unit")
+        problems, clean = sg.reconcile([], self.synthetic, "unit")
         self.assertFalse(clean, "an empty failure set reconciled clean while "
                                 "the ledger still declares a unit-tier row")
         self.assertEqual(problems[0][0], "STALE")
         self.assertIn("delete the row", problems[0][2])
 
     def test_ciwf_the_declared_failure_is_subtracted_and_named(self):
-        declared = [r for r in self.rows if r["tier"] == "unit"]
         problems, clean = sg.reconcile(
-            [("FAIL", r["node_id"]) for r in declared], self.rows, "unit")
+            [("FAIL", r["node_id"]) for r in self.synthetic],
+            self.synthetic, "unit")
         self.assertTrue(clean, problems)
 
     def test_ciwf_a_row_only_forgives_its_own_tier(self):
         """A unit-tier row must not silently excuse the same id in e2e."""
-        declared = [r for r in self.rows if r["tier"] == "unit"]
         problems, clean = sg.reconcile(
-            [("FAIL", declared[0]["node_id"])], self.rows, "e2e")
+            [("FAIL", self.synthetic[0]["node_id"])], self.synthetic, "e2e")
         self.assertFalse(clean)
         self.assertEqual(problems[0][0], "UNDECLARED")
+
+    def test_ciwf_every_committed_row_is_itself_a_working_ratchet(self):
+        """Whatever the REAL file declares today must bite in both directions.
+
+        Vacuous while the ledger is empty (its intended end state, reached by
+        plan task 89) and load-bearing the moment a row is added again — which
+        is the only time it can be wrong.
+        """
+        for row in self.rows:
+            problems, clean = sg.reconcile([], [row], row["tier"])
+            self.assertFalse(clean, row["node_id"])
+            self.assertEqual(problems[0][0], "STALE", row["node_id"])
+
+    def test_ciwf_an_empty_ledger_is_a_legal_terminal_state(self):
+        """A shrink-only ledger with nothing left to forgive must reconcile clean.
+
+        The alternative — a gate that needs a declared failure to exist — is a
+        gate that rewards keeping one, which is the opposite of a ratchet.
+        """
+        self.assertEqual(sg.schema_errors({"schema": sg.LEDGER_SCHEMA,
+                                           "rows": []}), [])
+        for tier in sg.TIERS:
+            problems, clean = sg.reconcile([], [], tier)
+            self.assertTrue(clean, problems)
+            self.assertEqual(problems, [])
 
     def test_ciwf_a_tier_that_crashes_before_reporting_is_a_failure(self):
         """A killed or crashed tier must never reconcile to clean-and-empty.

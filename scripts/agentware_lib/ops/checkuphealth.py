@@ -6,7 +6,8 @@ dream journal reader and its watch (`_checkup_parse_journal` /
 `_checkup_watch_dream`), frozen-metric detection (`_checkup_frozen_metrics`),
 worktree count (`_checkup_worktree_count`), retrieval latency
 (`_checkup_recall_p50_ms`), the KB-structure migration triggers
-(`_checkup_structure_triggers`) and the package-version check
+(`_checkup_structure_triggers` and its distinct-people count
+`_checkup_distinct_handles`) and the package-version check
 (`_audit_pkg_version_check`).
 
 WHAT THESE ACTUALLY ASK
@@ -34,7 +35,11 @@ writes rather than re-deriving it, so the exam cannot disagree with the thing it
 is examining.
 Fan-in: 1 at landing (regen: python3 tests/_manifest_gen.py --write).
 
-The bodies are a PURE MOVE from the monolith -- byte-identical, comments and all.
+The bodies are a PURE MOVE from the monolith -- byte-identical, comments and all --
+with ONE declared exception: `_checkup_structure_triggers`' multi-tenancy handle
+count, which plan task 89 changed as a BEHAVIOUR fix (the placeholder author
+default was being counted as a second person). It is owned by that task rather
+than folded into the move, so the move stays verifiable everywhere else.
 """
 
 import json
@@ -51,7 +56,7 @@ from agentware_lib.core.config import (
     resolve_knowledge_dir,
 )
 from agentware_lib.core.dates import _iso_to_epoch, _now_iso
-from agentware_lib.core.frontmatter import _operator_handle
+from agentware_lib.core.frontmatter import _resolve_operator_handle
 from agentware_lib.core.gitio import REPO_ROOT, _git
 from agentware_lib.core.routing import resolve_dream, resolve_user_handle
 from agentware_lib.core.pkghome import _PkgStateError
@@ -327,6 +332,32 @@ def _checkup_recall_p50_ms():
     return val
 
 
+def _checkup_distinct_handles(kdir):
+    """The set of distinct PEOPLE this knowledge base can name. Read-only.
+
+    Counting NAMES instead of people is what made the multi-tenancy signal fire
+    on a bare single-operator knowledge base (plan task 89): the set was built
+    from `resolve_user_handle()` AND `_operator_handle(kdir)`, and the latter
+    falls back to the literal placeholder 'operator' when no profile can be read
+    — so ONE person arrived as two names, reached the threshold of 2, and a
+    knowledge base with no content proposed a structure migration.
+
+    So this asks `_resolve_operator_handle`, the half that answers None rather
+    than a placeholder when nobody is named; the 'operator' default stays where
+    it belongs, at the `author` render boundary. An unresolved handle contributes
+    nothing, and the same person configured in both places still counts once.
+    """
+    handles = set()
+    for resolve in (resolve_user_handle, lambda: _resolve_operator_handle(kdir)):
+        try:
+            handle = resolve()
+        except Exception:
+            handle = None
+        if handle:
+            handles.add(handle)
+    return handles
+
+
 def _checkup_structure_triggers(kdir):
     """Measure ONLY the structure-change signals that have a READ-ONLY source (Q8).
     rebuild-time is DROPPED — inert by construction (no passive source; timing a
@@ -358,15 +389,7 @@ def _checkup_structure_triggers(kdir):
         team = resolve_kb_mode() == KB_MODE_TEAM
     except Exception:
         team = False
-    handles = set()
-    uh = resolve_user_handle()
-    if uh:
-        handles.add(uh)
-    try:
-        handles.add(_operator_handle(kdir))
-    except Exception:
-        pass
-    nh = len(handles)
+    nh = len(_checkup_distinct_handles(kdir))
     out.append({"signal": "multi-tenancy", "value": (max(nh, 2) if team else nh),
                 "threshold": 2,
                 "fired": bool(team or nh >= 2),
@@ -390,6 +413,7 @@ _EXPORTS = [
     "_checkup_watch_dream",
     "_checkup_worktree_count",
     "_checkup_recall_p50_ms",
+    "_checkup_distinct_handles",
     "_checkup_structure_triggers",
     "_audit_pkg_version_check",
 ]

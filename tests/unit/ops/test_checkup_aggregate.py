@@ -22,8 +22,10 @@ from unittest import mock
 
 try:
     from tests._fixtures import load_cli
+    from tests._operator_config import isolate_operator_config
 except ImportError:
     from _fixtures import load_cli
+    from _operator_config import isolate_operator_config
 
 
 class FlywheelTests(unittest.TestCase):
@@ -31,6 +33,10 @@ class FlywheelTests(unittest.TestCase):
         self.m = load_cli()
         self.kb = tempfile.mkdtemp(prefix="aw_ck_agg_")
         self.addCleanup(shutil.rmtree, self.kb, True)
+        # The exam reads MACHINE-level operator settings (kb mode, per-user
+        # handle) that no fixture here writes, so without this the assertions
+        # below are about the operator's laptop rather than about the bare KB.
+        isolate_operator_config(self, self.m, self.kb)
         os.makedirs(os.path.join(self.kb, "learnings"))
         self._write_index([])
         self.anchor = self.m._checkup_anchor_epoch(time.time())

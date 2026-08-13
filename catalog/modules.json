@@ -1600,6 +1600,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_operator_config.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_org_writer_rows.py"
     },
     {
@@ -4049,6 +4054,7 @@
         "_fm_upsert_relates_line",
         "_operator_handle",
         "_parse_legacy_header",
+        "_resolve_operator_handle",
         "build_entry_frontmatter",
         "ensure_entry_frontmatter",
         "read_entry_frontmatter",
@@ -4096,7 +4102,7 @@
       "layer": "core",
       "name": "agentware_lib.core.frontmatter",
       "not_owns": "the index that CONSUMES frontmatter (agentware_lib.knowledge.index); the personal-data leak scan (stays in the entrypoint this seam); date primitives (agentware_lib.core.dates) or org-identity resolution (agentware_lib.core.config), both imported here.",
-      "owns": "the deterministic, stdlib-only frontmatter EMIT + PARSE (render_frontmatter, split_frontmatter, strip_frontmatter and the _fm_* quote/scalar/tag/list helpers, including the byte-preserving `relates:` line upsert _fm_upsert_relates_line the `relate` verb declares its edges through), the legacy blockquote-header fallback parser (_parse_legacy_header + _LEGACY_*_RE), read_entry_frontmatter, the frontmatter field vocabulary constants (FRONTMATTER_FIELDS / _FM_INDEX_SCALARS / RELATION_TYPES / DEFAULT_ENTRY_SOURCE), and the entry-frontmatter BUILDERS build_entry_frontmatter / ensure_entry_frontmatter plus the _operator_handle author-default resolver they use, and the lenient list-field normalizer _entry_list_field adopted at every raw index read site (poisoned-index hardening).",
+      "owns": "the deterministic, stdlib-only frontmatter EMIT + PARSE (render_frontmatter, split_frontmatter, strip_frontmatter and the _fm_* quote/scalar/tag/list helpers, including the byte-preserving `relates:` line upsert _fm_upsert_relates_line the `relate` verb declares its edges through), the legacy blockquote-header fallback parser (_parse_legacy_header + _LEGACY_*_RE), read_entry_frontmatter, the frontmatter field vocabulary constants (FRONTMATTER_FIELDS / _FM_INDEX_SCALARS / RELATION_TYPES / DEFAULT_ENTRY_SOURCE), and the entry-frontmatter BUILDERS build_entry_frontmatter / ensure_entry_frontmatter plus the _operator_handle author-default resolver they use (and its no-placeholder half _resolve_operator_handle, for callers that must tell an unresolved handle from a real one), and the lenient list-field normalizer _entry_list_field adopted at every raw index read site (poisoned-index hardening).",
       "path": "scripts/agentware_lib/core/frontmatter.py",
       "test_file": "tests/unit/core/test_frontmatter.py",
       "test_file_present": true,
@@ -7508,6 +7514,7 @@
     {
       "anchor_symbols": [
         "_audit_pkg_version_check",
+        "_checkup_distinct_handles",
         "_checkup_drift",
         "_checkup_frozen_metrics",
         "_checkup_heartbeat_stale",
@@ -7541,7 +7548,7 @@
       "layer": "ops",
       "name": "agentware_lib.ops.checkuphealth",
       "not_owns": "knowledge-base probes (ops.checkupprobes); thresholds and cadence (ops.checkupconfig); emission (ops.checkupemit); rendering (ops.checkupcmd).",
-      "owns": "the probes that grade the machine rather than the knowledge -- config drift (`_checkup_drift`), a stale updater heartbeat (`_checkup_heartbeat_stale`), the dream journal reader and its watch (`_checkup_parse_journal` / `_checkup_watch_dream`), frozen-metric detection (`_checkup_frozen_metrics`), worktree count (`_checkup_worktree_count`), retrieval latency (`_checkup_recall_p50_ms`), the KB-structure migration triggers (`_checkup_structure_triggers`) and the package-version check (`_audit_pkg_version_check`).",
+      "owns": "the probes that grade the machine rather than the knowledge -- config drift (`_checkup_drift`), a stale updater heartbeat (`_checkup_heartbeat_stale`), the dream journal reader and its watch (`_checkup_parse_journal` / `_checkup_watch_dream`), frozen-metric detection (`_checkup_frozen_metrics`), worktree count (`_checkup_worktree_count`), retrieval latency (`_checkup_recall_p50_ms`), the KB-structure migration triggers (`_checkup_structure_triggers` and its distinct-people count `_checkup_distinct_handles`) and the package-version check (`_audit_pkg_version_check`).",
       "path": "scripts/agentware_lib/ops/checkuphealth.py",
       "test_file": "tests/unit/ops/test_checkuphealth.py",
       "test_file_present": false,

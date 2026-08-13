@@ -20,8 +20,10 @@ from unittest import mock
 
 try:
     from tests._fixtures import load_cli
+    from tests._operator_config import isolate_operator_config
 except ImportError:
     from _fixtures import load_cli
+    from _operator_config import isolate_operator_config
 
 
 class TriggerTests(unittest.TestCase):
@@ -31,23 +33,9 @@ class TriggerTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.kb, True)
         os.makedirs(os.path.join(self.kb, "learnings"))
         # Isolate config so resolve_kb_mode()/resolve_user_handle() never read the
-        # operator's real ~/.agentware/config.env.
-        self._cfg = (self.m.HOME_CONFIG, self.m.CONFIG_PATHS)
-        self.m.HOME_CONFIG = os.path.join(self.kb, ".agentware", "config.env")
-        self.m.CONFIG_PATHS = (self.m.HOME_CONFIG,)
-        self.addCleanup(self._restore_cfg)
-        self._env = {k: os.environ.get(k)
-                     for k in ("AGENTWARE_KB_MODE", "AGENTWARE_USER_HANDLE")}
-        for k in self._env:
-            os.environ.pop(k, None)
-
-    def _restore_cfg(self):
-        self.m.HOME_CONFIG, self.m.CONFIG_PATHS = self._cfg
-        for k, v in self._env.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+        # operator's real ~/.agentware/config.env. Shared with the aggregate
+        # suite, which was red for exactly the leak this closes.
+        isolate_operator_config(self, self.m, self.kb)
 
     def _index(self, n):
         entries = [{"id": "e%d" % i, "category": "learnings",
@@ -82,6 +70,45 @@ class TriggerTests(unittest.TestCase):
         self._index(1)
         t = self._by_signal(
             self.m._checkup_structure_triggers(self.kb))["multi-tenancy"]
+        self.assertFalse(t["fired"])
+
+    def test_multi_tenancy_does_not_count_the_author_placeholder_as_a_person(self):
+        # REGRESSION (plan task 89). One operator with a configured handle and a
+        # knowledge base that names nobody is ONE person. Before the fix the
+        # unresolved `author` default 'operator' joined the set as a second
+        # identity, so a bare single-operator KB proposed a structure migration.
+        self._index(1)
+        os.environ["AGENTWARE_USER_HANDLE"] = "solo"
+        self.assertFalse(os.path.exists(os.path.join(self.kb, "MAIN.md")))
+        t = self._by_signal(
+            self.m._checkup_structure_triggers(self.kb))["multi-tenancy"]
+        self.assertEqual(t["value"], 1,
+                         "one operator, one handle — the placeholder is not a person")
+        self.assertFalse(t["fired"])
+
+    def test_multi_tenancy_still_fires_on_two_genuinely_distinct_handles(self):
+        # the other direction: the signal must keep its teeth. A per-user handle
+        # that differs from the handle the knowledge base itself names is two
+        # real people, and that is exactly what this signal is for.
+        self._index(1)
+        os.environ["AGENTWARE_USER_HANDLE"] = "alice"
+        with open(os.path.join(self.kb, "MAIN.md"), "w", encoding="utf-8") as f:
+            f.write("# KB\n\n- **Handle**: bob\n")
+        t = self._by_signal(
+            self.m._checkup_structure_triggers(self.kb))["multi-tenancy"]
+        self.assertEqual(t["value"], 2)
+        self.assertTrue(t["fired"])
+
+    def test_multi_tenancy_is_one_person_when_both_sources_name_them(self):
+        # the same person configured twice is still one person — the set dedupes,
+        # and the fix must not have turned that into a count of SOURCES.
+        self._index(1)
+        os.environ["AGENTWARE_USER_HANDLE"] = "alice"
+        with open(os.path.join(self.kb, "MAIN.md"), "w", encoding="utf-8") as f:
+            f.write("# KB\n\n- **Handle**: alice\n")
+        t = self._by_signal(
+            self.m._checkup_structure_triggers(self.kb))["multi-tenancy"]
+        self.assertEqual(t["value"], 1)
         self.assertFalse(t["fired"])
 
     def test_recall_p50_is_report_only_never_fires_a_workorder(self):

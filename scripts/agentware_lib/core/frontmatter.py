@@ -8,7 +8,8 @@ the legacy blockquote-header fallback parser (_parse_legacy_header + _LEGACY_*_R
 read_entry_frontmatter, the frontmatter field vocabulary constants (FRONTMATTER_FIELDS
 / _FM_INDEX_SCALARS / RELATION_TYPES / DEFAULT_ENTRY_SOURCE), and the entry-frontmatter
 BUILDERS build_entry_frontmatter / ensure_entry_frontmatter plus the _operator_handle
-author-default resolver they use, and the lenient list-field normalizer
+author-default resolver they use (and its no-placeholder half _resolve_operator_handle,
+for callers that must tell an unresolved handle from a real one), and the lenient list-field normalizer
 _entry_list_field adopted at every raw index read site (poisoned-index hardening).
 Does NOT own: the index that CONSUMES frontmatter (agentware_lib.knowledge.index);
 the personal-data leak scan (stays in the entrypoint this seam); date primitives
@@ -354,6 +355,38 @@ def read_entry_frontmatter(path):
 # defaults (created/author) + org provenance. They read _today from core.dates and
 # _entry_origin_team from core.config (both core->core), and _operator_handle below
 # supplies the `author` default — its sole caller pattern, so it lives beside them.
+def _resolve_operator_handle(kdir):
+    """The operator handle actually RESOLVED from the KB MAIN.md, or None. Stdlib only.
+
+    Parses `**Handle**:` (then `**Operator**:`) out of the KB MAIN.md. Returns
+    None — never a placeholder — when there is no kdir, no readable MAIN.md, or
+    no handle line in it. Tolerates a None/empty kdir (e.g. an unconfigured
+    knowledge dir during a pure row-build test) instead of crashing on
+    os.path.join.
+
+    Split out of `_operator_handle` by plan task 89. The 'operator' default is a
+    RENDER-BOUNDARY convenience for the `author` field, not a fact about who the
+    operator is, and a caller that COUNTS distinct people must never count it as
+    one: `_checkup_structure_triggers` did, so a bare single-operator knowledge
+    base held {resolve_user_handle(), 'operator'} — two names for ONE person —
+    reached the multi-tenancy threshold of 2 and proposed a KB-structure
+    migration to a knowledge base with no content. Ask THIS function when the
+    answer "nobody is named here" has to stay distinguishable from a name.
+    """
+    if not kdir:
+        return None
+    try:
+        with open(os.path.join(kdir, "MAIN.md"), "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError:
+        return None
+    for pat in (r"\*\*Handle\*\*:\s*([^\s·|]+)", r"\*\*Operator\*\*:\s*([^\s·|]+)"):
+        m = re.search(pat, text)
+        if m:
+            return m.group(1).strip() or None
+    return None
+
+
 def _operator_handle(kdir):
     """Best-effort operator handle for the `author` default. Stdlib only.
 
@@ -361,19 +394,12 @@ def _operator_handle(kdir):
     to 'operator' so the writer never blocks on a missing profile. Tolerates a
     None/empty kdir (e.g. an unconfigured knowledge dir during a pure row-build
     test) by returning the safe default instead of crashing on os.path.join.
+
+    The fallback is applied HERE, at the boundary that needs a string to write;
+    `_resolve_operator_handle` above is the same lookup WITHOUT it, for callers
+    that must tell an unresolved handle from a real one (see its docstring).
     """
-    if not kdir:
-        return "operator"
-    try:
-        with open(os.path.join(kdir, "MAIN.md"), "r", encoding="utf-8") as f:
-            text = f.read()
-    except OSError:
-        return "operator"
-    for pat in (r"\*\*Handle\*\*:\s*([^\s·|]+)", r"\*\*Operator\*\*:\s*([^\s·|]+)"):
-        m = re.search(pat, text)
-        if m:
-            return m.group(1).strip()
-    return "operator"
+    return _resolve_operator_handle(kdir) or "operator"
 
 
 def build_entry_frontmatter(entry, kdir, author=None,
@@ -466,6 +492,7 @@ _EXPORTS = [
     "_LEGACY_TAGS_RE",
     "_parse_legacy_header",
     "read_entry_frontmatter",
+    "_resolve_operator_handle",
     "_operator_handle",
     "build_entry_frontmatter",
     "ensure_entry_frontmatter",
