@@ -135,12 +135,22 @@ class BackfillTestCase(unittest.TestCase):
         self.assertEqual(len(second["stamped"]), 0)
 
     def test_backfill_runs_via_migrate_apply(self):
+        """`migrate --apply` runs migration 001 and stamps the KB up to date.
+
+        The schema assertion is against `KB_SCHEMA_VERSION`, not the literal 1
+        it was written as: this file owns migration 001's behaviour, and 001 is
+        additive, so a LATER registered migration (task 63's team-mode scaffold
+        is the first) legitimately advances the same stamp. Pinning the literal
+        made this file fail for a change it does not describe, while asserting
+        nothing 001 is responsible for — the `> Status:` line above is what
+        proves 001 ran, and it is unchanged.
+        """
         self.make("260101-mig", done=True)
         code, out, _e = self.run_cli(["migrate", "--apply"])
         self.assertEqual(code, 0, out)
         self.assertEqual(self.status_of("260101-mig")[0], "done")
         with open(os.path.join(self.kdir, ".schema")) as f:
-            self.assertEqual(int(f.read().strip()), 1)
+            self.assertEqual(int(f.read().strip()), self.mod.KB_SCHEMA_VERSION)
 
 
 if __name__ == "__main__":

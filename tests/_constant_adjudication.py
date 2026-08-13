@@ -185,13 +185,37 @@ for _name, _row in _LEGACY_ROWS.items():
 # then carry `reason` + `follow_up` and satisfies an ABSENCE probe, so an
 # excluded constant reappearing under the lib is a failure too.
 #
-# The table is EMPTY on purpose. Every constant task 15 and task 16 would have
-# excluded (the KB-repointing module, the repo-hard-reset dream step) had no
-# module-level constant of its own, so there is nothing yet to exclude. Leaving
+# The table held no rows until task 63. Every constant task 15 and task 16 would
+# have excluded (the KB-repointing module, the repo-hard-reset dream step) had no
+# module-level constant of its own, so there was nothing to exclude. Leaving
 # the mechanism wired and proven by the suite -- rather than adding it later
 # under time pressure -- is the point.
 
-LEGACY_ONLY = {}
+LEGACY_ONLY = {
+    # `_KB_MIGRATIONS` is the ONE ported constant that is designed to GROW: it is
+    # the registered-migration table, and every schema change this package will
+    # ever ship appends a row to it. The pinned monolith literal therefore stops
+    # being "the value the lib owes" the moment a migration lands, and holding
+    # the gate to it would mean the KB schema could never advance without the
+    # differ reading the advance as a porting defect.
+    #
+    # So the literal is re-pinned here, by hand, ONE APPEND AT A TIME, and the
+    # obligation it carries is unchanged in the direction that matters: the
+    # monolith's own row (migration 001, `plan-state-backfill`) is still spelled
+    # out verbatim below, so DROPPING or re-spelling it still reddens the gate.
+    # What the re-pin permits is exactly the append task 63 makes, and the next
+    # migration must come back here and say so too.
+    "_KB_MIGRATIONS": {
+        "literal": "((1, 'additive', 'plan-state-backfill', "
+                   "_migration_001_state_backfill), (2, 'additive', "
+                   "'team-mode-scaffold', _migration_002_team_mode_scaffold))",
+        "reason": "the migration registry is append-only by design; task 63 "
+                  "appends migration 002 (the additive team-mode scaffold). "
+                  "Migration 001's row is preserved verbatim, so a lost or "
+                  "re-spelt monolith migration still fails the differ.",
+        "follow_up": "task 63",
+    },
+}
 
 # --------------------------------------------------------------------------
 # FOLLOW-UP -- which port discharges each pending constant

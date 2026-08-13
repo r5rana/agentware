@@ -154,6 +154,17 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "_propose_author": "cmd_skill_propose",
     "_scaffold_team_dir": "cmd_team",              # team create|register
     "_dream_pull_resolve_derived": "cmd_dream",    # kb-pull step's derived reconcile
+    # --- task 63 (migration 002, the additive team-mode scaffold) ------------
+    # The shared-root twin of `_scaffold_team_dir`, classified as a PRIMITIVE
+    # (None) rather than mapped to a dispatch command, because it has none: it is
+    # reached ONLY from the registered migration runner, which IS the schema
+    # authority and is deliberately absent from `_kb_writer_funcs` (one func
+    # serves the read-only `--list`). Schema-safe for the same reason
+    # `_rebuild_kb_locked` and `_try_rebuild_missing_index` are: the write is an
+    # EMPTY derived index seeded into a `shared/` directory the same call just
+    # created, guarded by `if not os.path.exists(...)`, so it can neither mutate
+    # an existing corpus nor overwrite one written by a newer CLI.
+    "_scaffold_shared_dir": None,
 }
 _RETIRED_INTO = {
     # the lock acquisition stayed at the entry point, the body moved down

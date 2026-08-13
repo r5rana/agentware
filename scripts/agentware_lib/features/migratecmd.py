@@ -189,9 +189,30 @@ def _migration_001_state_backfill(kdir):
     return _run_state_backfill(kdir)
 
 
-# Registered migrations, ascending version. 001 = plan state-backfill (additive).
+def _migration_002_team_mode_scaffold(kdir):
+    """Migration 002 (additive tier): enable team mode ADDITIVELY — create the
+    org `teams/<team>/` + `shared/` directories and backfill the optional org
+    frontmatter fields, leaving every existing entry exactly where it is (the
+    direct knowledge-dir pointer keeps winning, so a flat install is untouched
+    and byte-identical). Idempotent + non-destructive; the body lives in
+    agentware_lib.ops.orgmigrate.
+
+    The import is LAZY on purpose. `agentware_lib.cli` imports this module on
+    every CLI invocation (the dispatch gate lives here), while orgmigrate reaches
+    ops.team -> ops.fleet and knowledge.index — a fan-out no `--help` should pay
+    for. Same reasoning as _resolve_targets: resolve at CALL time, and let a row
+    that stops resolving raise loudly instead of silently leaving the table.
+    """
+    import agentware_lib.ops.orgmigrate as orgmigrate
+    return orgmigrate.run_team_mode_scaffold(kdir)
+
+
+# Registered migrations, ascending version. 001 = plan state-backfill (additive);
+# 002 = additive team-mode scaffold (additive).
 _KB_MIGRATIONS = ((1, "additive", "plan-state-backfill",
-                   _migration_001_state_backfill),)
+                   _migration_001_state_backfill),
+                  (2, "additive", "team-mode-scaffold",
+                   _migration_002_team_mode_scaffold))
 KB_SCHEMA_VERSION = max((m[0] for m in _KB_MIGRATIONS), default=0)
 _KB_MIGRATION_JOURNAL_REL = os.path.join("logs", "migrations.jsonl")
 
@@ -548,6 +569,7 @@ _EXPORTS = [
     "_kb_migrate_apply",
     "_run_state_backfill",
     "_migration_001_state_backfill",
+    "_migration_002_team_mode_scaffold",
     "cmd_plan_state_backfill",
     "cmd_migrate",
 ]
