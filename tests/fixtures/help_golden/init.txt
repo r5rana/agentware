@@ -6,4 +6,5 @@ options:
   --format {text,json}  output format (default: text)
   --knowledge-dir KNOWLEDGE_DIR
                         absolute or ~ path to store this operator's knowledge
-  --force               overwrite an existing HOME config pointing elsewhere
+  --force               repoint the config even if a different, already-
+                        initialized knowledge base is currently configured

@@ -31,11 +31,11 @@ usage: agentware config [-h] [--format {text,json}] [--knowledge-dir-only]
                         [--set-checkup on|off] [--checkup-only]
                         [--install-git-guards] [--uninstall-git-guards]
                         [--repo PATH] [--skill-promote-only]
-                        [--set-skill-promote propose|off]
+                        [--set-skill-promote off|propose]
                         [--set-skill-promote-cap N]
-                        [--set-skill-promote-edge-min 0.0-1.0]
-                        [--set-skill-promote-density-min 0.0-1.0]
-                        [--set-skill-promote-separation-min 0.0-1.0]
+                        [--set-skill-promote-edge-min 0..1]
+                        [--set-skill-promote-density-min 0..1]
+                        [--set-skill-promote-separation-min 0..1]
 
 options:
   -h, --help            show this help message and exit
@@ -204,21 +204,31 @@ options:
                         ~/.agentware/config.env (default OFF; env
                         AGENTWARE_CHECKUP overrides per-run)
   --checkup-only        print only the resolved checkup setting (on/off)
-  --install-git-guards  install the KB git guard hooks into a repository
+  --install-git-guards  install the commit-msg co-author strip guard into a
+                        git repo (default: the knowledge-dir KB repo). Opt-in,
+                        non-clobber; strips Claude/AI co-author trailers from
+                        operator commits without ever blocking a commit
   --uninstall-git-guards
-                        remove the KB git guard hooks from a repository
-  --repo PATH           repository the git-guard install/uninstall targets
-                        (default: the resolved knowledge dir)
+                        remove the agentware commit-msg guard (restoring a
+                        backed-up foreign hook if present)
+  --repo PATH           target repo for --install/--uninstall-git-guards
+                        (default: the configured knowledge dir)
   --skill-promote-only  print only the resolved skill-promotion mode
-  --set-skill-promote propose|off
-                        persist the auto skill-promotion mode (detect +
-                        PROPOSE only; never authors or installs)
+                        (off|propose) for shell consumers
+  --set-skill-promote off|propose
+                        persist the skill-promotion mode (detect + PROPOSE
+                        only; never authors or installs) to
+                        ~/.agentware/config.env (default propose; env still
+                        overrides per-run)
   --set-skill-promote-cap N
-                        persist the per-run skill-candidate emission cap (0 =
-                        detect/report only)
-  --set-skill-promote-edge-min 0.0-1.0
-                        persist the cluster edge-weight threshold
-  --set-skill-promote-density-min 0.0-1.0
-                        persist the cluster density threshold
-  --set-skill-promote-separation-min 0.0-1.0
-                        persist the cluster separation margin threshold
+                        persist the per-run skill-candidate emission cap (non-
+                        negative int; 0 = detect/report only)
+  --set-skill-promote-edge-min 0..1
+                        persist the min edge-weight detection threshold (float
+                        in [0.0, 1.0])
+  --set-skill-promote-density-min 0..1
+                        persist the min subgraph-density detection threshold
+                        (float in [0.0, 1.0])
+  --set-skill-promote-separation-min 0..1
+                        persist the min separation-margin detection threshold
+                        (float in [0.0, 1.0])

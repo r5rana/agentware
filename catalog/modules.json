@@ -1690,6 +1690,16 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_solo_parity.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_solo_session.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_stage_donor.py"
     },
     {
@@ -2065,6 +2075,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/gates/test_solo_parity.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/gates/test_stage_donor.py"
     },
     {
@@ -2376,6 +2391,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_backfill_migration.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_cfgshow.py"
     },
     {
       "layer": "tests",
@@ -4813,7 +4833,7 @@
       "owns": "the TERMINAL view of the `config` verb — the read-only report every non-setter invocation falls through to: the full --format json dump, the --knowledge-dir-only bare path for shell consumers (hooks), and the human-readable key/value report. It also owns that view's EXIT-CODE contract: 0 when a knowledge dir is configured, 1 when it is not.",
       "path": "scripts/agentware_lib/features/configcmd/cfgshow.py",
       "test_file": "tests/unit/features/test_cfgshow.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {

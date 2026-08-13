@@ -3,7 +3,7 @@
  "groups": [
   {
    "owner": "task 101",
-   "reason": "No granular unit file at tests/unit/<layer>/test_<stem>.py. These 189 modules are not untested \u2014 they are untested BY A FILE THAT NAMES THEM. This tree's unit corpus is organised by BEHAVIOUR (test_recall.py, test_dream.py, test_checkup_tick.py) rather than by module, which is what the donor's M11 carve-out existed to forgive and what task 71 stopped forgiving: a file that references a module is not a file that goes red when that module alone breaks. Measured on the day of capture and re-measurable live with `python3 tests/_test_ownership.py --references`, the residual splits in two, and the split is the adjudicator's work order: 108 modules already have at least one same-layer unit file touching their anchor surface, so the remedy is to RENAME or SPLIT that file onto the module it actually exercises \u2014 no new coverage, a re-aim; the other 81 have nothing granular at all and their only coverage, where they have any, sits in integration/, e2e/ or gates/, which is exactly the constituency the retired carve-out was serving, so the remedy is to WRITE the unit file. By layer: ops 69, features 66, core 18, retrieval 18, knowledge 16, plus cli.py and strangler.py. It is declared rather than paid down here because task 71's contract is to land the RULE and the ratchet, and a task that also re-aimed 189 modules' worth of test corpus would make both unreviewable \u2014 the same decomposition tasks 67 and 68 made when they landed a gate and handed its residual on. Task 101 adjudicates: rename or split the covering file, write the missing unit file, or state why a module's behaviour genuinely cannot be exercised below the seam it sits on \u2014 and that last answer is a reason to MOVE the module, never to exempt it, because a row here may not be permanent.",
+   "reason": "No granular unit file at tests/unit/<layer>/test_<stem>.py. These 188 modules are not untested \u2014 they are untested BY A FILE THAT NAMES THEM. This tree's unit corpus is organised by BEHAVIOUR (test_recall.py, test_dream.py, test_checkup_tick.py) rather than by module, which is what the donor's M11 carve-out existed to forgive and what task 71 stopped forgiving: a file that references a module is not a file that goes red when that module alone breaks. Measured on the day of capture and re-measurable live with `python3 tests/_test_ownership.py --references`, the residual splits in two, and the split is the adjudicator's work order: 108 modules already have at least one same-layer unit file touching their anchor surface, so the remedy is to RENAME or SPLIT that file onto the module it actually exercises \u2014 no new coverage, a re-aim; the other 81 have nothing granular at all and their only coverage, where they have any, sits in integration/, e2e/ or gates/, which is exactly the constituency the retired carve-out was serving, so the remedy is to WRITE the unit file. By layer: ops 69, features 65, core 18, retrieval 18, knowledge 16, plus cli.py and strangler.py. It is declared rather than paid down here because task 71's contract is to land the RULE and the ratchet, and a task that also re-aimed 189 modules' worth of test corpus would make both unreviewable \u2014 the same decomposition tasks 67 and 68 made when they landed a gate and handed its residual on. Task 101 adjudicates: rename or split the covering file, write the missing unit file, or state why a module's behaviour genuinely cannot be exercised below the seam it sits on \u2014 and that last answer is a reason to MOVE the module, never to exempt it, because a row here may not be permanent.",
    "rows": [
     {
      "kind": "module_without_granular_test",
@@ -149,11 +149,6 @@
      "kind": "module_without_granular_test",
      "location": "scripts/agentware_lib/features/configcmd/cfgsettings.py",
      "value": "tests/unit/features/test_cfgsettings.py"
-    },
-    {
-     "kind": "module_without_granular_test",
-     "location": "scripts/agentware_lib/features/configcmd/cfgshow.py",
-     "value": "tests/unit/features/test_cfgshow.py"
     },
     {
      "kind": "module_without_granular_test",
@@ -955,7 +950,7 @@
  ],
  "note": "The residual the test-corpus OWNERSHIP rule found on the day it was first enforced (plan task 71). Read tests/_test_ownership.py for the rule and the ratchet semantics. A row here is subtracted from the live scan; a testless module at an undeclared location and a row the tree no longer produces are both failures, so this file only shrinks. Rows are grouped: the group carries the owner and the paragraph, each row carries only what varies. `value` is the granular path that WOULD own the module, so a row states the remedy and not only the complaint. DO NOT hand-add a row: `ratchet.max_rows` must equal the row count AND stay at or below the ceiling pinned by value in tests/gates/test_test_ownership.py, so legalising a new testless module takes two deliberate edits in two files.",
  "ratchet": {
-  "max_rows": 189
+  "max_rows": 188
  },
  "rows": [],
  "schema": "agentware/test-ownership-debt@1"

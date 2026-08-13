@@ -25,9 +25,10 @@ Byte-shape notes (this view is a consumed contract, not cosmetics): the JSON key
 and the human-readable label column are read by the SessionStart hook, onboarding
 and the loop, so the resolution ORDER, the key set and the two-space label
 padding are preserved verbatim from the pre-split cmd_config tail. The kdir and
-no-kdir reports share an IDENTICAL 11-line tail — the pre-split code duplicated
-it inline; _view_lines computes it once and both arms print it, which is a
-mechanical de-duplication with byte-identical output.
+no-kdir reports share an IDENTICAL 12-line tail — the pre-split code duplicated
+it inline; _view_lines computes it once and both arms print it. That
+de-duplication was claimed byte-identical and was not: it silently dropped the
+``skill_promote`` line from both arms. See _view_lines.
 """
 
 import json
@@ -100,11 +101,19 @@ def _render_json(v):
 
 
 def _view_lines(v):
-    """The 11 human-readable lines BOTH report arms print, in print order.
+    """The 12 human-readable lines BOTH report arms print, in print order.
 
     Computed in the pre-split computation order (mode/cli/handle/dream lines
     first, then the SETTINGS_AW embedder pair) and returned in the pre-split
     PRINT order, which differs — the embedder pair prints right after the mode.
+
+    The count is 12, not 11: the de-duplication that created this function
+    dropped ``skill_promote_line``, which the pre-split tail printed LAST in
+    both arms. `tests/_solo_parity.py` (task 81) found it by running both CLIs
+    side by side — no structural gate could, because the JSON arm kept the
+    field, ``--skill-promote-only`` kept the value, and the body differ
+    recorded the definition as legitimately "decomposed". A decomposition
+    claim is a claim about BEHAVIOUR; this docstring made one and was wrong.
     """
     mode_line = "retrieval_mode: %s" % v["retrieval_mode"]
     if v["mode_fell_back"]:
@@ -131,6 +140,8 @@ def _view_lines(v):
         dream_line,
         dream_sched_line,
         dream_max_line,
+        "skill_promote: %s (cap %s)" % (v["skill_promote"],
+                                        v["skill_promote_cap"]),
     )
 
 

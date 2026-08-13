@@ -31,6 +31,7 @@ positional arguments:
     work                work-artifact utilities (team provenance)
     audit               run all consistency checks in one pass
     recall              deterministic BM25 ranked retrieval, token-budgeted
+                        (budget-bounded output — never pipe through head)
     mcp                 read-only Model Context Protocol server over the KB
                         (stdio)
     eval                benchmark recall over a gold set (Recall@k,

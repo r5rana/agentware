@@ -14,7 +14,8 @@ options:
   --top-k TOP_K         max entries to return before budgeting (default: 5)
   --token-budget TOKEN_BUDGET
                         trim so cumulative est. tokens <= budget (default:
-                        1500)
+                        1500); output is already budget-bounded — never pipe
+                        recall through `head`
   --category CATEGORY   restrict ranking to a single category
   --strategy {bm25,bm25+acr}
                         ranking strategy (default: the gated default —

@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "kind": "solo-parity-ledger",
+  "premerge_ref": "aw-pre-merge",
+  "task": "260813-modular-core-adoption task 81",
+  "contract": "Every difference an operator can observe between aw-pre-merge and the merged tree, with team mode UNSET, is declared here with a reason. A difference with no row FAILS the gate; a row whose difference has gone ALSO fails it, naming the row to delete. A prose row carries both texts, so it licenses THAT difference and not the next one.",
+  "prose": [
+    {
+      "node": "config",
+      "action": "--set-skill-promote",
+      "pre": "persist the skill-promotion mode to ~/.agentware/config.env (default propose; env still overrides per-run)",
+      "post": "persist the skill-promotion mode (detect + PROPOSE only; never authors or installs) to ~/.agentware/config.env (default propose; env still overrides per-run)",
+      "verdict": "enriched",
+      "reason": "UNION, not a replacement: aw-pre-merge named the persistence target and the default, the donor's text named the SCOPE of the mode (it proposes, it never authors or installs). Both are operator-relevant, so the merged string carries both clauses and is a strict superset of each side."
+    },
+    {
+      "node": "plan",
+      "action": "<sub>lint",
+      "pre": "lint a feature plan against the R1–R13 structural contract",
+      "post": "lint a feature plan against the R1–R16 structural contract",
+      "verdict": "enriched",
+      "reason": "The linter genuinely grew: R14-R16 landed with the plan-state machine. A summary still claiming R1-R13 would UNDER-describe the merged verb, so restoring the pre text would make the help wrong rather than faithful."
+    },
+    {
+      "node": "recall",
+      "action": "--scope",
+      "pre": "corpus scope: curated (indexed entries only, default), work (plans/worklogs in work/), all (both). work/ entries are ephemeral (never written to index.json).",
+      "post": "corpus scope: curated (indexed entries only, default), work (plans/worklogs in work/), all (both), shared (org-shared entries only). work/ entries are ephemeral (never indexed).",
+      "verdict": "enriched",
+      "reason": "`shared` is a real added choice (org-mode entries). The clause the merged text shortens -- 'never written to index.json' -> 'never indexed' -- loses no fact; the added choice must be documented or the flag lies about its own domain."
+    },
+    {
+      "node": "skill",
+      "action": "<sub>propose",
+      "pre": "detect cohesive recurring learnings + PROPOSE tier-2 skill-candidate workorders (DRAFT, never auto-started; --dry-run to rank only)",
+      "post": "create-or-increment an agent-PROPOSED skill under skills-proposed/ (recall-only candidate; graduates to always-on via `skill promote`)",
+      "verdict": "adjudicated",
+      "decision": "decide-detection-keeps-its-own-spelling-skill-candidates",
+      "reason": "The ONE adjudicated invocation break in the merge. Both trees shipped `skill propose` meaning different lifecycles (candidate DETECTION vs proposal AUTHORING). The union fixture pins the donor's --slug/--ref as required, so detection could not keep the spelling; it moved to `skill candidates` against the SAME handler. Capability preserved, invocation moved -- and the session row `skill-propose-dry` asserts exactly that at runtime rather than leaving it as prose."
+    },
+    {
+      "node": "skill_propose",
+      "action": "--dry-run",
+      "pre": "rank candidate clusters (member ids + scores) WITHOUT emitting",
+      "post": "report what this proposal WOULD record (new / increment / near-duplicate refusal) without writing the ledger or index",
+      "verdict": "adjudicated",
+      "decision": "decide-detection-keeps-its-own-spelling-skill-candidates",
+      "reason": "The other half of the same rename: this node is now the donor's proposal-authoring verb, so its --dry-run describes that lifecycle. aw-pre-merge's wording survives verbatim on `skill candidates --dry-run`, which is where detection went."
+    },
+    {
+      "node": "worklog_scan",
+      "action": "--also-assessment",
+      "pre": "also flag Extracted-Knowledge 'Suggested ID' entries in the sibling assessment.md whose ids do not resolve in the live index; reported as an 'assessment_unpromoted' field (advisory — does not change the exit code)",
+      "post": "ADVISORY sidecar: also flag Extracted-Knowledge 'Suggested ID' entries in the sibling assessment.md that never reached the live index (the POST-phase knowledge leak). Report-only — it NEVER changes the exit code, so every gate that calls `worklog scan` WITHOUT the flag is byte-for-byte unaffected.",
+      "verdict": "enriched",
+      "reason": "The donor's text is the longer one here and states the invariant the flag rests on -- it never changes the exit code, so every gate calling `worklog scan` WITHOUT it is unaffected. That is a stronger promise than the pre text's parenthetical '(advisory)' and is worth keeping."
+    }
+  ],
+  "session": [
+    {
+      "id": "audit-json",
+      "reason": "The steering CHAR COUNT the audit reports is a property of the merged tree's own AGENTS.md, which grew by the always-on anti-monolith rules (task 72). Same checker, same verdict, larger corpus -- 20676 -> 24680 of the same 25000 budget.",
+      "rc_must_match": true
+    },
+    {
+      "id": "migrate-list",
+      "reason": "Migration 002 (team mode, task 63) is ADDITIVE and read-only here: `--list` reports 'schema 0 -> 2, 2 pending' where aw-pre-merge reported '0 -> 1, 1 pending'. A merged tree that listed the same migration count as the pre-merge one would mean the new migration had not landed.",
+      "rc_must_match": true
+    },
+    {
+      "id": "skill-list",
+      "reason": "The merged tree ships one more authored skill (`modular-development`, task 76). The verb is listing its catalog correctly on both sides; the catalog differs.",
+      "rc_must_match": true
+    },
+    {
+      "id": "skill-propose-dry",
+      "reason": "The adjudicated invocation break, asserted at RUNTIME rather than as prose: `skill propose --dry-run` ran detection on aw-pre-merge and now exits 2 demanding the donor's required --slug/--ref. rc_must_match is FALSE for this one row, and it is the only row in the ledger where it is -- every other declared divergence must still agree on the exit code.",
+      "rc_must_match": false,
+      "decision": "decide-detection-keeps-its-own-spelling-skill-candidates"
+    },
+    {
+      "id": "steering-lint",
+      "reason": "Same cause as audit-json, reported directly: 104 -> 125 rules and 20676 -> 24680 chars, both inside the unchanged budget. PASSED on both sides.",
+      "rc_must_match": true
+    }
+  ]
+}

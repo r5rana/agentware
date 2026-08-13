@@ -200,7 +200,9 @@ def register_init(sub, fmt_parent):
     p_init.add_argument("--knowledge-dir", required=True, dest="knowledge_dir",
                         help="absolute or ~ path to store this operator's knowledge")
     p_init.add_argument("--force", action="store_true", default=False,
-                        help="overwrite an existing HOME config pointing elsewhere")
+                        help="repoint the config even if a different, "
+                             "already-initialized knowledge base is "
+                             "currently configured")
     p_init.set_defaults(func=cmd_init)
 
 

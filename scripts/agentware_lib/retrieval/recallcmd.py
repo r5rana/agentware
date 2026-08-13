@@ -387,7 +387,8 @@ def register_recall(sub, fmt_parent):
     # recall -----------------------------------------------------------------
     p_recall = sub.add_parser(
         "recall", parents=[fmt_parent],
-        help="deterministic BM25 ranked retrieval, token-budgeted")
+        help="deterministic BM25 ranked retrieval, token-budgeted "
+             "(budget-bounded output — never pipe through head)")
     p_recall.add_argument("query", help="free-text query to rank KB entries against")
     p_recall.add_argument("--top-k", type=int, default=5, dest="top_k",
                           help="max entries to return before budgeting (default: 5)")
@@ -399,7 +400,10 @@ def register_recall(sub, fmt_parent):
     # every recall pays the widened context cost whether it needed it or not.
     p_recall.add_argument("--token-budget", type=int, default=1500,
                           dest="token_budget",
-                          help="trim so cumulative est. tokens <= budget (default: 1500)")
+                          help="trim so cumulative est. tokens <= budget "
+                               "(default: 1500); output is already "
+                               "budget-bounded — never pipe recall through "
+                               "`head`")
     p_recall.add_argument("--category", default=None,
                           help="restrict ranking to a single category")
     p_recall.add_argument("--strategy", choices=("bm25", "bm25+acr"),

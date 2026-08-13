@@ -174,6 +174,15 @@ STAGES = tuple(
                ("python3", "tests/_constant_differ.py", "--check"), (FULL,),
                "No module constant silently took the other tree's literal; the "
                "16 divergent-value constants stay pinned to their decided side."),
+        _stage("solo-parity", "solo parity against aw-pre-merge (team unset)",
+               ("python3", "tests/_solo_parity.py", "--verify"), (FULL,),
+               "Task 81: with team mode UNSET, a fresh clone of the merged "
+               "tree behaves identically to aw-pre-merge -- no parser node or "
+               "action lost, no help string silently rewritten, and a scripted "
+               "read-only session byte-identical on both sides. The only gate "
+               "that RUNS both CLIs; it is how the `config` report's dropped "
+               "skill_promote line was found. Skips (rc 0) where the tag is "
+               "absent, which is the state of a shallow checkout."),
         _stage("modularity-negative", "modularity negative test",
                ("python3", "-m", "unittest",
                 "tests.gates.test_modularity_negative", "-v"), (FULL,),

@@ -58,33 +58,44 @@ def register_ported_setting_flags(p_cfg):
                        help="print only the resolved checkup setting (on/off)")
     p_cfg.add_argument("--install-git-guards", action="store_true",
                        dest="install_git_guards",
-                       help="install the KB git guard hooks into a repository")
+                       help="install the commit-msg co-author strip guard into "
+                            "a git repo (default: the knowledge-dir KB repo). "
+                            "Opt-in, non-clobber; strips Claude/AI co-author "
+                            "trailers from operator commits without ever "
+                            "blocking a commit")
     p_cfg.add_argument("--uninstall-git-guards", action="store_true",
                        dest="uninstall_git_guards",
-                       help="remove the KB git guard hooks from a repository")
+                       help="remove the agentware commit-msg guard (restoring "
+                            "a backed-up foreign hook if present)")
     p_cfg.add_argument("--repo", dest="git_guards_repo", metavar="PATH",
-                       help="repository the git-guard install/uninstall targets "
-                            "(default: the resolved knowledge dir)")
+                       help="target repo for --install/--uninstall-git-guards "
+                            "(default: the configured knowledge dir)")
     p_cfg.add_argument("--skill-promote-only", action="store_true",
                        dest="skill_promote_only",
-                       help="print only the resolved skill-promotion mode")
+                       help="print only the resolved skill-promotion mode "
+                            "(off|propose) for shell consumers")
     p_cfg.add_argument("--set-skill-promote", dest="set_skill_promote",
-                       metavar="propose|off",
-                       help="persist the auto skill-promotion mode "
-                            "(detect + PROPOSE only; never authors or installs)")
+                       metavar="off|propose",
+                       help="persist the skill-promotion mode (detect + "
+                            "PROPOSE only; never authors or installs) to "
+                            "~/.agentware/config.env (default propose; env "
+                            "still overrides per-run)")
     p_cfg.add_argument("--set-skill-promote-cap", dest="set_skill_promote_cap",
                        metavar="N",
                        help="persist the per-run skill-candidate emission cap "
-                            "(0 = detect/report only)")
+                            "(non-negative int; 0 = detect/report only)")
     p_cfg.add_argument("--set-skill-promote-edge-min",
-                       dest="set_skill_promote_edge_min", metavar="0.0-1.0",
-                       help="persist the cluster edge-weight threshold")
+                       dest="set_skill_promote_edge_min", metavar="0..1",
+                       help="persist the min edge-weight detection threshold "
+                            "(float in [0.0, 1.0])")
     p_cfg.add_argument("--set-skill-promote-density-min",
-                       dest="set_skill_promote_density_min", metavar="0.0-1.0",
-                       help="persist the cluster density threshold")
+                       dest="set_skill_promote_density_min", metavar="0..1",
+                       help="persist the min subgraph-density detection "
+                            "threshold (float in [0.0, 1.0])")
     p_cfg.add_argument("--set-skill-promote-separation-min",
-                       dest="set_skill_promote_separation_min", metavar="0.0-1.0",
-                       help="persist the cluster separation margin threshold")
+                       dest="set_skill_promote_separation_min", metavar="0..1",
+                       help="persist the min separation-margin detection "
+                            "threshold (float in [0.0, 1.0])")
 
 
 _EXPORTS = ["register_ported_setting_flags"]
