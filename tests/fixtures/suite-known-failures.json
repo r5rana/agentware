@@ -1,0 +1,13 @@
+{
+  "schema": "agentware/suite-known-failures@1",
+  "note": "The suite's declared, pre-existing red. `tests/baselines/README.md` states this repository's definition of green: 'no worse than the recorded baseline', never 'all pass'. Continuous integration has to implement that definition or it is red on day one for a failure the plan already owns -- and a permanently-red CI is one everybody learns to ignore. This is the same shrink-only ratchet shape as ceiling-debt.json, modularity-debt.json, test-ownership-debt.json and portability-debt.json, and it bites in BOTH directions: an UNDECLARED failure is a gate failure (a new break cannot hide behind an old one), and a DECLARED failure that starts PASSING is ALSO a gate failure, so a fixed row cannot linger as a standing excuse. There is no flag to skip it.",
+  "captured": "2026-08-13 (feature 260813-modular-core-adoption, task 78)",
+  "rows": [
+    {
+      "node_id": "tests.unit.ops.test_checkup_aggregate.FlywheelTests.test_aggregate_over_bare_kb_never_crashes",
+      "tier": "unit",
+      "owner": "task 89",
+      "reason": "The `multi-tenancy` structure-signal false positive, bisected to 5fd082c and diagnosed rather than guessed: `_checkup_structure_triggers` builds its distinct-handle set from `resolve_user_handle()` AND `_operator_handle(kdir)`, and on a bare KB the latter falls back to the literal placeholder 'operator' -- so two names for ONE person reach the threshold of 2 and an empty knowledge base proposes a KB-structure migration. Owned by plan task 89, which fixes it by excluding the unresolved/default member before counting. Recorded in tests/baselines/baseline-local.json as a known failure since before this task."
+    }
+  ]
+}

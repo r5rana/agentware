@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 561,
+    "rows": 565,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
@@ -44,20 +44,20 @@
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
-      "modularity": 9,
+      "modularity": 13,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 552,
+      "required": 556,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 74,
+      "curated": 78,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -286,7 +286,8 @@
         68,
         69,
         70,
-        73
+        73,
+        78
       ]
     }
   ],
@@ -3438,6 +3439,21 @@
       }
     },
     {
+      "id": "mod:ci-runs-one-entrypoint",
+      "dimension": "modularity",
+      "capability": "Continuous integration runs the FULL suite (four tier-scoped runs, never a whole-tree discover), the portability, parity, body-differ, constant-differ and modularity-ratchet gates, the modularity negative test and steering lint \u2014 all through ONE declared stage table in tests/_ci_gate.py that the workflow calls and a contributor can run locally, so the YAML holds no gate command of its own and CI cannot drift from CONTRIBUTING.md",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 78,
+      "evidence": {
+        "test": "tests.gates.test_ci_workflow",
+        "mutation": "inline a gate command in the workflow (a `-m unittest` step, or a checker inside a block scalar): arm B names the offending run line \u2014 and the twin proves `git config` setup and the sanctioned entrypoint stay LEGAL, since an arm that banned those would ban working CI. Drop a stage and arm C fails naming task 78's own words for it"
+      }
+    },
+    {
       "id": "mod:dashboard-package-route-union",
       "dimension": "modularity",
       "capability": "The dashboard as a package with its path-confinement kernel in its own file, serving the UNION of both trees' routes",
@@ -3466,6 +3482,36 @@
       "evidence": {
         "test": "tests.gates.test_presence_gate",
         "mutation": "delete any one of the six from the modular parser, reduce one to a stub with no subcommands and no arguments of its own, or allowlist one under a token the router's argv scan cannot resolve: the gate names that verb"
+      }
+    },
+    {
+      "id": "mod:fresh-clone-one-command",
+      "dimension": "modularity",
+      "capability": "A fresh clone reaches a verified working state with ONE documented command and no install step \u2014 proven from a directory asserted EMPTY, by cloning and running that command inside the clone, under a patched HOME so the operator's real config.env is untouched",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 78,
+      "evidence": {
+        "test": "tests.e2e.test_ci_bootstrap",
+        "mutation": "break any step of the health sequence (delete a lib package, stop init scaffolding a subdir, seed an index that fails its validator, make recall emit non-JSON, break a steering rule): each is caught by its own step. Point the clone at a non-empty directory and it is REFUSED, since 'from an empty directory' is the claim under test"
+      }
+    },
+    {
+      "id": "mod:green-is-the-recorded-baseline",
+      "dimension": "modularity",
+      "capability": "CI implements THIS repository's definition of green \u2014 'no worse than the recorded baseline', never 'all pass' \u2014 by running each tier through a shrink-only known-failure ledger rather than reading unittest's exit code, which would make CI red on day one for the one declared pre-existing failure plan task 89 already owns. The tier result comes from TestResult/test.id() over a private JSON channel, never from scraping stdout, because a tier that runs sub-suites (test_modularity_negative) emits their FAIL headers into its own output and a scraper misattributes a child's expected red to the parent",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 78,
+      "evidence": {
+        "test": "tests.gates.test_ci_gate_stages",
+        "mutation": "add an undeclared failure and the tier reddens UNDECLARED; fix a declared one without deleting its row and it reddens STALE naming the row \u2014 proven live in ONE real unit-tier run against a deliberately wrong ledger. Give a row an owner that is not a plan task, or a reason under 80 chars, and the schema refuses it; kill the tier child before it reports and the result is a FAILURE, never a clean empty one"
       }
     },
     {
@@ -3526,6 +3572,21 @@
       "evidence": {
         "test": "tests.gates.test_module_manifest",
         "mutation": "regenerate the manifest twice: the second run must produce no diff"
+      }
+    },
+    {
+      "id": "mod:no-vacuous-gate-command",
+      "dimension": "modularity",
+      "capability": "Every checker a CI stage names is EFFECTIVE, not merely present: it carries a real __main__ dispatch and can exit non-zero. Three of the five commands CONTRIBUTING.md documented as 'the structural checkers' could not fail \u2014 _ceiling_gate.py and _modularity_rules.py had no __main__ at all (running them imported a module and exited 0) and _manifest_gen.py --check ignored the flag and printed the manifest",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 78,
+      "evidence": {
+        "test": "tests.gates.test_ci_workflow",
+        "mutation": "delete a checker's __main__ dispatch, or shrink a declared debt fixture by one row: arm D fails \u2014 the first statically, the second behaviourally by running the command and demanding rc 1 naming the offending location, because 'the gate ran' and 'the gate could have failed' are different claims"
       }
     },
     {

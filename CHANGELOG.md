@@ -42,6 +42,30 @@ tagged release yet, so everything shipped so far sits under `[Unreleased]`.
   scratch checkout by its own test rather than proofread.
 - **Community-health documents**: this changelog, `CONTRIBUTING.md`,
   `SECURITY.md`, `CODE_OF_CONDUCT.md`, and issue and pull-request templates.
+- **Continuous integration, through one entrypoint.** `python3 tests/_ci_gate.py`
+  declares every gate CI runs — the four tier-scoped suite runs, the portability,
+  parity, body-differ, constant-differ and modularity-ratchet gates, the
+  modularity negative test and steering lint — and
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml) calls exactly that, with
+  no gate command of its own. A red in CI is reproduced locally by running the
+  same line, and a gate cannot be added to one side without the other.
+- **A fresh-clone bootstrap proof.** One documented command,
+  `python3 tests/_ci_gate.py --profile bootstrap`, takes a brand-new clone to a
+  verified working state with no install step and no network — asserted from a
+  directory proven empty, under a patched `HOME` so a real knowledge base is
+  never touched.
+
+### Fixed
+
+- **Three documented structural checkers could not fail.**
+  `python3 tests/_ceiling_gate.py` and `python3 tests/_modularity_rules.py` had
+  no `__main__` dispatch, so running either imported a module and exited 0;
+  `python3 tests/_manifest_gen.py --check` ignored the flag and printed the
+  manifest instead of comparing it. All three are named in `CONTRIBUTING.md` and
+  `docs/architecture.md` as checks a contributor should run. Each now reports a
+  verdict and exits non-zero on a finding, and a gate arm proves each goes red on
+  a planted defect. (The invariants themselves were never unguarded — the gates
+  tier enforced them throughout; it was the command-line form that was vacuous.)
 
 ### Changed
 

@@ -550,11 +550,18 @@ the change is wrong, not the ledger.
 <a id="finish-line"></a>
 ## 5. The finish line
 
-A change is done when all of these are true:
+Most of this list is one command — `python3 tests/_ci_gate.py`, the same
+entrypoint CI calls, so a green here is a green there. Run it, then walk what it
+does not cover:
 
+- [ ] `python3 tests/_ci_gate.py` is green (the four tiers, the portability,
+      parity, body-differ, constant-differ and modularity gates, the negative
+      test, steering lint, and the fresh-clone bootstrap);
 - [ ] `scripts/agentware scaffold check` passes;
 - [ ] the five structural checkers are green (`_ceiling_gate`, `_modularity_rules`,
-      `_test_ownership`, `_manifest_gen --check`, `_parity_manifest --check`);
+      `_test_ownership`, `_manifest_gen --check`, `_parity_manifest --check`) —
+      each must print a verdict; a checker that exits 0 in SILENCE is not passing,
+      it is not running (task 78 found three doing exactly that);
 - [ ] your module's owning test passes, and the **mutation your parity row names
       reddens it** — proven, not asserted;
 - [ ] the four tiers are no worse than `tests/baselines/`;

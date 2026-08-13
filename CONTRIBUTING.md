@@ -99,6 +99,30 @@ second thing to drift.
 
 ## Running the checks
 
+**Everything CI runs, in one command:**
+
+```bash
+python3 tests/_ci_gate.py
+```
+
+That is the *same* entrypoint [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+calls — the workflow contains no gate commands of its own, so a red in CI is
+reproduced locally by running that line, and a gate cannot be added to one side
+without the other. `--list` prints the stage table with the reason each stage
+exists; `--stage <id>` runs one; `--fail-fast` stops at the first red.
+
+**Just cloned?** One command takes a fresh clone to a verified working state —
+no install step, no network:
+
+```bash
+python3 tests/_ci_gate.py --profile bootstrap
+```
+
+It runs the structural checkers plus a hermetic `init` → `index validate` →
+`recall` → `audit` sequence against a throwaway knowledge dir, so it never
+touches your real one. `tests/e2e/test_ci_bootstrap.py` proves that same command
+works from a genuinely empty directory.
+
 **Targeted first.** Never run a broad suite when a specific test will do:
 
 ```bash
@@ -119,14 +143,15 @@ Green means *no worse than the recorded baseline*, not *zero failures* — read
 `tests/baselines/` for what is already known-red.
 
 **The structural checkers** run in a second each and catch most review comments
-before a reviewer has to write them:
+before a reviewer has to write them. Each prints a verdict and exits non-zero on
+a finding — `python3 tests/_ci_gate.py --profile bootstrap` runs all five:
 
 ```bash
-python3 tests/_ceiling_gate.py
-python3 tests/_modularity_rules.py
-python3 tests/_test_ownership.py
-python3 tests/_manifest_gen.py --check
-python3 tests/_parity_manifest.py --check
+python3 tests/_ceiling_gate.py            # file and per-function ceilings
+python3 tests/_modularity_rules.py        # layer direction, module naming
+python3 tests/_test_ownership.py          # every module has an owning unit file
+python3 tests/_manifest_gen.py --check    # catalog/modules.json matches the tree
+python3 tests/_parity_manifest.py --check # every capability carries a row
 ```
 
 **If you touched `AGENTS.md` or `steering/`**, the steering linter is mandatory:

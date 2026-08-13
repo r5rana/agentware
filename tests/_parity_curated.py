@@ -298,6 +298,63 @@ CURATED_ROWS = MERGE_ROWS + [
          "re-personalise a redacted ROADMAP attribution, or change any other "
          "line of the preserved file, and the narrowed preservation test in "
          "tests.gates.test_readme_union names the line"),
+    _row("mod:ci-runs-one-entrypoint", "modularity",
+         "Continuous integration runs the FULL suite (four tier-scoped runs, "
+         "never a whole-tree discover), the portability, parity, body-differ, "
+         "constant-differ and modularity-ratchet gates, the modularity negative "
+         "test and steering lint — all through ONE declared stage table in "
+         "tests/_ci_gate.py that the workflow calls and a contributor can run "
+         "locally, so the YAML holds no gate command of its own and CI cannot "
+         "drift from CONTRIBUTING.md",
+         LOCAL, 78, "tests.gates.test_ci_workflow",
+         "inline a gate command in the workflow (a `-m unittest` step, or a "
+         "checker inside a block scalar): arm B names the offending run line — "
+         "and the twin proves `git config` setup and the sanctioned entrypoint "
+         "stay LEGAL, since an arm that banned those would ban working CI. Drop "
+         "a stage and arm C fails naming task 78's own words for it"),
+    _row("mod:no-vacuous-gate-command", "modularity",
+         "Every checker a CI stage names is EFFECTIVE, not merely present: it "
+         "carries a real __main__ dispatch and can exit non-zero. Three of the "
+         "five commands CONTRIBUTING.md documented as 'the structural checkers' "
+         "could not fail — _ceiling_gate.py and _modularity_rules.py had no "
+         "__main__ at all (running them imported a module and exited 0) and "
+         "_manifest_gen.py --check ignored the flag and printed the manifest",
+         LOCAL, 78, "tests.gates.test_ci_workflow",
+         "delete a checker's __main__ dispatch, or shrink a declared debt "
+         "fixture by one row: arm D fails — the first statically, the second "
+         "behaviourally by running the command and demanding rc 1 naming the "
+         "offending location, because 'the gate ran' and 'the gate could have "
+         "failed' are different claims"),
+    _row("mod:green-is-the-recorded-baseline", "modularity",
+         "CI implements THIS repository's definition of green — 'no worse than "
+         "the recorded baseline', never 'all pass' — by running each tier "
+         "through a shrink-only known-failure ledger rather than reading "
+         "unittest's exit code, which would make CI red on day one for the one "
+         "declared pre-existing failure plan task 89 already owns. The tier "
+         "result comes from TestResult/test.id() over a private JSON channel, "
+         "never from scraping stdout, because a tier that runs sub-suites "
+         "(test_modularity_negative) emits their FAIL headers into its own "
+         "output and a scraper misattributes a child's expected red to the "
+         "parent",
+         LOCAL, 78, "tests.gates.test_ci_gate_stages",
+         "add an undeclared failure and the tier reddens UNDECLARED; fix a "
+         "declared one without deleting its row and it reddens STALE naming the "
+         "row — proven live in ONE real unit-tier run against a deliberately "
+         "wrong ledger. Give a row an owner that is not a plan task, or a "
+         "reason under 80 chars, and the schema refuses it; kill the tier child "
+         "before it reports and the result is a FAILURE, never a clean empty "
+         "one"),
+    _row("mod:fresh-clone-one-command", "modularity",
+         "A fresh clone reaches a verified working state with ONE documented "
+         "command and no install step — proven from a directory asserted EMPTY, "
+         "by cloning and running that command inside the clone, under a patched "
+         "HOME so the operator's real config.env is untouched",
+         LOCAL, 78, "tests.e2e.test_ci_bootstrap",
+         "break any step of the health sequence (delete a lib package, stop "
+         "init scaffolding a subdir, seed an index that fails its validator, "
+         "make recall emit non-JSON, break a steering rule): each is caught by "
+         "its own step. Point the clone at a non-empty directory and it is "
+         "REFUSED, since 'from an empty directory' is the claim under test"),
     _row("docs:guidance-surface-contract", "docs_templates",
          "The guidance-surface contract check over every persona, skill, doc "
          "and always-on steering file: a retired path may be named only inside "

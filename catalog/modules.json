@@ -1450,12 +1450,22 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_bootstrap_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_cachefreshness_gate.py"
     },
     {
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/_ceiling_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_ci_gate.py"
     },
     {
       "layer": "tests",
@@ -1675,6 +1685,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_suite_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_surface_capture.py"
     },
     {
@@ -1721,6 +1736,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/e2e/test_checkup_e2e.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/e2e/test_ci_bootstrap.py"
     },
     {
       "layer": "tests",
@@ -1805,6 +1825,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/gates/_ci_workflow_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/gates/_constant_differ_support.py"
     },
     {
@@ -1826,6 +1851,16 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_body_differ.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_ci_gate_stages.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_ci_workflow.py"
     },
     {
       "layer": "tests",

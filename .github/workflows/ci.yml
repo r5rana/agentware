@@ -1,0 +1,81 @@
+# agentware CI — feature 260813-modular-core-adoption, task 78.
+#
+# THIS FILE DELIBERATELY CONTAINS NO GATE COMMANDS.
+#
+# Everything CI runs is declared in `tests/_ci_gate.py`, and this workflow calls
+# that one entrypoint. The reason is the acceptance criterion the task states:
+# "the workflow runs green via the same entrypoint locally". A workflow that
+# inlines `python3 -m unittest discover ...` is a second, unversioned definition
+# of "the checks" that only GitHub can run — it drifts the first time someone
+# adds a gate to CONTRIBUTING.md and forgets the YAML, and a contributor cannot
+# reproduce a red locally without hand-translating it.
+#
+#   local:  python3 tests/_ci_gate.py
+#   CI:     python3 tests/_ci_gate.py     <- the step below, verbatim
+#
+# `tests/gates/test_ci_workflow.py` arm B FAILS if any `run:` line here names a
+# gate command other than that entrypoint, so the property is enforced rather
+# than merely intended.
+#
+# Fresh clone? One documented command:  python3 tests/_ci_gate.py --profile bootstrap
+#
+# WHY macos-latest AND ONLY macos-latest. The suite is proven green on macOS and
+# nowhere else: the scheduler tests branch on `sys.platform` into launchd, and
+# the `--help` golden corpus pins the interpreter that produced it (python 3.13,
+# COLUMNS=80). Adding a Linux job today would ship a red nobody has triaged,
+# which is worse than not running it — a permanently-red CI trains everyone to
+# ignore CI. A Linux matrix is a follow-up whose first task is triaging those
+# reds, not this task's to guess at.
+#
+# NO THIRD-PARTY ACTIONS. Only first-party `actions/*` are used, each with an
+# explicit version ref; arm A rejects any `uses:` outside the `actions/`
+# namespace and any `uses:` with no ref at all. The package itself installs
+# nothing (zero hard dependencies, INV-6), so there is no dependency step to
+# compromise.
+
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate (tests/_ci_gate.py)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      # fetch-depth 0: the portability gate reasons about git metadata and the
+      # branch commit range, and a shallow clone would make it silently
+      # under-report rather than fail.
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Pinned to the interpreter the --help golden corpus was captured under,
+      # so the byte-comparison arm actually RUNS in CI instead of skipping.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # Several tests create throwaway git repositories and commit into them;
+      # a runner with no identity fails those with "Please tell me who you are".
+      # This is setup, not a gate.
+      - name: Configure a git identity for the throwaway repositories tests build
+        run: |
+          git config --global user.name "agentware ci"
+          git config --global user.email "ci@agentware.invalid"
+
+      - name: Run the gate
+        run: python3 tests/_ci_gate.py

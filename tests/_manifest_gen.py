@@ -521,6 +521,41 @@ def _apply_fanin(src, want):
     return "".join(out)
 
 
+def check(catalog_path=None):
+    """Is the COMMITTED manifest byte-identical to a fresh regeneration?
+
+    Returns (ok, detail). This is the exact question
+    `tests/gates/test_module_manifest.test_the_committed_manifest_is_byte_
+    identical_to_a_regeneration` asks; `--check` asks it from a shell so a
+    contributor who added a file learns it before a reviewer does (R-MOD-07).
+
+    Task 78: `--check` was DOCUMENTED (CONTRIBUTING.md's structural-checker
+    list, docs/architecture.md's gate table, the modular-development skill's
+    finish line) but never IMPLEMENTED -- the flag fell through to the branch
+    that dumps 515 KB of JSON to stdout and returns 0. It agreed with the
+    committed file by luck on the day it was measured, and would have gone on
+    returning 0 on the day it did not.
+    """
+    path = catalog_path or CATALOG_PATH
+    fresh = serialize(build_manifest())
+    try:
+        with open(path, encoding="utf-8") as f:
+            committed = f.read()
+    except OSError as exc:
+        return False, "cannot read %s: %s" % (path, exc)
+    shown = (os.path.relpath(path, REPO_ROOT)
+             if os.path.abspath(path).startswith(REPO_ROOT + os.sep) else path)
+    if committed == fresh:
+        return True, "%s matches the tree" % shown
+    # Name WHERE they diverge, not just that they do: a 515 KB diff is unreadable
+    # and equal byte counts (a renamed key) would otherwise print as "n vs n".
+    at = next((i for i, (a, b) in enumerate(zip(committed, fresh)) if a != b),
+              min(len(committed), len(fresh)))
+    return False, ("%s is stale — first divergence at byte %d (committed %r vs "
+                   "regenerated %r); run python3 tests/_manifest_gen.py --write"
+                   % (shown, at, committed[at:at + 24], fresh[at:at + 24]))
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--write" in argv or "--sync-fanin" in argv:
@@ -532,6 +567,12 @@ def main(argv=None):
         if changed:
             print("updated Fan-in doclines in:\n  " + "\n  ".join(changed))
         return 0
+    if "--check" in argv:
+        at = argv[argv.index("--catalog") + 1] if "--catalog" in argv else None
+        ok, detail = check(at)
+        (sys.stdout if ok else sys.stderr).write(
+            "module manifest %s: %s\n" % ("OK" if ok else "FAILED", detail))
+        return 0 if ok else 1
     sys.stdout.write(serialize(build_manifest()))
     return 0
 

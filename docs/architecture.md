@@ -693,6 +693,17 @@ that a mutation reddens it — a gate that cannot be made to fail proves nothing
 | `tests/gates/test_parity_gate.py` · `test_parity_manifest.py` | Every capability carries a row with a status; every curated row names a real test whose stated mutation reddens it; an excluded row carries reason, approver, follow-up and a passing absence probe. | `python3 tests/_parity_manifest.py --out` / `--check` |
 | `tests/gates/test_doc_architecture.py` | This document and the router table match the manifest in both directions, and every extension point above carries a recipe with a test. | `python3 tests/_doc_extensibility_check.py` |
 | `agentware scaffold check` | The five wiring questions at once, from a clone, with no test runner: manifest entry, declared-verb/manifest agreement, mirrored owning test, a parity row per verb, a router row per module. | `scripts/agentware scaffold check` |
+| `tests/gates/test_ci_workflow.py` | CI runs the entrypoint and nothing else (no gate command may live in the YAML); every gate the plan names is a declared stage; and every stage is **effective** — its checker has a real `__main__` dispatch and goes red on a planted defect. | `python3 tests/_ci_gate.py --list` |
+| `tests/e2e/test_ci_bootstrap.py` | A fresh clone, from a directory asserted empty, reaches a working state with one documented command and no install step. | `python3 tests/_bootstrap_gate.py --from-empty` |
+
+**Everything above runs from one command.** `python3 tests/_ci_gate.py` is the
+stage table CI calls; `.github/workflows/ci.yml` contains no gate command of its
+own, so a red in CI is reproduced locally by that line and neither side can gain
+a gate the other lacks. A gate command that cannot fail is the failure mode this
+entrypoint is designed against: before task 78, `python3 tests/_ceiling_gate.py`
+and `python3 tests/_modularity_rules.py` had no `__main__` dispatch and
+`tests/_manifest_gen.py --check` ignored its flag, so all three exited 0 without
+measuring anything, and seven worklogs recorded that as verification.
 
 **The parity manifest is the merge's completeness ledger.** Every capability
 either side of the modular-core merge carried is a row: `required` rows must be

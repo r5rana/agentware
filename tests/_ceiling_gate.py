@@ -351,3 +351,44 @@ def reconcile(found=None, debt=None):
                              "declared %s is no longer present — remove the row"
                              % row["kind"]))
     return problems, not problems
+
+
+# --- the command ------------------------------------------------------------
+#
+# Task 78. Until this dispatch landed, the module had NO `if __name__` block, so
+# the `python3 tests/_ceiling_gate.py` line that CONTRIBUTING.md ("the structural
+# checkers") and docs/architecture.md (the gate table) both document imported the
+# module, defined every function and exited 0 WITHOUT MEASURING ANYTHING. It was
+# a green that could never be red, and seven task worklogs recorded it as
+# verification. The invariant itself was never unguarded -- the gates tier owns
+# it (`tests/gates/test_module_ceilings.py`) -- but the COMMAND was theatre, and
+# a CI workflow that ran the ratchet that way would have been green by
+# construction. `main` therefore runs exactly what the gate test runs, through
+# the same `schema_errors` + `reconcile` pair, so the two can never disagree.
+#
+# `--debt PATH` exists so a test can point the command at a SHRUNK fixture and
+# prove it goes red: an effectiveness claim has to be behavioural, and nothing
+# else here can make this command fail on a healthy tree.
+
+def main(argv=None):
+    """Report ceiling violations not covered by the declared debt. rc 1 on any."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    debt_path = argv[argv.index("--debt") + 1] if "--debt" in argv else None
+    data = load_debt(debt_path)
+    errors = schema_errors(data)
+    problems, clean = reconcile(debt=data)
+    for err in errors:
+        sys.stderr.write("SCHEMA %s\n" % err)
+    for code, loc, detail in problems:
+        sys.stderr.write("%s %s: %s\n" % (code, loc, detail))
+    if errors or not clean:
+        sys.stderr.write("ceiling gate FAILED: %d schema error(s), %d "
+                         "problem(s)\n" % (len(errors), len(problems)))
+        return 1
+    sys.stdout.write("ceiling gate OK: %d file(s) scanned, %d declared\n"
+                     % (len(corpus_files()), len(data["rows"])))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

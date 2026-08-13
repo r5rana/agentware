@@ -291,3 +291,44 @@ def reconcile(found=None, debt=None, root=None):
                              "declared %s is no longer present — remove the row"
                              % row["kind"]))
     return problems, not problems
+
+
+# --- the command ------------------------------------------------------------
+#
+# Task 78, and the same defect `_ceiling_gate.main` closes: this module had no
+# `if __name__` dispatch, so `python3 tests/_modularity_rules.py` -- documented
+# in CONTRIBUTING.md, in docs/architecture.md twice, and in the
+# modular-development skill's finish-line list -- imported the module and exited
+# 0 having measured nothing. The layer-direction rule (R-MOD-02) and the
+# grab-bag-name rule (R-MOD-05) are enforced by `tests/gates/test_modularity_
+# rules.py`; what was missing was any way for a CONTRIBUTOR (or CI) to ask them
+# a question and get an answer. `main` asks the gate test's own question through
+# the same `schema_errors` + `reconcile` pair.
+#
+# `--root PATH` is already the module's supported override (the gate runs from
+# the package repo against a staged tree during the migration) and is exposed
+# here for the same reason; `--debt PATH` lets a test prove the command reddens.
+
+def main(argv=None):
+    """Report structural violations not covered by the declared residual."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    debt_path = argv[argv.index("--debt") + 1] if "--debt" in argv else None
+    root = argv[argv.index("--root") + 1] if "--root" in argv else None
+    data = load_debt(debt_path)
+    errors = schema_errors(data)
+    problems, clean = reconcile(debt=data, root=root)
+    for err in errors:
+        sys.stderr.write("SCHEMA %s\n" % err)
+    for code, loc, detail in problems:
+        sys.stderr.write("%s %s: %s\n" % (code, loc, detail))
+    if errors or not clean:
+        sys.stderr.write("modularity rules FAILED: %d schema error(s), %d "
+                         "problem(s)\n" % (len(errors), len(problems)))
+        return 1
+    sys.stdout.write("modularity rules OK: %d module(s), %d declared\n"
+                     % (len(lib_modules(root)), len(data["rows"])))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

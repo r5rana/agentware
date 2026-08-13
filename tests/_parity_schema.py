@@ -348,7 +348,10 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor IS the modular tree: agentware_lib, the "
                                  "split loop and catalog/modules.json have no local "
                                  "equivalent"),
-        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73],
+        # 78 adds continuous integration: the ratchets this dimension owns are
+        # only worth what RUNNING them is worth, and task 78 found three of the
+        # five documented checker commands could not fail at all.
+        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78],
     },
 ]
 
