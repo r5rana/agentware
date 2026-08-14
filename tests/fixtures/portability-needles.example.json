@@ -23,6 +23,18 @@
       "hint": "a vendor name; 'exempt' lists path prefixes where a hit is a known false positive",
       "exempt": ["webui/dist"],
       "reason": "state WHY each exemption exists -- a path-scoped exemption with no reason is indistinguishable from a silent allowlist. Exemptions are legal for this class only."
+    },
+    {
+      "class": "environment",
+      "token": "example-colleague-alias",
+      "match": "substring",
+      "hint": "a real person's corporate alias. Test FIXTURES are where these hide: an org/team suite seeds handles, curator rosters and per-user fleet shards, and every one of them is a real name unless someone neutralised it. Needle the alias so the gate proves the neutralisation instead of a reviewer eyeballing it."
+    },
+    {
+      "class": "environment",
+      "token": "example-internal-team-key",
+      "match": "substring",
+      "hint": "an internal team or product key used as a fixture team name. Prefer a COMPOUND key here: a single-word team name that is also ordinary English cannot be needled without firing on unrelated prose (a 'metrics' team would hit every metrics comment in the tree), so neutralise those in the fixtures and record the reason, rather than adding a needle that must then be exempted everywhere it fires."
     }
   ]
 }

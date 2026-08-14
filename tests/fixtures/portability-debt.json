@@ -32,24 +32,24 @@
       "class": "environment",
       "location": "tests/baselines/baseline-donor.json",
       "count": 2,
-      "owner": "task 19",
-      "reason": "the task-5 donor test baseline records donor test node ids verbatim, and two of them name the donor environment's build system and auth cookie. Re-stamped when task 19 neutralises the fixture identities those tests carry."
+      "owner": "task 58",
+      "reason": "the task-5 donor test baseline records donor test node ids verbatim, and three of them (2 distinct tokens) name the donor environment's build system and auth cookie. OWNER MOVED 19 -> 58 by task 19: all three tests are already GONE from the staged tree (one renamed by task 17, two retired with their module by task 15), so there is no identity left for task 19 to neutralise. This file is a CAPTURE of the donor tree at a pinned git head; per the task-15 finding, rewriting a capture to hide a rename or a deletion destroys the only record of what the other tree actually had, so the edit belongs to the task that re-derives the corpus. Task 58 lands the adjudicated ids."
     },
     {
       "surface": "contents",
       "class": "environment",
       "location": "tests/fixtures/nodeids-donor.json",
       "count": 2,
-      "owner": "task 19",
-      "reason": "the task-9 frozen donor node-id set, same two ids. It is a freeze, so it moves only when the tests it names are renamed by task 19; task 58 lands the renamed ids."
+      "owner": "task 58",
+      "reason": "the task-9 frozen donor node-id set, same three ids. OWNER MOVED 19 -> 58 by task 19, for the reason recorded on tests/baselines/baseline-donor.json: it is a freeze taken at a pinned donor head, the renames and retirements it lags behind have already happened upstream in tasks 15 and 17, and task 58 is the task that re-derives the corpus. Its pending set is asserted to EQUAL donor-minus-local, so it cannot be edited in isolation anyway."
     },
     {
       "surface": "contents",
       "class": "environment",
       "location": "tests/fixtures/preserved-surface.json",
       "count": 2,
-      "owner": "task 19",
-      "reason": "the task-9 preserved-surface manifest carries the same two frozen donor node ids and is re-stamped alongside nodeids-donor.json."
+      "owner": "task 58",
+      "reason": "the task-9 preserved-surface manifest carries the same three frozen donor node ids in its pending_in_destination ratchet and is re-stamped alongside nodeids-donor.json. OWNER MOVED 19 -> 58 by task 19; same reason."
     },
     {
       "surface": "empty_dirs",
