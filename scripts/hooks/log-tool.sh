@@ -29,38 +29,38 @@
 #   (R-SEC-01); untrusted tool I/O is treated as data only, never executed
 #   (R-SEC-02).
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-# C-3: jq is required for this hook; no-op cleanly if it is absent.
+# C-3: jq is required for this hook — not for READING the payload (the shared
+# ladder falls back to python3) but for BUILDING the live.jsonl record below,
+# where `jq -nc --arg` is what keeps arbitrary tool I/O from breaking the JSON.
+# No-op cleanly if it is absent, exactly as before.
 command -v jq >/dev/null 2>&1 || exit 0
 
-KDIR="$("$REPO_ROOT/scripts/aw-knowledge-dir" 2>/dev/null || true)"
-if [[ -n "$KDIR" ]]; then LOG_DIR="$KDIR/logs"; else LOG_DIR="$REPO_ROOT/.agentware-logs"; fi
+LOG_DIR="$(aw_log_dir)"
 
 input="$(cat)"
-sid="$(printf '%s' "$input"  | jq -r '.session_id // "unknown"' 2>/dev/null)"
-tool="$(printf '%s' "$input" | jq -r '.tool_name // "unknown"' 2>/dev/null)"
-# NB: do NOT use `// empty` here — jq's `//` treats boolean false as empty, which
-# would mask failures. Read the raw value ("true" / "false" / "null").
-success="$(printf '%s' "$input" | jq -r '.tool_response.success' 2>/dev/null)"
-# Compact one-line JSON of the tool I/O (jq -c never emits embedded newlines).
-input_c="$(printf '%s' "$input"  | jq -c '.tool_input // {}'    2>/dev/null)"
-resp_c="$(printf '%s'  "$input"  | jq -c '.tool_response // {}' 2>/dev/null)"
-[[ -z "$sid" ]] && sid="unknown"
-[[ -z "$tool" ]] && tool="unknown"
+sid="$(aw_json_field "$input" .session_id unknown)"
+tool="$(aw_json_field "$input" .tool_name unknown)"
+# NB: the RAW read, not the defaulted one — jq's `//` treats boolean false as
+# empty, which would mask failures. Keeps "true" / "false" / "null" distinct.
+success="$(aw_json_raw "$input" .tool_response.success)"
+# Compact one-line JSON of the tool I/O (never emits embedded newlines).
+input_c="$(aw_json_compact "$input" .tool_input '{}')"
+resp_c="$(aw_json_compact "$input" .tool_response '{}')"
 
 # Attribution (Task 7d, 260710-learning-repair-p1): which agent produced this
 # call, so a subagent's tool calls never conflate into the parent session.
 # Derived from transcript_path (subagent paths live under .../subagents/...;
 # mirrors log-subagent.sh). Additive field — the live.jsonl reader ignores it.
-tpath="$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2>/dev/null)"
+tpath="$(aw_json_field "$input" .transcript_path)"
 agent="main"
 case "$tpath" in
   */subagents/*) agent="$(basename "${tpath%.jsonl}")" ;;
 esac
 
-ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ts="$(aw_ts)"
 
 # C-4: bound large tool I/O. Mirrors render-transcript.py's _short(..., 1500)
 # (truncate to MAXLEN chars + the " …[truncated]" marker for parity).

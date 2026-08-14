@@ -364,6 +364,73 @@ def guarded_import_surface(rel_paths=None, root=REPO_ROOT):
     return mods
 
 
+def guarded_import_offenders(rel_paths=None, root=REPO_ROOT, stdlib=None):
+    """Non-stdlib, non-first-party imports across the fully guarded corpus.
+
+    The ANSWER to "does the always-on toolkit depend on anything it does not
+    ship?", computed once. Four sibling test modules each derived it themselves
+    from `guarded_import_surface()` — every one carrying a comment saying the
+    allowance was "defined ONCE, in tests/_security_policy.py", which was true of
+    the corpus and the first-party set but not of the subtraction they all
+    open-coded. That gap only became visible when the answer stopped being a
+    property of names alone: `scripts/hooks/codex-stream.py` imports its sibling
+    `codex_items`, which resolves via `sys.path[0]` and therefore depends on
+    WHICH FILE the import appears in. A flattened union of module names cannot
+    express that, so the subtraction has to happen per file — here, where the
+    path is still in hand, rather than four times over a set that has already
+    thrown the paths away.
+    """
+    rel_paths = discover_python_files(root) if rel_paths is None else rel_paths
+    stdlib = _stdlib_names() if stdlib is None else stdlib
+    if not stdlib:
+        raise RuntimeError(
+            "cannot enumerate the stdlib on python %d.%d — the import surface "
+            "is UNCHECKABLE here, not clean"
+            % (sys.version_info[0], sys.version_info[1]))
+    allowed = set(stdlib) | first_party_names(root)
+    offenders = set()
+    for path in fully_guarded_corpus(rel_paths):
+        siblings = sibling_modules(path, root)
+        for mod in imported_top_modules(os.path.join(root, path)):
+            if mod not in allowed and mod not in siblings:
+                offenders.add(mod)
+    return sorted(offenders)
+
+
+def sibling_modules(rel_path, root=REPO_ROOT):
+    """Module names a SCRIPT at `rel_path` can import because they sit next to it.
+
+    Python puts a script's OWN directory on `sys.path[0]`, so `scripts/hooks/
+    codex-stream.py` doing `from codex_items import ...` resolves to
+    `scripts/hooks/codex_items.py` — a file the clone already carries. That is
+    first-party by INV-6's own definition ("zero hard DEPENDENCIES, not zero
+    imports"): it installs nothing, downloads nothing, and cannot go missing.
+
+    Resolved PER FILE rather than folded into `first_party_names`, which is a
+    single global set. Widening that set would excuse `import codex_items` from
+    anywhere in the tree — including `agentware_lib`, where it would NOT resolve
+    at runtime — turning a real broken-import defect into a silent pass. Scoped
+    here, the allowance holds exactly where the interpreter would actually find
+    the module, and nowhere else.
+
+    `scripts/hooks/` cannot become a package instead: two of its modules carry
+    hyphens (`codex-stream.py`, `render-transcript.py`) because they are spawned
+    as executables, and a hyphen is not a legal identifier.
+    """
+    directory = os.path.dirname(os.path.join(root, rel_path))
+    names = set()
+    try:
+        entries = os.listdir(directory)
+    except OSError:
+        return names
+    for entry in entries:
+        if entry.endswith(".py") and entry != os.path.basename(rel_path):
+            stem = entry[:-3]
+            if stem.isidentifier():      # a hyphenated script is not importable
+                names.add(stem)
+    return names
+
+
 def dependency_violations(rel_paths, root=REPO_ROOT, stdlib=None,
                           first_party=None):
     """INV-6 findings: `[(path, policy, sorted non-stdlib module names)]`.
@@ -386,9 +453,10 @@ def dependency_violations(rel_paths, root=REPO_ROOT, stdlib=None,
     for path in guarded_corpus(rel_paths):
         policy = classify(path)
         mods = imported_top_modules(os.path.join(root, path))
+        siblings = sibling_modules(path, root)
         offenders = sorted(m for m in mods
                            if m not in stdlib and m not in allowed
-                           and m not in policy.allow)
+                           and m not in policy.allow and m not in siblings)
         if offenders:
             out.append((path, policy.name, offenders))
     return out

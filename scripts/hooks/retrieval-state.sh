@@ -13,6 +13,9 @@
 
 set -e
 
+# shellcheck source=common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+
 # Kill-switch: disable entirely
 if [[ -n "${AGENTWARE_DISABLE_RETRIEVAL_LINT:-}" ]]; then
   exit 0
@@ -21,8 +24,12 @@ fi
 # Mode: warn (default) or block
 MODE="${AGENTWARE_RETRIEVAL_LINT_MODE:-warn}"
 
-# Graceful no-op when toolkit unavailable
-if [[ ! -x scripts/agentware ]]; then
+# Graceful no-op when toolkit unavailable. ANCHORED to the repo root: the bare
+# relative `scripts/agentware` this used to test resolved only when the agent's
+# cwd happened to BE the checkout, so the ladder enforcement was silently off for
+# every session started anywhere else — the same class of defect as the dead
+# CLAUDE_TOOL_* read below, and invisible for the same reason (the hook exits 0).
+if [[ ! -x "$AW_REPO_ROOT/scripts/agentware" ]]; then
   exit 0
 fi
 
@@ -32,17 +39,16 @@ fi
 # dead (0 state files against 14k+ logged tool events), 260710-learning-repair-p1
 # task 9. Mirrors scripts/hooks/log-tool.sh's stdin parse.
 INPUT_JSON="$(cat 2>/dev/null || true)"
-SID="unknown"; TOOL_NAME=""; TOOL_INPUT="{}"
-if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT_JSON" ]]; then
-  SID="$(printf '%s' "$INPUT_JSON" | jq -r '.session_id // "unknown"' 2>/dev/null || echo unknown)"
-  TOOL_NAME="$(printf '%s' "$INPUT_JSON" | jq -r '.tool_name // empty' 2>/dev/null || true)"
-  TOOL_INPUT="$(printf '%s' "$INPUT_JSON" | jq -c '.tool_input // {}' 2>/dev/null || echo '{}')"
-fi
-[[ -z "$SID" ]] && SID="unknown"
+SID="$(aw_json_field "$INPUT_JSON" .session_id unknown)"
+TOOL_NAME="$(aw_json_field "$INPUT_JSON" .tool_name)"
+TOOL_INPUT="$(aw_json_compact "$INPUT_JSON" .tool_input '{}')"
 
 # State file (PER-SESSION — the old single global current.state raced across
 # concurrent sessions/subagents). Under logs/ if a knowledge dir is configured.
-KDIR="$(scripts/agentware config --knowledge-dir-only 2>/dev/null || true)"
+# Resolved through the shared helper: this hook used to call the RELATIVE
+# `scripts/agentware config --knowledge-dir-only`, the one copy of the resolution
+# that disagreed with the other five.
+KDIR="$(aw_knowledge_dir)"
 if [[ -z "$KDIR" ]]; then
   exit 0
 fi

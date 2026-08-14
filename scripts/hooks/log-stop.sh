@@ -12,22 +12,19 @@
 # Claude Code stores subagent transcripts next to the main one, at
 # <project>/<sid>/subagents/agent-*.jsonl, so we derive them from transcript_path.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-RENDER="$SCRIPT_DIR/render-transcript.py"
+# shellcheck source=common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+RENDER="$AW_HOOK_DIR/render-transcript.py"
 
-KDIR="$("$REPO_ROOT/scripts/aw-knowledge-dir" 2>/dev/null || true)"
-if [[ -n "$KDIR" ]]; then LOG_DIR="$KDIR/logs"; else LOG_DIR="$REPO_ROOT/.agentware-logs"; fi
+KDIR="$(aw_knowledge_dir)"
+LOG_DIR="$(aw_log_dir)"
 
 input="$(cat)"
-sid="unknown"; tpath=""; cwd=""
-if command -v jq >/dev/null 2>&1; then
-  sid="$(printf '%s' "$input" | jq -r '.session_id // "unknown"' 2>/dev/null)"
-  tpath="$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2>/dev/null)"
-  cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
-fi
+sid="$(aw_json_field "$input" .session_id unknown)"
+tpath="$(aw_json_field "$input" .transcript_path)"
+cwd="$(aw_json_field "$input" .cwd)"
 
-ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ts="$(aw_ts)"
 
 # Layer-2 steering-capture producer (feature 260712-steering-capture, Task 5):
 # a CHEAP regex scan of this session's NEW origin=human turns in prompts.log,
@@ -36,7 +33,7 @@ ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # fail the Stop hook (no stdout, errors swallowed). Skipped pre-onboarding
 # (no external KB).
 if [[ -n "$KDIR" && "$sid" != "unknown" ]]; then
-  "$REPO_ROOT/scripts/agentware" prefer scan-queue \
+  "$AW_REPO_ROOT/scripts/agentware" prefer scan-queue \
     --sid "$sid" --cwd "$cwd" >/dev/null 2>&1 || true
 fi
 

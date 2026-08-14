@@ -10,19 +10,15 @@
 # the parent's main transcript (<project>/<parent-session-id>.jsonl), depending on
 # version — so we handle both and always file under sessions/<parent-sid>/subagents/.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-RENDER="$SCRIPT_DIR/render-transcript.py"
+# shellcheck source=common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+RENDER="$AW_HOOK_DIR/render-transcript.py"
 
-KDIR="$("$REPO_ROOT/scripts/aw-knowledge-dir" 2>/dev/null || true)"
-if [[ -n "$KDIR" ]]; then LOG_DIR="$KDIR/logs"; else LOG_DIR="$REPO_ROOT/.agentware-logs"; fi
+LOG_DIR="$(aw_log_dir)"
 
 input="$(cat)"
-tpath=""
-if command -v jq >/dev/null 2>&1; then
-  tpath="$(printf '%s' "$input" | jq -r '.transcript_path // empty' 2>/dev/null)"
-fi
-ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+tpath="$(aw_json_field "$input" .transcript_path)"
+ts="$(aw_ts)"
 [[ -z "$tpath" || ! -f "$tpath" ]] && exit 0
 
 copy_one() {  # copy_one <src.jsonl> <parent-sid> [<rel-base-no-ext>]

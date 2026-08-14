@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "b7fa9743a9e3"
+      "git_head": "429c9e90564a"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -695,7 +695,7 @@
         "local": [
           {
             "file": "scripts/hooks/retrieval-state.sh",
-            "line": 17,
+            "line": 20,
             "lang": "shell",
             "form": "${AGENTWARE_DISABLE_RETRIEVAL_LINT:-}",
             "default": "",
@@ -1290,7 +1290,7 @@
           },
           {
             "file": "scripts/hooks/session-start.sh",
-            "line": 31,
+            "line": 27,
             "lang": "shell",
             "form": "${AGENTWARE_INVOKED_FROM:-}",
             "default": "",
@@ -1298,7 +1298,7 @@
           },
           {
             "file": "scripts/hooks/session-start.sh",
-            "line": 32,
+            "line": 28,
             "lang": "shell",
             "form": "$AGENTWARE_INVOKED_FROM",
             "default": null,
@@ -1306,7 +1306,7 @@
           },
           {
             "file": "scripts/hooks/session-start.sh",
-            "line": 132,
+            "line": 128,
             "lang": "shell",
             "form": "${AGENTWARE_INVOKED_FROM:-}",
             "default": "",
@@ -1314,7 +1314,7 @@
           },
           {
             "file": "scripts/hooks/session-start.sh",
-            "line": 134,
+            "line": 130,
             "lang": "shell",
             "form": "$AGENTWARE_INVOKED_FROM",
             "default": null,
@@ -1702,7 +1702,7 @@
           },
           {
             "file": "scripts/hooks/codex-stream.py",
-            "line": 107,
+            "line": 74,
             "lang": "python",
             "form": "get()",
             "default": "",
@@ -1929,7 +1929,7 @@
         "local": [
           {
             "file": "scripts/hooks/codex-stream.py",
-            "line": 203,
+            "line": 119,
             "lang": "python",
             "form": "get()",
             "default": "",
@@ -3093,7 +3093,7 @@
         "local": [
           {
             "file": "scripts/hooks/log-prompt.sh",
-            "line": 29,
+            "line": 28,
             "lang": "shell",
             "form": "${AGENTWARE_ORIGIN:-}",
             "default": "",
@@ -3543,7 +3543,7 @@
         "local": [
           {
             "file": "scripts/hooks/retrieval-state.sh",
-            "line": 22,
+            "line": 25,
             "lang": "shell",
             "form": "${AGENTWARE_RETRIEVAL_LINT_MODE:-}",
             "default": "warn",

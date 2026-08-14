@@ -306,10 +306,11 @@ class HybridEmbedTest(unittest.TestCase):
         # DEPENDENCIES — they ship in the clone and install nothing — and both
         # the corpus and that allowance are defined ONCE, in
         # tests/_security_policy.py. A real third-party import still reddens.
-        mods = policy.guarded_import_surface()
-        stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
-        stdlib |= policy.first_party_names()
-        offenders = sorted(m for m in mods if m not in stdlib)
+        # The subtraction lives in _security_policy too, not just the corpus
+        # and the first-party set: a sibling import (scripts/hooks/codex-stream.py
+        # -> codex_items) resolves per FILE via sys.path[0], which a flattened
+        # union of module names cannot express.
+        offenders = policy.guarded_import_offenders()
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
 
 

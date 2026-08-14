@@ -187,13 +187,46 @@ class WiringGateTest(unittest.TestCase):
         self.assertTrue(any("STALE DEBT" in v and "phase.sh" in v
                             for v in violations), violations)
 
+    def test_no_loop_or_hook_script_is_over_cap_and_the_debt_list_is_empty(self):
+        """The finished state, asserted directly rather than via the ratchet.
+
+        Task 35 brought the last over-cap script (scripts/hooks/codex-stream.py,
+        304 lines) under the ceiling by splitting its item vocabulary out, so the
+        ceiling half of this gate is now a PROPERTY of the tree, not a promise
+        about one. Asserting it here means a future over-cap script has to be
+        split: re-declaring it as debt reddens this test, and the ratchet's
+        stale-row rule reddens the moment it is fixed.
+        """
+        self.assertEqual(self.fixture["script_cap_debt"], [])
+        over = [(rel, n) for rel, n in W.capped_scripts() if n > W.SCRIPT_LINE_CAP]
+        self.assertEqual(over, [], "over the %d-line cap: %r" % (W.SCRIPT_LINE_CAP, over))
+
     def test_declared_debt_may_not_grow(self):
+        """The ratchet's regression arm: a row forgives a violation at its
+        DECLARED size and never a worse one.
+
+        Built against a SCRATCH tree carrying a synthetic over-cap script, not
+        against whatever happens to sit in `script_cap_debt`. That list is empty
+        as of task 35 — the codex-stream.py row this test used to mutate went
+        stale the moment the file came under the cap — and a mutation test that
+        quietly iterates an empty list is worse than no test at all: it passes
+        most confidently exactly when it has stopped checking anything.
+        """
+        d = self._tree()
+        p = os.path.join(d, "scripts", "loop", "phase.sh")
+        with open(p) as fh:
+            before = len(fh.read().splitlines())
+        with open(p, "a") as fh:
+            fh.write("\n" + "\n".join("# pad %d" % i for i in range(W.SCRIPT_LINE_CAP)))
+        actual = before + W.SCRIPT_LINE_CAP
+        declared = W.SCRIPT_LINE_CAP + 1        # over the ceiling, but well under `actual`
+        self.assertGreater(actual, declared, "the padding must exceed the declared debt")
         fx = json.loads(json.dumps(self.fixture))
-        for row in fx["script_cap_debt"]:
-            if row["path"].endswith("codex-stream.py"):
-                row["lines"] = 260
-        violations, _ = W.evaluate(fx)
-        self.assertTrue(any("CEILING REGRESSION" in v for v in violations), violations)
+        fx["script_cap_debt"].append(
+            {"path": "scripts/loop/phase.sh", "lines": declared, "owner": "test"})
+        violations, _ = W.evaluate(fx, root=d)
+        self.assertTrue(any("CEILING REGRESSION" in v and "phase.sh" in v
+                            for v in violations), violations)
 
 
 class LibSourcingContractTest(unittest.TestCase):

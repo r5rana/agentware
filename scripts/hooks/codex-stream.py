@@ -47,46 +47,13 @@ import os
 import sys
 import time
 
-MAXLEN = 1500
-# Item types that are NOT tool calls (so they do not get a live.jsonl record).
-NON_TOOL_ITEMS = {"agent_message", "reasoning"}
-
-
-def _now():
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-
-def _short(text, n=MAXLEN):
-    """Bound large strings; mirrors render-transcript.py _short / log-tool trunc."""
-    if not isinstance(text, str):
-        try:
-            text = json.dumps(text, ensure_ascii=False)
-        except Exception:
-            text = str(text)
-    return text if len(text) <= n else text[:n] + " …[truncated]"
-
-
-def _short_tail(text, n=MAXLEN):
-    """Bound a tool RESPONSE while PRESERVING its TAIL. A deep failure's
-    discriminating error line (a traceback's exception, an `Exit code` detail)
-    lives at the END, where head-only _short() would destroy it and collapse two
-    genuinely-distinct deep failures onto one miner cross-session F-E key
-    (adversarial-review). Mirrors scripts/agentware _transcript_resp_trunc
-    (head + marker + tail around the SAME " …[truncated]" marker)."""
-    if not isinstance(text, str):
-        try:
-            text = json.dumps(text, ensure_ascii=False)
-        except Exception:
-            text = str(text)
-    if len(text) <= n:
-        return text
-    marker = " …[truncated]"
-    room = n - len(marker)
-    if room <= 1:
-        return text[:n] + marker
-    tail = room // 2
-    head = room - tail
-    return text[:head] + marker + text[-tail:]
+# The item vocabulary — bounding + field mapping — lives in a sibling module so
+# this file stays inside the 250-line hook ceiling (plan task 35). Imported by
+# NAME rather than re-implemented: log-tool.sh already carries a bash twin of
+# these truncations, and a third copy is how the miner's cross-session keys drift.
+from codex_items import (  # noqa: E402  (sibling module; sys.path[0] is this dir)
+    NON_TOOL_ITEMS, _now, _short, _tool_fields,
+)
 
 
 def _append(path, data):
@@ -121,57 +88,6 @@ def _resolve_log_dir(arg_log_dir):
     here = os.path.dirname(os.path.abspath(__file__))
     repo = os.path.dirname(os.path.dirname(here))
     return os.path.join(repo, ".agentware-logs")
-
-
-def _tool_fields(item):
-    """Map a codex item to (tool, input_str, response_str, status) — generic so
-    unknown future tool item types still get a sensible record."""
-    itype = item.get("type", "unknown")
-    status = "ok"
-    if itype == "command_execution":
-        tool = "command_execution"
-        inp = item.get("command", "")
-        resp = item.get("aggregated_output", "")
-        exit_code = item.get("exit_code")
-        st = item.get("status")
-        if (exit_code not in (0, None)) or (st in ("failed", "error")):
-            status = "ERR"
-    elif itype == "mcp_tool_call":
-        server = item.get("server", "")
-        name = item.get("tool", item.get("name", ""))
-        tool = "mcp:%s.%s" % (server, name) if server else "mcp:%s" % name
-        inp = item.get("arguments", item.get("input", ""))
-        resp = item.get("result", item.get("output", ""))
-        if item.get("status") in ("failed", "error"):
-            status = "ERR"
-    elif itype == "file_change":
-        tool = "file_change"
-        inp = item.get("changes", item.get("path", item))
-        resp = item.get("status", "")
-        if item.get("status") in ("failed", "error"):
-            status = "ERR"
-    elif itype == "web_search":
-        tool = "web_search"
-        inp = item.get("query", "")
-        resp = item.get("results", "")
-    else:
-        # Unknown tool item: store everything but the id/type as input.
-        tool = itype
-        inp = {k: v for k, v in item.items() if k not in ("id", "type")}
-        resp = ""
-        if item.get("status") in ("failed", "error"):
-            status = "ERR"
-    if not isinstance(inp, str):
-        try:
-            inp = json.dumps(inp, ensure_ascii=False)
-        except Exception:
-            inp = str(inp)
-    if not isinstance(resp, str):
-        try:
-            resp = json.dumps(resp, ensure_ascii=False)
-        except Exception:
-            resp = str(resp)
-    return tool, _short(inp), _short_tail(resp), status
 
 
 def main(argv):

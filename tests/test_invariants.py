@@ -73,6 +73,31 @@ class StdlibOnlyTest(unittest.TestCase):
             "non-stdlib imports in stdlib-only path classes (INV-6 violated):\n"
             + policy.format_findings(findings))
 
+    def test_sibling_allowance_is_scoped_to_the_importing_directory(self):
+        """The INV-6 sibling allowance must model `sys.path[0]`, not a blanket.
+
+        Task 35 split `scripts/hooks/codex-stream.py`, whose renderer now does
+        `from codex_items import ...`. That name resolves because Python puts a
+        script's own directory on `sys.path[0]`, so it is first-party — but the
+        allowance is only honest while it is SCOPED. Folded into the global
+        `first_party_names` set instead, it would excuse `import codex_items`
+        from `agentware_lib`, where the interpreter would never find it: a real
+        broken import, reported as clean. This pins the scoping directly.
+        """
+        here = policy.sibling_modules("scripts/hooks/codex-stream.py", REPO_ROOT)
+        self.assertIn("codex_items", here)
+        elsewhere = policy.sibling_modules(
+            "scripts/agentware_lib/__init__.py", REPO_ROOT)
+        self.assertNotIn("codex_items", elsewhere)
+        # A hyphenated script is spawned, never imported — it is not an
+        # identifier, so it must never be offered as an importable sibling.
+        self.assertNotIn(
+            "codex-stream",
+            policy.sibling_modules("scripts/hooks/codex_items.py", REPO_ROOT))
+        # And the allowance must not blunt the check it lives inside: a genuine
+        # third-party import in the same directory is still a violation.
+        self.assertNotIn("requests", here)
+
     def test_cli_imports_no_network_modules(self):
         findings = policy.network_violations(_CORPUS, root=REPO_ROOT)
         self.assertEqual(

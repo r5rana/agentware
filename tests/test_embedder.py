@@ -122,10 +122,12 @@ class EmbedderBackendTest(unittest.TestCase):
         # that path is a facade and scanning it alone made this guard vacuous.
         # Corpus and first-party allowance are defined once, in
         # tests/_security_policy.py; a real third-party import still reddens.
-        mods = policy.guarded_import_surface()
-        stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
-        stdlib |= policy.first_party_names()
-        offenders = sorted(m for m in mods if m not in stdlib)
+        # The subtraction lives in _security_policy too, not just the corpus
+        # and the first-party set: a sibling import (scripts/hooks/codex-stream.py
+        # -> codex_items) resolves per FILE via sys.path[0], which a flattened
+        # union of module names cannot express.
+        offenders = policy.guarded_import_offenders()
+        mods = policy.guarded_import_surface()   # for the named-backend checks below
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
         # The optional backend module is loaded dynamically, never statically.
         self.assertNotIn("agentware_embedder_ollama", mods)

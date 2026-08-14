@@ -5,22 +5,18 @@
 # (unused) and emits a SessionStart hookSpecificOutput with `additionalContext`
 # that Claude Code adds to the model's context before the first prompt.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 _hook_input="$(cat 2>/dev/null || true)"   # SessionStart JSON (carries session_id)
 
-KDIR="$("$REPO_ROOT/scripts/aw-knowledge-dir" 2>/dev/null || true)"
+KDIR="$(aw_knowledge_dir)"
 
 # Session id (feature 260713, Task 6): used to SEED this session's prefer-queue
 # watermark so the first Stop does not re-parse the whole cross-session
-# prompts.log. Best-effort; empty when absent/unparseable.
-_sid=""
-if command -v jq >/dev/null 2>&1; then
-  _sid="$(printf '%s' "$_hook_input" | jq -r '.session_id // empty' 2>/dev/null || true)"
-elif command -v python3 >/dev/null 2>&1; then
-  _sid="$(printf '%s' "$_hook_input" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("session_id") or "")' 2>/dev/null || true)"
-fi
+# prompts.log. Best-effort; empty when absent/unparseable. This hook's jq ->
+# python3 ladder is now the ladder EVERY hook uses.
+_sid="$(aw_json_field "$_hook_input" .session_id)"
 
 # Resolve the invocation checkout ONCE (feature invocation-cwd-context): reused
 # by BOTH the per-session preference digest (feature 260712, Task 3) and the
@@ -29,12 +25,12 @@ fi
 # resolves: _proj_name stays empty.
 _proj_name=""; _proj_dir=""; _repo_root=""
 if [[ -n "${AGENTWARE_INVOKED_FROM:-}" ]]; then
-  _whereami_json="$("$REPO_ROOT/scripts/agentware" whereami --dir "$AGENTWARE_INVOKED_FROM" --format json 2>/dev/null || true)"
+  _whereami_json="$("$AW_REPO_ROOT/scripts/agentware" whereami --dir "$AGENTWARE_INVOKED_FROM" --format json 2>/dev/null || true)"
   if [[ -n "$_whereami_json" ]]; then
-    _proj_name="$(printf '%s' "$_whereami_json" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("project_name",""))' 2>/dev/null || true)"
+    _proj_name="$(aw_json_field "$_whereami_json" .project_name)"
     if [[ -n "$_proj_name" ]]; then
-      _proj_dir="$(printf '%s' "$_whereami_json" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("project_dir",""))' 2>/dev/null || true)"
-      _repo_root="$(printf '%s' "$_whereami_json" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(d.get("repo_root",""))' 2>/dev/null || true)"
+      _proj_dir="$(aw_json_field "$_whereami_json" .project_dir)"
+      _repo_root="$(aw_json_field "$_whereami_json" .repo_root)"
     fi
   fi
 fi
@@ -46,7 +42,7 @@ else
   # Non-blocking, read-only, NO-NETWORK package self-update surfacing (feature
   # 260712, Task 14). Prints only when a prior apply is stranded/unfinalized;
   # silent (suppressed) when up-to-date. Never blocks session start.
-  _upd_line="$("$REPO_ROOT/scripts/agentware" update --status-line 2>/dev/null || true)"
+  _upd_line="$("$AW_REPO_ROOT/scripts/agentware" update --status-line 2>/dev/null || true)"
   if [[ -n "$_upd_line" ]]; then
     CTX="$CTX
 $_upd_line"
@@ -55,7 +51,7 @@ $_upd_line"
   # when checkup is ON AND a fresh, unacknowledged report exists; byte-identical
   # no-op (no output, no side-effect write) when OFF / no fresh report. Mirrors the
   # `update --status-line` read-only nudge above. Never blocks session start.
-  _checkup_line="$("$REPO_ROOT/scripts/agentware" checkup --status-line 2>/dev/null || true)"
+  _checkup_line="$("$AW_REPO_ROOT/scripts/agentware" checkup --status-line 2>/dev/null || true)"
   if [[ -n "$_checkup_line" ]]; then
     CTX="$CTX
 $_checkup_line"
@@ -68,7 +64,7 @@ $(cat "$KDIR/MAIN.md")"
   # Per-user profile overlay: inject profiles/<handle>.md when the handle is set
   # AND the file exists. Power-user mode (handle unset / file absent) is a clean
   # no-op — byte-identical to the pre-overlay behavior.
-  USER_HANDLE="$("$REPO_ROOT/scripts/agentware" config --user-handle-only 2>/dev/null || true)"
+  USER_HANDLE="$("$AW_REPO_ROOT/scripts/agentware" config --user-handle-only 2>/dev/null || true)"
   if [[ -n "$USER_HANDLE" ]] && [[ -f "$KDIR/profiles/${USER_HANDLE}.md" ]]; then
     CTX="$CTX
 ----- knowledge/profiles/${USER_HANDLE}.md (this operator's machine profile) -----
@@ -96,7 +92,7 @@ $(cat "$KDIR/skills/index.md")"
   # format, sanitized (counts + validated names only, NO author/raw metadata).
   # Silent (empty output) when the lockfile is empty/absent — byte-identical
   # no-op for power-users. Mirrors the `update --status-line` read-only nudge.
-  _skill_line="$("$REPO_ROOT/scripts/agentware" skill sync --status-line 2>/dev/null || true)"
+  _skill_line="$("$AW_REPO_ROOT/scripts/agentware" skill sync --status-line 2>/dev/null || true)"
   if [[ -n "$_skill_line" ]]; then
     CTX="$CTX
 $_skill_line"
@@ -109,7 +105,7 @@ $_skill_line"
   # there is no project signal (never leak another project's prefs). A DERIVED
   # artifact regenerated each session from the index — no MAIN.md bloat. Clean
   # no-op (empty output) when there are no active captures.
-  _pref_digest="$("$REPO_ROOT/scripts/agentware" prefer digest --project "$_proj_name" 2>/dev/null || true)"
+  _pref_digest="$("$AW_REPO_ROOT/scripts/agentware" prefer digest --project "$_proj_name" 2>/dev/null || true)"
   if [[ -n "$_pref_digest" ]]; then
     CTX="$CTX
 $_pref_digest"
@@ -119,7 +115,7 @@ $_pref_digest"
   # log (feature 260713, Task 6). Idempotent + best-effort; stdout MUST stay the
   # hook payload, so all output is discarded.
   if [[ -n "$_sid" ]]; then
-    "$REPO_ROOT/scripts/agentware" prefer seed-cursor --sid "$_sid" \
+    "$AW_REPO_ROOT/scripts/agentware" prefer seed-cursor --sid "$_sid" \
       >/dev/null 2>&1 || true
   fi
 fi

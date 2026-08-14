@@ -4,22 +4,21 @@
 # configured, else falls back to a repo-local log (pre-onboarding only). Writes
 # nothing to stdout, so no extra context is injected.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=common.sh
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-KDIR="$("$REPO_ROOT/scripts/aw-knowledge-dir" 2>/dev/null || true)"
-if [[ -n "$KDIR" ]]; then LOG_DIR="$KDIR/logs"; else LOG_DIR="$REPO_ROOT/.agentware-logs"; fi
+LOG_DIR="$(aw_log_dir)"
 mkdir -p "$LOG_DIR"
 
 input="$(cat)"
-sid=""; prompt=""; cwd=""
-if command -v jq >/dev/null 2>&1; then
-  sid="$(printf '%s' "$input" | jq -r '.session_id // "unknown"' 2>/dev/null)"
-  prompt="$(printf '%s' "$input" | jq -r '.prompt // empty' 2>/dev/null)"
-  cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
-fi
+# Read through the shared ladder. The old jq-ONLY read left every field empty on
+# a machine without jq, so this hook — whose entire job is that nothing is ever
+# lost — appended an empty prompt under an empty session id, silently.
+sid="$(aw_json_field "$input" .session_id unknown)"
+prompt="$(aw_json_field "$input" .prompt)"
+cwd="$(aw_json_field "$input" .cwd)"
 
-ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+ts="$(aw_ts)"
 
 # Provenance origin (Task 7a, 260710-learning-repair-p1): loop (agentware.sh
 # exported AGENTWARE_ORIGIN) / system (machine-injection heuristic) / human

@@ -87,12 +87,6 @@
       "why": "the main phase itself"
     }
   ],
-  "script_cap_debt": [
-    {
-      "path": "scripts/hooks/codex-stream.py",
-      "lines": 304,
-      "owner": "task 35",
-      "reason": "Pre-existing, inherited from before this split and untouched by it: task 33 creates no over-cap script. Plan task 35 is the task that modularises the hooks directory, so this is its work-list, measured and named rather than discovered later. Splitting the codex JSONL renderer here would churn the one file the codex spawn path depends on, in a task that does not otherwise touch scripts/hooks. SHRINK-ONLY: if it grows the gate fails, and when task 35 brings it under 250 this row must be deleted or the gate fails on a stale row."
-    }
-  ]
+  "script_cap_debt": [],
+  "script_cap_debt_note": "EMPTY, and that is the finished state. The one row this file ever held was scripts/hooks/codex-stream.py at 304 lines, declared by task 33 and owned by task 35. Task 35 split the item vocabulary out to scripts/hooks/codex_items.py, bringing the renderer to 220 lines, so the row went STALE and the gate's shrink-only rule required its deletion — exactly the forcing function it was written to be. Every loop and hook script is now within the 250-line cap outright, so the ceiling half of this gate is a property rather than a promise: a new over-cap script must be SPLIT, because a row re-added here for a file the tree can still shrink is itself a failure."
 }
