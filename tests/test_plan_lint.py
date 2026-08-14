@@ -26,6 +26,7 @@ raises SystemExit(2) on the unknown subcommand and every assertion fails.
 Runner:  python3 -m unittest tests.test_plan_lint -v
 """
 
+import glob
 import json
 import os
 import re
@@ -589,29 +590,43 @@ class LoopLinterContractTestCase(unittest.TestCase):
     """Pin the canonical task-marker regex byte-identical across the loop and linter.
 
     The loop counts open task markers with a single `grep -cE '…'` in
-    agentware.sh:open_markers(). The linter stores those exact POSIX-ERE bytes in
+    open_markers(). The linter stores those exact POSIX-ERE bytes in
     `PLAN_TASK_MARKER_RE` (scripts/agentware) and derives a Python-usable form from
     them. If the two ever drift, a plan that lints clean could still count 0 open
     markers (the original bug). This test locates the grep pattern BY CONTENT (the
     `⬜|🟡` token, so it survives edits that shift line numbers) and asserts it is
     byte-identical to the stored constant.
+
+    The search covers the WHOLE loop surface — the orchestrator plus every
+    `scripts/loop/*.sh` — because plan task 33 split `agentware.sh` and
+    `open_markers()` now lives in `scripts/loop/markers.sh`. Scanning only the
+    orchestrator would find ZERO candidates and fail on a tree that is correct.
+    The "exactly one" assertion is kept and is now TREE-WIDE, which is strictly
+    stronger than before: it also forbids a second copy of the canonical grep
+    appearing in any lib, which is exactly how the loop and linter would drift.
     """
 
-    AGENTWARE_SH = os.path.join(REPO_ROOT, "agentware.sh")
+    LOOP_SOURCES = [os.path.join(REPO_ROOT, "agentware.sh")] + sorted(
+        glob.glob(os.path.join(REPO_ROOT, "scripts", "loop", "*.sh")))
 
     def _extract_grep_marker_regex(self):
-        with open(self.AGENTWARE_SH, "r", encoding="utf-8") as f:
-            lines = f.read().splitlines()
         # Locate by content: the open-marker count uses `grep -cE '<pattern>'` and
-        # the pattern is the only one containing the ⬜|🟡 alternation.
-        candidates = [
-            ln for ln in lines
-            if "grep -cE" in ln and "⬜|🟡" in ln
-        ]
+        # the pattern is the only one containing the ⬜|🟡 alternation. (The ✅-only
+        # tallies use a different pattern, and progress_signature uses `grep -nE`,
+        # so neither collides with this probe.)
+        candidates = []
+        for path in self.LOOP_SOURCES:
+            if not os.path.isfile(path):
+                continue
+            with open(path, "r", encoding="utf-8") as f:
+                for ln in f.read().splitlines():
+                    if "grep -cE" in ln and "⬜|🟡" in ln:
+                        candidates.append(ln)
         self.assertEqual(
             len(candidates), 1,
-            "expected exactly one `grep -cE '…⬜|🟡…'` line in agentware.sh, "
-            "found %d: %r" % (len(candidates), candidates),
+            "expected exactly one `grep -cE '…⬜|🟡…'` line across the loop "
+            "surface (agentware.sh + scripts/loop/*.sh), found %d: %r"
+            % (len(candidates), candidates),
         )
         line = candidates[0]
         # Extract the single-quoted pattern: grep -cE '<pattern>'

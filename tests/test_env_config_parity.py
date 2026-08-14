@@ -30,9 +30,20 @@ FIXTURE_PATH = os.path.join(REPO, "tests", "fixtures", "env-config-parity.json")
 UNION_PATH = os.path.join(REPO, "tests", "fixtures", "surface-union.json")
 DONOR = cap.DEFAULT_DONOR_ROOT
 
-# Frozen: the six kill switches across both trees. A seventh appearing without
-# a decision, or one of these disappearing, must fail here.
+# Frozen: the kill switches across both trees. A new one appearing without a
+# decision, or one of these disappearing, must fail here.
+#
+# AGENTWARE_DISABLE_ORG_LINT is the SEVENTH, added by plan task 33 with a recorded
+# `> DECISION:`. It exists because the org-lint gate is the only re-injected donor
+# gate with no kill switch of its own on either side: the donor calls
+# `scripts/agentware org lint` unconditionally behind `if ! …; then exit 1`, so an
+# operator hitting a false positive in org mode has no way to finish a run short of
+# unsetting AGENTWARE_ORG_ROOT — which would silently disable the org RESOLUTION,
+# not just the check. Every sibling phase gate (target, premise, release, recall)
+# carries one, and it derives the same fail-safe shape as the other six: unset
+# means the gate is ENABLED.
 KILL_SWITCHES = frozenset({
+    "AGENTWARE_DISABLE_ORG_LINT",
     "AGENTWARE_DISABLE_PREMISE_GATE",
     "AGENTWARE_DISABLE_RECALL_GATE",
     "AGENTWARE_DISABLE_RELEASE_GATE",

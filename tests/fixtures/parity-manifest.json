@@ -34,13 +34,13 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 546,
+    "rows": 547,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
       "docs_templates": 4,
       "dream_maintenance": 7,
-      "env_config": 81,
+      "env_config": 82,
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
@@ -51,12 +51,12 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 537,
+      "required": 538,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
-      "generated": 481,
+      "generated": 482,
       "curated": 60,
       "absence_probe": 5
     },
@@ -2097,6 +2097,16 @@
       "verification": "generated"
     },
     {
+      "id": "env:AGENTWARE_DISABLE_ORG_LINT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DISABLE_ORG_LINT (agentware, kill switch)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
       "id": "env:AGENTWARE_DISABLE_PREMISE_GATE",
       "dimension": "env_config",
       "capability": "AGENTWARE_DISABLE_PREMISE_GATE (agentware, kill switch)",
@@ -2111,7 +2121,8 @@
       "dimension": "env_config",
       "capability": "AGENTWARE_DISABLE_RECALL_GATE (agentware, kill switch)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"

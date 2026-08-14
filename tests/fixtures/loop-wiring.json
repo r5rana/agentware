@@ -1,0 +1,98 @@
+{
+  "schema": "agentware/loop-wiring@1",
+  "note": "The wiring checklist for plan task 33's orchestrator split. Every row records how many times a capability was INVOKED in the 1961-line pre-merge agentware.sh; the gate asserts the split tree calls it AT LEAST that many times, across the orchestrator plus every scripts/loop/*.sh. The assertion is >= rather than == on purpose: this task legitimately ADDS wiring (the three injected donor-gate call sites, and the log lines they carry), and a == rule would redden on exactly the change the plan asks for. What it can never do is DROP a call site — a definition that moves to a lib while its call stays behind leaves a gate that exists, passes every unit test, and never runs. Call sites are counted by tests/_loop_callsites.py, which is the single definition of what a bash call is; see its docstring for why a naive grep scores `log` at 68 by counting the English word inside comments. The premerge numbers are cross-checked against `git show aw-pre-merge:agentware.sh` whenever git is available, so the baseline cannot be lowered to make a live regression pass.",
+  "captured": "2026-08-14, branch merge/modularize, task 33 (measured against the aw-pre-merge orchestrator)",
+  "premerge_ref": "aw-pre-merge",
+  "script_line_cap": 250,
+  "capabilities": [
+    { "name": "usage", "origin": "local", "premerge": 2 },
+    { "name": "log", "origin": "local", "premerge": 68 },
+    { "name": "notify", "origin": "local", "premerge": 9 },
+    { "name": "cleanup", "origin": "local", "premerge": 1 },
+    { "name": "loop_on_exit", "origin": "local", "premerge": 1 },
+    { "name": "open_markers", "origin": "local", "premerge": 10 },
+    { "name": "_hash_stdin", "origin": "local", "premerge": 1 },
+    { "name": "progress_signature", "origin": "local", "premerge": 3 },
+    { "name": "learnings_promoted", "origin": "local", "premerge": 1 },
+    { "name": "metrics_emit_enabled", "origin": "local", "premerge": 4 },
+    { "name": "emit_metric", "origin": "local", "premerge": 3 },
+    { "name": "emit_done_stamp_failed", "origin": "local", "premerge": 1 },
+    { "name": "snapshot_task_states", "origin": "local", "premerge": 2 },
+    { "name": "emit_task_transition", "origin": "local", "premerge": 1 },
+    { "name": "emit_task_transitions", "origin": "local", "premerge": 2 },
+    { "name": "emit_terminal_metric", "origin": "local", "premerge": 1 },
+    { "name": "kb_autocommit_enabled", "origin": "local", "premerge": 2 },
+    { "name": "kb_push_enabled", "origin": "local", "premerge": 1 },
+    { "name": "run_pre_hooks", "origin": "local", "premerge": 1 },
+    { "name": "run_post_hooks", "origin": "local", "premerge": 1 },
+    { "name": "run_selfheal_review", "origin": "local", "premerge": 1 },
+    { "name": "emit_review_report", "origin": "local", "premerge": 6 },
+    { "name": "run_kb_sync", "origin": "local", "premerge": 1 },
+    { "name": "strip_frontmatter", "origin": "local", "premerge": 1 },
+    { "name": "build_codex_prompt", "origin": "local", "premerge": 2 },
+    { "name": "resolve_role_axes", "origin": "local", "premerge": 2 },
+    { "name": "run_agent", "origin": "local", "premerge": 6 },
+    { "name": "kb_sync_push", "origin": "local", "premerge": 1 },
+    { "name": "show_spawn_argv", "origin": "local", "premerge": 3 },
+    { "name": "run_phase", "origin": "local", "premerge": 2 },
+    { "name": "_aw_lock_status", "origin": "local", "premerge": 2 }
+  ],
+  "injected": [
+    {
+      "name": "run_org_lint_gate",
+      "origin": "donor",
+      "min": 2,
+      "why": "the plan requires the org-lint gate on BOTH the pre-hook and the post-hook; one alone leaves half the run unchecked — a pre-only gate cannot see a cross-team write the run itself performed, and a post-only gate lets a run start against an already-broken org tree"
+    },
+    {
+      "name": "run_retrieval_quality_gate",
+      "origin": "donor",
+      "min": 1,
+      "why": "the own-gold Recall@5 regression check, wired into the post-hook; nothing else in the gate chain reads ranking, so a run whose new entries individually validate but collectively confuse retrieval is otherwise invisible"
+    },
+    {
+      "name": "run_plan_gates",
+      "origin": "local",
+      "min": 1,
+      "why": "plan lint + target-package existence + premise grounding, extracted from run_pre_hooks so hooks.sh stays inside the ceiling; dropping the call silently disarms the R-GND-01 premise halt"
+    },
+    {
+      "name": "run_updater_lock_guard",
+      "origin": "local",
+      "min": 1,
+      "why": "the reverse loop-guard; without the call a loop can start reading a half-updated package mid-apply"
+    },
+    {
+      "name": "check_blocker_halt",
+      "origin": "local",
+      "min": 1,
+      "why": "the AW_BLOCKER_HALT seam; without the call a blocked agent is re-spawned until the iteration budget is gone"
+    },
+    {
+      "name": "check_no_progress",
+      "origin": "local",
+      "min": 1,
+      "why": "the no-progress circuit breaker; without the call a stalled executor silently burns every iteration"
+    },
+    {
+      "name": "assert_open_markers",
+      "origin": "local",
+      "min": 1,
+      "why": "the zero-open-markers disambiguation; without the call a marker typo reads as successful completion"
+    },
+    {
+      "name": "run_main_loop",
+      "origin": "local",
+      "min": 1,
+      "why": "the main phase itself"
+    }
+  ],
+  "script_cap_debt": [
+    {
+      "path": "scripts/hooks/codex-stream.py",
+      "lines": 304,
+      "owner": "task 35",
+      "reason": "Pre-existing, inherited from before this split and untouched by it: task 33 creates no over-cap script. Plan task 35 is the task that modularises the hooks directory, so this is its work-list, measured and named rather than discovered later. Splitting the codex JSONL renderer here would churn the one file the codex spawn path depends on, in a task that does not otherwise touch scripts/hooks. SHRINK-ONLY: if it grows the gate fails, and when task 35 brings it under 250 this row must be deleted or the gate fails on a stale row."
+    }
+  ]
+}

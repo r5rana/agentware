@@ -11,8 +11,10 @@ dir and a FAKE agent runtime, proving the deterministic pre-hook:
   * the AGENTWARE_DISABLE_PREMISE_GATE kill-switch BYPASSES the gate LOUDLY and
     records a `> DECISION:` to the worklog (never a silent skip);
   * PRE_PROMPT (the pre-phase instruction that forbids the LLM from changing
-    acceptance criteria) is byte-identical to git HEAD — the halt authority lives
-    entirely in the deterministic pre-hook (RCA F3 fix), never the LLM.
+    acceptance criteria) is byte-identical to its `aw-pre-merge` text — the halt
+    authority lives entirely in the deterministic pre-hook (RCA F3 fix), never the
+    LLM. The block is located across the whole loop surface (agentware.sh plus
+    scripts/loop/*.sh) because plan task 33 split the orchestrator.
 
 The operator KB is never touched (R-LOC-03): HOME + AGENTWARE_KNOWLEDGE_DIR are
 patched to temp dirs and the sibling package gates are disabled so the test
@@ -21,8 +23,10 @@ exercises ONLY the premise gate.
 Runner:  python3 -m unittest tests.test_premise_prehook -v
 """
 
+import glob
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -209,20 +213,79 @@ class PremisePreHookLoopTest(unittest.TestCase):
         self.assertIn("premise-grounding gate BYPASSED via "
                       "AGENTWARE_DISABLE_PREMISE_GATE", wl, wl)
 
+    @staticmethod
+    def _extract_pre_prompt(text):
+        """Return the PRE_PROMPT="..." assignment block, or None.
+
+        Anchored to a LINE START: an unanchored search also matches
+        `EXTRA_PRE_PROMPT=""` (args.sh) and the `&& PRE_PROMPT="$PRE_PROMPT`
+        append (prompts-post.sh), which would report three "definitions".
+        """
+        m = re.search(r'^PRE_PROMPT="', text, re.M)
+        if not m:
+            return None
+        end = text.find('"\n', m.end())
+        return text[m.start():end + 1] if end != -1 else None
+
+    def _live_pre_prompt(self):
+        """PRE_PROMPT as the CURRENT loop surface defines it.
+
+        Plan task 33 split agentware.sh, so the prompt constants now live in
+        scripts/loop/prompts.sh. The search covers the orchestrator AND every loop
+        lib so this test follows the definition rather than a file name.
+        """
+        paths = [os.path.join(REPO_ROOT, "agentware.sh")] + sorted(
+            glob.glob(os.path.join(REPO_ROOT, "scripts", "loop", "*.sh")))
+        found = []
+        for path in paths:
+            if not os.path.isfile(path):
+                continue
+            with open(path, encoding="utf-8") as f:
+                block = self._extract_pre_prompt(f.read())
+            if block:
+                found.append((os.path.relpath(path, REPO_ROOT), block))
+        self.assertEqual(len(found), 1,
+                         "expected exactly one PRE_PROMPT definition across the "
+                         "loop surface, found %d: %r"
+                         % (len(found), [p for p, _ in found]))
+        return found[0][1]
+
     def test_pre_prompt_byte_identical_to_head(self):
         # The halt authority lives in the deterministic pre-hook, never the LLM —
-        # so the pre-phase instruction that forbids changing acceptance criteria is
-        # untouched. Assert the PRE_PROMPT region of agentware.sh matches git HEAD.
-        diff = subprocess.run(
-            ["git", "diff", "HEAD", "--", "agentware.sh"],
-            cwd=REPO_ROOT, stdout=subprocess.PIPE, text=True).stdout
-        removed = [ln[1:] for ln in diff.splitlines()
-                   if ln.startswith("-") and not ln.startswith("---")]
+        # so the pre-phase instruction is untouched by this feature (RCA F3 fix).
+        #
+        # This asserts BYTE-IDENTITY of the whole PRE_PROMPT block against
+        # aw-pre-merge, which is strictly stronger than the previous check. That
+        # one diffed agentware.sh against HEAD and asserted no line was REMOVED —
+        # a proxy that (a) said nothing about lines ADDED to the prompt, and
+        # (b) broke the moment the file was legitimately split, reporting a
+        # relocation as a prompt edit.
+        #
+        # THE NAME IS DELIBERATELY UNCHANGED even though the baseline is now
+        # `aw-pre-merge` rather than HEAD. This node id is in the task-9 FROZEN
+        # node-id set, and that freeze requires HEAD to remain a SUPERSET of it —
+        # so renaming the method destroys a frozen id and reddens
+        # tests.test_preserved_gates, which is exactly what it caught here. A
+        # test's NAME is part of the preserved surface during this migration;
+        # strengthening the body is free, renaming the method is not.
+        live = self._live_pre_prompt()
+        base = subprocess.run(
+            ["git", "show", "aw-pre-merge:agentware.sh"],
+            cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True)
+        if base.returncode != 0:
+            self.skipTest("aw-pre-merge is unavailable (shallow clone?)")
+        expected = self._extract_pre_prompt(base.stdout)
+        self.assertIsNotNone(expected, "no PRE_PROMPT at aw-pre-merge")
+        self.assertEqual(live, expected,
+                         "PRE_PROMPT drifted from its aw-pre-merge text")
+
+    def test_pre_prompt_still_forbids_changing_acceptance_criteria(self):
+        live = self._live_pre_prompt()
         for needle in ("DO NOT change acceptance criteria or functional outcomes",
                        "You are reviewing the plan for",
                        "Improve the plan to better meet these criteria"):
-            self.assertFalse(any(needle in r for r in removed),
-                             "PRE_PROMPT line changed: %r" % needle)
+            self.assertIn(needle, live)
 
 
 if __name__ == "__main__":

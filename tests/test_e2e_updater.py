@@ -11,6 +11,7 @@ package (see the worklog).
 Runner: python3 -m unittest tests.test_e2e_updater -v
 """
 
+import glob
 import os
 import shutil
 import subprocess
@@ -293,9 +294,17 @@ class E2EUpdaterTests(unittest.TestCase):
         cp = subprocess.run([cli, "update", "--staleness-check"], env=env,
                             stdout=PIPE, stderr=PIPE, text=True)
         self.assertEqual(cp.returncode, 0, cp.stderr)
-        # agentware.sh wraps the pre-hook with `|| true` (set -e footgun guard).
-        with open(os.path.join(REPO_ROOT, "agentware.sh")) as f:
-            sh = f.read()
+        # The pre-hook wraps the call with `|| true` (set -e footgun guard).
+        # Searched across the whole loop surface: plan task 33 split agentware.sh
+        # into a thin orchestrator plus scripts/loop/*.sh, so run_pre_hooks now
+        # lives in scripts/loop/hooks.sh. Reading only agentware.sh would assert
+        # the guard is missing on a tree where it is present and correct.
+        surface = [os.path.join(REPO_ROOT, "agentware.sh")] + sorted(
+            glob.glob(os.path.join(REPO_ROOT, "scripts", "loop", "*.sh")))
+        sh = ""
+        for path in surface:
+            with open(path) as f:
+                sh += f.read()
         self.assertIn("update --staleness-check || true", sh)
 
 

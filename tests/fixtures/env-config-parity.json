@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "bca096467532"
+      "git_head": "560e3e00bd96"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -34,21 +34,20 @@
     }
   },
   "counts": {
-    "keys": 81,
-    "side_attributed": 81,
-    "shared": 46,
-    "local_only": 29,
-    "donor_only": 6,
-    "kill_switches": 6,
+    "keys": 82,
+    "side_attributed": 82,
+    "shared": 47,
+    "local_only": 30,
+    "donor_only": 5,
+    "kill_switches": 7,
     "config_keys": 37,
     "with_flag": 29,
     "dynamic": 9,
-    "agentware_namespace": 68,
+    "agentware_namespace": 69,
     "external_namespace": 13,
-    "read_sites": 257
+    "read_sites": 260
   },
   "pending_in_destination": [
-    "AGENTWARE_DISABLE_RECALL_GATE",
     "AGENTWARE_REPOINT_AUTOPROVISION",
     "CLAUDE_TOOL_INPUT",
     "CLAUDE_TOOL_NAME",
@@ -251,14 +250,6 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 28,
-            "lang": "shell",
-            "form": "${AGENTWARE_CLI:-}",
-            "default": "$(scripts/agentware config --cli-only 2>/dev/null || echo claude)",
-            "kind": "read"
-          },
-          {
             "file": "scripts/agentware_legacy.py",
             "line": 1214,
             "lang": "python",
@@ -296,6 +287,14 @@
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/routing.sh",
+            "line": 14,
+            "lang": "shell",
+            "form": "${AGENTWARE_CLI:-}",
+            "default": "$(scripts/agentware config --cli-only 2>/dev/null || echo claude)",
             "kind": "read"
           }
         ],
@@ -356,16 +355,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1470,
+            "file": "scripts/loop/spawn.sh",
+            "line": 114,
             "lang": "shell",
             "form": "${AGENTWARE_CODEX_SANDBOX:-}",
             "default": "",
             "kind": "read"
           },
           {
-            "file": "agentware.sh",
-            "line": 1529,
+            "file": "scripts/loop/spawn.sh",
+            "line": 151,
             "lang": "shell",
             "form": "${AGENTWARE_CODEX_SANDBOX:-}",
             "default": "",
@@ -455,6 +454,45 @@
       }
     },
     {
+      "key": "AGENTWARE_DISABLE_ORG_LINT",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": false,
+      "dynamic": false,
+      "kill_switch": true,
+      "unset_means": "gate enabled (fail-safe)",
+      "default": "",
+      "default_divergent": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/loop/orglint.sh",
+            "line": 58,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_ORG_LINT:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
       "key": "AGENTWARE_DISABLE_PREMISE_GATE",
       "namespace": "agentware",
       "sides": [
@@ -478,19 +516,19 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 898,
-            "lang": "shell",
-            "form": "${AGENTWARE_DISABLE_PREMISE_GATE:-}",
-            "default": "",
-            "kind": "read"
-          },
-          {
             "file": "scripts/agentware_legacy.py",
             "line": 25536,
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/gates-plan.sh",
+            "line": 75,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_PREMISE_GATE:-}",
+            "default": "",
             "kind": "read"
           }
         ],
@@ -505,9 +543,10 @@
       "key": "AGENTWARE_DISABLE_RECALL_GATE",
       "namespace": "agentware",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": false,
       "dynamic": false,
@@ -523,7 +562,16 @@
       "flag_dests": [],
       "flag_source": "none",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/loop/retrieval.sh",
+            "line": 35,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RECALL_GATE:-}",
+            "default": "",
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/loop/hooks.sh",
@@ -565,14 +613,6 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 988,
-            "lang": "shell",
-            "form": "${AGENTWARE_DISABLE_RELEASE_GATE:-}",
-            "default": "",
-            "kind": "read"
-          },
-          {
             "file": "scripts/agentware_legacy.py",
             "line": 19694,
             "lang": "python",
@@ -593,6 +633,14 @@
             "line": 233,
             "lang": "python",
             "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/hooks.sh",
+            "line": 150,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_RELEASE_GATE:-}",
             "default": "",
             "kind": "read"
           }
@@ -695,19 +743,19 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 854,
-            "lang": "shell",
-            "form": "${AGENTWARE_DISABLE_TARGET_GATE:-}",
-            "default": "",
-            "kind": "read"
-          },
-          {
             "file": "scripts/agentware_legacy.py",
             "line": 25536,
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/gates-plan.sh",
+            "line": 31,
+            "lang": "shell",
+            "form": "${AGENTWARE_DISABLE_TARGET_GATE:-}",
+            "default": "",
             "kind": "read"
           }
         ],
@@ -1934,8 +1982,8 @@
       "write_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 225,
+            "file": "scripts/loop/preflight.sh",
+            "line": 79,
             "lang": "shell",
             "form": "export",
             "default": null,
@@ -2037,8 +2085,8 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1827,
+            "file": "scripts/loop/safety.sh",
+            "line": 82,
             "lang": "shell",
             "form": "${AGENTWARE_MAIN_FALLBACK:-}",
             "default": "",
@@ -2202,8 +2250,8 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 595,
+            "file": "scripts/loop/metrics.sh",
+            "line": 41,
             "lang": "shell",
             "form": "${AGENTWARE_METRICS_EMIT:-}",
             "default": "1",
@@ -2431,43 +2479,43 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 29,
+            "file": "scripts/agentware_legacy.py",
+            "line": 2798,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_legacy.py",
+            "line": 2798,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 113,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 113,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/routing.sh",
+            "line": 15,
             "lang": "shell",
             "form": "${AGENTWARE_MODEL:-}",
             "default": "",
-            "kind": "read"
-          },
-          {
-            "file": "scripts/agentware_legacy.py",
-            "line": 2798,
-            "lang": "python",
-            "form": "_read_config_key()",
-            "default": null,
-            "kind": "read"
-          },
-          {
-            "file": "scripts/agentware_legacy.py",
-            "line": 2798,
-            "lang": "python",
-            "form": "get()",
-            "default": null,
-            "kind": "read"
-          },
-          {
-            "file": "scripts/agentware_lib/core/routing.py",
-            "line": 113,
-            "lang": "python",
-            "form": "_read_config_key()",
-            "default": null,
-            "kind": "read"
-          },
-          {
-            "file": "scripts/agentware_lib/core/routing.py",
-            "line": 113,
-            "lang": "python",
-            "form": "get()",
-            "default": null,
             "kind": "read"
           }
         ],
@@ -2755,8 +2803,8 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1771,
+            "file": "scripts/loop/safety.sh",
+            "line": 52,
             "lang": "shell",
             "form": "${AGENTWARE_NOPROGRESS_LIMIT:-}",
             "default": "3",
@@ -2804,8 +2852,8 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 137,
+            "file": "scripts/loop/args.sh",
+            "line": 97,
             "lang": "shell",
             "form": "${AGENTWARE_NO_STREAM:-}",
             "default": "",
@@ -2974,10 +3022,12 @@
       "dynamic": false,
       "kill_switch": false,
       "unset_means": null,
-      "default": null,
+      "default": "",
       "default_divergent": false,
-      "defaults_observed": [],
-      "has_explicit_default": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
       "flag": "set_org_root",
       "flag_dests": [
         "set_org_root"
@@ -2991,6 +3041,14 @@
             "lang": "python",
             "form": "_resolve_key_env_then_config()",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/orglint.sh",
+            "line": 64,
+            "lang": "shell",
+            "form": "${AGENTWARE_ORG_ROOT:-}",
+            "default": "",
             "kind": "read"
           }
         ],
@@ -3047,16 +3105,16 @@
       "write_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1587,
+            "file": "scripts/loop/mainloop.sh",
+            "line": 62,
             "lang": "shell",
             "form": "export",
             "default": null,
             "kind": "write"
           },
           {
-            "file": "agentware.sh",
-            "line": 1783,
+            "file": "scripts/loop/phase.sh",
+            "line": 26,
             "lang": "shell",
             "form": "export",
             "default": null,
@@ -3616,16 +3674,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1055,
+            "file": "scripts/loop/review.sh",
+            "line": 43,
             "lang": "shell",
             "form": "${AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE:-}",
             "default": "",
             "kind": "read"
           },
           {
-            "file": "agentware.sh",
-            "line": 1056,
+            "file": "scripts/loop/review.sh",
+            "line": 44,
             "lang": "shell",
             "form": "$AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE",
             "default": null,
@@ -3663,8 +3721,8 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1097,
+            "file": "scripts/loop/review.sh",
+            "line": 85,
             "lang": "shell",
             "form": "${AGENTWARE_REVIEW_DIFF_RANGE:-}",
             "default": "HEAD",
@@ -3785,19 +3843,19 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1095,
-            "lang": "shell",
-            "form": "${AGENTWARE_REVIEW_MAX_ROUNDS:-}",
-            "default": "1",
-            "kind": "read"
-          },
-          {
             "file": "scripts/agentware_legacy.py",
             "line": 672,
             "lang": "python",
             "form": "get()",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/review.sh",
+            "line": 83,
+            "lang": "shell",
+            "form": "${AGENTWARE_REVIEW_MAX_ROUNDS:-}",
+            "default": "1",
             "kind": "read"
           }
         ],
@@ -4104,14 +4162,6 @@
       "read_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1074,
-            "lang": "shell",
-            "form": "${AGENTWARE_SKIP_ADVERSARIAL_REVIEW:-}",
-            "default": "",
-            "kind": "read"
-          },
-          {
             "file": "scripts/agentware_legacy.py",
             "line": 745,
             "lang": "python",
@@ -4125,6 +4175,14 @@
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/loop/review.sh",
+            "line": 62,
+            "lang": "shell",
+            "form": "${AGENTWARE_SKIP_ADVERSARIAL_REVIEW:-}",
+            "default": "",
             "kind": "read"
           }
         ],
@@ -4199,16 +4257,16 @@
       "write_sites": {
         "local": [
           {
-            "file": "agentware.sh",
-            "line": 1583,
+            "file": "scripts/loop/mainloop.sh",
+            "line": 61,
             "lang": "shell",
             "form": "export",
             "default": null,
             "kind": "write"
           },
           {
-            "file": "agentware.sh",
-            "line": 1782,
+            "file": "scripts/loop/phase.sh",
+            "line": 22,
             "lang": "shell",
             "form": "export",
             "default": null,

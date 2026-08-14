@@ -10,6 +10,7 @@ Hermetic: a tmp kdir (.initialized + MAIN.md) via AGENTWARE_KNOWLEDGE_DIR, a tmp
 lockfile via AGENTWARE_SKILLS_LOCK_PATH. Stdlib-only.
 """
 
+import glob
 import json
 import os
 import shutil
@@ -22,22 +23,53 @@ HOOK = os.path.join(REPO_ROOT, "scripts", "hooks", "session-start.sh")
 AGENTWARE_SH = os.path.join(REPO_ROOT, "agentware.sh")
 
 
-def _extract_bash_func(path, name):
+def _loop_surface():
+    """Every file that can define a loop function.
+
+    Plan task 33 split agentware.sh into a thin orchestrator plus
+    scripts/loop/*.sh, so a function is located by SEARCHING THE SURFACE rather
+    than by naming the file it used to live in.
+    """
+    return [AGENTWARE_SH] + sorted(
+        glob.glob(os.path.join(REPO_ROOT, "scripts", "loop", "*.sh")))
+
+
+def _extract_bash_func(paths, name):
     """Extract a top-level `name() { ... }` bash function body (closing brace at
-    column 0). Good enough for the well-formatted agentware.sh functions."""
-    with open(path, "r", encoding="utf-8") as _f:
-        lines = _f.read().splitlines()
-    start = None
-    for i, ln in enumerate(lines):
-        if ln.startswith(name + "() {") or ln.startswith(name + "(){"):
-            start = i
-            break
-    if start is None:
-        raise AssertionError("function %s not found in %s" % (name, path))
-    for j in range(start + 1, len(lines)):
-        if lines[j] == "}":
-            return "\n".join(lines[start:j + 1])
-    raise AssertionError("no closing brace for %s" % name)
+    column 0). Good enough for the well-formatted loop functions.
+
+    `paths` may be a single path or a list; the function must be defined in
+    EXACTLY ONE of them, which also guards against a duplicate definition drifting
+    into a second lib.
+    """
+    if isinstance(paths, str):
+        paths = [paths]
+    found = []
+    for path in paths:
+        if not os.path.isfile(path):
+            continue
+        with open(path, "r", encoding="utf-8") as _f:
+            lines = _f.read().splitlines()
+        start = None
+        for i, ln in enumerate(lines):
+            if ln.startswith(name + "() {") or ln.startswith(name + "(){"):
+                start = i
+                break
+        if start is None:
+            continue
+        for j in range(start + 1, len(lines)):
+            if lines[j] == "}":
+                found.append((path, "\n".join(lines[start:j + 1])))
+                break
+        else:
+            raise AssertionError("no closing brace for %s in %s" % (name, path))
+    if not found:
+        raise AssertionError("function %s not found in %s"
+                             % (name, ", ".join(paths)))
+    if len(found) > 1:
+        raise AssertionError("function %s defined in %d files: %s"
+                             % (name, len(found), [p for p, _ in found]))
+    return found[0][1]
 
 
 class SkillHookTest(unittest.TestCase):
@@ -106,7 +138,7 @@ class SkillHookTest(unittest.TestCase):
 
     # --- codex parity (build_codex_prompt) ------------------------------
     def _run_codex(self, lock_path):
-        func = _extract_bash_func(AGENTWARE_SH, "build_codex_prompt")
+        func = _extract_bash_func(_loop_surface(), "build_codex_prompt")
         # AGENT points at a non-existent persona so strip_frontmatter is skipped.
         harness = (
             'set -euo pipefail\n'
