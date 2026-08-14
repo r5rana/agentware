@@ -331,9 +331,9 @@ class MatchTest(TempCase):
 
     def test_portgate_word_match_does_not_fire_inside_a_longer_word(self):
         root = self.tree()
-        write(root, "a.md", "the equipment was equipped\n")
-        write(root, "b.md", "a <neutralised>, standalone\n")
-        needles = needle_file(self.tmp, env_needle("<neutralised>", pg.WORD))
+        write(root, "a.md", "the gazorp was gazorped\n")
+        write(root, "b.md", "a zorp, standalone\n")
+        needles = needle_file(self.tmp, env_needle("zorp", pg.WORD))
         report = scan(root, needles=needles)
         located = [f["location"] for f in report["findings"]]
         self.assertEqual(len(located), 1)
@@ -341,16 +341,16 @@ class MatchTest(TempCase):
 
     def test_portgate_substring_match_fires_inside_a_word(self):
         root = self.tree()
-        write(root, "a.md", "the equipment was equipped\n")
-        needles = needle_file(self.tmp, env_needle("<neutralised>", pg.SUBSTRING))
+        write(root, "a.md", "the gazorp was gazorped\n")
+        needles = needle_file(self.tmp, env_needle("zorp", pg.SUBSTRING))
         self.assertEqual(len(scan(root, needles=needles)["findings"]), 1)
 
     def test_portgate_exemption_scopes_to_its_path_prefix(self):
         root = self.tree()
-        write(root, os.path.join("build", "out.js"), "<neutralised> through\n")
-        write(root, os.path.join("src", "in.js"), "<neutralised> through\n")
+        write(root, os.path.join("build", "out.js"), "zorp through\n")
+        write(root, os.path.join("src", "in.js"), "zorp through\n")
         needles = needle_file(self.tmp,
-                              env_needle("<neutralised>", exempt=["build"]))
+                              env_needle("zorp", exempt=["build"]))
         report = scan(root, needles=needles)
         located = [f["location"] for f in report["findings"]]
         self.assertEqual(len(located), 1)
@@ -382,7 +382,7 @@ class DebtTest(TempCase):
         row.update(over)
         return [row]
 
-    def probe_tree(self, token="<neutralised>", copies=1):
+    def probe_tree(self, token="zorp", copies=1):
         root = self.tree()
         write(root, "a.md", "\n".join([token] * copies) + "\n")
         needles = needle_file(self.tmp, env_needle(token))

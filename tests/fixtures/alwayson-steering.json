@@ -1,0 +1,81 @@
+{
+  "captured": "2026-08-14, branch merge/modularize, task 13",
+  "counts": {
+    "bridge": 5,
+    "harness_root": 1,
+    "import": 3,
+    "injector": 1,
+    "persona": 3,
+    "total": 13
+  },
+  "entries": [
+    {
+      "class": "bridge",
+      "rel": ".antigravity",
+      "via": "declared"
+    },
+    {
+      "class": "bridge",
+      "rel": ".clinerules",
+      "via": "declared"
+    },
+    {
+      "class": "bridge",
+      "rel": ".cursorrules",
+      "via": "declared"
+    },
+    {
+      "class": "bridge",
+      "rel": ".google.agy",
+      "via": "declared"
+    },
+    {
+      "class": "bridge",
+      "rel": ".windsurfrules",
+      "via": "declared"
+    },
+    {
+      "class": "harness_root",
+      "rel": "CLAUDE.md",
+      "via": "declared"
+    },
+    {
+      "class": "import",
+      "rel": "AGENTS.md",
+      "via": "CLAUDE.md"
+    },
+    {
+      "class": "import",
+      "rel": "steering/common-problems.md",
+      "via": "CLAUDE.md"
+    },
+    {
+      "class": "import",
+      "rel": "steering/project-context.md",
+      "via": "CLAUDE.md"
+    },
+    {
+      "class": "injector",
+      "rel": "scripts/hooks/session-start.sh",
+      "via": "declared"
+    },
+    {
+      "class": "persona",
+      "rel": ".claude/agents/agentware-adversarial-reviewer.md",
+      "via": ".claude/agents"
+    },
+    {
+      "class": "persona",
+      "rel": ".claude/agents/agentware-execution.md",
+      "via": ".claude/agents"
+    },
+    {
+      "class": "persona",
+      "rel": ".claude/agents/agentware-planner.md",
+      "via": ".claude/agents"
+    }
+  ],
+  "note": "RATCHET. The always-on steering set of THIS tree, as resolved by tests/_alwayson_steering.py from the hashed POLICY. A file that becomes always-on (a new @-import in CLAUDE.md, a new persona, a new harness bridge) must land here in the same commit, because task 13's scan -- and every later neutrality proof scoped to steering -- covers exactly this set and nothing else.",
+  "policy_digest": "e389566f5fa5ca4c9322c352c228259cb32e9405f4fb98266a6aa07c7d68666b",
+  "schema": "agentware/alwayson-steering@1"
+}

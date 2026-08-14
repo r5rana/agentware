@@ -10,8 +10,9 @@ four other places nobody greps:
 
   1. ``contents``     -- the bytes of every file the tree ships.
   2. ``filenames``    -- every relative path; a body can be clean while the path
-                         that carries it names the vendor (``.<neutralised>-logs/``,
-                         ``skills/<neutralised>-ops-report/``).
+                         that carries it names the vendor (a stray per-run
+                         ``.<vendor>-logs/`` directory, a
+                         ``skills/<vendor>-ops-report/`` skill).
   3. ``empty_dirs``   -- directories holding nothing shippable. Git cannot
                          represent one, so it is both a clone divergence and the
                          residue a half-finished deletion leaves behind -- and
