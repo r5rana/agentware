@@ -266,11 +266,15 @@ CURATED_ROWS = [
          "by every teammate"),
     _row("org:bash-python-resolver-parity", "org_team",
          "The bash and Python knowledge-dir resolvers agree for flat, org and "
-         "config-home-overridden configurations (five hooks call the bash one on "
-         "every agent spawn)",
-         DONOR, 36, "tests.test_org_resolver_parity",
+         "config-home-overridden configurations (every agent spawn resolves "
+         "through the bash one: task 35 collapsed the six hooks onto the single "
+         "common.sh seam, and codex-stream.py spawns the script directly)",
+         DONOR, 36, "tests.test_resolver_parity",
          "diverge either resolver's org-root tier: the hooks and the CLI resolve "
-         "different knowledge dirs in the same session"),
+         "different knowledge dirs in the same session — "
+         "TestParityGateBites.test_dropping_the_org_tier_reddens runs exactly "
+         "that mutation against a copy of the script, alongside the config-home, "
+         "abspath and blank-value arms"),
     _row("context:marker-driven-project-context-resolution",
          "loop_orchestration",
          "The project/repo CONTEXT the session-start banner and the "

@@ -3,56 +3,215 @@
 #
 # Prints the absolute knowledge-dir path on stdout and exits 0 when configured;
 # prints nothing and exits 1 when unconfigured. Pure bash (no python startup),
-# so it is cheap enough to call from agent spawn hooks on every spawn.
+# so it is cheap enough to call from agent spawn hooks on every spawn — which is
+# exactly what happens: scripts/hooks/common.sh:aw_knowledge_dir delegates to
+# this file by absolute path, and every hook that sources common.sh (log-prompt,
+# log-tool, log-stop, log-subagent, retrieval-state, session-start) plus the
+# spawned scripts/hooks/codex-stream.py reaches its knowledge dir through here.
 #
-# Resolution precedence:
+# THIS IS A TWIN, NOT AN APPROXIMATION
+# ------------------------------------
+# The authority is the Python resolver
+# (agentware_lib.core.config.configresolve.resolve_knowledge_dir, composing
+# …config.orgresolve.resolve_org_team_dir and …config.configkeys). If the two
+# disagree, the loop and the hooks write to DIFFERENT knowledge bases and every
+# hook-written record silently lands somewhere the CLI never reads. Nothing turns
+# red — the hooks are best-effort by design and never fail a tool call.
+# tests/test_resolver_parity.py drives both engines over a matrix of
+# configurations and asserts byte equality, so a change to either side that is
+# not mirrored here reddens.
+#
+# Resolution precedence (MUST stay byte-identical to resolve_knowledge_dir):
 #   1. $AGENTWARE_KNOWLEDGE_DIR environment variable
-#   2. AGENTWARE_KNOWLEDGE_DIR=... in ~/.agentware/config.env
+#   2. AGENTWARE_KNOWLEDGE_DIR=... in <config-home>/config.env
 #   3. (legacy) the same line in <repo>/.agentware/config.env
+#   4. AGENTWARE_ORG_ROOT + AGENTWARE_TEAM (env, then config.env) ->
+#      <org-root>/teams/<team>   (org mode; org keys unset => byte-identical to
+#      a flat install, R-ORG-04)
+# where <config-home> is $AGENTWARE_CONFIG_HOME when set to a non-blank value,
+# else ~/.agentware — the same override configkeys._CONFIG_HOME applies, so a
+# test or workflow that relocates the config dir moves BOTH engines together.
+#
+# The parity details that are easy to get wrong, each mirrored deliberately:
+#   * every resolved path goes through abspath (lexical normalisation against
+#     $PWD), because the Python side returns os.path.abspath(...) — so a config
+#     value of `~/kb/` resolves to `$HOME/kb` on BOTH sides, not `$HOME/kb/` here
+#     and `$HOME/kb` there;
+#   * keys and values are whitespace-trimmed and a blank value is treated as
+#     UNSET, matching `if env and env.strip()` / `val.strip()`;
+#   * quote stripping is repeated, not single, matching `.strip('"').strip("'")`;
+#   * the knowledge-dir scan CONTINUES past a blank value (python: `if val:`)
+#     while the org-key scan STOPS on the first key hit even when its value is
+#     blank (python: `_read_config_key` returns unconditionally). That asymmetry
+#     is real: a blank AGENTWARE_ORG_ROOT= line shadows a later good one on both
+#     sides.
+#
+# Out of contract, on both sides of the twin and documented rather than faked:
+# `~user` expansion (Python's expanduser resolves a real account; bash leaves it
+# alone — the two agree for every name that is not a live user on this machine).
 
 set -e
 
-# Repo root = parent of the dir holding this script (resolves symlinks-light).
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-HOME_CONFIG="$HOME/.agentware/config.env"
-REPO_CONFIG="$REPO_ROOT/.agentware/config.env"
+# --- primitives ---------------------------------------------------------------
 
-expand_tilde() {
-  # Expand a leading ~ to $HOME; leave other paths untouched.
+# aw_trim <s> — strip leading/trailing whitespace (python str.strip()).
+aw_trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
+# aw_strip_quotes <s> — strip ALL leading/trailing " then ALL leading/trailing '.
+# Repeated, not single: python's .strip('"') removes every quote at each end.
+aw_strip_quotes() {
+  local s="$1"
+  while [[ "$s" == '"'* ]]; do s="${s#\"}"; done
+  while [[ "$s" == *'"' ]]; do s="${s%\"}"; done
+  while [[ "$s" == "'"* ]]; do s="${s#\'}"; done
+  while [[ "$s" == *"'" ]]; do s="${s%\'}"; done
+  printf '%s' "$s"
+}
+
+# aw_expand_tilde <s> — expand a leading ~ to $HOME; leave everything else alone.
+aw_expand_tilde() {
   case "$1" in
-    "~") printf '%s\n' "$HOME" ;;
-    "~/"*) printf '%s\n' "$HOME/${1#\~/}" ;;
-    *) printf '%s\n' "$1" ;;
+    "~") printf '%s' "$HOME" ;;
+    "~/"*) printf '%s' "$HOME/${1#\~/}" ;;
+    *) printf '%s' "$1" ;;
   esac
 }
 
-read_config() {
-  # Echo the knowledge dir from a config file, or nothing. $1 = file path.
-  local file="$1" line val
+# aw_abspath <p> — os.path.abspath: normpath(join($PWD, p)), purely lexical.
+# Lexical on purpose: the Python twin does not stat either, so a knowledge dir
+# that does not exist yet still resolves to the same string on both sides.
+# POSIX (and normpath) preserve EXACTLY two leading slashes; three or more
+# collapse to one.
+# `pwd -P` and not `$PWD`: python's abspath joins against os.getcwd(), the
+# PHYSICAL path, while bash's $PWD is the LOGICAL one and keeps whatever symlinks
+# the caller walked in through (on macOS, /tmp and /var are symlinks, so the two
+# differ for every process started under them). A hook spawned in a symlinked cwd
+# would otherwise resolve a relative config value to a different string than the
+# CLI does, for the same config file.
+aw_abspath() {
+  local p="$1" lead="/" out="" comp
+  [[ "$p" == /* ]] || p="$(pwd -P)/$p"
+  if [[ "$p" == //* && "$p" != ///* ]]; then lead="//"; fi
+  while [[ -n "$p" ]]; do
+    comp="${p%%/*}"
+    if [[ "$p" == */* ]]; then p="${p#*/}"; else p=""; fi
+    case "$comp" in
+      ""|".") ;;
+      "..") out="${out%/*}" ;;
+      *) out="$out/$comp" ;;
+    esac
+  done
+  printf '%s' "$lead${out#/}"
+}
+
+# --- config.env readers -------------------------------------------------------
+
+# aw_config_kdir <file> — the AGENTWARE_KNOWLEDGE_DIR value from FILE, rc 1 when
+# the file is absent or defines no non-blank value. Mirrors the inner loop of
+# resolve_knowledge_dir: a blank value does NOT stop the scan.
+aw_config_kdir() {
+  local file="$1" line key val
   [[ -f "$file" ]] || return 1
   while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    if [[ "$line" == AGENTWARE_KNOWLEDGE_DIR=* ]]; then
-      val="${line#AGENTWARE_KNOWLEDGE_DIR=}"
-      val="${val%\"}"; val="${val#\"}"
-      val="${val%\'}"; val="${val#\'}"
-      [[ -n "$val" ]] && { expand_tilde "$val"; return 0; }
-    fi
+    line="$(aw_trim "$line")"
+    if [[ "$line" == \#* ]]; then continue; fi
+    if [[ "$line" != *=* ]]; then continue; fi
+    key="$(aw_trim "${line%%=*}")"
+    if [[ "$key" != "AGENTWARE_KNOWLEDGE_DIR" ]]; then continue; fi
+    val="$(aw_strip_quotes "$(aw_trim "${line#*=}")")"
+    if [[ -n "$val" ]]; then printf '%s' "$val"; return 0; fi
   done < "$file"
   return 1
 }
 
-resolve() {
-  if [[ -n "${AGENTWARE_KNOWLEDGE_DIR:-}" ]]; then
-    expand_tilde "$AGENTWARE_KNOWLEDGE_DIR"
+# aw_config_key <file> <key> — the FIRST match wins, even when its value is
+# EMPTY (rc 0, empty stdout). Mirrors _read_config_key, which returns
+# unconditionally on the first key hit.
+aw_config_key() {
+  local file="$1" want="$2" line key
+  [[ -f "$file" ]] || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="$(aw_trim "$line")"
+    if [[ "$line" == \#* ]]; then continue; fi
+    if [[ "$line" != *=* ]]; then continue; fi
+    key="$(aw_trim "${line%%=*}")"
+    if [[ "$key" != "$want" ]]; then continue; fi
+    aw_strip_quotes "$(aw_trim "${line#*=}")"
     return 0
-  fi
-  read_config "$HOME_CONFIG" && return 0
-  read_config "$REPO_CONFIG" && return 0
+  done < "$file"
   return 1
 }
 
-DIR="$(resolve)" || exit 1
+# aw_lookup_key <key> <env-value> — env (trimmed; blank == unset) then config.env
+# HOME->REPO. Mirrors _resolve_key_env_then_config.
+#
+# The env value is passed IN by the caller as a literal `${KEY:-}` expansion
+# rather than read here as `eval "\$$key"`. An eval'd read is INVISIBLE to the
+# env/config surface scanner (tests/_env_config_scan.py matches parameter-
+# expansion forms, and a name that never appears in one is not a read site), so
+# an eval here would drop this file's org read sites out of the env parity
+# fixture entirely — the exact silent-loss class that fixture exists to catch.
+aw_lookup_key() {
+  local key="$1" envval
+  envval="$(aw_trim "$2")"
+  if [[ -n "$envval" ]]; then printf '%s' "$envval"; return 0; fi
+  aw_config_key "$HOME_CONFIG" "$key" && return 0
+  aw_config_key "$REPO_CONFIG" "$key" && return 0
+  return 1
+}
+
+# --- anchors ------------------------------------------------------------------
+
+# Repo root = parent of the dir holding this script (resolves symlinks-light).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Config dir honours AGENTWARE_CONFIG_HOME exactly as configkeys._CONFIG_HOME
+# does — including treating a BLANK value as unset (`.strip() or ~/.agentware`),
+# which a bare ${VAR:-default} would not.
+CONFIG_HOME="$(aw_trim "${AGENTWARE_CONFIG_HOME:-}")"
+[[ -n "$CONFIG_HOME" ]] || CONFIG_HOME="$HOME/.agentware"
+HOME_CONFIG="$CONFIG_HOME/config.env"
+REPO_CONFIG="$REPO_ROOT/.agentware/config.env"
+
+# --- resolution ---------------------------------------------------------------
+
+aw_resolve() {
+  local envval val cfg org team composed
+  # Tier 1: the direct pointer from the environment.
+  envval="$(aw_trim "${AGENTWARE_KNOWLEDGE_DIR:-}")"
+  if [[ -n "$envval" ]]; then
+    aw_abspath "$(aw_expand_tilde "$envval")"
+    return 0
+  fi
+  # Tiers 2-3: the direct pointer from config.env (HOME then REPO).
+  for cfg in "$HOME_CONFIG" "$REPO_CONFIG"; do
+    if val="$(aw_config_kdir "$cfg")"; then
+      aw_abspath "$(aw_expand_tilde "$val")"
+      return 0
+    fi
+  done
+  # Tier 4: org composition — <org-root>/teams/<team>. Only reached when the
+  # direct pointer is unset, so a flat install never gets here (R-ORG-04).
+  org="$(aw_lookup_key AGENTWARE_ORG_ROOT "${AGENTWARE_ORG_ROOT:-}")" || return 1
+  [[ -n "$org" ]] || return 1
+  team="$(aw_lookup_key AGENTWARE_TEAM "${AGENTWARE_TEAM:-}")" || return 1
+  [[ -n "$team" ]] || return 1
+  # os.path.join resets on an absolute later component; mirror that rather than
+  # concatenating blindly.
+  if [[ "$team" == /* ]]; then
+    composed="$team"
+  else
+    composed="$(aw_expand_tilde "$org")/teams/$team"
+  fi
+  aw_abspath "$composed"
+  return 0
+}
+
+DIR="$(aw_resolve)" || exit 1
 [[ -z "$DIR" ]] && exit 1
 printf '%s\n' "$DIR"

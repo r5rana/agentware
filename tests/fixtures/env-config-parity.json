@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "429c9e90564a"
+      "git_head": "b2416871f55d"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -45,7 +45,7 @@
     "dynamic": 9,
     "agentware_namespace": 69,
     "external_namespace": 13,
-    "read_sites": 260
+    "read_sites": 262
   },
   "pending_in_destination": [
     "AGENTWARE_REPOINT_AUTOPROVISION",
@@ -425,6 +425,14 @@
             "line": 41,
             "lang": "python",
             "form": "get()",
+            "default": "",
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 176,
+            "lang": "shell",
+            "form": "${AGENTWARE_CONFIG_HOME:-}",
             "default": "",
             "kind": "read"
           }
@@ -1686,18 +1694,10 @@
           },
           {
             "file": "scripts/aw-knowledge-dir",
-            "line": 47,
+            "line": 186,
             "lang": "shell",
             "form": "${AGENTWARE_KNOWLEDGE_DIR:-}",
             "default": "",
-            "kind": "read"
-          },
-          {
-            "file": "scripts/aw-knowledge-dir",
-            "line": 48,
-            "lang": "shell",
-            "form": "$AGENTWARE_KNOWLEDGE_DIR",
-            "default": null,
             "kind": "read"
           },
           {
@@ -3044,6 +3044,14 @@
             "kind": "read"
           },
           {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 200,
+            "lang": "shell",
+            "form": "${AGENTWARE_ORG_ROOT:-}",
+            "default": "",
+            "kind": "read"
+          },
+          {
             "file": "scripts/loop/orglint.sh",
             "line": 64,
             "lang": "shell",
@@ -4306,10 +4314,12 @@
       "dynamic": false,
       "kill_switch": false,
       "unset_means": null,
-      "default": null,
+      "default": "",
       "default_divergent": false,
-      "defaults_observed": [],
-      "has_explicit_default": false,
+      "defaults_observed": [
+        ""
+      ],
+      "has_explicit_default": true,
       "flag": "set_team",
       "flag_dests": [
         "--team",
@@ -4325,6 +4335,14 @@
             "lang": "python",
             "form": "_resolve_key_env_then_config()",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/aw-knowledge-dir",
+            "line": 202,
+            "lang": "shell",
+            "form": "${AGENTWARE_TEAM:-}",
+            "default": "",
             "kind": "read"
           }
         ],
@@ -4926,7 +4944,7 @@
         "local": [
           {
             "file": "scripts/aw-knowledge-dir",
-            "line": 18,
+            "line": 79,
             "lang": "shell",
             "form": "$HOME",
             "default": null,
@@ -4934,7 +4952,7 @@
           },
           {
             "file": "scripts/aw-knowledge-dir",
-            "line": 24,
+            "line": 80,
             "lang": "shell",
             "form": "$HOME",
             "default": null,
@@ -4942,7 +4960,7 @@
           },
           {
             "file": "scripts/aw-knowledge-dir",
-            "line": 25,
+            "line": 177,
             "lang": "shell",
             "form": "$HOME",
             "default": null,
