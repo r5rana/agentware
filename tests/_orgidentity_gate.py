@@ -117,19 +117,66 @@ PROBE_DECLARATIONS = ("Foo", "FooV2", "Foo-Tests", "PreFoo", "foo")
 #: purpose: the surrounding tree still carries findings owned by later plan
 #: tasks (18 whereami, 19 fixtures, 20 docs), and a check that cannot go green
 #: until those land is a check nobody reads.
-ORG_IDENTITY_PATHS = (
-    CONFIG_REL,
-    ORGKEYS_REL,
-    IDENTITY_REL,
-    os.path.join(LIB_REL, "features", "configcmd.py"),
-    os.path.join("tests", "unit", "core", "test_config.py"),
-    os.path.join("tests", "unit", "core", "test_orgkeys.py"),
-    os.path.join("tests", "unit", "core", "test_orgidentity.py"),
-    os.path.join("tests", "unit", "features", "test_configcmd.py"),
+#: Entries are module STEMS (no `.py`). A stem resolves to the flat `<stem>.py`
+#: or, once task 21 splits it, to EVERY `.py` file under the `<stem>/` package —
+#: `core/config.py` became `core/config/{configresolve,configvalidate,
+#: orgresolve,...}.py` and `features/configcmd.py` became ten per-setting
+#: handlers. Expanding the stem is what keeps this check honest across a
+#: decomposition: a scan still pointed at `core/config.py` would inspect a file
+#: that no longer exists and report neutral by looking at NOTHING, which is the
+#: failure mode `OwnedPathsTest` exists to catch. Expansion also widens
+#: coverage — every file the split produced must now be neutral, not just the
+#: one that inherited the old name.
+ORG_IDENTITY_STEMS = (
+    os.path.join(LIB_REL, "core", "config"),
+    os.path.join(LIB_REL, "core", "orgkeys"),
+    os.path.join(LIB_REL, "core", "orgidentity"),
+    os.path.join(LIB_REL, "features", "configcmd"),
+    os.path.join("tests", "unit", "core", "test_config"),
+    os.path.join("tests", "unit", "core", "test_orgkeys"),
+    os.path.join("tests", "unit", "core", "test_orgidentity"),
+    os.path.join("tests", "unit", "features", "test_configcmd"),
 )
 
 SCAN_SKIP_DIRS = (".git", "__pycache__", ".venv", "node_modules", ".mypy_cache",
                   ".cache", "logs")
+
+
+def owned_paths(tree):
+    """Resolve every stem against `tree`, as forward-slash relative paths.
+
+    A stem that resolves to NOTHING is deliberately dropped here and reported by
+    `unresolved_stems` instead, so "the file moved" surfaces as its own named
+    failure rather than as silent under-coverage.
+    """
+    out = []
+    for stem in ORG_IDENTITY_STEMS:
+        flat = os.path.join(tree, stem + ".py")
+        if os.path.isfile(flat):
+            out.append(stem.replace(os.sep, "/") + ".py")
+            continue
+        pkg = os.path.join(tree, stem)
+        if not os.path.isdir(pkg):
+            continue
+        for dirpath, dirs, files in os.walk(pkg):
+            dirs[:] = [d for d in dirs if d not in SCAN_SKIP_DIRS]
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                rel = os.path.relpath(os.path.join(dirpath, name), tree)
+                out.append(rel.replace(os.sep, "/"))
+    return sorted(out)
+
+
+def unresolved_stems(tree):
+    """Stems matching neither a flat module nor a package — a scan pointed at
+    nothing. Renaming a file must not quietly narrow this gate's scope."""
+    missing = []
+    for stem in ORG_IDENTITY_STEMS:
+        if (not os.path.isfile(os.path.join(tree, stem + ".py"))
+                and not os.path.isdir(os.path.join(tree, stem))):
+            missing.append(stem.replace(os.sep, "/"))
+    return missing
 
 
 # --- tree resolution ---
@@ -540,7 +587,7 @@ def check_neutral(tree, needles_path=None):
         return ["the environment needle class resolved no source, so this "
                 "check saw nothing; point %s at the needle file"
                 % _portability_gate.NEEDLE_ENV]
-    owned = tuple(p.replace(os.sep, "/") for p in ORG_IDENTITY_PATHS)
+    owned = tuple(owned_paths(tree))
     problems = []
     for row in report["findings"]:
         if row["class"] != _portability_gate.ENVIRONMENT:

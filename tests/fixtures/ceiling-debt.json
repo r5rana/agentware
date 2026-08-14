@@ -1,0 +1,379 @@
+{
+ "schema": "agentware/ceiling-debt@1",
+ "note": "SHRINK-ONLY. Every row is a modularity-ceiling violation present in the merged tree TODAY, with the plan task that removes it. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces. The FILE cap is satisfied outright after task 21 round 2 -- no file_over_cap row is accepted anywhere, in any subsystem, by any task, so a new over-cap file must be split rather than declared. No row may sit inside a package task 21 round 1 split -- those are asserted clean directly. When the last row goes, the gate is simply green.",
+ "captured": "2026-08-14, branch merge/modularize, task 21 (regenerated from the live scan after the round-2 splits)",
+ "rows": [],
+ "groups": [
+  {
+   "owner": "task 67",
+   "reason": "Pre-existing complexity inherited with the donor tree, in subsystems task 21 does not touch. Task 21's scope is the FOUR named modules (core.config, knowledge.index, features.configcmd, features.dreamsteps), which are asserted ceiling-clean with no debt available. Plan task 67 is the task that 'makes modularity permanent ACROSS THE WHOLE TREE ... and adds the per-function line and branch caps', so this residual is its work-list, measured and named rather than discovered later. Splitting ~70 functions across 40 unrelated modules here would be scope expansion into code no verb has been ported onto yet, and would churn exactly the files the later port waves rewrite.",
+   "rows": [
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/curationcmd.py::cmd_decide",
+     "value": 17
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/curationcmd.py::cmd_learn",
+     "value": 21
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/fanout.py::cmd_fanout_spin_up",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_integrate_kb",
+     "value": 14
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::cmd_fanout_merge_queue",
+     "value": 31
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::cmd_fanout_merge_queue",
+     "value": 149
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/fanoutmq/mqteardown.py::cmd_fanout_teardown",
+     "value": 16
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/indexcmd.py::cmd_index_sync",
+     "value": 18
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/mcp.py::_mcp_query_lookup",
+     "value": 18
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/proposals/proposalpromote.py::_promote_frontmatter",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/proposals/proposalpromote.py::cmd_skill_promote",
+     "value": 16
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::cmd_skill_propose",
+     "value": 20
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/setupcmd.py::cmd_init",
+     "value": 19
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/skills.py::cmd_skill_add",
+     "value": 28
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/features/skills.py::cmd_skill_add",
+     "value": 126
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/skills.py::cmd_skill_validate",
+     "value": 29
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/skills.py::read_skill_frontmatter",
+     "value": 15
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/features/updatecmd.py::cmd_update",
+     "value": 36
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/features/updatecmd.py::cmd_update",
+     "value": 163
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_github_issues_adapter",
+     "value": 14
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/knowledge/curation/curationingest.py::cmd_ingest",
+     "value": 20
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/knowledge/graph.py::cmd_query",
+     "value": 29
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/knowledge/proposals.py::proposal_integrity_errors",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/knowledge/worklog.py::_category_stems",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/knowledge/worklog.py::skill_promotion_ids",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/audit.py::cmd_audit",
+     "value": 15
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/derive.py::derive_agent_activity",
+     "value": 17
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/derive.py::derive_iteration_costs",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/failureladder.py::derive_failures",
+     "value": 15
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/fleet/fleetreport.py::cmd_fleet",
+     "value": 44
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/ops/fleet/fleetreport.py::cmd_fleet",
+     "value": 146
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/fleet/fleetshard.py::cmd_fleet_emit",
+     "value": 16
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/fleet/fleettemplates.py::lint_templates",
+     "value": 22
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/kbsync.py::cmd_kb_git_push",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/kbsync.py::kb_git_merge_continue",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/kbsync.py::kb_git_push_once",
+     "value": 22
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/loopanalytics.py::_loop_analytics_for_feature",
+     "value": 43
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/ops/loopanalytics.py::_loop_analytics_for_feature",
+     "value": 128
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/loophealth.py::_loop_health_dup_check",
+     "value": 16
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/looptrace.py::_main_tooluse_token_shares_uncached",
+     "value": 16
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/looptrace.py::_trace_steps_for_session_uncached",
+     "value": 33
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/looptrace.py::derive_trace",
+     "value": 19
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/metrics/metricsaggregate.py::resolve_session_identity",
+     "value": 19
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/metrics/metricspricing.py::apply_pricing",
+     "value": 16
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/metricscmd.py::_print_metrics_text",
+     "value": 14
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/orglint.py::lint_org",
+     "value": 47
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/ops/orglint.py::lint_org",
+     "value": 149
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/planauthor/workstamp.py::_stamp_work_artifact",
+     "value": 14
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/planauthor/workstamp.py::cmd_work_stamp",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/planlint.py::lint_plan",
+     "value": 44
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/ops/planlint.py::lint_plan",
+     "value": 148
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/releasegate.py::cmd_gate_release",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/sessionparse/sessionusage.py::aggregate_jsonl",
+     "value": 48
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/ops/sessionparse/sessionusage.py::aggregate_jsonl",
+     "value": 157
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/staging.py::cmd_kb_git_commit",
+     "value": 19
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/staging.py::kb_git_stage_allowlist",
+     "value": 14
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/steering.py::lint_steering",
+     "value": 19
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/team.py::cmd_team",
+     "value": 24
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/ops/team.py::registry_membership_errors",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/acrgate.py::acr_gate_decision",
+     "value": 18
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/bench/benchledger.py::cmd_bench_lint",
+     "value": 26
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/bench/benchswe.py::cmd_bench_swe",
+     "value": 20
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/evalcmd.py::_run_gold_fixture_suite",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/evalcmd.py::_run_longmemeval_suite",
+     "value": 18
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/evalcmd.py::cmd_eval",
+     "value": 21
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/goldfixture.py::load_gold_fixture",
+     "value": 23
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/ledger.py::redact_gold_path",
+     "value": 13
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/recallcmd.py::build_recall_payload",
+     "value": 15
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/recallcmd.py::cmd_recall",
+     "value": 27
+    },
+    {
+     "kind": "function_over_line_cap",
+     "location": "scripts/agentware_lib/retrieval/recallcmd.py::cmd_recall",
+     "value": 131
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/scorecard.py::render_scorecard",
+     "value": 20
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/skillpin.py::scope_entries_for_team",
+     "value": 15
+    },
+    {
+     "kind": "function_over_branch_cap",
+     "location": "scripts/agentware_lib/retrieval/vectorcache.py::build_vector_cache",
+     "value": 14
+    }
+   ]
+  }
+ ]
+}

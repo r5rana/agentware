@@ -65,10 +65,19 @@ GUARD_NAME = "kb_pointable"
 #: Every path that can move the knowledge-dir pointer, with the handler that owns
 #: it. Both must call the guard; a new repoint path added without one is the
 #: regression this row-set exists to catch.
-REPOINT_SITES = (
-    (os.path.join(LIB_REL, "features", "setupcmd.py"), "cmd_init",
+#:
+#: Rows name a module STEM, not a filename. A stem resolves to either the flat
+#: `<stem>.py` or the package `<stem>/` that replaced it, because task 21 splits
+#: overloaded modules into packages and `configcmd.py` became
+#: `configcmd/cfgidentity.py`. Pinning the filename made this gate report the
+#: guard as MISSING purely because the file moved — a decomposition cannot be
+#: allowed to look like an unwired repoint path, or the next split either
+#: reddens a gate it did not break or gets "fixed" by re-pinning a new literal
+#: that the split after it breaks again.
+REPOINT_STEMS = (
+    (os.path.join(LIB_REL, "features", "setupcmd"), "cmd_init",
      "agentware init --knowledge-dir"),
-    (os.path.join(LIB_REL, "features", "configcmd.py"), "cmd_config",
+    (os.path.join(LIB_REL, "features", "configcmd"), "cmd_config",
      "agentware config --set-knowledge-dir"),
 )
 
@@ -315,18 +324,131 @@ def _calls_guard(path, handler):
     return False, "no handler named %s" % handler
 
 
-def check_wiring(tree):
-    """Check 4: every repoint path calls the guard, at a named site."""
-    problems = []
-    for rel, handler, label in REPOINT_SITES:
-        path = os.path.join(tree, rel)
-        if not os.path.isfile(path):
-            problems.append("repoint path missing: %s (%s)" % (rel, label))
+def _fn_defs(paths):
+    """{name: node} for every top-level-or-nested def across a stem's files."""
+    out = {}
+    for path in paths:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                mod = ast.parse(fh.read())
+        except (OSError, SyntaxError):
             continue
-        found, detail = _calls_guard(path, handler)
+        for node in ast.walk(mod):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                out.setdefault(node.name, (node, path))
+    return out
+
+
+def _names_used(node):
+    """Every bare/attribute name mentioned inside `node`, called or referenced.
+
+    A REFERENCE counts, not just a call: after a decomposition the entry handler
+    usually dispatches through a route table that merely NAMES the per-setting
+    handler (`(_opt("set_knowledge_dir"), _set_knowledge_dir)`). A call-graph
+    that only followed `ast.Call` would declare that handler unreachable and
+    report the guard as unwired, which is precisely the false alarm this gate
+    must not raise.
+    """
+    used = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name):
+            used.add(sub.id)
+        elif isinstance(sub, ast.Attribute):
+            used.add(sub.attr)
+    return used
+
+
+def _module_level_refs(paths):
+    """Names referenced at MODULE scope — i.e. registered in a dispatch table."""
+    refs = set()
+    for path in paths:
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                mod = ast.parse(fh.read())
+        except (OSError, SyntaxError):
+            continue
+        for stmt in mod.body:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                 ast.ClassDef)):
+                continue
+            refs |= _names_used(stmt)
+    return refs
+
+
+def guard_reachable(paths, handler):
+    """(found, detail) — is the guard reached from `handler` across the stem?
+
+    Reachable means: the entry handler, anything it calls or names, and anything
+    registered at module scope (a route table IS the dispatch mechanism). A
+    function that nothing references is NOT reachable, so parking the guard call
+    in a dead helper still reddens the gate.
+    """
+    defs = _fn_defs(paths)
+    if handler not in defs:
+        return False, "no file defines %s" % handler
+    seen, queue = set(), [handler]
+    registered = _module_level_refs(paths)
+    queue.extend(n for n in defs if n in registered)
+    while queue:
+        name = queue.pop()
+        if name in seen or name not in defs:
+            continue
+        seen.add(name)
+        node, path = defs[name]
+        for sub in ast.walk(node):
+            if not isinstance(sub, ast.Call):
+                continue
+            func = sub.func
+            hit = ((isinstance(func, ast.Attribute) and func.attr == GUARD_NAME)
+                   or (isinstance(func, ast.Name) and func.id == GUARD_NAME))
+            if hit:
+                return True, "%s (%s:%d)" % (
+                    name, os.path.basename(path), getattr(sub, "lineno", 0))
+        queue.extend(_names_used(node) & set(defs))
+    return False, ("%s does not call %s, and nothing reachable from it does "
+                   "(reached: %s)" % (handler, GUARD_NAME,
+                                      ", ".join(sorted(seen)) or "nothing"))
+
+
+def resolve_stem(tree, rel_stem):
+    """Every .py file implementing a module stem — flat module OR split package.
+
+    Returns [] when neither shape exists, which the caller reports as a genuinely
+    missing repoint path rather than a silent pass.
+    """
+    flat = os.path.join(tree, rel_stem + ".py")
+    if os.path.isfile(flat):
+        return [flat]
+    pkg = os.path.join(tree, rel_stem)
+    if not os.path.isdir(pkg):
+        return []
+    out = []
+    for dirpath, dirs, files in os.walk(pkg):
+        dirs[:] = [d for d in dirs if d not in SCAN_SKIP_DIRS]
+        out.extend(os.path.join(dirpath, f)
+                   for f in files if f.endswith(".py"))
+    return sorted(out)
+
+
+def check_wiring(tree):
+    """Check 4: every repoint path calls the guard, at a named site.
+
+    The handler is searched across ALL files of a split package, since the
+    decomposition is free to move `cmd_config` into any one of them; what must
+    remain true is that the handler exists somewhere under the stem and reaches
+    the guard.
+    """
+    problems = []
+    for rel_stem, handler, label in REPOINT_STEMS:
+        paths = resolve_stem(tree, rel_stem)
+        if not paths:
+            problems.append("repoint path missing: %s[.py|/] (%s)"
+                            % (rel_stem, label))
+            continue
+        found, detail = guard_reachable(paths, handler)
         if not found:
-            problems.append("`%s` does not reach the target guard: %s (%s)"
-                            % (label, detail, rel))
+            problems.append("`%s` does not reach the target guard under %s: %s"
+                            % (label, rel_stem, detail))
     return problems
 
 

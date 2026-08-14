@@ -487,9 +487,34 @@ class OwnedPathsTest(unittest.TestCase):
         that passes by looking at nothing."""
         tree, problems = gate.resolve_tree()
         self.assertEqual(problems, [])
-        for rel in gate.ORG_IDENTITY_PATHS:
+        resolved = gate.owned_paths(tree)
+        self.assertTrue(resolved, "no owned path resolved at all")
+        for rel in resolved:
             self.assertTrue(os.path.isfile(os.path.join(tree, rel)),
                             "%s is not a file under %s" % (rel, tree))
+
+    def test_every_stem_resolves_to_a_module_or_a_package(self):
+        """The split-tolerance must not become a way to lose coverage: a stem
+        matching neither shape means the gate silently stopped scanning it."""
+        tree, problems = gate.resolve_tree()
+        self.assertEqual(problems, [])
+        self.assertEqual(
+            gate.unresolved_stems(tree), [],
+            "stem(s) resolve to nothing — the file moved and this gate is now "
+            "scanning less than it claims")
+
+    def test_a_split_stem_expands_to_every_file_in_the_package(self):
+        """Task 21 turned `core/config.py` into a package; the neutrality scan
+        must cover ALL of it, not just whichever file kept the old name."""
+        tree, _problems = gate.resolve_tree()
+        resolved = set(gate.owned_paths(tree))
+        cfg = {p for p in resolved
+               if p.startswith("scripts/agentware_lib/core/config/")}
+        self.assertGreater(
+            len(cfg), 1,
+            "core/config resolved to %r — a split package must expand to every "
+            "file it contains" % (sorted(cfg),))
+        self.assertNotIn("scripts/agentware_lib/core/config.py", resolved)
 
     def test_the_marker_floor_and_allowlist_are_pinned(self):
         """Both are policy: widening either is an edit somebody has to defend."""

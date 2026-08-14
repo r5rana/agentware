@@ -91,7 +91,7 @@ class GatePassesTest(unittest.TestCase):
     def test_kbtarget_every_repoint_path_is_named_and_wired(self):
         # Both pointer-moving paths, not just init: a guard on one of two doors
         # is a guard on neither.
-        labels = {label for _rel, _handler, label in gate.REPOINT_SITES}
+        labels = {label for _stem, _handler, label in gate.REPOINT_STEMS}
         self.assertIn("agentware init --knowledge-dir", labels)
         self.assertIn("agentware config --set-knowledge-dir", labels)
         self.assertEqual(gate.check_wiring(self.tree), [])
@@ -181,6 +181,51 @@ class MutationTest(unittest.TestCase):
         problems = gate.check_wiring(tree.root)
         self.assertEqual(len(problems), 2, problems)
         self.assertTrue(all("missing" in p for p in problems), problems)
+
+    def test_kbtarget_wiring_follows_a_module_split_into_a_package(self):
+        # Task 21 turned `configcmd.py` into `configcmd/`, which made this gate
+        # report the guard MISSING purely because the file moved. A wiring gate
+        # must track the HANDLER, not a filename, or every decomposition reddens
+        # a gate it did not actually break.
+        tree = self.synth("split")
+        write(tree.lib("features", "setupcmd.py"),
+              "import agentware_lib.core.kblayout as kblayout\n\n\n"
+              "def cmd_init(args):\n    return kblayout.kb_pointable(args.d)[0]\n")
+        write(tree.lib("features", "configcmd", "__init__.py"), "")
+        write(tree.lib("features", "configcmd", "cfgroutes.py"),
+              "def _opt(x):\n    return x\n")
+        write(tree.lib("features", "configcmd", "cfgidentity.py"),
+              "import agentware_lib.core.kblayout as kblayout\n\n\n"
+              "def cmd_config(args):\n"
+              "    return kblayout.kb_pointable(args.d)[0]\n")
+        self.assertEqual(gate.check_wiring(tree.root), [])
+
+    def test_kbtarget_a_split_package_that_drops_the_guard_still_reddens(self):
+        # The tolerance must not become a hole: resolving a stem to a PACKAGE
+        # cannot mean "assume it is wired somewhere in there".
+        tree = self.synth("split-unwired")
+        write(tree.lib("features", "setupcmd.py"),
+              "import agentware_lib.core.kblayout as kblayout\n\n\n"
+              "def cmd_init(args):\n    return kblayout.kb_pointable(args.d)[0]\n")
+        write(tree.lib("features", "configcmd", "__init__.py"), "")
+        write(tree.lib("features", "configcmd", "cfgidentity.py"),
+              "def cmd_config(args):\n    return 0\n")
+        problems = gate.check_wiring(tree.root)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("--set-knowledge-dir", problems[0])
+        self.assertIn("does not call", problems[0])
+
+    def test_kbtarget_a_package_with_no_handler_at_all_reddens(self):
+        tree = self.synth("split-handlerless")
+        write(tree.lib("features", "setupcmd.py"),
+              "import agentware_lib.core.kblayout as kblayout\n\n\n"
+              "def cmd_init(args):\n    return kblayout.kb_pointable(args.d)[0]\n")
+        write(tree.lib("features", "configcmd", "__init__.py"), "")
+        write(tree.lib("features", "configcmd", "cfgroutes.py"),
+              "def _opt(x):\n    return x\n")
+        problems = gate.check_wiring(tree.root)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("no file defines cmd_config", problems[0])
 
     def test_kbtarget_reintroducing_the_retired_module_reddens(self):
         tree = self.synth("retired")
