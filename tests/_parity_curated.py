@@ -149,9 +149,13 @@ CURATED_ROWS = [
          "restore the monotonic generation counter as the authority: an entry "
          "arriving via a pull stops invalidating the cache"),
     _row("kb:foreign-schema-cache-rejection", "kb_integrity",
-         "A cache version neither tree has used, so a foreign-schema cache "
-         "written under either old number can never load as valid",
-         BOTH, 24, "tests.test_vector_cache",
+         "A BM25 postings-cache version neither tree has used (this tree wrote "
+         "v2, the donor v1, to the SAME .cache/bm25-postings.json), so a "
+         "foreign-schema cache can never load as valid. Scoped to the BM25 "
+         "cache deliberately: the VECTOR cache is v1 on both sides with a "
+         "byte-identical payload, so it is not a collision and must not be "
+         "bumped",
+         BOTH, 24, "tests.test_cache_freshness",
          "accept a cache written under either legacy version number: a foreign "
          "schema loads as valid at the same cache path"),
     _row("kb:derived-artifacts-decommitted", "kb_integrity",

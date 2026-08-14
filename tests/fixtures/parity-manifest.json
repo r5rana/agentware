@@ -2992,7 +2992,7 @@
     {
       "id": "kb:foreign-schema-cache-rejection",
       "dimension": "kb_integrity",
-      "capability": "A cache version neither tree has used, so a foreign-schema cache written under either old number can never load as valid",
+      "capability": "A BM25 postings-cache version neither tree has used (this tree wrote v2, the donor v1, to the SAME .cache/bm25-postings.json), so a foreign-schema cache can never load as valid. Scoped to the BM25 cache deliberately: the VECTOR cache is v1 on both sides with a byte-identical payload, so it is not a collision and must not be bumped",
       "sides": [
         "donor",
         "local"
@@ -3001,7 +3001,7 @@
       "verification": "curated",
       "task": 24,
       "evidence": {
-        "test": "tests.test_vector_cache",
+        "test": "tests.test_cache_freshness",
         "mutation": "accept a cache written under either legacy version number: a foreign schema loads as valid at the same cache path"
       }
     },
