@@ -3047,7 +3047,7 @@
       "verification": "curated",
       "task": 23,
       "evidence": {
-        "test": "tests.test_poisoned_index",
+        "test": "tests.test_index_reader_safety",
         "mutation": "read a list field raw at any one site: a mapping where a list is expected raises an uncaught type or hashability error"
       }
     },

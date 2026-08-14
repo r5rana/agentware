@@ -138,7 +138,7 @@ CURATED_ROWS = [
     _row("kb:poisoned-index-list-normalizer", "kb_integrity",
          "The lenient list-field normalizer at every raw index read site (graph "
          "adjacency, relation lint, corpus text, frontmatter migration)",
-         LOCAL, 23, "tests.test_poisoned_index",
+         LOCAL, 23, "tests.test_index_reader_safety",
          "read a list field raw at any one site: a mapping where a list is "
          "expected raises an uncaught type or hashability error"),
     _row("kb:corpus-fingerprint-freshness-authority", "kb_integrity",

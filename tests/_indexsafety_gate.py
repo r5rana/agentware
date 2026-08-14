@@ -258,6 +258,11 @@ def recovery_errors():
 READONLY_LOAD_SITES = (
     ("knowledge/attach.py", "attach_conformance_report"),
     ("knowledge/curation/curationfeatures.py", "cmd_features"),
+    # `fleet` reports on committed terminal EVENTS and declares itself read-only
+    # (INV-2). Its index read is a tag histogram, so the recovery would write
+    # index.json as a side effect of a report — and make its own documented
+    # "degrades when there is no index yet" contract false.
+    ("ops/fleet/fleetreport.py", "_fleet_top_learning_tags"),
 )
 
 

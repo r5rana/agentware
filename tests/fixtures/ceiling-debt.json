@@ -151,12 +151,12 @@
         {
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/ops/fleet/fleetreport.py::cmd_fleet",
-          "value": 44
+          "value": 35
         },
         {
           "kind": "function_over_line_cap",
           "location": "scripts/agentware_lib/ops/fleet/fleetreport.py::cmd_fleet",
-          "value": 146
+          "value": 133
         },
         {
           "kind": "function_over_branch_cap",

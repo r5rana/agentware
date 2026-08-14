@@ -191,6 +191,19 @@ def cmd_features(args):
     return 1 if err else 0
 '''
 
+_FLEETREPORT = '''\
+import agentware_lib.knowledge.index as index
+
+
+def _fleet_top_learning_tags(kdir, team, limit=15):
+    data = {}
+    if kdir:
+        loaded, _err = index.load_index(kdir, _allow_rebuild=False)
+        if isinstance(loaded, dict):
+            data = loaded
+    return sorted(data.get("entries") or [])[:limit]
+'''
+
 _HANDLER = '''\
 import agentware_lib.knowledge.index as index
 
@@ -221,6 +234,7 @@ _FILES = {
     "features/handler.py": _HANDLER,
     "knowledge/attach.py": _READONLY,
     "knowledge/curation/curationfeatures.py": _FEATURES,
+    "ops/fleet/fleetreport.py": _FLEETREPORT,
 }
 
 
@@ -449,6 +463,15 @@ class ReadOnlyLoadRefutationTest(_RefutationCase):
 
     def test_dropping_the_opt_out_in_features_reddens(self):
         self.tree.edit("knowledge/curation/curationfeatures.py",
+                       "index.load_index(kdir, _allow_rebuild=False)",
+                       "index.load_index(kdir)")
+        self.assertNamed("WITHOUT _allow_rebuild=False")
+
+    def test_dropping_the_opt_out_in_the_fleet_report_reddens(self):
+        # `fleet` declares itself read-only (INV-2) and reports on terminal
+        # EVENTS; with the recovery armed its tag histogram would write
+        # index.json as a side effect of a report.
+        self.tree.edit("ops/fleet/fleetreport.py",
                        "index.load_index(kdir, _allow_rebuild=False)",
                        "index.load_index(kdir)")
         self.assertNamed("WITHOUT _allow_rebuild=False")
