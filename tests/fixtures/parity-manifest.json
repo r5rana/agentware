@@ -34,12 +34,12 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 538,
+    "rows": 540,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
       "docs_templates": 4,
-      "dream_maintenance": 5,
+      "dream_maintenance": 7,
       "env_config": 80,
       "evaluation_quality": 4,
       "kb_integrity": 12,
@@ -51,20 +51,20 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 530,
-      "excluded": 4,
+      "required": 531,
+      "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 480,
-      "curated": 54,
-      "absence_probe": 4
+      "curated": 55,
+      "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
       "assets": 19,
       "cli_surface": 82,
       "docs_templates": 3,
-      "dream_maintenance": 2,
+      "dream_maintenance": 3,
       "env_config": 52,
       "evaluation_quality": 1,
       "kb_integrity": 6,
@@ -1950,6 +1950,44 @@
       "evidence": {
         "test": "tests.test_dream_min_interval",
         "mutation": "remove the interval check: a second dream inside the window runs"
+      }
+    },
+    {
+      "id": "dream:never-mutates-the-package-tree",
+      "dimension": "dream_maintenance",
+      "capability": "The INVARIANT the retired step violated, gated rather than assumed: no dream step reaches the package root, the dream corpus hard-resets nothing, and the CLI refuses the retired step id by name",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 16,
+      "evidence": {
+        "test": "tests.test_dreampkg_retire_gate",
+        "mutation": "register any step whose body reads the package root, or restore a hard-reset in the dream corpus: the mutation check names the step and the file"
+      }
+    },
+    {
+      "id": "dream:package-pull-step",
+      "dimension": "dream_maintenance",
+      "capability": "Dream step \"0\": a tip-of-main `git pull --ff-only`/`--rebase` on the PACKAGE repository root at the head of every nightly cycle, with a py_compile anti-brick check and a hard-reset revert",
+      "sides": [
+        "donor"
+      ],
+      "status": "excluded",
+      "verification": "absence_probe",
+      "reason": "a rival UNSIGNED updater. It defeated the signed-tag thesis of the dedicated updater, could stamp a higher schema out-of-band so the updater's brick-guard then refused rollback and stranded the machine, and raced the periodic tick on the same working tree with non-cross-checking locks. This tree retired it in feature 260712 task 13; the donor fork predates that and still carries it.",
+      "approver": "plan task 16 (operator-approved self-extension plan)",
+      "follow_up": "none for the step. Package updates are delegated to the signed SemVer-tag updater (plan task 41), the ONLY path that may advance the repository root; its shared post-check is retained by the KB-pull step, which stays.",
+      "absence_probe": {
+        "kind": "cli-absent",
+        "argv": [
+          "dream",
+          "--steps",
+          "0",
+          "--dry-run"
+        ],
+        "expect": "unknown dream step(s): 0"
       }
     },
     {

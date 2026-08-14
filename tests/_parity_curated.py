@@ -337,6 +337,33 @@ CURATED_ROWS = [
          "skipped rather than run",
          LOCAL, 61, "tests.test_dream_min_interval",
          "remove the interval check: a second dream inside the window runs"),
+    _row("dream:never-mutates-the-package-tree", "dream_maintenance",
+         "The INVARIANT the retired step violated, gated rather than assumed: no "
+         "dream step reaches the package root, the dream corpus hard-resets "
+         "nothing, and the CLI refuses the retired step id by name",
+         LOCAL, 16, "tests.test_dreampkg_retire_gate",
+         "register any step whose body reads the package root, or restore a "
+         "hard-reset in the dream corpus: the mutation check names the step and "
+         "the file"),
+    _exrow("dream:package-pull-step", "dream_maintenance",
+           "Dream step \"0\": a tip-of-main `git pull --ff-only`/`--rebase` on "
+           "the PACKAGE repository root at the head of every nightly cycle, with "
+           "a py_compile anti-brick check and a hard-reset revert",
+           DONOR,
+           "a rival UNSIGNED updater. It defeated the signed-tag thesis of the "
+           "dedicated updater, could stamp a higher schema out-of-band so the "
+           "updater's brick-guard then refused rollback and stranded the "
+           "machine, and raced the periodic tick on the same working tree with "
+           "non-cross-checking locks. This tree retired it in feature 260712 "
+           "task 13; the donor fork predates that and still carries it.",
+           "plan task 16 (operator-approved self-extension plan)",
+           "none for the step. Package updates are delegated to the signed "
+           "SemVer-tag updater (plan task 41), the ONLY path that may advance "
+           "the repository root; its shared post-check is retained by the "
+           "KB-pull step, which stays.",
+           {"kind": "cli-absent",
+            "argv": ["dream", "--steps", "0", "--dry-run"],
+            "expect": "unknown dream step(s): 0"}),
 
     # ----------------------------------------------------------- docs/templates
     _row("docs:roadmap-preserved", "docs_templates",
