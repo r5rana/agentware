@@ -1,0 +1,414 @@
+"""The SECURITY-INVARIANT POLICY TABLE — one rule per path class, whole tree.
+
+Feature 260813 task 27. Before this module, INV-1 (no network on the ranking
+path) and INV-6 (zero hard dependencies) were enforced by a **single-file import
+walk**: `_imported_top_modules(CLI_PATH)`. That worked while `scripts/agentware`
+WAS the toolkit. Task 25 turned it into a 110-line facade over
+`scripts/agentware_legacy.py` plus ~115 modules under `scripts/agentware_lib/`,
+and the walk kept passing — it was reading a docstring. The invariant that
+"agentware installs nothing and phones home from no ranking path" was being
+asserted over 0.3% of the code it claims to cover.
+
+A wider walk alone is not the fix either, because the tree is NOT uniform. Three
+`scripts/` sidecars exist precisely BECAUSE they may not obey the CLI's rules:
+the dashboard is a separate process so `http.server` never lands in the
+entrypoint (learn-agentware-dashboard-is-a-subprocess-http-sidecar), and the
+embedder backends are optional extension points that import `fastembed` or talk
+to a local model service. A single global rule would either false-positive on
+them or, far worse, be relaxed until it stops catching a real dependency.
+
+So the rule is per PATH CLASS, and the load-bearing addition is COVERAGE: every
+Python file on disk must be CLAIMED by some class. A file that matches no policy
+is a failure, not a pass. That inverts the failure mode — a new module lands
+UNGOVERNED and the gate says so, where a path-keyed scan would simply not look
+at it and stay green. (`learn-a-check-that-cannot-fail-is-not-passing`.)
+
+Pure and stdlib-only: every function here is a total function of paths and file
+contents, so the gate's own semantics can be tested on synthetic inputs rather
+than only through a multi-second real walk.
+"""
+
+import ast
+import fnmatch
+import os
+import sys
+
+try:
+    from tests._fixtures import REPO_ROOT, first_party_modules
+except ImportError:  # allow `python3 -m unittest tests.test_invariants`
+    from _fixtures import REPO_ROOT, first_party_modules
+
+
+#: Modules whose presence means a file could reach the network or shell out to a
+#: model service. `asyncio` is here because an event loop is the usual carrier.
+NETWORK_MODULES = frozenset({
+    "socket", "ssl", "urllib", "http", "ftplib", "telnetlib", "smtplib",
+    "asyncio", "requests", "httpx", "aiohttp", "websocket", "websockets",
+})
+
+#: Directories never walked: version control, byte-code caches, vendored or
+#: built trees. Kept SMALL and explicit — every name here is a hole in the
+#: coverage assertion, so `tracked_python_files()` cross-checks the walk against
+#: git so a skip can never silently narrow the corpus.
+SKIP_DIRS = frozenset({
+    ".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build",
+    ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", ".eggs",
+})
+
+
+class Policy(object):
+    """One path class and the invariants that hold over it.
+
+    `patterns` are matched with `fnmatch` against the repo-relative POSIX path.
+    NOTE the semantics deliberately: fnmatch's `*` DOES cross `/`, so
+    `scripts/agentware_lib/*.py` claims the package recursively. That is the
+    intent everywhere below; anything narrower would leave a subpackage
+    unclaimed, which the coverage assertion would then report.
+    """
+
+    __slots__ = ("name", "patterns", "stdlib_only", "no_network", "allow", "why")
+
+    def __init__(self, name, patterns, stdlib_only, no_network, why,
+                 allow=frozenset()):
+        self.name = name
+        self.patterns = tuple(patterns)
+        self.stdlib_only = stdlib_only
+        self.no_network = no_network
+        self.allow = frozenset(allow)
+        self.why = why
+
+    def matches(self, rel_path):
+        return any(fnmatch.fnmatch(rel_path, p) for p in self.patterns)
+
+    def __repr__(self):  # pragma: no cover - diagnostics only
+        return "<Policy %s stdlib_only=%s no_network=%s>" % (
+            self.name, self.stdlib_only, self.no_network)
+
+
+#: ORDERED — first match wins, so a specific class must precede the general one
+#: it sits inside (the dashboard tests before `tests/test_*.py`, the swe fixture
+#: corpus before every `tests/` rule).
+POLICIES = (
+    Policy(
+        "cli-entrypoint", ("scripts/agentware",), True, True,
+        "the installed entrypoint: INV-6 says a clone runs with a stock "
+        "python3 and INV-1 says ranking never reaches the network."),
+    Policy(
+        "cli-legacy", ("scripts/agentware_legacy.py",), True, True,
+        "the preserved monolith the facade execs — it IS the CLI body until "
+        "task 56 deletes it, so it carries the entrypoint's rules verbatim."),
+    Policy(
+        "cli-lib", ("scripts/agentware_lib/*.py",), True, True,
+        "the decomposed CLI body: a dependency or a socket added to any module "
+        "is a dependency or a socket added to the CLI."),
+    Policy(
+        "agent-hooks", ("scripts/hooks/*.py",), True, True,
+        "hooks run on EVERY agent spawn on the operator's machine; a hook that "
+        "needed installing would break the clone-and-go contract."),
+    Policy(
+        "dashboard-sidecar", ("scripts/agentware_dashboard.py",), True, False,
+        "the read-only HTTP sidecar: it exists as a SEPARATE process so that "
+        "http/socket never enter the CLI corpus. It binds loopback only and "
+        "still imports stdlib exclusively.",
+    ),
+    Policy(
+        "embedder-sidecar", ("scripts/agentware_embedder_*.py",), False, False,
+        "optional embedding backends, loaded by dotted name and absent by "
+        "default: they may import a third-party backend or reach a LOCAL model "
+        "service. Nothing on the default path imports them.",
+        allow=frozenset({"fastembed"})),
+    Policy(
+        "test-fixture-corpus", ("tests/fixtures/swe_tasks/*.py",), False, False,
+        "synthetic task repositories fed to the SWE bench harness — data, not "
+        "agentware code, and never imported by the package. Scoped to "
+        "`swe_tasks/` DELIBERATELY and not to `tests/fixtures/*.py`: this is "
+        "the only class besides the embedder sidecars exempt from BOTH rules, "
+        "and fnmatch's `*` crosses `/`, so the wider pattern would silently "
+        "hand full exemption to any future file dropped anywhere under "
+        "fixtures/. Narrow, a stray fixture helper lands UNCLAIMED and the "
+        "coverage assertion names it — failing closed, which is the whole "
+        "point of the table."),
+    Policy(
+        "test-support", ("tests/_*.py", "tests/__init__.py",
+                         "tests/*/__init__.py"), True, True,
+        "shared fixtures and gate helpers: they must run on a stock python3 in "
+        "CI and on a fresh clone, exactly like the code they guard."),
+    Policy(
+        "test-loopback-client", ("tests/test_dashboard.py",
+                                 "tests/test_dashboard_api.py"), True, False,
+        "the only tests that drive the sidecar: they urllib-request the "
+        "loopback port they just bound, which is the behaviour under test."),
+    Policy(
+        "test-optional-backend", ("tests/test_embedder_fastembed.py",), False,
+        True,
+        "exercises the optional backend behind a guarded import and skips when "
+        "it is absent; it may name the third-party module it tests.",
+        allow=frozenset({"fastembed"})),
+    Policy(
+        "tests", ("tests/test_*.py", "tests/*/test_*.py"), True, True,
+        "the suite itself: a test that needed a pip install would make the "
+        "zero-dependency claim untestable on a fresh clone."),
+)
+
+
+def _is_python_file(path, name):
+    """True for a `.py` file OR an extension-less python script (by shebang).
+
+    The entrypoint is `scripts/agentware` with no suffix. Sniffing the shebang
+    rather than hardcoding that one name means the NEXT extension-less python
+    script is discovered — and therefore has to be claimed — automatically.
+    """
+    if name.endswith(".py"):
+        return True
+    if "." in name:
+        return False
+    try:
+        with open(path, "rb") as fh:
+            first = fh.readline(128)
+    except OSError:
+        return False
+    return first.startswith(b"#!") and b"python" in first
+
+
+def discover_python_files(root=REPO_ROOT):
+    """Every python source file in the tree, as sorted repo-relative paths."""
+    found = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        for name in sorted(filenames):
+            full = os.path.join(dirpath, name)
+            if _is_python_file(full, name):
+                found.append(os.path.relpath(full, root).replace(os.sep, "/"))
+    return sorted(found)
+
+
+def tracked_python_files(root=REPO_ROOT):
+    """Git-tracked python files, or None when git is unavailable.
+
+    The independent second enumeration. `SKIP_DIRS` is a list of places the walk
+    does not look, and a skip that grows can silently shrink the guarded corpus
+    — the same failure shape as a non-recursive glob. Comparing against git
+    turns that into a red test instead of a quieter scan.
+    """
+    import subprocess
+    try:
+        proc = subprocess.run(["git", "-C", root, "ls-files", "-z"],
+                              capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    out = []
+    for rel in proc.stdout.decode("utf-8", "replace").split("\0"):
+        if not rel:
+            continue
+        full = os.path.join(root, rel)
+        if os.path.isfile(full) and _is_python_file(full,
+                                                    os.path.basename(rel)):
+            out.append(rel)
+    return sorted(out)
+
+
+def classify(rel_path):
+    """The FIRST policy claiming `rel_path`, or None when nothing claims it."""
+    for policy in POLICIES:
+        if policy.matches(rel_path):
+            return policy
+    return None
+
+
+def unclaimed(rel_paths):
+    """The coverage assertion, as a pure function: what no policy claims."""
+    return sorted(p for p in rel_paths if classify(p) is None)
+
+
+def dead_policies(rel_paths):
+    """Policy names claiming nothing — a rename or a deletion left a rule that
+    guards an empty set, which reads as a pass at every surface."""
+    claimed = set()
+    for path in rel_paths:
+        policy = classify(path)
+        if policy is not None:
+            claimed.add(policy.name)
+    return sorted(p.name for p in POLICIES if p.name not in claimed)
+
+
+def imported_top_modules_from_source(source, filename="<source>"):
+    """Top-level module names imported by `source` (pure AST walk, no import).
+
+    Collects the first dotted component of every `import x.y` /
+    `from x.y import z`. Relative imports are intra-package edges, not external
+    dependencies, so they are ignored. Nested and function-local imports ARE
+    collected — a lazily imported dependency is still a dependency
+    (learn-agentware-import-guard-ast-walks-nested-imports).
+    """
+    tree = ast.parse(source, filename=filename)
+    mods = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                mods.add(alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0 and node.module:
+                mods.add(node.module.split(".")[0])
+    return mods
+
+
+_IMPORT_CACHE = {}
+
+
+def imported_top_modules(path):
+    """`imported_top_modules_from_source` over a file on disk.
+
+    Memoised on (path, mtime, size) for the process. Five test modules ask this
+    question of the same ~350-file corpus; parsing the 34k-line legacy monolith
+    once per caller is the difference between a 1.2s scan and a 6s one. The key
+    carries mtime and size so a file rewritten mid-run (the coverage probe does
+    exactly that) is re-read rather than served stale.
+    """
+    try:
+        stat = os.stat(path)
+        key = (path, stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        key = None
+    if key is not None and key in _IMPORT_CACHE:
+        return _IMPORT_CACHE[key]
+    with open(path, "r", encoding="utf-8") as fh:
+        mods = imported_top_modules_from_source(fh.read(), filename=path)
+    if key is not None:
+        _IMPORT_CACHE[key] = mods
+    return mods
+
+
+def first_party_names(root=REPO_ROOT):
+    """Module names that SHIP IN THIS REPO — DERIVED from disk, never hardcoded.
+
+    INV-6 is "zero hard DEPENDENCIES", not "zero imports": a name resolving to a
+    file the clone already carries installs nothing and cannot go missing.
+    Covers `scripts/` (via the shared `_fixtures` derivation) plus the test
+    package's own top-level helpers, which the suite imports bare under the
+    `except ImportError` sibling-import fallback.
+    """
+    names = set(first_party_modules())
+    names.add("tests")
+    tests_dir = os.path.join(root, "tests")
+    try:
+        entries = os.listdir(tests_dir)
+    except OSError:
+        entries = []
+    for entry in entries:
+        if entry.endswith(".py"):
+            names.add(entry[:-3])
+        elif os.path.isdir(os.path.join(tests_dir, entry)) and os.path.isfile(
+                os.path.join(tests_dir, entry, "__init__.py")):
+            names.add(entry)
+    return names
+
+
+def _stdlib_names():
+    """The authoritative stdlib set, empty on interpreters that cannot say."""
+    if sys.version_info < (3, 10):
+        return set()
+    return set(sys.stdlib_module_names) | set(sys.builtin_module_names)
+
+
+def guarded_corpus(rel_paths):
+    """Paths whose class carries the stdlib-only rule (the INV-6 corpus)."""
+    out = []
+    for path in rel_paths:
+        policy = classify(path)
+        if policy is not None and policy.stdlib_only:
+            out.append(path)
+    return sorted(out)
+
+
+def fully_guarded_corpus(rel_paths):
+    """Paths carrying BOTH rules — the corpus the CLI's own contract covers.
+
+    The distinction matters for the sidecars: the dashboard is exempt from
+    NO-NETWORK (it is an HTTP server) but still stdlib-only, while the embedder
+    backends are exempt from both. "Exempt" is therefore per RULE, not per file,
+    and a sidecar is never fully guarded.
+    """
+    out = []
+    for path in rel_paths:
+        policy = classify(path)
+        if policy is not None and policy.stdlib_only and policy.no_network:
+            out.append(path)
+    return sorted(out)
+
+
+def network_free_corpus(rel_paths):
+    """Paths whose class carries the no-network rule (the INV-1 corpus)."""
+    out = []
+    for path in rel_paths:
+        policy = classify(path)
+        if policy is not None and policy.no_network:
+            out.append(path)
+    return sorted(out)
+
+
+def guarded_import_surface(rel_paths=None, root=REPO_ROOT):
+    """Union of top-level imports across the FULLY guarded corpus.
+
+    "What does the always-on toolkit import?" asked once. Four sibling test
+    modules used to ask it of `scripts/agentware` alone — which since task 25 is
+    a facade that imports six stdlib names and nothing else, so each of those
+    guards had gone vacuous in the same way and for the same reason. They ask it
+    here now, so the corpus can never again be one stale path.
+    """
+    rel_paths = discover_python_files(root) if rel_paths is None else rel_paths
+    mods = set()
+    for path in fully_guarded_corpus(rel_paths):
+        mods |= imported_top_modules(os.path.join(root, path))
+    return mods
+
+
+def dependency_violations(rel_paths, root=REPO_ROOT, stdlib=None,
+                          first_party=None):
+    """INV-6 findings: `[(path, policy, sorted non-stdlib module names)]`.
+
+    Raises rather than returning `[]` when the interpreter cannot enumerate the
+    stdlib (`sys.stdlib_module_names`, py3.10+). An empty finding list is what
+    this function returns when everything is FINE, so returning it when the scan
+    could not run would make "cannot check" indistinguishable from "checked and
+    clean" — the exact degradation `learn-a-check-that-cannot-fail-is-not-
+    passing` records. Callers gate on the interpreter version and skip loudly.
+    """
+    stdlib = _stdlib_names() if stdlib is None else stdlib
+    if not stdlib:
+        raise RuntimeError(
+            "cannot enumerate the stdlib on python %d.%d — INV-6 is "
+            "UNCHECKABLE here, not satisfied"
+            % (sys.version_info[0], sys.version_info[1]))
+    allowed = first_party_names(root) if first_party is None else first_party
+    out = []
+    for path in guarded_corpus(rel_paths):
+        policy = classify(path)
+        mods = imported_top_modules(os.path.join(root, path))
+        offenders = sorted(m for m in mods
+                           if m not in stdlib and m not in allowed
+                           and m not in policy.allow)
+        if offenders:
+            out.append((path, policy.name, offenders))
+    return out
+
+
+def network_violations(rel_paths, root=REPO_ROOT):
+    """INV-1 findings: `[(path, policy, sorted network module names)]`."""
+    out = []
+    for path in network_free_corpus(rel_paths):
+        policy = classify(path)
+        mods = imported_top_modules(os.path.join(root, path))
+        used = sorted(mods & NETWORK_MODULES)
+        if used:
+            out.append((path, policy.name, used))
+    return out
+
+
+def format_findings(findings):
+    """Render findings so the failure names the file, the class AND the rule."""
+    lines = []
+    for path, policy_name, mods in findings:
+        lines.append("  %s [%s]: %s" % (path, policy_name, ", ".join(mods)))
+    return "\n".join(lines)

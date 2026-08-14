@@ -14,12 +14,13 @@ the change, not in the test.
          stay authoritative (asserted via the byte-snapshot in INV-2).
   INV-5  Anti-context-rot — `recall` is token-budgeted and REPLACES the
          whole-corpus dump with a focused, strictly-smaller set.
-  INV-6  Zero hard dependencies — `scripts/agentware` imports stdlib modules only.
+  INV-6  Zero hard dependencies — every python file in the tree obeys the rule
+         its PATH CLASS declares (`tests/_security_policy.py`), and every file
+         on disk is claimed by exactly one class.
 
 Stdlib `unittest` only (no pytest, no new deps). Never touches the real KB.
 """
 
-import ast
 import json
 import os
 import sys
@@ -27,70 +28,183 @@ import unittest
 
 try:
     from tests._fixtures import (SyntheticKBTestCase, load_cli, CLI_PATH,
-                                 run_cli, build_synthetic_kb,
-                                 first_party_modules)
+                                 run_cli, build_synthetic_kb, REPO_ROOT)
+    from tests import _security_policy as policy
 except ImportError:  # allow `python3 -m unittest tests.test_invariants`
     from _fixtures import (SyntheticKBTestCase, load_cli, CLI_PATH,
-                           run_cli, build_synthetic_kb,
-                           first_party_modules)
+                           run_cli, build_synthetic_kb, REPO_ROOT)
+    import _security_policy as policy
 
 
 CLI = load_cli()
 
-# Modules whose presence in the CLI source would mean the retrieval/measurement
+# Modules whose presence in a guarded file would mean the retrieval/measurement
 # path could reach the network or shell out to a model service (INV-1/INV-6).
-_NETWORK_MODULES = frozenset({
-    "socket", "ssl", "urllib", "http", "ftplib", "telnetlib", "smtplib",
-    "asyncio", "requests", "httpx", "aiohttp", "websocket", "websockets",
-})
+# ONE definition, in the policy table — a second copy here is how two scans
+# drift into disagreeing about what "network" means.
+_NETWORK_MODULES = policy.NETWORK_MODULES
 
-
-def _imported_top_modules(source_path):
-    """Return the set of top-level module names imported by a python source file.
-
-    Pure-stdlib AST walk (no import side effects): collects the first dotted
-    component of every `import x.y` / `from x.y import z` statement.
-    """
-    with open(source_path, "r", encoding="utf-8") as f:
-        tree = ast.parse(f.read(), filename=source_path)
-    mods = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                mods.add(alias.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            if node.level == 0 and node.module:  # ignore relative imports
-                mods.add(node.module.split(".")[0])
-    return mods
+#: Discovered once per process: the walk parses ~350 files and every test in
+#: this class asks the same question of the same tree.
+_CORPUS = policy.discover_python_files()
 
 
 class StdlibOnlyTest(unittest.TestCase):
-    """INV-6 + INV-1: the toolkit imports stdlib modules only and reaches no network."""
+    """INV-6 + INV-1 over the WHOLE tree, one rule per path class.
+
+    These two tests used to walk a single file — `scripts/agentware`. Task 25
+    made that file a facade, and the walk went on passing while reading a
+    docstring: 0.3% coverage of the code the invariant claims. They now scan
+    every path the policy table marks guarded, which is the entrypoint, the
+    preserved monolith, all ~115 `agentware_lib` modules, the agent hooks and
+    the suite itself.
+    """
 
     @unittest.skipIf(sys.version_info < (3, 10),
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_cli_imports_are_stdlib_only(self):
         # sys.stdlib_module_names is the authoritative stdlib set (py3.10+).
         # First-party in-repo modules are not DEPENDENCIES (see
-        # _fixtures.first_party_modules): the entrypoint imports its own
-        # `agentware_lib` package, which installs nothing and ships in the clone.
-        stdlib = set(sys.stdlib_module_names)
-        builtin = set(sys.builtin_module_names)
-        first_party = first_party_modules()
-        offenders = sorted(
-            m for m in _imported_top_modules(CLI_PATH)
-            if m not in stdlib and m not in builtin and m not in first_party)
+        # _security_policy.first_party_names): a name resolving to a file the
+        # clone already ships installs nothing and cannot go missing.
+        findings = policy.dependency_violations(_CORPUS, root=REPO_ROOT)
         self.assertEqual(
-            offenders, [],
-            "scripts/agentware imports non-stdlib modules: %s (INV-6 violated)"
-            % offenders)
+            findings, [],
+            "non-stdlib imports in stdlib-only path classes (INV-6 violated):\n"
+            + policy.format_findings(findings))
 
     def test_cli_imports_no_network_modules(self):
-        used = _imported_top_modules(CLI_PATH) & _NETWORK_MODULES
+        findings = policy.network_violations(_CORPUS, root=REPO_ROOT)
         self.assertEqual(
-            sorted(used), [],
-            "scripts/agentware imports network-capable modules: %s "
-            "(INV-1: ranking must never touch the network)" % sorted(used))
+            findings, [],
+            "network-capable imports in no-network path classes (INV-1: "
+            "ranking must never touch the network):\n"
+            + policy.format_findings(findings))
+
+    def test_sidecars_excluded_from_guarded_corpus(self):
+        # The three scripts/ SIDECARS are loaded by path/dotted name and
+        # legitimately import a non-stdlib backend or http.server, so none of
+        # them may sit in the FULLY guarded corpus the CLI's own contract covers
+        # — but they must still be CLAIMED, with the exemption written down and
+        # attributed per rule. If one rode into the guarded corpus INV-6 would
+        # false-positive; if the CLI body fell out, INV-6 would go vacuous.
+        # Assert both directions.
+        sidecars = ["scripts/agentware_dashboard.py",
+                    "scripts/agentware_embedder_fastembed.py",
+                    "scripts/agentware_embedder_ollama.py"]
+        guarded = set(policy.fully_guarded_corpus(_CORPUS))
+        for rel in sidecars:
+            self.assertTrue(os.path.isfile(os.path.join(REPO_ROOT, rel)),
+                            "missing sidecar: %s" % rel)
+            self.assertIsNotNone(
+                policy.classify(rel),
+                "sidecar %s is unclaimed — its exemption must be a POLICY, not "
+                "an omission" % rel)
+        leaked = sorted(p for p in sidecars if p in guarded)
+        self.assertEqual(
+            leaked, [],
+            "scripts/ sidecars leaked into the stdlib-only guarded corpus: %s "
+            "(they load by path and may import non-stdlib backends)" % leaked)
+        self.assertIn("scripts/agentware", guarded,
+                      "the entrypoint fell out of the guarded corpus")
+
+    def test_the_whole_cli_body_is_guarded_not_just_the_facade(self):
+        # The anti-vacuity pin, stated as the thing that actually went wrong:
+        # the facade is 110 lines and defines no command. Guarding it alone is
+        # not guarding the CLI. Require the legacy body AND a substantial slice
+        # of the package, so a future narrowing cannot pass as a rename.
+        guarded = set(policy.guarded_corpus(_CORPUS))
+        self.assertIn("scripts/agentware_legacy.py", guarded)
+        lib = sorted(p for p in guarded
+                     if p.startswith("scripts/agentware_lib/"))
+        self.assertGreater(
+            len(lib), 100,
+            "only %d agentware_lib modules are guarded — the corpus narrowed"
+            % len(lib))
+
+
+class SecurityPolicyCoverageTest(unittest.TestCase):
+    """The coverage assertion: no python file in the tree is UNGOVERNED.
+
+    A path-keyed scan cannot report the file it never looked at, so its failure
+    mode is silence. Coverage inverts that: every file on disk must be claimed
+    by some class, and an unclaimed one is a failure that names it.
+    """
+
+    def test_every_python_file_is_claimed_by_a_policy(self):
+        missing = policy.unclaimed(_CORPUS)
+        self.assertEqual(
+            missing, [],
+            "python files claimed by NO security policy — add a path class in "
+            "tests/_security_policy.py (or widen an existing one) rather than "
+            "leaving them ungoverned:\n  " + "\n  ".join(missing))
+
+    def test_walk_sees_every_git_tracked_python_file(self):
+        # SKIP_DIRS is the one way the walk can narrow. Cross-check it against
+        # an independent enumeration so a growing skip list cannot quietly
+        # shrink the corpus the way a non-recursive glob does.
+        tracked = policy.tracked_python_files()
+        if tracked is None:
+            self.skipTest("git unavailable — cross-check not possible here")
+        missed = sorted(set(tracked) - set(_CORPUS))
+        self.assertEqual(missed, [],
+                         "git-tracked python files the walk never saw: %s"
+                         % missed)
+
+    def test_no_policy_class_is_dead(self):
+        # A rule guarding an empty set reads exactly like a rule that passes.
+        dead = policy.dead_policies(_CORPUS)
+        self.assertEqual(
+            dead, [],
+            "policy classes claiming zero files (renamed or deleted paths?): %s"
+            % dead)
+
+    def test_a_new_unclaimed_file_under_scripts_reddens_coverage(self):
+        # The gate's discriminating power, measured rather than asserted: drop a
+        # real python file at a scripts/ path no class claims and confirm the
+        # real walk reports it.
+        rel = "scripts/_policy_coverage_probe.py"
+        probe = os.path.join(REPO_ROOT, rel)
+        self.assertFalse(os.path.exists(probe), "stale probe file: %s" % probe)
+        with open(probe, "w", encoding="utf-8") as fh:
+            fh.write("import os\n")
+        self.addCleanup(lambda: os.path.exists(probe) and os.remove(probe))
+        found = policy.discover_python_files()
+        self.assertIn(rel, found, "the walk did not see the new file")
+        self.assertIn(rel, policy.unclaimed(found))
+        os.remove(probe)
+        self.assertEqual(policy.unclaimed(policy.discover_python_files()), [])
+
+    def test_a_dependency_in_a_guarded_class_reddens_the_scan(self):
+        # Hermetic negative test: a synthetic tree rooted elsewhere, so the
+        # violation is real code at a guarded PATH without touching this repo.
+        import tempfile
+        root = tempfile.mkdtemp(prefix="agentware-policy-probe-")
+        import shutil
+        self.addCleanup(shutil.rmtree, root, True)
+        rel = "scripts/agentware_lib/core/probe.py"
+        target = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(target))
+        with open(target, "w", encoding="utf-8") as fh:
+            fh.write("import os\nimport requests\nimport urllib.request\n")
+        self.assertEqual(policy.classify(rel).name, "cli-lib")
+        deps = policy.dependency_violations([rel], root=root,
+                                            stdlib={"os", "urllib"},
+                                            first_party=set())
+        self.assertEqual(deps, [(rel, "cli-lib", ["requests"])])
+        net = policy.network_violations([rel], root=root)
+        self.assertEqual(net, [(rel, "cli-lib", ["requests", "urllib"])])
+
+    def test_an_exempt_class_does_not_redden_on_its_declared_exemption(self):
+        # The other direction: the exemptions are narrow and attributed, so the
+        # sidecar classes must NOT be dragged into the guarded corpora at all.
+        guarded = set(policy.guarded_corpus(_CORPUS))
+        netfree = set(policy.network_free_corpus(_CORPUS))
+        self.assertNotIn("scripts/agentware_embedder_fastembed.py", guarded)
+        self.assertNotIn("scripts/agentware_dashboard.py", netfree)
+        self.assertIn("scripts/agentware_dashboard.py", guarded,
+                      "the sidecar is exempt from NO-NETWORK only; it still "
+                      "may not add a third-party dependency")
 
 
 class DeterministicRankingTest(SyntheticKBTestCase):

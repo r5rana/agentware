@@ -185,6 +185,12 @@ def derive(local_root, donor_root, out_path):
             "union": len(local_set | donor_set),
             "shared": len(local_set & donor_set),
             "pending_in_destination": sorted(donor_set - local_set),
+            # CURATED, seeded empty: donor-only ids a port wave has already
+            # landed here. `_verify_backlog` requires pending + landed to
+            # account for every donor-only id, so an id can MOVE between the two
+            # but never leave the backlog. See that function for why the two
+            # ratchet rules were previously unsatisfiable together.
+            "landed_from_donor": [],
         },
         "cli_symbols": {
             "count": len(symbols),
@@ -256,12 +262,52 @@ def verify(fixture_path):
     if nid["shared"] != len(sets["local"] & sets["donor"]):
         problems.append("shared %d != %d recomputed"
                         % (nid["shared"], len(sets["local"] & sets["donor"])))
-    if set(nid["pending_in_destination"]) != sets["donor"] - sets["local"]:
-        problems.append("node-id pending set != donor-only ids")
+    problems.extend(_verify_backlog(nid, sets))
 
     problems.extend(_verify_symbols(fx))
     problems.extend(_verify_assets(fx))
     problems.extend(_verify_collisions(fx, sets))
+    return problems
+
+
+def _verify_backlog(nid, sets):
+    """The donor backlog accounts for every donor-only id, pending OR landed.
+
+    THE CONTRADICTION THIS RESOLVES. Two rules disagreed the moment a donor test
+    first landed here. `diff_node_ids` reddens with "RATCHET: pending node id now
+    resolves, drop it" — the backlog must SHRINK. But this verifier recomputed
+    `pending == donor - local` from the two frozen captures, which are immutable
+    historical records: by that rule the backlog could never shrink at all. Every
+    port wave (tasks 37-54) walks into it; task 27 hit it first by landing
+    `test_sidecars_excluded_from_guarded_corpus`.
+
+    Resolved by making the accounting explicit rather than derived. Every
+    donor-only id is in exactly ONE of two sets: `pending_in_destination` (not
+    here yet) or `landed_from_donor` (ported, and therefore REQUIRED to resolve
+    — `diff_node_ids` already reports a non-pending donor id that stops
+    collecting as "LOST donor node id", so landing an id also arms its
+    regression check). The union still equals the derived donor-only set, so
+    nothing can be dropped from the backlog by deleting it: it can only move.
+    That keeps the ratchet one-directional and lets task 79 require
+    `pending_in_destination == []` unchanged.
+
+    `landed_from_donor` is CURATED, not derived: `derive()` seeds it empty, so a
+    blind re-derivation would discard it. Re-derive and diff, never regenerate
+    (learn-re-derive-and-diff-never-regenerate-a-mixed-fixture).
+    """
+    problems = []
+    pending = set(nid["pending_in_destination"])
+    landed = set(nid.get("landed_from_donor", []))
+    donor_only = sets["donor"] - sets["local"]
+    if pending & landed:
+        problems.append("node ids both pending and landed: %s"
+                        % sorted(pending & landed)[:5])
+    if pending | landed != donor_only:
+        missing = sorted(donor_only - (pending | landed))[:5]
+        stray = sorted((pending | landed) - donor_only)[:5]
+        problems.append(
+            "node-id backlog (pending + landed) != donor-only ids "
+            "(unaccounted: %s; not donor-only: %s)" % (missing, stray))
     return problems
 
 

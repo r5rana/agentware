@@ -208,10 +208,16 @@ class LiveGateTest(unittest.TestCase):
         the backlog is provably empty rather than silently ignored."""
         fx = load_fixture()
         pending = set(fx["node_ids"]["pending_in_destination"])
+        landed = set(fx["node_ids"]["landed_from_donor"])
         donor = set(load_node_ids(FIXTURE, "donor")["node_ids"])
         local = set(load_node_ids(FIXTURE, "local")["node_ids"])
         self.assertTrue(pending, "donor backlog already empty -- retire the ratchet")
-        self.assertEqual(donor - pending, donor & local)
+        # A donor id is either shared with the frozen local set or explicitly
+        # LANDED by a port wave; nothing else may be off the backlog. Landed ids
+        # are then required to keep collecting (diff_node_ids reports a
+        # non-pending donor id that stops resolving as LOST), so moving one out
+        # of pending arms its regression check rather than silencing it.
+        self.assertEqual(donor - pending, (donor & local) | landed)
 
 
 @unittest.skipUnless(donor_available(), "donor tree not staged")

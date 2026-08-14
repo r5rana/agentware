@@ -82,10 +82,18 @@ class FixtureShapeTest(unittest.TestCase):
                 self.assertGreaterEqual(len(nid.split(".")), 3)
 
     def test_pending_node_ids_are_exactly_the_donor_only_ids(self):
+        # PENDING + LANDED accounts for every donor-only id, with nothing in
+        # both. The equality used to be against `pending` alone, which made the
+        # backlog underivable the moment a port wave landed a donor test —
+        # `diff_node_ids` demands the id be dropped from pending, and this
+        # demanded it stay. See `_preserved_freeze._verify_backlog`. The name is
+        # kept because it is a frozen node id; the accounting is what changed.
         local = set(load_node_ids(FIXTURE, "local")["node_ids"])
         donor = set(load_node_ids(FIXTURE, "donor")["node_ids"])
-        self.assertEqual(set(self.fx["node_ids"]["pending_in_destination"]),
-                         donor - local)
+        pending = set(self.fx["node_ids"]["pending_in_destination"])
+        landed = set(self.fx["node_ids"]["landed_from_donor"])
+        self.assertEqual(pending & landed, set())
+        self.assertEqual(pending | landed, donor - local)
 
     def test_cli_symbol_count_and_pending_set(self):
         syms = self.fx["cli_symbols"]
@@ -310,9 +318,27 @@ class VerifierNegativeTest(unittest.TestCase):
                            "shared")
 
     def test_truncated_pending_set_reddens(self):
+        # Dropping an id from pending without LANDING it leaves a donor-only id
+        # unaccounted for, which is exactly the silent-loss shape the backlog
+        # exists to prevent.
         self.assertReddens(
             lambda fx, b: fx["node_ids"]["pending_in_destination"].pop(),
-            "pending set")
+            "backlog")
+
+    def test_an_id_both_pending_and_landed_reddens(self):
+        self.assertReddens(
+            lambda fx, b: fx["node_ids"]["landed_from_donor"].append(
+                fx["node_ids"]["pending_in_destination"][0]),
+            "both pending and landed")
+
+    def test_landing_an_id_that_is_not_donor_only_reddens(self):
+        # `landed_from_donor` is a record of donor capability arriving here, not
+        # a free-text list: a local-only id parked in it would inflate the
+        # apparent port progress and account for nothing.
+        self.assertReddens(
+            lambda fx, b: fx["node_ids"]["landed_from_donor"].append(
+                "tests.test_made_up.MadeUpTest.test_nothing"),
+            "not donor-only")
 
     def test_a_disjoint_collision_without_destinations_reddens(self):
         self.assertReddens(

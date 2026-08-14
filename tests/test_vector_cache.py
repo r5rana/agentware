@@ -15,7 +15,6 @@ Stdlib-only (no pytest). A deterministic hash-based stub backend stands in for a
 local embedding model so the tests need no network and no installed model.
 """
 
-import ast
 import json
 import os
 import shutil
@@ -25,11 +24,13 @@ import unittest
 
 try:
     from tests._fixtures import (load_cli, run_cli, build_synthetic_kb,
-                                 CLI_PATH, first_party_modules)
+                                 CLI_PATH)
+    from tests import _security_policy as policy
 except ImportError:  # direct invocation
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from _fixtures import (load_cli, run_cli, build_synthetic_kb,
-                           CLI_PATH, first_party_modules)
+                           CLI_PATH)
+    import _security_policy as policy
 
 
 # Deterministic, dependency-free stub embedder (fixed dim, same input -> same
@@ -58,19 +59,6 @@ class StubEmbedder(object):
 def get_embedder(model=None):
     return StubEmbedder(model=model)
 '''
-
-
-def _imported_top_modules(source_path):
-    with open(source_path, "r", encoding="utf-8") as f:
-        tree = ast.parse(f.read(), filename=source_path)
-    mods = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for a in node.names:
-                mods.add(a.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            mods.add(node.module.split(".")[0])
-    return mods
 
 
 class VectorCacheTest(unittest.TestCase):
@@ -248,13 +236,13 @@ class VectorCacheTest(unittest.TestCase):
     @unittest.skipIf(sys.version_info < (3, 10),
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_static_import_surface_stays_stdlib_only(self):
-        mods = _imported_top_modules(CLI_PATH)
-        # First-party in-repo modules are not DEPENDENCIES: `agentware_lib` is
-        # the package's own decomposed body, shipped in the clone, installing
-        # nothing (see _fixtures.first_party_modules). A real third-party import
-        # still reddens this.
+        # The WHOLE always-on toolkit, not just the entrypoint — since task 25
+        # that path is a facade and scanning it alone made this guard vacuous.
+        # Corpus and first-party allowance are defined once, in
+        # tests/_security_policy.py; a real third-party import still reddens.
+        mods = policy.guarded_import_surface()
         stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
-        stdlib |= first_party_modules()
+        stdlib |= policy.first_party_names()
         offenders = sorted(m for m in mods if m not in stdlib)
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
 

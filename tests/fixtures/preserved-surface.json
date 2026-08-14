@@ -82,7 +82,6 @@
    "tests.test_init_guard.InitGuardTest.test_error_message_names_existing_path",
    "tests.test_init_guard.InitGuardTest.test_first_run_writes_config",
    "tests.test_init_guard.InitGuardTest.test_idempotent_reinit_same_dir",
-   "tests.test_invariants.StdlibOnlyTest.test_sidecars_excluded_from_guarded_corpus",
    "tests.test_module_boundaries.EntrypointSizeTest.test_entrypoint_is_thin",
    "tests.test_module_boundaries.ExportsCompletenessTest.test_every_export_is_defined_or_imported",
    "tests.test_module_boundaries.ExportsCompletenessTest.test_facade_public_surface_is_exported",
@@ -1889,6 +1888,9 @@
    "tests.unit.retrieval.test_vectorcache.ResolveEffectiveMode.test_semantic_with_model_stays_semantic",
    "tests.unit.retrieval.test_vectorcache.ResolveEffectiveMode.test_semantic_without_model_falls_back",
    "tests.unit.retrieval.test_vectorcache.SemanticAvailable.test_available_only_with_configured_backend"
+  ],
+  "landed_from_donor": [
+   "tests.test_invariants.StdlibOnlyTest.test_sidecars_excluded_from_guarded_corpus"
   ]
  },
  "cli_symbols": {

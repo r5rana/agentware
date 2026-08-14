@@ -14,7 +14,6 @@ Stdlib-only (no pytest). The backend is resolved from env/config, so each test
 patches the env var + config paths onto temp state and resets the lazy cache.
 """
 
-import ast
 import os
 import shutil
 import sys
@@ -22,10 +21,12 @@ import tempfile
 import unittest
 
 try:
-    from tests._fixtures import load_cli, CLI_PATH, first_party_modules
+    from tests._fixtures import load_cli, CLI_PATH
+    from tests import _security_policy as policy
 except ImportError:  # direct invocation: `python3 tests/test_embedder.py`
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from _fixtures import load_cli, CLI_PATH, first_party_modules
+    from _fixtures import load_cli, CLI_PATH
+    import _security_policy as policy
 
 
 # A deterministic, dependency-free stub backend written to a temp file and
@@ -73,20 +74,6 @@ def get_embedder(model=None):
 '''
 
 
-def _imported_top_modules(source_path):
-    with open(source_path, "r", encoding="utf-8") as f:
-        tree = ast.parse(f.read(), filename=source_path)
-    mods = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                mods.add(alias.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            if node.level == 0 and node.module:
-                mods.add(node.module.split(".")[0])
-    return mods
-
-
 class EmbedderBackendTest(unittest.TestCase):
     def setUp(self):
         self.cli = load_cli()
@@ -131,13 +118,13 @@ class EmbedderBackendTest(unittest.TestCase):
     @unittest.skipIf(sys.version_info < (3, 10),
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_toolkit_does_not_statically_import_backend_or_network(self):
-        mods = _imported_top_modules(CLI_PATH)
-        # First-party in-repo modules are not DEPENDENCIES: `agentware_lib` is
-        # the package's own decomposed body, shipped in the clone, installing
-        # nothing (see _fixtures.first_party_modules). A real third-party import
-        # still reddens this.
+        # The WHOLE always-on toolkit, not just the entrypoint — since task 25
+        # that path is a facade and scanning it alone made this guard vacuous.
+        # Corpus and first-party allowance are defined once, in
+        # tests/_security_policy.py; a real third-party import still reddens.
+        mods = policy.guarded_import_surface()
         stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
-        stdlib |= first_party_modules()
+        stdlib |= policy.first_party_names()
         offenders = sorted(m for m in mods if m not in stdlib)
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
         # The optional backend module is loaded dynamically, never statically.

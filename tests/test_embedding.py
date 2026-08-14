@@ -20,7 +20,6 @@ surface tokens, same meaning) to the same vector dim, so a paraphrase query land
 in the target entry's concept dim with high cosine while BM25 sees no shared term.
 """
 
-import ast
 import os
 import shutil
 import sys
@@ -28,12 +27,12 @@ import tempfile
 import unittest
 
 try:
-    from tests._fixtures import (load_cli, build_synthetic_kb, CLI_PATH,
-                                 first_party_modules)
+    from tests._fixtures import load_cli, build_synthetic_kb, CLI_PATH
+    from tests import _security_policy as policy
 except ImportError:  # direct invocation
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from _fixtures import (load_cli, build_synthetic_kb, CLI_PATH,
-                           first_party_modules)
+    from _fixtures import load_cli, build_synthetic_kb, CLI_PATH
+    import _security_policy as policy
 
 
 # A deterministic concept-lexicon stub: each dim groups SYNONYMS that share
@@ -126,19 +125,6 @@ _ENTRIES = [
 # (battery/drain are power-concept synonyms; saving/advice are generic).
 _PARAPHRASE_QUERY = "battery drain saving advice"
 _POWER_ID = "learn-power-charge"
-
-
-def _imported_top_modules(source_path):
-    with open(source_path, "r", encoding="utf-8") as f:
-        tree = ast.parse(f.read(), filename=source_path)
-    mods = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for a in node.names:
-                mods.add(a.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            mods.add(node.module.split(".")[0])
-    return mods
 
 
 class HybridEmbedTest(unittest.TestCase):
@@ -314,13 +300,15 @@ class HybridEmbedTest(unittest.TestCase):
     @unittest.skipIf(sys.version_info < (3, 10),
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_static_import_surface_stays_stdlib_only(self):
-        mods = _imported_top_modules(CLI_PATH)
-        # First-party in-repo modules are not DEPENDENCIES: `agentware_lib` is
-        # the package's own decomposed body, shipped in the clone, installing
-        # nothing (see _fixtures.first_party_modules). A real third-party import
-        # still reddens this.
+        # The WHOLE always-on toolkit, not just the entrypoint: since task 25
+        # `scripts/agentware` is a 110-line facade, so scanning that one path
+        # made this guard vacuous. First-party in-repo modules are not
+        # DEPENDENCIES — they ship in the clone and install nothing — and both
+        # the corpus and that allowance are defined ONCE, in
+        # tests/_security_policy.py. A real third-party import still reddens.
+        mods = policy.guarded_import_surface()
         stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
-        stdlib |= first_party_modules()
+        stdlib |= policy.first_party_names()
         offenders = sorted(m for m in mods if m not in stdlib)
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
 
