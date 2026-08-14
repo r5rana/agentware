@@ -15,7 +15,7 @@
  },
  "ratchet": {
   "unresolved_max": 248,
-  "undecided_max": 9
+  "undecided_max": 8
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -2508,7 +2508,7 @@
   {
    "name": "_TERMINAL_OUTCOMES",
    "legacy_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort', 'premise_falsified')",
-   "lib_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort')",
+   "lib_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort', 'premise_falsified')",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -2519,8 +2519,7 @@
    "rationale": "this tree emits `premise_falsified` as a distinct terminal so the premise-grounding pre-hook's precision is separately measurable. The donor tuple lacks it, and its org lint check O12 REJECTS unknown outcomes -- which is precisely the hard-block task 34 exists to prevent.",
    "decision": "legacy",
    "decided_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort', 'premise_falsified')",
-   "landed": false,
-   "pending_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort')"
+   "landed": true
   }
  ]
 }

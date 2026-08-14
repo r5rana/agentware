@@ -140,9 +140,28 @@ def fleet_read_all(org_root):
 FLEET_TERMINAL_REQUIRED = ("event", "ts", "outcome", "steering_sha", "team")
 
 
+# The UNION of both trees' loop-terminal vocabularies (plan task 34). O12 REJECTS
+# any outcome outside this tuple, and the pre-hook org-lint gate exits 1 on an O12
+# error — so a value the loop CAN emit but the enum does not name hard-blocks every
+# subsequent run in team mode, permanently (the offending line stays in the
+# append-only sink). The set is therefore a strict superset of everything either
+# side can produce:
+#   * donor:  completed / hit_max_iterations / post_hook_failure / pre_hook_abort /
+#             blocked_on_ambiguity / sync_failed / unknown
+#   * LOCAL-only, added here: `premise_falsified` (the R-GND-01 premise gate halt,
+#     scripts/loop/gates-plan.sh) and `adversarial_review_blocked` (the R-EXEC-06
+#     self-heal review block, agentware.sh) — both live set-points on this tree,
+#     both absent donor-side.
+#   * `quota_throttled` — a loop terminal the graph disposition table already
+#     classifies (PAUSE, not a failure) and which no gate may reject if a lane
+#     pause path ever emits it.
+# tests.test_loop_emission RE-DERIVES the emitted set from the shell sources on
+# every run and fails if this tuple stops covering it, so a new set-point cannot
+# land without widening the enum first.
 LOOP_OUTCOME_ENUM = ("completed", "hit_max_iterations", "post_hook_failure",
                      "pre_hook_abort", "blocked_on_ambiguity", "sync_failed",
-                     "unknown")
+                     "premise_falsified", "adversarial_review_blocked",
+                     "quota_throttled", "unknown")
 
 
 def _fleet_org_root(kdir):

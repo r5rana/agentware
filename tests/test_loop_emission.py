@@ -16,14 +16,26 @@ Asserts:
   - with AGENTWARE_METRICS_EMIT=0 (opt-out) NO line is appended;
   - every emitted line parses via `json.loads` (the `python3 -c "import json"` gate).
 
+Also the named evidence for parity row `loop:outcome-value-union` (plan task 34),
+whose mutation is "drop either locally-emitted outcome value from the accepted set:
+the pre-hook hard-blocks the next run in team mode". `LoopOutcomeUnionTest` and
+`OutcomeUnionPreHookTest` below prove BOTH halves: the value set the loop can emit
+is re-derived from the shell sources on every run and must be covered by
+`agentware_lib.ops.fleet.LOOP_OUTCOME_ENUM` (which org lint O12 enforces), and the
+real pre-hook org-lint gate is driven over a real fleet sink carrying each of those
+values — with the enum mutated to prove the gate would otherwise hard-block.
+
 Runner:  python3 -m unittest tests.test_loop_emission -v
 """
 
+import glob
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -208,6 +220,22 @@ class LoopEmissionTest(unittest.TestCase):
             self.assertEqual(ev["tasks_total"], 2)
             self.assertGreaterEqual(ev["tasks_done_delta"], 0)  # never un-flips
 
+    def test_the_terminal_event_of_a_real_run_is_accepted_by_the_fleet_enum(self):
+        # The bridge between the two halves of plan task 34: the value a REAL
+        # scripted run puts on the ledger is the same value cmd_fleet_emit copies
+        # into the committed sink that org lint O12 judges. Asserting it here (on
+        # the loop's own output, not on a hand-written string) is what makes the
+        # union claim about THIS loop rather than about a constant.
+        self._run(self._env())
+        terminal = [ev for ev in self._read_events() if ev.get("event") == "terminal"]
+        self.assertTrue(terminal, "the run emitted no terminal event")
+        fleet, _derive = _lib()
+        for ev in terminal:
+            self.assertIn(ev["outcome"], fleet.LOOP_OUTCOME_ENUM,
+                          "a real run emitted %r, which org lint O12 would reject "
+                          "in team mode" % ev["outcome"])
+        self.assertEqual(terminal[-1]["outcome"], "completed")
+
     def test_opt_out_emits_nothing(self):
         proc = self._run(self._env(AGENTWARE_METRICS_EMIT="0"))
         self.assertFalse(
@@ -215,6 +243,301 @@ class LoopEmissionTest(unittest.TestCase):
             "AGENTWARE_METRICS_EMIT=0 must append NO metrics line\n"
             "--- loop output ---\n%s" % proc.stdout,
         )
+
+
+# ---------------------------------------------------------------------------
+# Plan task 34 — the LOOP_OUTCOME value set is the UNION
+# ---------------------------------------------------------------------------
+#
+# The loop's terminal vocabulary has two consumers of DIFFERENT widths, and the
+# wide one is a GATE: org lint O12 rejects any fleet-sink outcome outside
+# `agentware_lib.ops.fleet.LOOP_OUTCOME_ENUM`, and the pre/post-hook org-lint gate
+# exits 1 on an O12 error. The sink is append-only, so a single event carrying a
+# value the enum does not name hard-blocks EVERY subsequent run in team mode —
+# there is no way to make the tree valid again short of editing history.
+#
+# The donor enum omits two outcomes THIS tree sets: `premise_falsified` (the
+# R-GND-01 premise-grounding halt) and `adversarial_review_blocked` (the R-EXEC-06
+# self-heal block). Both are proven live below rather than asserted from a list:
+# the emitted set is re-derived from the shell sources, and the gate is driven over
+# a sink written by the REAL emitter.
+
+LOOP_SH_DIR = os.path.join(REPO_ROOT, "scripts", "loop")
+ORGLINT_SH = os.path.join(LOOP_SH_DIR, "orglint.sh")
+SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
+
+# A set-point is a LOOP_OUTCOME assignment in command position. Comment lines are
+# skipped so prose naming an outcome (safety.sh documents the plan-claim refusal
+# shape in a comment) is never miscounted as an emission — the same
+# command-position discipline tests/_loop_wiring.py uses.
+_ASSIGN_RE = re.compile(r'^\s*(?:local\s+)?LOOP_OUTCOME="([A-Za-z0-9_]+)"')
+
+# The set-points that existed when task 34 reconciled the vocabulary. A FLOOR, not
+# an equality: a new terminal is allowed to appear (it must then be added to the
+# enum, which `test_every_emitted_outcome_is_accepted_by_the_fleet_enum` forces),
+# but a regex that silently stops matching — a renamed file, a changed quoting
+# style — reddens here instead of passing vacuously over an empty set.
+EMITTED_FLOOR = frozenset({
+    "completed", "hit_max_iterations", "post_hook_failure", "pre_hook_abort",
+    "premise_falsified", "blocked_on_ambiguity", "adversarial_review_blocked",
+    "unknown",
+})
+
+# The two the DONOR enum lacks — the whole reason this row exists.
+LOCAL_ONLY_OUTCOMES = ("premise_falsified", "adversarial_review_blocked")
+
+
+def emitted_outcomes():
+    """Every value assigned to LOOP_OUTCOME -> the sorted list of its call sites.
+
+    Derived from the shipped shell on every run: agentware.sh plus every
+    scripts/loop/*.sh it sources. Pure/read-only.
+    """
+    sites = {}
+    sources = [AGENTWARE_SH] + sorted(glob.glob(os.path.join(LOOP_SH_DIR, "*.sh")))
+    for path in sources:
+        rel = os.path.relpath(path, REPO_ROOT)
+        with open(path, encoding="utf-8") as fh:
+            for i, line in enumerate(fh, 1):
+                if line.lstrip().startswith("#"):
+                    continue
+                m = _ASSIGN_RE.match(line)
+                if m:
+                    sites.setdefault(m.group(1), []).append("%s:%d" % (rel, i))
+    return sites
+
+
+def _lib():
+    """Import the modular lib the way the entrypoint does (scripts/ on sys.path)."""
+    if SCRIPTS_DIR not in sys.path:
+        sys.path.insert(0, SCRIPTS_DIR)
+    import agentware_lib.ops.derive as derive
+    import agentware_lib.ops.fleet as fleet
+    return fleet, derive
+
+
+class LoopOutcomeUnionTest(unittest.TestCase):
+    """The emitted vocabulary vs the two constants that consume it."""
+
+    def setUp(self):
+        self.sites = emitted_outcomes()
+        self.fleet, self.derive = _lib()
+
+    def test_the_scan_finds_every_known_set_point(self):
+        missing = sorted(EMITTED_FLOOR - set(self.sites))
+        self.assertEqual(
+            missing, [],
+            "the LOOP_OUTCOME scan lost set-points %s — the emitted set is the "
+            "input to every assertion below, so a scan that matches nothing "
+            "would make them all pass vacuously" % missing)
+
+    def test_every_emitted_outcome_is_accepted_by_the_fleet_enum(self):
+        enum = set(self.fleet.LOOP_OUTCOME_ENUM)
+        unaccepted = {k: v for k, v in self.sites.items() if k not in enum}
+        self.assertEqual(
+            unaccepted, {},
+            "these outcomes are emitted by the loop but REJECTED by org lint O12: "
+            "%s. The fleet sink is append-only, so one such event hard-blocks "
+            "every subsequent run in team mode. Widen LOOP_OUTCOME_ENUM in "
+            "agentware_lib/ops/fleet/fleetshard.py in the same change."
+            % sorted(unaccepted))
+
+    def test_the_two_local_only_outcomes_are_in_the_union(self):
+        # Named explicitly: the donor enum has neither, and the derived check
+        # above would still pass if a future edit deleted BOTH set-points.
+        for outcome in LOCAL_ONLY_OUTCOMES:
+            self.assertIn(outcome, self.sites,
+                          "%s is no longer emitted by the loop" % outcome)
+            self.assertIn(outcome, self.fleet.LOOP_OUTCOME_ENUM,
+                          "%s is emitted but not in LOOP_OUTCOME_ENUM" % outcome)
+
+    def test_derive_terminal_outcomes_is_narrower_but_never_wider(self):
+        # The two consumers are DELIBERATELY different widths: derive_outcome
+        # trusts a narrow set (the R-EXEC-06 hard blockers are preserved by name
+        # elsewhere so the graph HALT signal survives). Narrower is by design;
+        # WIDER would mean derive trusts a value the sink gate rejects.
+        narrow = set(self.derive._TERMINAL_OUTCOMES)
+        self.assertLessEqual(narrow, set(self.fleet.LOOP_OUTCOME_ENUM))
+        self.assertIn("premise_falsified", narrow,
+                      "the donor tuple omits premise_falsified, which collapses a "
+                      "premise-gate halt to `unknown` in derive_outcome")
+
+    def test_o12_still_rejects_an_outcome_outside_the_enum(self):
+        # Non-vacuity: the union must widen the gate, never disarm it.
+        org = tempfile.mkdtemp(prefix="aw-o12-")
+        self.addCleanup(shutil.rmtree, org, True)
+        shard = os.path.join(org, "teams", "core", "fleet", "probe.jsonl")
+        os.makedirs(os.path.dirname(shard))
+        with open(shard, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps({"event": "terminal", "ts": "2026-08-14",
+                                 "outcome": "not_a_loop_outcome",
+                                 "steering_sha": "deadbeef", "team": "core"}) + "\n")
+        res = _lint_org_out_of_process(org)
+        rules = [e["rule"] for e in res["errors"]]
+        self.assertIn("O12", rules, res)
+
+
+def _lint_org_out_of_process(org_root, drop=None):
+    """Run the REAL lint_org over `org_root` in a clean subprocess -> its result.
+
+    Out of process because AGENTWARE_ORG_ROOT is read at call time and the lib
+    caches config: an in-process env mutation would leak into every later test in
+    the run. `drop` removes one value from LOOP_OUTCOME_ENUM first (the mutation
+    proof) without touching the shipped source.
+    """
+    code = (
+        "import json,os,sys\n"
+        "sys.path.insert(0, sys.argv[1])\n"
+        "import agentware_lib.ops.fleet as f, agentware_lib.ops.orglint as o\n"
+        "drop = os.environ.get('AW_DROP_OUTCOME')\n"
+        "if drop:\n"
+        "    f.LOOP_OUTCOME_ENUM = tuple(x for x in f.LOOP_OUTCOME_ENUM if x != drop)\n"
+        "print(json.dumps(o.lint_org(sys.argv[2])))\n"
+    )
+    env = _clean_org_env(org_root)
+    if drop:
+        env["AW_DROP_OUTCOME"] = drop
+    kdir = os.path.join(org_root, "teams", "core")
+    p = subprocess.run([sys.executable, "-c", code, SCRIPTS_DIR, kdir],
+                       env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                       text=True, timeout=120)
+    if p.returncode != 0:
+        raise AssertionError("lint_org probe failed: %s" % p.stderr)
+    return json.loads(p.stdout.strip().splitlines()[-1])
+
+
+def _clean_org_env(org_root):
+    """Env for an ORG-mode subprocess isolated from the operator's own config."""
+    env = dict(os.environ)
+    env.pop("AW_DROP_OUTCOME", None)
+    env["AGENTWARE_ORG_ROOT"] = org_root
+    env["AGENTWARE_KNOWLEDGE_DIR"] = os.path.join(org_root, "teams", "core")
+    env["AGENTWARE_CONFIG_HOME"] = os.path.join(org_root, "_config")
+    env["HOME"] = os.path.join(org_root, "_home")
+    return env
+
+
+@unittest.skipUnless(_have("bash"), "bash is required to source the gate")
+class OutcomeUnionPreHookTest(unittest.TestCase):
+    """The gate half of the row: a real sink, the real emitter, the real gate.
+
+    The mutation proof ("drop either locally-emitted outcome value from the
+    accepted set: the pre-hook hard-blocks the next run in team mode") is executed
+    rather than described — the enum is narrowed in the subprocess and the SAME
+    gate that proceeds above then exits 1.
+    """
+
+    def setUp(self):
+        self.org = tempfile.mkdtemp(prefix="aw-outcome-union-")
+        self.addCleanup(shutil.rmtree, self.org, True)
+        self.kdir = os.path.join(self.org, "teams", "core")
+        for sub in ("_home", "_config"):
+            os.makedirs(os.path.join(self.org, sub))
+        os.makedirs(self.kdir)
+        self.emitted = sorted(emitted_outcomes())
+        self._emit_a_run_per_outcome()
+
+    def _emit_a_run_per_outcome(self):
+        """Write ONE terminal event per emitted outcome through the REAL emitter.
+
+        cmd_fleet_emit is the only writer of the committed sink, so driving it
+        (rather than hand-writing JSON) proves the bytes the loop actually
+        produces satisfy O12 — schema keys, steering_sha and outcome together.
+        """
+        code = (
+            "import sys\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "import agentware_lib.ops.fleet as f\n"
+            "class A: pass\n"
+            "for oc in sys.argv[2:]:\n"
+            "    a = A(); a.outcome = oc; a.feature = '260813-outcome-union'\n"
+            "    a.format = 'text'\n"
+            "    assert f.cmd_fleet_emit(a) == 0\n"
+        )
+        p = subprocess.run([sys.executable, "-c", code, SCRIPTS_DIR] + self.emitted,
+                           env=_clean_org_env(self.org), stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, text=True, timeout=120)
+        self.assertEqual(p.returncode, 0, p.stdout)
+        shards = glob.glob(os.path.join(self.kdir, "fleet", "*.jsonl"))
+        self.assertEqual(len(shards), 1, "expected one per-user shard: %s" % shards)
+        self.shard = shards[0]
+
+    def _gate(self, phase="pre-hook", drop=None):
+        """Source the SHIPPED orglint.sh and run its gate against the real linter.
+
+        The stub `scripts/agentware` serves only `org lint` (and the `--help`
+        availability probe the gate memoises); everything else exits 2, so a gate
+        that called the wrong thing fails loudly instead of passing.
+        """
+        d = tempfile.mkdtemp(prefix="aw-outcome-gate-")
+        self.addCleanup(shutil.rmtree, d, True)
+        os.makedirs(os.path.join(d, "scripts"))
+        runner = os.path.join(d, "runner.py")
+        with open(runner, "w", encoding="utf-8") as fh:
+            fh.write(
+                "import json, os, sys\n"
+                "sys.path.insert(0, %r)\n"
+                "import agentware_lib.ops.fleet as f, agentware_lib.ops.orglint as o\n"
+                "drop = os.environ.get('AW_DROP_OUTCOME')\n"
+                "if drop:\n"
+                "    f.LOOP_OUTCOME_ENUM = tuple(x for x in f.LOOP_OUTCOME_ENUM"
+                " if x != drop)\n"
+                "r = o.lint_org(%r)\n"
+                "print(json.dumps(r['errors']))\n"
+                "sys.exit(0 if r['ok'] else 1)\n" % (SCRIPTS_DIR, self.kdir))
+        stub = os.path.join(d, "scripts", "agentware")
+        with open(stub, "w", encoding="utf-8") as fh:
+            fh.write("#!/usr/bin/env bash\n"
+                     'for a in "$@"; do [[ "$a" == "--help" ]] && exit 0; done\n'
+                     '[[ "$1" == "org" && "$2" == "lint" ]] || exit 2\n'
+                     'exec %s %s\n' % (sys.executable, runner))
+        os.chmod(stub, 0o755)
+        env = _clean_org_env(self.org)
+        env.pop("AGENTWARE_DISABLE_ORG_LINT", None)
+        if drop:
+            env["AW_DROP_OUTCOME"] = drop
+        script = ('set -e\nlog() { echo "[log] $1"; }\nsource "%s"\n'
+                  'run_org_lint_gate %s\necho PROCEEDED\n' % (ORGLINT_SH, phase))
+        p = subprocess.run(["bash", "-c", script], cwd=d, env=env,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           text=True, timeout=120)
+        return p.returncode, p.stdout
+
+    def test_the_sink_carries_every_outcome_the_loop_can_emit(self):
+        with open(self.shard, encoding="utf-8") as fh:
+            got = {json.loads(l)["outcome"] for l in fh if l.strip()}
+        self.assertEqual(got, set(self.emitted))
+        for outcome in LOCAL_ONLY_OUTCOMES:
+            self.assertIn(outcome, got)
+
+    def test_pre_hook_gate_proceeds_over_a_sink_holding_each_outcome(self):
+        rc, out = self._gate("pre-hook")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("PROCEEDED", out, out)
+
+    def test_post_hook_gate_proceeds_over_the_same_sink(self):
+        # Both call sites read the same enum; a run that emitted a terminal must
+        # not block its own post-hook either.
+        rc, out = self._gate("post-hook")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("PROCEEDED", out, out)
+
+    def test_dropping_either_local_outcome_hard_blocks_the_pre_hook(self):
+        for outcome in LOCAL_ONLY_OUTCOMES:
+            with self.subTest(outcome=outcome):
+                rc, out = self._gate("pre-hook", drop=outcome)
+                self.assertEqual(rc, 1, "dropping %s must abort the pre-hook, "
+                                        "got rc=0\n%s" % (outcome, out))
+                self.assertNotIn("PROCEEDED", out)
+                self.assertIn("org lint failed", out)
+
+    def test_a_second_run_is_blocked_too_because_the_sink_is_append_only(self):
+        # Why this is a HARD block and not a one-off failure: the offending event
+        # stays in the append-only sink, so the NEXT run's pre-hook re-reads it and
+        # aborts before spawning anything. Proven by gating twice.
+        first = self._gate("pre-hook", drop="premise_falsified")[0]
+        second = self._gate("pre-hook", drop="premise_falsified")[0]
+        self.assertEqual((first, second), (1, 1))
 
 
 if __name__ == "__main__":

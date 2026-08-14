@@ -387,8 +387,17 @@ def derive_iteration_costs(events):
     return [by_it[i] for i in sorted(order)]
 
 
+# The outcomes derive_outcome trusts VERBATIM off the metrics ledger. Includes
+# `premise_falsified` (this tree's R-GND-01 halt, plan task 34's decided literal):
+# the donor tuple omits it, which silently collapsed a premise-gate halt to
+# `unknown` and made the gate's precision unmeasurable. Deliberately NARROWER than
+# ops.fleet.LOOP_OUTCOME_ENUM: the R-EXEC-06 hard blockers
+# (adversarial_review_blocked / blocked_on_ambiguity) are preserved BY NAME through
+# _graph_raw_terminal_outcome instead, because mapping them here would collapse the
+# graph HALT signal (recorded in the legacy module's own comment).
 _TERMINAL_OUTCOMES = (
     "completed", "hit_max_iterations", "post_hook_failure", "pre_hook_abort",
+    "premise_falsified",
 )
 
 def _plan_marker_status_counts(plan_path):

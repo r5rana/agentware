@@ -103,10 +103,24 @@ class FixtureShapeTest(unittest.TestCase):
                 self.assertTrue(row.get("reason"), row["name"])
 
     def test_every_divergence_carries_a_decision_and_a_rationale(self):
+        # A LANDED row's two literals are identical BY CONSTRUCTION — landing a
+        # `legacy` decision means writing the legacy literal into the lib, and
+        # _tracked() deliberately KEEPS the row afterwards so the constant stays
+        # guarded. Asserting the literals still differ would therefore redden on
+        # the first successful port (it did, on task 34's _TERMINAL_OUTCOMES).
+        # The contract per state is stricter than the old blanket check: an
+        # unlanded row must still show the divergence it is tracking, and a landed
+        # one must show the DECIDED literal actually in the lib — which the blanket
+        # form never checked at all.
         for row in self.fx["divergent"]:
             self.assertIn(row["decision"], cd.DECISIONS, row["name"])
             self.assertTrue(row["rationale"], row["name"])
-            self.assertNotEqual(row["legacy_literal"], row["lib_literal"])
+            if row.get("landed"):
+                self.assertEqual(row["lib_literal"], row["decided_literal"],
+                                 row["name"])
+            else:
+                self.assertNotEqual(row["legacy_literal"], row["lib_literal"],
+                                    row["name"])
 
     def test_an_unlanded_legacy_decision_names_the_task_that_lands_it(self):
         for row in self.fx["divergent"]:

@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "560e3e00bd96"
+      "git_head": "b7fa9743a9e3"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -5087,7 +5087,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/fleet/fleetshard.py",
-            "line": 181,
+            "line": 200,
             "lang": "python",
             "form": "get()",
             "default": null,

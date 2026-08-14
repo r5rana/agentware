@@ -11,15 +11,30 @@
 # handler as a call site for exactly that reason. Ends with `:` — see args.sh.
 
 # ---- TERMINAL RUN OUTCOME (Task 7) ----
-# The loop can end in one of these terminal states (_TERMINAL_OUTCOMES, mirrored in
-# scripts/agentware): completed / hit_max_iterations / post_hook_failure /
-# pre_hook_abort / premise_falsified (feature 260717 — the premise-grounding gate
-# halt). We track the current intent in LOOP_OUTCOME and emit ONE terminal
-# event on loop exit (see emit_terminal_metric). LOOP_STARTED gates emission to
-# real runs only (never on --help/--dry-run/preflight-dep failures, which exit
-# before the run begins). LOOP_OUTCOME defaults to "unknown" — a value the consumer
-# (derive_outcome) deliberately IGNORES — so an abnormal/interrupted exit never
-# fabricates a definite outcome; only the explicit set-points assert one.
+# Every value assigned to LOOP_OUTCOME anywhere in agentware.sh or scripts/loop/*.sh
+# is a terminal this loop CAN emit. Today that set is:
+#   completed / hit_max_iterations / post_hook_failure / pre_hook_abort /
+#   premise_falsified (the R-GND-01 premise-grounding halt, gates-plan.sh) /
+#   blocked_on_ambiguity + adversarial_review_blocked (the R-EXEC-06 hard blockers) /
+#   unknown (the default — asserts nothing).
+# TWO consumers read that vocabulary and they are DELIBERATELY different widths:
+#   * `_TERMINAL_OUTCOMES` (agentware_lib.ops.derive) — the NARROW set derive_outcome
+#     trusts verbatim. The hard blockers are excluded on purpose and preserved BY
+#     NAME through _graph_raw_terminal_outcome, so the graph HALT signal survives.
+#   * `LOOP_OUTCOME_ENUM` (agentware_lib.ops.fleet) — the WIDE set org lint O12
+#     accepts in the committed fleet sink. It MUST stay a superset of the set above:
+#     an emitted value the enum does not name fails O12, and the org-lint gate then
+#     hard-blocks every subsequent run in team mode (plan task 34).
+# Adding a set-point below therefore means widening LOOP_OUTCOME_ENUM in the same
+# change; tests.test_loop_emission re-derives this set from the shell sources and
+# fails if it ever outgrows the enum.
+#
+# We track the current intent in LOOP_OUTCOME and emit ONE terminal event on loop
+# exit (see emit_terminal_metric). LOOP_STARTED gates emission to real runs only
+# (never on --help/--dry-run/preflight-dep failures, which exit before the run
+# begins). LOOP_OUTCOME defaults to "unknown" — a value the consumer (derive_outcome)
+# deliberately IGNORES — so an abnormal/interrupted exit never fabricates a definite
+# outcome; only the explicit set-points assert one.
 LOOP_STARTED=false
 LOOP_OUTCOME="unknown"
 LOOP_ITERATIONS_USED=0
