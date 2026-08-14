@@ -34,6 +34,18 @@ scripts/agentware audit --with-tests
   extension) and invoked through `main(argv)`, capturing stdout/stderr and exit
   code.
 
+## Gates that guard the suite itself (feature 260813)
+
+Three of the gates here do not test the toolkit — they test whether the suite is
+still *measuring* the toolkit. Every one exists because a green suite and an
+absent suite look identical from the outside.
+
+| Gate | Question it answers |
+|---|---|
+| `test_preserved_gates.py` | READ seam: does every CLI symbol the tests reference still resolve, and are the frozen node ids still collected? |
+| `test_mutation_canary.py` | WRITE seam: does rebinding a symbol on the loaded CLI module still change what the dispatched command prints? `hasattr` cannot tell — it is satisfied by a photograph — so the canary patches, dispatches, and demands the output change. It is proven to bite against a facade whose passthrough is removed and one whose passthrough is an `import` + `globals().update(...)` namespace copy. |
+| `test_suite_delta.py` | Per-commit accounting: did any module's pass count rise without a new test node id? A rise nobody added a test for is a test that stopped exercising something. See `tests/baselines/README.md` for the re-stamp workflow. |
+
 ## Test-naming convention (avoid `-k` collisions)
 
 `python3 -m unittest ... -k <token>` matches the token as a substring of the test

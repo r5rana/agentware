@@ -195,6 +195,24 @@ class LiveGateTest(unittest.TestCase):
         required = names - set(fx["cli_symbols"]["pending_in_destination"])
         self.assertEqual(sorted(required - reachable_symbols(REPO, names)), [])
 
+    def test_the_cli_symbol_gate_is_not_measuring_an_empty_set(self):
+        """Task 28 non-vacuity pin on the READ seam.
+
+        The assertion above is `required - reachable == []`, which an empty
+        `required` satisfies forever -- and `required` is derived from a fixture
+        and a pending list that later tasks edit. So pin the floor, and prove
+        the probe can say NO: a probe that reports every name it is handed as
+        reachable would report a facade with nothing behind it as complete
+        coverage. The WRITE half of this seam is `tests/test_mutation_canary`.
+        """
+        fx = load_fixture()
+        names = set(fx["cli_symbols"]["by_symbol"])
+        required = names - set(fx["cli_symbols"]["pending_in_destination"])
+        self.assertGreaterEqual(len(required), 350)
+        self.assertEqual(
+            reachable_symbols(REPO, {"aw_symbol_no_tree_has_ever_defined"}),
+            set())
+
     def test_head_is_a_SUPERSET_of_the_frozen_local_set(self):
         """Superset, never equality: the freeze must not block later tasks from
         adding tests, only from losing one."""

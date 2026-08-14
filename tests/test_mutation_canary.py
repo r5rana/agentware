@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""The facade WRITE-seam mutation canary (feature 260813, task 28).
+
+Two arms, and the second is the one that makes the first mean anything:
+
+  * LIVE -- the shipped facade at HEAD passes the canary: rebinding a legacy
+    symbol on the loaded CLI module changes what the dispatched command prints.
+  * MUTATION -- the canary REDDENS on a facade whose passthrough is removed,
+    and on the far more dangerous one whose passthrough is an ``import`` +
+    ``globals().update(vars(...))`` namespace COPY. The copy keeps every symbol
+    reachable, so the frozen CLI-symbol gate stays green while every
+    patch-based test in the suite silently asserts nothing.
+
+A gate nobody has ever seen fail is indistinguishable from a gate that cannot
+fail, so the mutations are executed here rather than described.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from _mutation_canary import (  # noqa: E402
+    CANARY_SENTINEL, CANARY_SYMBOL, FACADE_EXEC_ANCHOR, FACADE_KINDS,
+    probe, synthesize_facade, verdict)
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+_OK = {"loaded": True, "reachable": True, "dispatched": True,
+       "before": "/kb", "after": CANARY_SENTINEL, "error": None}
+
+
+def _result(**over):
+    row = dict(_OK)
+    row.update(over)
+    return row
+
+
+class VerdictTest(unittest.TestCase):
+    """PURE semantics: every failure mode, asserted without a real load."""
+
+    def test_a_live_seam_has_no_violations(self):
+        self.assertEqual(verdict(_result()), [])
+
+    def test_a_module_that_fails_to_load_is_a_violation(self):
+        out = verdict(_result(loaded=False, error="LOAD: SystemExit: 2"))
+        self.assertEqual(len(out), 1)
+        self.assertIn("failed to load", out[0])
+        self.assertIn("SystemExit", out[0])
+
+    def test_an_unreachable_symbol_is_a_violation(self):
+        out = verdict(_result(reachable=False, dispatched=False))
+        self.assertTrue(any("not reachable" in v and CANARY_SYMBOL in v
+                            for v in out), out)
+
+    def test_unchanged_output_is_the_dead_write_seam_violation(self):
+        out = verdict(_result(after="/kb"))
+        self.assertEqual(len(out), 1)
+        self.assertIn("WRITE seam is dead", out[0])
+        self.assertIn("vacuous", out[0])
+
+    def test_empty_unpatched_output_is_a_vacuity_violation(self):
+        """A probe that observes nothing cannot observe a change either."""
+        out = verdict(_result(before="", after=CANARY_SENTINEL))
+        self.assertTrue(any("printed nothing" in v for v in out), out)
+
+    def test_output_changing_without_the_sentinel_is_a_violation(self):
+        """Guards the probe itself: if the dispatch reads some OTHER symbol the
+        output could differ for a reason having nothing to do with the patch."""
+        out = verdict(_result(after="/somewhere/else"))
+        self.assertEqual(len(out), 1)
+        self.assertIn("never reached stdout", out[0])
+
+    def test_a_dispatch_error_is_reported_verbatim(self):
+        out = verdict(_result(dispatched=False, error="DISPATCH: KeyError: x"))
+        self.assertTrue(any("KeyError" in v for v in out), out)
+
+
+class LiveCanaryTest(unittest.TestCase):
+    """The real facade at HEAD, loaded and mutated for real."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.result = probe(REPO)
+
+    def test_the_shipped_facade_passes_the_canary(self):
+        self.assertEqual(verdict(self.result), [],
+                         "the facade write seam is broken: %r" % (self.result,))
+
+    def test_the_probe_actually_observed_output_on_both_sides(self):
+        """Non-vacuity: a canary comparing two empty strings 'passes' forever."""
+        self.assertTrue(self.result["before"])
+        self.assertNotEqual(self.result["before"], self.result["after"])
+        self.assertEqual(self.result["after"], CANARY_SENTINEL)
+
+    def test_the_canary_probes_the_file_the_whole_suite_loads(self):
+        """A canary aimed at a different entrypoint than `load_cli` uses would
+        certify a seam nobody's tests actually go through."""
+        from _fixtures import CLI_PATH
+        self.assertEqual(os.path.realpath(CLI_PATH),
+                         os.path.realpath(os.path.join(REPO, "scripts",
+                                                       "agentware")))
+
+    def test_the_probed_symbol_is_owned_by_the_legacy_body_not_the_facade(self):
+        """If the facade itself defined the symbol the probe would prove
+        nothing about the passthrough."""
+        with open(os.path.join(REPO, "scripts", "agentware"),
+                  encoding="utf-8") as fh:
+            facade = fh.read()
+        self.assertNotIn("def %s" % CANARY_SYMBOL, facade)
+        with open(os.path.join(REPO, "scripts", "agentware_legacy.py"),
+                  encoding="utf-8") as fh:
+            self.assertIn("def %s" % CANARY_SYMBOL, fh.read())
+
+
+class MutatedFacadeTest(unittest.TestCase):
+    """Proof the canary bites. Each mutation is one line off the shipped file."""
+
+    def _probe_kind(self, kind):
+        dest = tempfile.mkdtemp(prefix="aw-canary-tree-")
+        self.addCleanup(_rmtree, dest)
+        synthesize_facade(dest, kind, REPO)
+        return probe(dest)
+
+    def test_the_unmutated_synthetic_tree_is_a_passing_control(self):
+        """Without this, a mutation could 'redden' because the scratch tree is
+        broken rather than because the mutation was detected."""
+        self.assertEqual(verdict(self._probe_kind("exec")), [])
+
+    def test_removing_the_passthrough_reddens_the_canary(self):
+        out = verdict(self._probe_kind("absent"))
+        self.assertTrue(out)
+        self.assertTrue(any("not reachable" in v for v in out), out)
+
+    def test_an_import_copy_passthrough_reddens_the_canary(self):
+        """The silent killer: reachable symbols, dead write seam."""
+        result = self._probe_kind("import-copy")
+        self.assertTrue(result["reachable"], "expected the READ seam to survive")
+        self.assertEqual(result["before"], result["after"])
+        out = verdict(result)
+        self.assertTrue(any("WRITE seam is dead" in v for v in out), out)
+
+    def test_the_synthesizer_refuses_a_facade_it_cannot_mutate(self):
+        """The mutations are text edits; if the anchor drifts they become
+        no-ops and both arms above would pass while testing the same file."""
+        fake = tempfile.mkdtemp(prefix="aw-canary-fake-")
+        self.addCleanup(_rmtree, fake)
+        os.makedirs(os.path.join(fake, "scripts"))
+        with open(os.path.join(fake, "scripts", "agentware"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("# a facade with no exec anchor\n")
+        with self.assertRaises(SystemExit):
+            synthesize_facade(tempfile.mkdtemp(prefix="aw-canary-dest-"),
+                              "import-copy", fake)
+
+    def test_the_anchor_matches_the_shipped_facade_exactly_once(self):
+        with open(os.path.join(REPO, "scripts", "agentware"),
+                  encoding="utf-8") as fh:
+            self.assertEqual(fh.read().count(FACADE_EXEC_ANCHOR), 1)
+
+    def test_every_declared_kind_is_synthesizable(self):
+        for kind in FACADE_KINDS:
+            dest = tempfile.mkdtemp(prefix="aw-canary-kind-")
+            self.addCleanup(_rmtree, dest)
+            self.assertTrue(os.path.isfile(synthesize_facade(dest, kind, REPO)))
+        with self.assertRaises(ValueError):
+            synthesize_facade(tempfile.mkdtemp(prefix="aw-x-"), "nope", REPO)
+
+
+def _rmtree(path):
+    import shutil
+    shutil.rmtree(path, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    unittest.main()

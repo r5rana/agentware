@@ -16,9 +16,12 @@ gate, so every later gate can diff against a real number.
 |---|---|
 | `baseline-local.json` | this repository, at the commit recorded in `git_head` |
 | `baseline-donor.json` | the modularised donor working tree, at its `git_head` |
+| `suite-delta-prev.json` | the per-commit delta gate's **before** side (task 28) |
+| `suite-delta-head.json` | the per-commit delta gate's **after** side (task 28) |
 
-Both are produced by `tests/_baseline_capture.py`, which is the only supported
-writer. Do not hand-edit them.
+The first two are produced by `tests/_baseline_capture.py`, the delta pair by
+`tests/_suite_delta.py`. Those are the only supported writers. Do not hand-edit
+any of them.
 
 ## Regenerating
 
@@ -87,4 +90,62 @@ ratchet should compare against.
 - A **fall** in any of those is expected and welcome; a fall is what porting
   work looks like. Ratchets built on these files must be one-directional.
 - A rise in `passed` with no new test node id is a defect, not progress — see
-  the per-commit delta gate (task 28), which reads these same rows.
+  the per-commit delta gate below, which reads these same rows.
+
+## The per-commit delta gate (task 28)
+
+`tests/_suite_delta.py` captures the module rows **and** the collected node ids
+in one pass, at one commit, and `tests/test_suite_delta.py` diffs the recorded
+pair. Capturing both halves together is the point: the counts and the ids can
+never be compared across a skew, so "this module gained two passes" is always
+answerable with "and here are the two node ids that arrived".
+
+The rules, per module:
+
+A pass count may rise by exactly what **new node ids** and **repaired outcomes**
+account for, and no more:
+
+| Shape | Verdict |
+|---|---|
+| `passed` rose by more than (new node ids + non-passing outcomes that became passes) | **violation** — a rise nobody added a test for and nothing was fixed for |
+| `passed` fell by more than (removed node ids + new non-passing outcomes) | **violation** — passes went somewhere unrecorded |
+| `failures + errors` rose | **violation** |
+| `skipped` rose | **violation** — skipping is the cheapest way to make a suite greener |
+| `ran` or `passed` exceeds the module's collected node ids | **violation** — `COUNTS EXCEED COLLECTION`, which is what makes a silently dropped node id fail |
+| `status` left `ok` | **violation** |
+| module gone, every node id collected elsewhere | note: `MOVED` (task 58 relocates the corpus) |
+| module gone, node ids collected nowhere | **violation** — `LOST MODULE` |
+| new module, every pass covered by a genuinely new id | note: `ADDED` |
+| red → green, or skipped → run | note: `REPAIRED`, and it buys exactly that many passes |
+
+What the gate does **not** see: a test whose assertions were gutted also goes
+red → green and reads as a repair. This closes the *arithmetic*; the body differ
+(task 30) and review close the meaning.
+
+Capture both sides **in the same checkout**. Several suites resolve fixtures
+relative to the repo root, so a `git worktree` at another path skips or fails
+tests for reasons that have nothing to do with the commit — three modules
+diverged that way while this gate was being seeded. A pair whose `tree_root`s
+differ is labelled `CHECKOUT SKEW` in the report rather than quietly trusted.
+
+Re-stamping is two commands; run them per commit, always with a scoped
+`AGENTWARE_KNOWLEDGE_DIR` so the live knowledge base is never the target:
+
+```sh
+KB=<durable scratch copy of the knowledge dir>
+
+# the shipped head capture becomes the new before side
+cp tests/baselines/suite-delta-head.json tests/baselines/suite-delta-prev.json
+
+AGENTWARE_KNOWLEDGE_DIR="$KB" python3 tests/_suite_delta.py capture \
+  --root . --label head --out tests/baselines/suite-delta-head.json
+
+python3 tests/_suite_delta.py check \
+  --before tests/baselines/suite-delta-prev.json \
+  --after  tests/baselines/suite-delta-head.json --verbose
+```
+
+A capture that adds the delta gate's OWN module has a self-reference: the first
+capture measures `tests.test_suite_delta` before the artifact it reads exists.
+Capture twice on that one commit and ship the second, so the next commit's
+delta sees the module in the state it actually ships in.
