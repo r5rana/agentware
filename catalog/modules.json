@@ -3196,19 +3196,44 @@
     },
     {
       "anchor_symbols": [
-        "GATE_METRICS",
+        "HeadExtractionError",
         "_ab_head_recall",
         "_ab_verdict",
         "_cleanup_head_cli",
         "_extract_head_cli",
         "_extract_head_scripts",
-        "_gate_exit",
+        "_head_scripts_listing",
         "_print_ab",
+        "_run_ab_gate_ns",
+        "_synthesize_head_marker",
+        "_verify_head_extraction",
+        "install_ab_extraction",
+        "run_ab_gate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.regressiongate.abgate",
+      "not_owns": "the absolute INV-7 baseline gate and the shared exit code (_gate_exit takes this module's ab verdict as its second argument) -> regressiongate.gatebaseline.",
+      "owns": "the RELATIVE clean-HEAD vs working-tree A/B gate (`eval --gate --ab`) -- the read-only whole-scripts/-tree HEAD extraction and its listing-checked COMPLETENESS contract, the HEAD-CLI subprocess scorer, run_ab_gate/_print_ab, and the transitional install_ab_extraction facade seam.",
+      "path": "scripts/agentware_lib/retrieval/regressiongate/abgate.py",
+      "test_file": "tests/unit/retrieval/test_regressiongate.py"
+    },
+    {
+      "anchor_symbols": [
+        "GATE_METRICS",
+        "_gate_exit",
         "_print_gate",
         "_record_and_gate",
         "evaluate_gate",
-        "gate_baseline",
-        "run_ab_gate"
+        "gate_baseline"
       ],
       "depended_on_by": [
         "agentware_lib.ops.releasegate",
@@ -3216,16 +3241,13 @@
       ],
       "dependency_direction": "retrieval -> core, knowledge",
       "depends_on": [
-        "agentware_lib.core.dates",
-        "agentware_lib.core.gitio",
-        "agentware_lib.core.paths",
         "agentware_lib.retrieval.ledger"
       ],
       "layer": "retrieval",
-      "name": "agentware_lib.retrieval.regressiongate",
-      "not_owns": "the append-only benchmark ledger it reads + writes (HISTORY_REL /",
-      "owns": "the deterministic no-regression gate guarding every package update",
-      "path": "scripts/agentware_lib/retrieval/regressiongate.py",
+      "name": "agentware_lib.retrieval.regressiongate.gatebaseline",
+      "not_owns": "the clean-HEAD A/B gate (a different question over different inputs) -> regressiongate.abgate; the append-only benchmark ledger it reads + writes -> retrieval.ledger.",
+      "owns": "the INV-7 ABSOLUTE no-regression gate guarding every package update -- GATE_METRICS, gate_baseline, evaluate_gate, _record_and_gate, _gate_exit, _print_gate.",
+      "path": "scripts/agentware_lib/retrieval/regressiongate/gatebaseline.py",
       "test_file": "tests/unit/retrieval/test_regressiongate.py"
     },
     {

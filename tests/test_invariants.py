@@ -27,10 +27,12 @@ import unittest
 
 try:
     from tests._fixtures import (SyntheticKBTestCase, load_cli, CLI_PATH,
-                                 run_cli, build_synthetic_kb)
+                                 run_cli, build_synthetic_kb,
+                                 first_party_modules)
 except ImportError:  # allow `python3 -m unittest tests.test_invariants`
     from _fixtures import (SyntheticKBTestCase, load_cli, CLI_PATH,
-                           run_cli, build_synthetic_kb)
+                           run_cli, build_synthetic_kb,
+                           first_party_modules)
 
 
 CLI = load_cli()
@@ -69,11 +71,15 @@ class StdlibOnlyTest(unittest.TestCase):
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_cli_imports_are_stdlib_only(self):
         # sys.stdlib_module_names is the authoritative stdlib set (py3.10+).
+        # First-party in-repo modules are not DEPENDENCIES (see
+        # _fixtures.first_party_modules): the entrypoint imports its own
+        # `agentware_lib` package, which installs nothing and ships in the clone.
         stdlib = set(sys.stdlib_module_names)
         builtin = set(sys.builtin_module_names)
+        first_party = first_party_modules()
         offenders = sorted(
             m for m in _imported_top_modules(CLI_PATH)
-            if m not in stdlib and m not in builtin)
+            if m not in stdlib and m not in builtin and m not in first_party)
         self.assertEqual(
             offenders, [],
             "scripts/agentware imports non-stdlib modules: %s (INV-6 violated)"

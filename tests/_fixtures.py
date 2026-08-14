@@ -31,6 +31,33 @@ LEGACY_PATH = os.path.join(REPO_ROOT, "scripts", "agentware_legacy.py")
 _CLI_MODULE = None
 
 
+def first_party_modules():
+    """Top-level module names that SHIP IN THIS REPO under `scripts/`.
+
+    INV-6 is "zero hard DEPENDENCIES", not "zero imports": a name that resolves
+    to a file the clone already carries installs nothing, downloads nothing and
+    cannot go missing. `agentware_lib` is the package's own decomposed body, so
+    the stdlib-only scans must not read it as a third-party dependency — but
+    they must go on catching a real one.
+
+    DERIVED from disk, never hardcoded: a hardcoded allowlist is how a scan
+    keeps passing after the thing it allowed was renamed, and this migration
+    renames modules constantly. Anything that appears under `scripts/` without
+    being committed here would still have to be a tracked repo file to appear at
+    all, which is the property the check actually cares about.
+    """
+    scripts = os.path.join(REPO_ROOT, "scripts")
+    names = set()
+    for entry in os.listdir(scripts):
+        full = os.path.join(scripts, entry)
+        if entry.endswith(".py"):
+            names.add(entry[:-3])
+        elif os.path.isdir(full) and os.path.isfile(
+                os.path.join(full, "__init__.py")):
+            names.add(entry)
+    return names
+
+
 def cli_source():
     """The CLI IMPLEMENTATION source, wherever it currently lives.
 

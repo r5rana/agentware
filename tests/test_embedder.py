@@ -22,10 +22,10 @@ import tempfile
 import unittest
 
 try:
-    from tests._fixtures import load_cli, CLI_PATH
+    from tests._fixtures import load_cli, CLI_PATH, first_party_modules
 except ImportError:  # direct invocation: `python3 tests/test_embedder.py`
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from _fixtures import load_cli, CLI_PATH
+    from _fixtures import load_cli, CLI_PATH, first_party_modules
 
 
 # A deterministic, dependency-free stub backend written to a temp file and
@@ -132,7 +132,12 @@ class EmbedderBackendTest(unittest.TestCase):
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_toolkit_does_not_statically_import_backend_or_network(self):
         mods = _imported_top_modules(CLI_PATH)
+        # First-party in-repo modules are not DEPENDENCIES: `agentware_lib` is
+        # the package's own decomposed body, shipped in the clone, installing
+        # nothing (see _fixtures.first_party_modules). A real third-party import
+        # still reddens this.
         stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
+        stdlib |= first_party_modules()
         offenders = sorted(m for m in mods if m not in stdlib)
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
         # The optional backend module is loaded dynamically, never statically.

@@ -27,10 +27,18 @@ This file is therefore only three things:
     copy is a silent no-op — the exact "green means nothing" seam task 28 gates
     with its mutation canary.
 
-  * the DISPATCH TAIL, which is legacy's own ``if __name__ == "__main__"`` guard
-    carried in by that exec. The guard is NON-NEGOTIABLE: ``load_cli()``
+  * the POST-EXEC WIRING — the one place a lib repair can reach the still-legacy
+    implementation of a verb that is not yet ported (task 26's layout-aware A/B
+    HEAD extraction);
+
+  * the DISPATCH TAIL. The guard is NON-NEGOTIABLE: ``load_cli()``
     exec_module()s this file, so an unguarded ``sys.exit(...)`` would run
-    ``main()`` at import time and raise SystemExit inside every test.
+    ``main()`` at import time and raise SystemExit inside every test. It is
+    carried HERE rather than left at the end of the exec'd legacy body because
+    the exec runs to completion before anything after it: leaving the guard
+    inside would dispatch and ``sys.exit`` before the wiring above ever ran —
+    and would do so ONLY under the real CLI, never under ``load_cli()``'s
+    non-``__main__`` load. Tests would be green on wiring production never had.
 
 Nothing of substance is defined here, and nothing here may grow: the ported
 surface belongs in ``agentware_lib``, never in this file. The explicit
@@ -69,6 +77,33 @@ if not os.path.isfile(_LEGACY_PATH):  # pragma: no cover - install integrity
 with open(_LEGACY_PATH, encoding="utf-8") as _legacy_fh:
     _LEGACY_SOURCE = _legacy_fh.read()
 
-# Everything below this line is defined by the exec: the whole legacy namespace,
-# including its `if __name__ == "__main__": sys.exit(main())` dispatch tail.
-exec(compile(_LEGACY_SOURCE, _LEGACY_PATH, "exec"), globals())
+# Split legacy's own dispatch tail off the body so the post-exec wiring below is
+# reachable under the real CLI (see the docstring). The split is by EXACT text
+# and fails loud: a legacy tail that ever changes shape must stop the CLI, not
+# silently skip the wiring. Line numbers in the body are untouched, so
+# tracebacks and inspect.getsource() still point at the real legacy source line.
+_LEGACY_TAIL = '\nif __name__ == "__main__":\n    sys.exit(main())\n'
+_LEGACY_BODY, _FOUND, _AFTER = _LEGACY_SOURCE.rpartition(_LEGACY_TAIL)
+if not _FOUND or _AFTER.strip():
+    sys.stderr.write("agentware: legacy dispatch tail not found in %s\n"
+                     % _LEGACY_PATH)
+    raise SystemExit(2)
+
+# Everything below this line is defined by the exec: the whole legacy namespace.
+exec(compile(_LEGACY_BODY, _LEGACY_PATH, "exec"), globals())
+
+# --- post-exec wiring ---------------------------------------------------------
+# Layout-aware clean-HEAD A/B extraction (task 26). The legacy `eval --ab` arm
+# extracts a single flat `HEAD:scripts/agentware` blob and runs it — which under
+# THIS layout is the facade above, with no agentware_lib and no agentware_legacy
+# behind it. The arm cannot start, scores nothing, and reports
+# `available: False, passed: True`: the R-PKG-05 gate passing without comparing
+# anything. The lib owns the repair; this rebinds the A/B family in the namespace
+# the legacy body was exec'd into. Retired with the passthrough at task 56.
+from agentware_lib.retrieval import regressiongate as _regressiongate  # noqa: E402
+
+_regressiongate.install_ab_extraction(globals())
+
+# --- dispatch tail (legacy's own guard, carried here verbatim) ----------------
+if __name__ == "__main__":
+    sys.exit(main())

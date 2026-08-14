@@ -26,12 +26,24 @@ import tempfile
 import unittest
 
 try:
-    from tests._fixtures import SyntheticKBTestCase, load_cli, CLI_PATH
+    from tests._fixtures import (SyntheticKBTestCase, load_cli, CLI_PATH,
+                                 LEGACY_PATH)
 except ImportError:  # allow `python3 -m unittest tests.test_eval_pinning`
-    from _fixtures import SyntheticKBTestCase, load_cli, CLI_PATH
+    from _fixtures import (SyntheticKBTestCase, load_cli, CLI_PATH,
+                           LEGACY_PATH)
 
 
 CLI = load_cli()
+
+# load_cli() puts scripts/ on sys.path, so the OWNING module of the A/B HEAD
+# extraction is importable by name. Addressing the owner directly (rather than
+# only through the facade) is what lets the negative test patch the extraction
+# the way the real caller resolves it.
+from agentware_lib.retrieval import regressiongate as RG  # noqa: E402
+# The aggregator package re-export is a NAME COPY: patching RG.<name> rebinds a
+# name the A/B code never reads, because _extract_head_cli resolves its
+# collaborators in the OWNING submodule's globals. Patch targets address `AB`.
+from agentware_lib.retrieval.regressiongate import abgate as AB  # noqa: E402
 
 
 # A distinct extra entry to GROW the synthetic corpus (mirrors a live KB that
@@ -247,22 +259,35 @@ class ABGateIntegrationTest(SyntheticKBTestCase):
             json.dump(gold, f)
         return path
 
-    def test_noop_ab_passes_delta_zero(self):
-        if shutil.which("git") is None:
-            self.skipTest("git not available")
+    def _scratch_repo(self):
+        """A temp git repo whose HEAD carries the WHOLE scripts/ package.
+
+        Copying only the entrypoint was correct while the entrypoint WAS the
+        implementation. Under the strangler layout it is a ~100-line facade with
+        no agentware_lib and no agentware_legacy behind it, so the HEAD arm can
+        no longer start — which is the defect task 26 closes, not something to
+        assert around.
+        """
         repo = tempfile.mkdtemp(prefix="agentware-ab-repo-")
         self.addCleanup(shutil.rmtree, repo, True)
-        os.makedirs(os.path.join(repo, "scripts"))
-        shutil.copy2(CLI_PATH, os.path.join(repo, "scripts", "agentware"))
+        shutil.copytree(os.path.dirname(CLI_PATH), os.path.join(repo, "scripts"),
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc",
+                                                      ".DS_Store"))
         if self._git(repo, "init", "-q").returncode != 0:
             self.skipTest("git init failed")
         self._git(repo, "add", "-A")
         if self._git(repo, "commit", "-q", "-m", "base").returncode != 0:
             self.skipTest("git commit failed")
-        self._write_gold()
         orig_root = CLI.REPO_ROOT
         CLI.REPO_ROOT = repo
         self.addCleanup(setattr, CLI, "REPO_ROOT", orig_root)
+        return repo
+
+    def test_noop_ab_passes_delta_zero(self):
+        if shutil.which("git") is None:
+            self.skipTest("git not available")
+        repo = self._scratch_repo()
+        self._write_gold()
         code, out, err = self.run_cli(
             ["eval", "--strategy", "bm25", "--ab", "--format", "json"])
         self.assertEqual(code, 0, err)
@@ -273,6 +298,154 @@ class ABGateIntegrationTest(SyntheticKBTestCase):
         # Read-only: the HEAD extraction must not have dirtied the temp work tree.
         status = self._git(repo, "status", "--porcelain")
         self.assertEqual(status.stdout.strip(), "")
+
+    def test_head_arm_materialises_the_whole_package(self):
+        """The extraction must land every path git lists at HEAD, not one blob.
+
+        This is the positive half of the task-26 repair: a single-blob extraction
+        would satisfy `os.path.isfile(entry)` and still be missing the package.
+        """
+        if shutil.which("git") is None:
+            self.skipTest("git not available")
+        repo = self._scratch_repo()
+        listing = RG._head_scripts_listing(repo)
+        self.assertTrue(any(p.startswith("scripts/agentware_lib/") for p in listing),
+                        "scratch HEAD carries no lib modules to extract")
+        head_path, head_commit = RG._extract_head_cli(repo_root=repo)
+        self.addCleanup(RG._cleanup_head_cli, head_path)
+        self.assertTrue(head_commit)
+        tmpdir = os.path.dirname(os.path.dirname(head_path))
+        missing = [p for p in listing
+                   if not os.path.exists(os.path.join(tmpdir, p))]
+        self.assertEqual(missing, [], "HEAD extraction dropped %d path(s)"
+                         % len(missing))
+        # The marker the split package's REPO_ROOT walk needs.
+        self.assertTrue(os.path.exists(os.path.join(tmpdir, "AGENTS.md")))
+
+    def test_missing_lib_module_reddens_with_named_error(self):
+        """Dropping ONE lib module from the extraction must FAIL, by name.
+
+        The pre-task-26 failure mode is the whole point: the HEAD subprocess dies
+        on the missing import, `_ab_head_recall` returns None, and the arm
+        reports `available: False, passed: True` — indistinguishable from "no git
+        here" and therefore a green gate over an arm that never ran.
+        """
+        if shutil.which("git") is None:
+            self.skipTest("git not available")
+        repo = self._scratch_repo()
+        # Derived, never hardcoded: a module PATH is exactly the thing this
+        # migration keeps moving, and a gate keyed to a literal path silently
+        # changes subject the day the file moves.
+        victim = sorted(p for p in RG._head_scripts_listing(repo)
+                        if p.startswith("scripts/agentware_lib/")
+                        and p.endswith(".py"))[0]
+
+        real = AB._extract_head_scripts
+
+        def _lossy(tmpdir, repo_root=None):
+            ok = real(tmpdir, repo_root)
+            try:
+                os.unlink(os.path.join(tmpdir, victim))
+            except OSError:
+                pass
+            return ok
+
+        AB._extract_head_scripts = _lossy
+        self.addCleanup(setattr, AB, "_extract_head_scripts", real)
+
+        with self.assertRaises(CLI.HeadExtractionError) as caught:
+            AB._extract_head_cli(repo_root=repo)
+        self.assertIn(victim, caught.exception.missing)
+        self.assertIn(victim, str(caught.exception))
+
+        # ...and the gate that consumes it goes RED, naming the module.
+        result = {"metrics": {"recall_at_k": 0.8}, "strategy": "bm25",
+                  "top_k": 5, "as_of": "2026-06-26"}
+        ab = CLI.run_ab_gate(_ABArgs(), self.kdir, result, "/tmp/gold.json")
+        self.assertFalse(ab["passed"], ab)
+        self.assertIn(victim, ab["error"])
+        self.assertIn(victim, ab["missing"])
+        self.assertEqual(CLI._gate_exit(None, ab), 1)
+
+
+class HeadExtractionCompletenessTest(unittest.TestCase):
+    """`_verify_head_extraction` is pure over (tmpdir, listing) — no git, no
+    subprocess — so the completeness contract is testable without a repo."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp(prefix="agentware-verify-")
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
+
+    def _touch(self, rel):
+        dest = os.path.join(self.tmpdir, rel)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write("x")
+
+    def test_complete_extraction_verifies(self):
+        listing = ["scripts/agentware", "scripts/agentware_lib/cli.py"]
+        for rel in listing:
+            self._touch(rel)
+        self.assertTrue(RG._verify_head_extraction(self.tmpdir, listing))
+
+    def test_missing_path_raises_naming_it(self):
+        listing = ["scripts/agentware", "scripts/agentware_lib/cli.py"]
+        self._touch("scripts/agentware")
+        with self.assertRaises(RG.HeadExtractionError) as caught:
+            RG._verify_head_extraction(self.tmpdir, listing)
+        self.assertEqual(caught.exception.missing,
+                         ["scripts/agentware_lib/cli.py"])
+        self.assertIn("scripts/agentware_lib/cli.py", str(caught.exception))
+
+    def test_empty_listing_is_vacuously_complete(self):
+        # An ABSENT tree is not a BROKEN one: _extract_head_cli returns
+        # (None, None) for that case and the gate keeps passing on it.
+        self.assertTrue(RG._verify_head_extraction(self.tmpdir, []))
+
+
+class ABInstallSeamTest(unittest.TestCase):
+    """The facade's post-exec wiring must be a WRITE seam, not a photograph.
+
+    Task 25's recorded lesson: an indirection that satisfies `hasattr` but does
+    not carry a monkeypatch through is exactly how a gate reports full coverage
+    while measuring nothing."""
+
+    def test_facade_ab_family_is_the_lib_one(self):
+        self.assertIs(CLI._verify_head_extraction, RG._verify_head_extraction)
+        self.assertIs(CLI.HeadExtractionError, RG.HeadExtractionError)
+        self.assertIs(CLI._cleanup_head_cli, RG._cleanup_head_cli)
+
+    def test_installed_run_ab_gate_honours_a_monkeypatch(self):
+        orig_extract, orig_head = CLI._extract_head_cli, CLI._ab_head_recall
+        self.addCleanup(setattr, CLI, "_extract_head_cli", orig_extract)
+        self.addCleanup(setattr, CLI, "_ab_head_recall", orig_head)
+        CLI._extract_head_cli = lambda: ("/nonexistent/head.py", "deadbee")
+        CLI._ab_head_recall = lambda *a, **k: 0.42
+        result = {"metrics": {"recall_at_k": 0.42}, "strategy": "bm25",
+                  "top_k": 5, "as_of": "2026-06-26"}
+        ab = CLI.run_ab_gate(_ABArgs(), "/tmp/kdir", result, "/tmp/gold.json")
+        self.assertEqual(ab["head_commit"], "deadbee")
+        self.assertTrue(ab["available"], ab)
+        self.assertAlmostEqual(ab["delta"], 0.0)
+
+    def test_dispatch_tail_lives_in_the_facade_not_the_exec(self):
+        """The guard must sit AFTER the wiring, or the wiring is tests-only.
+
+        Under the real CLI `__name__ == "__main__"`, so a guard left at the end
+        of the exec'd legacy body would `sys.exit(main())` before any post-exec
+        statement ran — while `load_cli()`'s non-`__main__` load would run them
+        all. Green tests, unwired production.
+        """
+        with open(CLI_PATH, encoding="utf-8") as f:
+            facade = f.read()
+        install_at = facade.index("install_ab_extraction(globals())")
+        guard_at = facade.rindex('if __name__ == "__main__":')
+        self.assertLess(install_at, guard_at)
+        with open(LEGACY_PATH, encoding="utf-8") as f:
+            legacy = f.read()
+        # The facade must still be splitting off a tail that actually exists.
+        self.assertIn('\nif __name__ == "__main__":\n    sys.exit(main())\n',
+                      legacy)
 
 
 class GoldFixtureSuiteTest(SyntheticKBTestCase):

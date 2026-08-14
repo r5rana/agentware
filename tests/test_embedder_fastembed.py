@@ -25,11 +25,11 @@ import unittest
 
 try:
     from tests._fixtures import (load_cli, run_cli, build_synthetic_kb,
-                                 CLI_PATH, REPO_ROOT)
+                                 CLI_PATH, REPO_ROOT, first_party_modules)
 except ImportError:  # direct invocation
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from _fixtures import (load_cli, run_cli, build_synthetic_kb,
-                           CLI_PATH, REPO_ROOT)
+                           CLI_PATH, REPO_ROOT, first_party_modules)
 
 SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 FASTEMBED_BACKEND = "agentware_embedder_fastembed"
@@ -123,7 +123,12 @@ class FastEmbedGracefulDegradeTest(_BackendTestBase):
                      "sys.stdlib_module_names requires Python 3.10+")
     def test_toolkit_static_import_surface_is_stdlib_only(self):
         mods = _imported_top_modules(CLI_PATH)
+        # First-party in-repo modules are not DEPENDENCIES: `agentware_lib` is
+        # the package's own decomposed body, shipped in the clone, installing
+        # nothing (see _fixtures.first_party_modules). A real third-party import
+        # still reddens this.
         stdlib = set(sys.stdlib_module_names) | set(sys.builtin_module_names)
+        stdlib |= first_party_modules()
         offenders = sorted(m for m in mods if m not in stdlib)
         self.assertEqual(offenders, [], "non-stdlib static imports: %s" % offenders)
         # The optional backends + fastembed are loaded dynamically, never statically.
