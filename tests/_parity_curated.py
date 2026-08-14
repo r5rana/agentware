@@ -478,4 +478,32 @@ CURATED_ROWS = [
          "smaller and is deletable when empty",
          LOCAL, 32, "tests.test_legacy_ratchet",
          "raise the high-water mark: legacy is allowed to grow again"),
+    _row("mod:legacy-shrink-port-coupling", "modularity",
+         "The ratchet's PER-HANDLER coupling: a cmd_* name may leave "
+         "agentware_legacy.py only if a newly-appended PORTED_VERBS member — "
+         "itself a real union verb — accounts for it by name, so a deletion is "
+         "never mistaken for a port",
+         LOCAL, 32, "tests.test_legacy_ratchet",
+         "delete one handler that no newly-ported verb accounts for while "
+         "porting another, or credit a shrink to a token outside the union "
+         "fixture: --record must refuse and name the orphan"),
+    _row("mod:symmetric-promotion-gate", "modularity",
+         "The SYMMETRIC per-verb promotion gate: a verb joins the strangler "
+         "allowlist only once its modular surface covers the UNION fixture on "
+         "kind, required, nargs, default, choices, type and subparsers dest — "
+         "not on flag names",
+         BOTH, 32, "tests.test_promotion_gate",
+         "narrow a choices set, move a default off its decided value, drop a "
+         "required flag or rename a subparsers dest while leaving every option "
+         "string spelled the same: each must redden on its own, naming the field"),
+    _row("mod:donor-only-verb-presence", "modularity",
+         "The PRESENCE gate over the six donor-only verbs (fleet, fleet-emit, "
+         "org, team, templates, work), which legacy-default routing can never "
+         "resolve, plus the stub and routing checks no surface comparison can "
+         "express",
+         DONOR, 32, "tests.test_presence_gate",
+         "delete any one of the six from the modular parser, reduce one to a "
+         "stub with no subcommands and no arguments of its own, or allowlist "
+         "one under a token the router's argv scan cannot resolve: the gate "
+         "names that verb"),
 ]

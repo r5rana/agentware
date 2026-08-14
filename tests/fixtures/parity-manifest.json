@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 543,
+    "rows": 546,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
@@ -44,20 +44,20 @@
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
-      "modularity": 5,
+      "modularity": 8,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 6,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 534,
+      "required": 537,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 481,
-      "curated": 57,
+      "curated": 60,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -69,7 +69,7 @@
       "evaluation_quality": 1,
       "kb_integrity": 6,
       "loop_orchestration": 4,
-      "modularity": 4,
+      "modularity": 6,
       "org_team": 7,
       "retrieval_policy": 2,
       "security_trust": 4,
@@ -3253,6 +3253,21 @@
       }
     },
     {
+      "id": "mod:donor-only-verb-presence",
+      "dimension": "modularity",
+      "capability": "The PRESENCE gate over the six donor-only verbs (fleet, fleet-emit, org, team, templates, work), which legacy-default routing can never resolve, plus the stub and routing checks no surface comparison can express",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 32,
+      "evidence": {
+        "test": "tests.test_presence_gate",
+        "mutation": "delete any one of the six from the modular parser, reduce one to a stub with no subcommands and no arguments of its own, or allowlist one under a token the router's argv scan cannot resolve: the gate names that verb"
+      }
+    },
+    {
       "id": "mod:legacy-shrink-only-ratchet",
       "dimension": "modularity",
       "capability": "The shrink-only legacy ratchet, so agentware_legacy.py can only get smaller and is deletable when empty",
@@ -3265,6 +3280,21 @@
       "evidence": {
         "test": "tests.test_legacy_ratchet",
         "mutation": "raise the high-water mark: legacy is allowed to grow again"
+      }
+    },
+    {
+      "id": "mod:legacy-shrink-port-coupling",
+      "dimension": "modularity",
+      "capability": "The ratchet's PER-HANDLER coupling: a cmd_* name may leave agentware_legacy.py only if a newly-appended PORTED_VERBS member \u2014 itself a real union verb \u2014 accounts for it by name, so a deletion is never mistaken for a port",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 32,
+      "evidence": {
+        "test": "tests.test_legacy_ratchet",
+        "mutation": "delete one handler that no newly-ported verb accounts for while porting another, or credit a shrink to a token outside the union fixture: --record must refuse and name the orphan"
       }
     },
     {
@@ -3311,6 +3341,22 @@
       "evidence": {
         "test": "tests.test_modularity_negative",
         "mutation": "add a function over the per-function cap inside a small file: the negative test must redden on that shape alone"
+      }
+    },
+    {
+      "id": "mod:symmetric-promotion-gate",
+      "dimension": "modularity",
+      "capability": "The SYMMETRIC per-verb promotion gate: a verb joins the strangler allowlist only once its modular surface covers the UNION fixture on kind, required, nargs, default, choices, type and subparsers dest \u2014 not on flag names",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 32,
+      "evidence": {
+        "test": "tests.test_promotion_gate",
+        "mutation": "narrow a choices set, move a default off its decided value, drop a required flag or rename a subparsers dest while leaving every option string spelled the same: each must redden on its own, naming the field"
       }
     },
     {

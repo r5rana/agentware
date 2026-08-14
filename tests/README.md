@@ -46,6 +46,24 @@ absent suite look identical from the outside.
 | `test_mutation_canary.py` | WRITE seam: does rebinding a symbol on the loaded CLI module still change what the dispatched command prints? `hasattr` cannot tell — it is satisfied by a photograph — so the canary patches, dispatches, and demands the output change. It is proven to bite against a facade whose passthrough is removed and one whose passthrough is an `import` + `globals().update(...)` namespace copy. |
 | `test_suite_delta.py` | Per-commit accounting: did any module's pass count rise without a new test node id? A rise nobody added a test for is a test that stopped exercising something. See `tests/baselines/README.md` for the re-stamp workflow. |
 
+## Transitional gates for the strangler migration (feature 260813 task 32)
+
+Three gates exist only while the tree has two halves — the modular
+`agentware_lib` and the preserved monolith — and they answer the three questions
+legacy-default routing (task 29) makes possible to get wrong. Each is runnable
+on its own as well as through its suite.
+
+| Gate | Question it answers | Run it |
+|---|---|---|
+| `test_legacy_ratchet.py` | Is `scripts/agentware_legacy.py` still only ever getting SMALLER, and did every deleted handler leave as half of a PORT rather than into thin air? Ceilings are `legacy_lines` and `legacy_bytes` (whitespace-insensitive, so reflowing or relocating code into a class is not a shrink); `legacy_defs` and `legacy_handlers` are NAME SETS that may only lose members; `strangler.PORTED_VERBS` is a grow-only floor. `--record` refuses to loosen any of them and enforces the coupling PER HANDLER — `cmd_<verb>[_<sub>]` must name a verb appended in the same commit, and that verb must itself be in the union fixture. There is no flag to skip it. | `python3 tests/_legacy_ratchet.py --strict` · re-record after a port with `--record` |
+| `test_promotion_gate.py` | May this verb join the allowlist — does its surface cover the BINDING UNION on `kind`, `required`, `nargs`, `default`, `choices`, `type` and the subparsers `dest`, not on flag names? Two arms: a verb served by the lib (ported or donor-only) is compared against the union, an unported one against `surface-local.json` (what `aw-pre-merge` served), reading the parser the entrypoint really builds rather than the file on disk. | `python3 tests/_promotion_gate.py` · `--verb <v> --readiness` before an append |
+| `test_presence_gate.py` | Are the six donor-only verbs (`fleet`, `fleet-emit`, `org`, `team`, `templates`, `work`) present, complete, non-STUB and ROUTABLE in the modular tree? Nothing else can ask: legacy has no handler for them, so a stub satisfies every surface comparison, and being registered is not the same as being reachable — a verb absent from `PORTED_VERBS` is reported as pending, never as passed. | `python3 tests/_presence_gate.py` |
+
+The ratchet and the promotion gate's unported arm retire with the passthrough at
+task 56 — both treat the monolith's absence as a terminal state rather than an
+error. The presence gate does not retire: those six verbs must still be there,
+and reachable, long after the monolith is gone.
+
 ## Test-naming convention (avoid `-k` collisions)
 
 `python3 -m unittest ... -k <token>` matches the token as a substring of the test
