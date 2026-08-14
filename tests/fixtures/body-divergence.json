@@ -1,0 +1,3473 @@
+{
+ "schema": "agentware/body-divergence@1",
+ "generated_by": "tests/_body_differ.py --write --donor <donor>",
+ "normalisation": "ast.unparse of the function's body statements joined by newlines, docstring included",
+ "scope": {
+  "local": "scripts/**.py minus agentware_lib/** (agentware_legacy.py stands in for the pre-merge entrypoint)",
+  "donor": "scripts/**.py",
+  "merged": "scripts/**.py plus the extensionless scripts/agentware facade"
+ },
+ "counts": {
+  "shared": 580,
+  "identical": 338,
+  "divergent": 242
+ },
+ "rows": [
+  {
+   "name": "_alerts_kb",
+   "local_chars": 741,
+   "donor_chars": 752,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/alerts.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 752
+  },
+  {
+   "name": "_alerts_loop",
+   "local_chars": 558,
+   "donor_chars": 570,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/alerts.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 570
+  },
+  {
+   "name": "_alerts_unpromoted",
+   "local_chars": 823,
+   "donor_chars": 855,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/alerts.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 855
+  },
+  {
+   "name": "_append_graph_health_metric",
+   "local_chars": 665,
+   "donor_chars": 677,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 677
+  },
+  {
+   "name": "_apply_skill_pin",
+   "local_chars": 2325,
+   "donor_chars": 896,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/skillpin.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2325
+  },
+  {
+   "name": "_attach_migrate_structure",
+   "local_chars": 880,
+   "donor_chars": 913,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/attach.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 913
+  },
+  {
+   "name": "_audit_bm25_cache_check",
+   "local_chars": 1136,
+   "donor_chars": 1148,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1148
+  },
+  {
+   "name": "_audit_dream_health_check",
+   "local_chars": 1694,
+   "donor_chars": 1702,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dream.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1702
+  },
+  {
+   "name": "_audit_gate_check",
+   "local_chars": 2178,
+   "donor_chars": 2189,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2189
+  },
+  {
+   "name": "_audit_graph_integrity_check",
+   "local_chars": 1034,
+   "donor_chars": 1064,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1064
+  },
+  {
+   "name": "_audit_mode_b_health_check",
+   "local_chars": 2788,
+   "donor_chars": 2878,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2878
+  },
+  {
+   "name": "_audit_personal_data_check",
+   "local_chars": 584,
+   "donor_chars": 600,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 600
+  },
+  {
+   "name": "_audit_provenance_coverage_check",
+   "local_chars": 1028,
+   "donor_chars": 1049,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1049
+  },
+  {
+   "name": "_audit_steering_lint_check",
+   "local_chars": 543,
+   "donor_chars": 553,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 553
+  },
+  {
+   "name": "_audit_tests_check",
+   "local_chars": 1317,
+   "donor_chars": 1325,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1325
+  },
+  {
+   "name": "_bm25_index",
+   "local_chars": 641,
+   "donor_chars": 649,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 649
+  },
+  {
+   "name": "_catalog_skill_names_at_ref",
+   "local_chars": 571,
+   "donor_chars": 583,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/updatecmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 583
+  },
+  {
+   "name": "_copy_skill_tree",
+   "local_chars": 871,
+   "donor_chars": 685,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/skills.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 871
+  },
+  {
+   "name": "_cost_record",
+   "local_chars": 249,
+   "donor_chars": 277,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 277
+  },
+  {
+   "name": "_determinism_check",
+   "local_chars": 425,
+   "donor_chars": 453,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 453
+  },
+  {
+   "name": "_determinism_check_at",
+   "local_chars": 611,
+   "donor_chars": 639,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 639
+  },
+  {
+   "name": "_do_add",
+   "local_chars": 1172,
+   "donor_chars": 1190,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1190
+  },
+  {
+   "name": "_dream_cli_path",
+   "local_chars": 118,
+   "donor_chars": 124,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsched.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 124
+  },
+  {
+   "name": "_dream_emit_metric",
+   "local_chars": 1011,
+   "donor_chars": 1018,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamjournal.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1018
+  },
+  {
+   "name": "_dream_health_gate_checks",
+   "local_chars": 4696,
+   "donor_chars": 4854,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "decomposed",
+   "winner_chars": 4854,
+   "host": "scripts/agentware_lib/features/dreamsteps/stephealthgate.py",
+   "floor_chars": 699,
+   "absorbs": [
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_config",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_cron",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_gitignore",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_identity",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_kb_structure",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_kdir_drift",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_rebase",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_sentinel",
+    "scripts/agentware_lib/features/dreamsteps/stephealthgate.py::_dream_hg_check_templates"
+   ],
+   "rationale": "Task 21 split the dream step module into one file per step; the nine health checks became named helpers in the same file. Logic relocated, not removed."
+  },
+  {
+   "name": "_dream_install_schedule",
+   "local_chars": 2197,
+   "donor_chars": 2264,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsched.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2264
+  },
+  {
+   "name": "_dream_lock_path",
+   "local_chars": 262,
+   "donor_chars": 41,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamgate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 262
+  },
+  {
+   "name": "_dream_render_detect_report",
+   "local_chars": 3599,
+   "donor_chars": 2269,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3599
+  },
+  {
+   "name": "_dream_scheduler_log_path",
+   "local_chars": 528,
+   "donor_chars": 535,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsched.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 535
+  },
+  {
+   "name": "_dream_skip_output",
+   "local_chars": 347,
+   "donor_chars": 353,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamjournal.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 353
+  },
+  {
+   "name": "_dream_step_audit",
+   "local_chars": 1709,
+   "donor_chars": 1606,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1709
+  },
+  {
+   "name": "_dream_step_bench_redact",
+   "local_chars": 726,
+   "donor_chars": 752,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 752
+  },
+  {
+   "name": "_dream_step_detect_report",
+   "local_chars": 3828,
+   "donor_chars": 1510,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3828
+  },
+  {
+   "name": "_dream_step_eval_record",
+   "local_chars": 1268,
+   "donor_chars": 1198,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1268
+  },
+  {
+   "name": "_dream_step_index_rebuild",
+   "local_chars": 798,
+   "donor_chars": 824,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 824
+  },
+  {
+   "name": "_dream_step_kb_git",
+   "local_chars": 1604,
+   "donor_chars": 1653,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1653
+  },
+  {
+   "name": "_dream_step_kb_pull",
+   "local_chars": 3833,
+   "donor_chars": 3711,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamsteps.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3833
+  },
+  {
+   "name": "_embed_corpus_vectors",
+   "local_chars": 1311,
+   "donor_chars": 1337,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/hybrid.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1337
+  },
+  {
+   "name": "_ensure_integration_branch",
+   "local_chars": 352,
+   "donor_chars": 359,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 359
+  },
+  {
+   "name": "_ensure_kb_gitignore",
+   "local_chars": 1546,
+   "donor_chars": 1254,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/kblayout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1546
+  },
+  {
+   "name": "_entry_doc_text",
+   "local_chars": 528,
+   "donor_chars": 519,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/corpus.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 528
+  },
+  {
+   "name": "_extract_head_cli",
+   "local_chars": 814,
+   "donor_chars": 1588,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/regressiongate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1588
+  },
+  {
+   "name": "_failure_marker_tally",
+   "local_chars": 561,
+   "donor_chars": 1220,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/failureladder.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1220
+  },
+  {
+   "name": "_fanout_dir",
+   "local_chars": 441,
+   "donor_chars": 448,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 448
+  },
+  {
+   "name": "_fanout_provision_lane",
+   "local_chars": 2236,
+   "donor_chars": 2248,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2248
+  },
+  {
+   "name": "_finalize_record",
+   "local_chars": 102,
+   "donor_chars": 116,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 116
+  },
+  {
+   "name": "_gate1_content_lint",
+   "local_chars": 740,
+   "donor_chars": 750,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/releasegate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 750
+  },
+  {
+   "name": "_gate2_full",
+   "local_chars": 2037,
+   "donor_chars": 2113,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/releasegate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2113
+  },
+  {
+   "name": "_gate2_lite_gold_fixture",
+   "local_chars": 1209,
+   "donor_chars": 1275,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/releasegate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1275
+  },
+  {
+   "name": "_gate3_reliability_delta",
+   "local_chars": 1256,
+   "donor_chars": 1264,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/releasegate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1264
+  },
+  {
+   "name": "_git",
+   "local_chars": 1309,
+   "donor_chars": 626,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/gitio.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1309
+  },
+  {
+   "name": "_git_capture",
+   "local_chars": 306,
+   "donor_chars": 312,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/gitio.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 312
+  },
+  {
+   "name": "_ingest_emit_metric",
+   "local_chars": 596,
+   "donor_chars": 602,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/curation.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 602
+  },
+  {
+   "name": "_ingest_extract_body",
+   "local_chars": 546,
+   "donor_chars": 558,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/curation.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 558
+  },
+  {
+   "name": "_ingest_register",
+   "local_chars": 1465,
+   "donor_chars": 1501,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/curation.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1501
+  },
+  {
+   "name": "_install_merge_policy",
+   "local_chars": 631,
+   "donor_chars": 649,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 649
+  },
+  {
+   "name": "_is_derived_rel",
+   "local_chars": 573,
+   "donor_chars": 579,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/staging.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 579
+  },
+  {
+   "name": "_is_promoted",
+   "local_chars": 982,
+   "donor_chars": 746,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 982
+  },
+  {
+   "name": "_lane_outcome",
+   "local_chars": 1594,
+   "donor_chars": 1587,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1594
+  },
+  {
+   "name": "_lane_repo_args",
+   "local_chars": 478,
+   "donor_chars": 492,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 492
+  },
+  {
+   "name": "_load_plan_for_edit",
+   "local_chars": 664,
+   "donor_chars": 674,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planauthor.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 674
+  },
+  {
+   "name": "_loop_analytics_for_feature",
+   "local_chars": 4291,
+   "donor_chars": 4358,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loopanalytics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4358
+  },
+  {
+   "name": "_loop_health_context_check",
+   "local_chars": 1285,
+   "donor_chars": 1307,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loophealth.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1307
+  },
+  {
+   "name": "_loop_health_dup_check",
+   "local_chars": 1722,
+   "donor_chars": 1747,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loophealth.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1747
+  },
+  {
+   "name": "_loop_health_for_feature",
+   "local_chars": 1664,
+   "donor_chars": 1679,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loophealth.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1679
+  },
+  {
+   "name": "_main_tooluse_token_shares",
+   "local_chars": 281,
+   "donor_chars": 309,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/looptrace.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 309
+  },
+  {
+   "name": "_mcp_tool_definitions",
+   "local_chars": 1627,
+   "donor_chars": 1628,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/mcp.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1628
+  },
+  {
+   "name": "_mcp_tool_query",
+   "local_chars": 571,
+   "donor_chars": 501,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/mcp.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 571
+  },
+  {
+   "name": "_mcp_tool_recall",
+   "local_chars": 959,
+   "donor_chars": 974,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/mcp.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 974
+  },
+  {
+   "name": "_mq_integrate_kb",
+   "local_chars": 2452,
+   "donor_chars": 2489,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2489
+  },
+  {
+   "name": "_mq_integrate_package",
+   "local_chars": 1573,
+   "donor_chars": 1581,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1581
+  },
+  {
+   "name": "_package_files",
+   "local_chars": 1185,
+   "donor_chars": 1192,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/privacy.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1192
+  },
+  {
+   "name": "_parse_dream",
+   "local_chars": 501,
+   "donor_chars": 515,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 515
+  },
+  {
+   "name": "_parse_dream_max_runtime",
+   "local_chars": 795,
+   "donor_chars": 802,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 802
+  },
+  {
+   "name": "_parse_dream_strict",
+   "local_chars": 220,
+   "donor_chars": 234,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 234
+  },
+  {
+   "name": "_parse_local",
+   "local_chars": 444,
+   "donor_chars": 451,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 451
+  },
+  {
+   "name": "_parse_local_strict",
+   "local_chars": 177,
+   "donor_chars": 184,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 184
+  },
+  {
+   "name": "_pinned_ref",
+   "local_chars": 206,
+   "donor_chars": 212,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/skills.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 212
+  },
+  {
+   "name": "_plan_skeleton",
+   "local_chars": 4549,
+   "donor_chars": 2413,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planauthor.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4549
+  },
+  {
+   "name": "_print_stale_report",
+   "local_chars": 1126,
+   "donor_chars": 797,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/freshness.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1126
+  },
+  {
+   "name": "_read_entry_body",
+   "local_chars": 512,
+   "donor_chars": 524,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/corpus.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 524
+  },
+  {
+   "name": "_read_metrics_jsonl",
+   "local_chars": 1177,
+   "donor_chars": 1205,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1205
+  },
+  {
+   "name": "_record_and_gate",
+   "local_chars": 1315,
+   "donor_chars": 1339,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/regressiongate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1339
+  },
+  {
+   "name": "_record_test_passrate_detail",
+   "local_chars": 1440,
+   "donor_chars": 1452,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1452
+  },
+  {
+   "name": "_render_learning",
+   "local_chars": 906,
+   "donor_chars": 918,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/curation.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 918
+  },
+  {
+   "name": "_run_acr_gate",
+   "local_chars": 1998,
+   "donor_chars": 2034,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/evalcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2034
+  },
+  {
+   "name": "_run_gold_fixture_suite",
+   "local_chars": 3079,
+   "donor_chars": 3213,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/evalcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3213
+  },
+  {
+   "name": "_run_longmemeval_suite",
+   "local_chars": 3993,
+   "donor_chars": 4114,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/evalcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4114
+  },
+  {
+   "name": "_session_matched_features",
+   "local_chars": 756,
+   "donor_chars": 798,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 798
+  },
+  {
+   "name": "_teardown_blocker",
+   "local_chars": 778,
+   "donor_chars": 804,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 804
+  },
+  {
+   "name": "_tool_fields",
+   "local_chars": 1693,
+   "donor_chars": 1688,
+   "winner": "local",
+   "local_sites": [
+    "scripts/hooks/codex-stream.py"
+   ],
+   "donor_sites": [
+    "scripts/hooks/codex-stream.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1693
+  },
+  {
+   "name": "_trace_iteration_windows",
+   "local_chars": 538,
+   "donor_chars": 553,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/looptrace.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 553
+  },
+  {
+   "name": "_trace_session_dirs",
+   "local_chars": 635,
+   "donor_chars": 663,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/looptrace.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 663
+  },
+  {
+   "name": "_trace_steps_for_session",
+   "local_chars": 554,
+   "donor_chars": 582,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/looptrace.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 582
+  },
+  {
+   "name": "_trace_steps_for_session_uncached",
+   "local_chars": 3061,
+   "donor_chars": 3089,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/looptrace.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3089
+  },
+  {
+   "name": "acr",
+   "local_chars": 524,
+   "donor_chars": 572,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/acr.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 572
+  },
+  {
+   "name": "active_recall_strategy",
+   "local_chars": 1367,
+   "donor_chars": 1387,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1387
+  },
+  {
+   "name": "aggregate_metrics",
+   "local_chars": 644,
+   "donor_chars": 686,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 686
+  },
+  {
+   "name": "answer_age_days",
+   "local_chars": 825,
+   "donor_chars": 873,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/acr.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 873
+  },
+  {
+   "name": "apply_pricing",
+   "local_chars": 2594,
+   "donor_chars": 2692,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2692
+  },
+  {
+   "name": "attach_conformance_report",
+   "local_chars": 1825,
+   "donor_chars": 1827,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/attach.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1827
+  },
+  {
+   "name": "bm25_cache_is_fresh",
+   "local_chars": 1268,
+   "donor_chars": 1237,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1268
+  },
+  {
+   "name": "bm25_positive_scores",
+   "local_chars": 1296,
+   "donor_chars": 1312,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1312
+  },
+  {
+   "name": "build_adjacency",
+   "local_chars": 947,
+   "donor_chars": 950,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/graph.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 950
+  },
+  {
+   "name": "build_bm25_cache",
+   "local_chars": 1259,
+   "donor_chars": 1201,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1259
+  },
+  {
+   "name": "build_entry_frontmatter",
+   "local_chars": 531,
+   "donor_chars": 1067,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/frontmatter.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1067
+  },
+  {
+   "name": "build_index_from_frontmatter",
+   "local_chars": 1407,
+   "donor_chars": 1884,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "decomposed",
+   "winner_chars": 1884,
+   "host": "scripts/agentware_lib/knowledge/index/indexrebuild.py",
+   "floor_chars": 1302,
+   "absorbs": [
+    "scripts/agentware_lib/knowledge/index/indexrebuild.py::_frontmatter_row",
+    "scripts/agentware_lib/knowledge/index/indexrebuild.py::_entry_title_summary",
+    "scripts/agentware_lib/knowledge/index/indexrebuild.py::_apply_org_facet"
+   ],
+   "rationale": "Task 21 split the index module into read/write/rebuild and task 22 added duplicate-id dedup; the per-row build moved to _frontmatter_row and its two helpers."
+  },
+  {
+   "name": "build_parser",
+   "local_chars": 67081,
+   "donor_chars": 399,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/cli.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 67081
+  },
+  {
+   "name": "build_recall_payload",
+   "local_chars": 2062,
+   "donor_chars": 2660,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/recallcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2660
+  },
+  {
+   "name": "build_session_index",
+   "local_chars": 1303,
+   "donor_chars": 1331,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1331
+  },
+  {
+   "name": "build_stale_report",
+   "local_chars": 587,
+   "donor_chars": 536,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/freshness.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 587
+  },
+  {
+   "name": "build_vector_cache",
+   "local_chars": 2157,
+   "donor_chars": 2165,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/vectorcache.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2165
+  },
+  {
+   "name": "build_work_corpus",
+   "local_chars": 1195,
+   "donor_chars": 2040,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/corpus.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2040
+  },
+  {
+   "name": "cmd_audit",
+   "local_chars": 2754,
+   "donor_chars": 2138,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2754
+  },
+  {
+   "name": "cmd_bench",
+   "local_chars": 261,
+   "donor_chars": 279,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bench.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 279
+  },
+  {
+   "name": "cmd_bench_redact",
+   "local_chars": 1303,
+   "donor_chars": 1348,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bench.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1348
+  },
+  {
+   "name": "cmd_bench_swe",
+   "local_chars": 4018,
+   "donor_chars": 4055,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bench.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4055
+  },
+  {
+   "name": "cmd_config",
+   "local_chars": 18956,
+   "donor_chars": 19172,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/configcmd.py"
+   ],
+   "adjudication": "decomposed",
+   "winner_chars": 19172,
+   "host": "scripts/agentware_lib/features/configcmd/cfgmain.py",
+   "floor_chars": 720,
+   "absorbs": [
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_cli_only",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_dream_max_runtime_only",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_dream_only",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_dream_schedule_only",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_set_cli",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_set_dream",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_set_dream_max_runtime",
+    "scripts/agentware_lib/features/configcmd/cfgdream.py::_set_dream_schedule",
+    "scripts/agentware_lib/features/configcmd/cfgidentity.py::_record_onboarding",
+    "scripts/agentware_lib/features/configcmd/cfgidentity.py::_set_knowledge_dir",
+    "scripts/agentware_lib/features/configcmd/cfgidentity.py::_set_skill_propose_threshold",
+    "scripts/agentware_lib/features/configcmd/cfgidentity.py::_set_user_handle",
+    "scripts/agentware_lib/features/configcmd/cfgidentity.py::_skill_propose_threshold_only",
+    "scripts/agentware_lib/features/configcmd/cfgidentity.py::_user_handle_only",
+    "scripts/agentware_lib/features/configcmd/cfgkbgit.py::_kb_autocommit_only",
+    "scripts/agentware_lib/features/configcmd/cfgkbgit.py::_kb_push_only",
+    "scripts/agentware_lib/features/configcmd/cfgkbgit.py::_set_autocommit",
+    "scripts/agentware_lib/features/configcmd/cfgkbgit.py::_set_push",
+    "scripts/agentware_lib/features/configcmd/cfgorg.py::_handle_org",
+    "scripts/agentware_lib/features/configcmd/cfgorg.py::_kb_mode_only",
+    "scripts/agentware_lib/features/configcmd/cfgorg.py::_org_triggered",
+    "scripts/agentware_lib/features/configcmd/cfgorg.py::_set_kb_mode",
+    "scripts/agentware_lib/features/configcmd/cfgphases.py::_handle_phase",
+    "scripts/agentware_lib/features/configcmd/cfgphases.py::_phase_triggered",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_embed_model_only",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_embedder_only",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_retrieval_mode_only",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_set_embed_model",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_set_embedder",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_set_mode",
+    "scripts/agentware_lib/features/configcmd/cfgretrieval.py::_set_retrieval_mode",
+    "scripts/agentware_lib/features/configcmd/cfgshow.py::_show_config"
+   ],
+   "rationale": "Task 21 split the ~590-line guard-clause chain into per-setting handlers behind CONFIG_ROUTES; cmd_config is now the walk over that table."
+  },
+  {
+   "name": "cmd_dashboard",
+   "local_chars": 1278,
+   "donor_chars": 1285,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metricscmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1285
+  },
+  {
+   "name": "cmd_decide",
+   "local_chars": 2673,
+   "donor_chars": 2792,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/curationcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2792
+  },
+  {
+   "name": "cmd_dream",
+   "local_chars": 3507,
+   "donor_chars": 3843,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dream.py"
+   ],
+   "adjudication": "superseded",
+   "winner_chars": 3843,
+   "floor_chars": 3603,
+   "rationale": "Task 15 deleted the KB-repointing module; the donor's extra 240 chars are the _dream_maybe_repoint_kb call and its kb_repoint cycle field, deliberately removed."
+  },
+  {
+   "name": "cmd_eval",
+   "local_chars": 4233,
+   "donor_chars": 4488,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/evalcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4488
+  },
+  {
+   "name": "cmd_fanout_merge_policy",
+   "local_chars": 1307,
+   "donor_chars": 1314,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1314
+  },
+  {
+   "name": "cmd_fanout_merge_queue",
+   "local_chars": 4995,
+   "donor_chars": 5075,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 5075
+  },
+  {
+   "name": "cmd_fanout_spin_up",
+   "local_chars": 2548,
+   "donor_chars": 2561,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2561
+  },
+  {
+   "name": "cmd_fanout_teardown",
+   "local_chars": 3118,
+   "donor_chars": 3145,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanoutmq.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3145
+  },
+  {
+   "name": "cmd_features",
+   "local_chars": 683,
+   "donor_chars": 714,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/curation.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 714
+  },
+  {
+   "name": "cmd_gate_release",
+   "local_chars": 1676,
+   "donor_chars": 1689,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/releasegate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1689
+  },
+  {
+   "name": "cmd_index_add",
+   "local_chars": 978,
+   "donor_chars": 961,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/indexcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 978
+  },
+  {
+   "name": "cmd_index_migrate",
+   "local_chars": 1661,
+   "donor_chars": 1710,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/indexcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1710
+  },
+  {
+   "name": "cmd_index_rebuild",
+   "local_chars": 1347,
+   "donor_chars": 1378,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/indexcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1378
+  },
+  {
+   "name": "cmd_index_remove",
+   "local_chars": 853,
+   "donor_chars": 802,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/indexcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 853
+  },
+  {
+   "name": "cmd_index_sync",
+   "local_chars": 2283,
+   "donor_chars": 2178,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/indexcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2283
+  },
+  {
+   "name": "cmd_index_validate",
+   "local_chars": 531,
+   "donor_chars": 731,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/indexcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 731
+  },
+  {
+   "name": "cmd_ingest",
+   "local_chars": 3355,
+   "donor_chars": 3268,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/curation.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3355
+  },
+  {
+   "name": "cmd_init",
+   "local_chars": 3239,
+   "donor_chars": 3571,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/setupcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3571
+  },
+  {
+   "name": "cmd_kb_git_commit",
+   "local_chars": 2888,
+   "donor_chars": 3132,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/staging.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3132
+  },
+  {
+   "name": "cmd_kb_git_merge_continue",
+   "local_chars": 1153,
+   "donor_chars": 1178,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbsync.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1178
+  },
+  {
+   "name": "cmd_kb_git_pull",
+   "local_chars": 1848,
+   "donor_chars": 1672,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/staging.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1848
+  },
+  {
+   "name": "cmd_kb_git_push",
+   "local_chars": 1900,
+   "donor_chars": 1931,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbsync.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1931
+  },
+  {
+   "name": "cmd_kb_git_status",
+   "local_chars": 815,
+   "donor_chars": 822,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbgit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 822
+  },
+  {
+   "name": "cmd_learn",
+   "local_chars": 3607,
+   "donor_chars": 3214,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/curationcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3607
+  },
+  {
+   "name": "cmd_mcp",
+   "local_chars": 1030,
+   "donor_chars": 1043,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/mcp.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1043
+  },
+  {
+   "name": "cmd_metrics",
+   "local_chars": 2860,
+   "donor_chars": 2183,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metricscmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2860
+  },
+  {
+   "name": "cmd_plan_add_task",
+   "local_chars": 1307,
+   "donor_chars": 1314,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planauthor.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1314
+  },
+  {
+   "name": "cmd_plan_lint",
+   "local_chars": 1179,
+   "donor_chars": 738,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planlint.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1179
+  },
+  {
+   "name": "cmd_plan_new",
+   "local_chars": 3439,
+   "donor_chars": 843,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planauthor.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3439
+  },
+  {
+   "name": "cmd_plan_set_status",
+   "local_chars": 1114,
+   "donor_chars": 1121,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planauthor.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1121
+  },
+  {
+   "name": "cmd_plan_target_dirs",
+   "local_chars": 325,
+   "donor_chars": 335,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planauthor.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 335
+  },
+  {
+   "name": "cmd_profile",
+   "local_chars": 887,
+   "donor_chars": 894,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/setupcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 894
+  },
+  {
+   "name": "cmd_query",
+   "local_chars": 2074,
+   "donor_chars": 2017,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/graph.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2074
+  },
+  {
+   "name": "cmd_recall",
+   "local_chars": 5322,
+   "donor_chars": 5143,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/recallcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 5322
+  },
+  {
+   "name": "cmd_skill_add",
+   "local_chars": 4625,
+   "donor_chars": 4359,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/skills.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4625
+  },
+  {
+   "name": "cmd_skill_propose",
+   "local_chars": 1730,
+   "donor_chars": 3953,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/proposals.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3953
+  },
+  {
+   "name": "cmd_skill_remove",
+   "local_chars": 1298,
+   "donor_chars": 1255,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/skills.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1298
+  },
+  {
+   "name": "cmd_skill_validate",
+   "local_chars": 2195,
+   "donor_chars": 2813,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/skills.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2813
+  },
+  {
+   "name": "cmd_update",
+   "local_chars": 6642,
+   "donor_chars": 6038,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/updatecmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 6642
+  },
+  {
+   "name": "cmd_whereami",
+   "local_chars": 635,
+   "donor_chars": 1149,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/cli.py"
+   ],
+   "adjudication": "superseded",
+   "winner_chars": 1149,
+   "floor_chars": 865,
+   "rationale": "Task 18 replaced the donor's vendor-specific Config/src walk with the marker-driven resolver in core.projectcontext; the handler now only picks a start directory and renders."
+  },
+  {
+   "name": "cmd_worklog_scan",
+   "local_chars": 1536,
+   "donor_chars": 873,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1536
+  },
+  {
+   "name": "conflict_pairs",
+   "local_chars": 1139,
+   "donor_chars": 1155,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/freshness.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1155
+  },
+  {
+   "name": "date_age_days",
+   "local_chars": 584,
+   "donor_chars": 596,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/acr.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 596
+  },
+  {
+   "name": "decision_stems",
+   "local_chars": 73,
+   "donor_chars": 79,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 79
+  },
+  {
+   "name": "derive_agent_activity",
+   "local_chars": 3140,
+   "donor_chars": 3236,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3236
+  },
+  {
+   "name": "derive_agents",
+   "local_chars": 535,
+   "donor_chars": 549,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 549
+  },
+  {
+   "name": "derive_alerts",
+   "local_chars": 1867,
+   "donor_chars": 1670,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/alerts.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1867
+  },
+  {
+   "name": "derive_context_tax",
+   "local_chars": 2863,
+   "donor_chars": 2880,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2880
+  },
+  {
+   "name": "derive_failures",
+   "local_chars": 2223,
+   "donor_chars": 2242,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/failureladder.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2242
+  },
+  {
+   "name": "derive_iteration_costs",
+   "local_chars": 1802,
+   "donor_chars": 1758,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1802
+  },
+  {
+   "name": "derive_loop_analytics",
+   "local_chars": 839,
+   "donor_chars": 866,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loopanalytics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 866
+  },
+  {
+   "name": "derive_loop_health",
+   "local_chars": 1181,
+   "donor_chars": 1223,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loophealth.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1223
+  },
+  {
+   "name": "derive_loop_throughput",
+   "local_chars": 762,
+   "donor_chars": 785,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loopanalytics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 785
+  },
+  {
+   "name": "derive_outcome",
+   "local_chars": 1988,
+   "donor_chars": 1997,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1997
+  },
+  {
+   "name": "derive_phase_costs",
+   "local_chars": 1337,
+   "donor_chars": 1383,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1383
+  },
+  {
+   "name": "derive_plan_size",
+   "local_chars": 1426,
+   "donor_chars": 1436,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1436
+  },
+  {
+   "name": "derive_trace",
+   "local_chars": 2739,
+   "donor_chars": 2762,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/looptrace.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2762
+  },
+  {
+   "name": "dream_acquire_lock",
+   "local_chars": 2337,
+   "donor_chars": 911,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamgate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2337
+  },
+  {
+   "name": "dream_lock_is_stale",
+   "local_chars": 934,
+   "donor_chars": 393,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamgate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 934
+  },
+  {
+   "name": "dream_release_lock",
+   "local_chars": 346,
+   "donor_chars": 284,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/dreamgate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 346
+  },
+  {
+   "name": "emit_onboarding_metric",
+   "local_chars": 737,
+   "donor_chars": 743,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/metrics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 743
+  },
+  {
+   "name": "evaluate",
+   "local_chars": 2153,
+   "donor_chars": 2198,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/metrics_rank.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2198
+  },
+  {
+   "name": "evaluate_ablation",
+   "local_chars": 1083,
+   "donor_chars": 1111,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/evalcmd.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1111
+  },
+  {
+   "name": "evaluate_gold_fixture",
+   "local_chars": 945,
+   "donor_chars": 973,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/goldfixture.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 973
+  },
+  {
+   "name": "evaluate_longmemeval",
+   "local_chars": 3724,
+   "donor_chars": 3822,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/longmemeval.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3822
+  },
+  {
+   "name": "freshness",
+   "local_chars": 821,
+   "donor_chars": 833,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/acr.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 833
+  },
+  {
+   "name": "get_cli",
+   "local_chars": 473,
+   "donor_chars": 648,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_dashboard.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_dashboard.py"
+   ],
+   "adjudication": "deferred",
+   "winner_chars": 648,
+   "floor_chars": 473,
+   "follow_up": "task 69 (decompose the dashboard, serve the union)",
+   "rationale": "The donor dashboard's importlib loader (spec_from_loader + module_from_spec + exec_module, with scripts/ on sys.path) supersedes this tree's deprecated loader.load_module(); the dashboard is not adopted until task 69."
+  },
+  {
+   "name": "git_entry_ids_at_ref",
+   "local_chars": 1192,
+   "donor_chars": 1664,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/staging.py"
+   ],
+   "adjudication": "superseded",
+   "winner_chars": 1664,
+   "floor_chars": 1648,
+   "rationale": "Task 20 removed the internal plan-artifact reference from the docstring. Prose only -- the code is byte-identical."
+  },
+  {
+   "name": "git_info",
+   "local_chars": 654,
+   "donor_chars": 678,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 678
+  },
+  {
+   "name": "gold_fixture_path",
+   "local_chars": 123,
+   "donor_chars": 129,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/goldfixture.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 129
+  },
+  {
+   "name": "graph_relation_errors",
+   "local_chars": 1054,
+   "donor_chars": 1069,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/graph.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1069
+  },
+  {
+   "name": "kb_entry_ids",
+   "local_chars": 430,
+   "donor_chars": 448,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/staging.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 448
+  },
+  {
+   "name": "kb_git_merge_continue",
+   "local_chars": 2557,
+   "donor_chars": 2603,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbsync.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2603
+  },
+  {
+   "name": "kb_git_push_once",
+   "local_chars": 3945,
+   "donor_chars": 4015,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbsync.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 4015
+  },
+  {
+   "name": "kb_git_push_synced",
+   "local_chars": 1023,
+   "donor_chars": 1230,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbsync.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1230
+  },
+  {
+   "name": "kb_nothing_lost_gate",
+   "local_chars": 1710,
+   "donor_chars": 1730,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/kbsync.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1730
+  },
+  {
+   "name": "learning_stems",
+   "local_chars": 72,
+   "donor_chars": 78,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 78
+  },
+  {
+   "name": "lint_plan",
+   "local_chars": 8734,
+   "donor_chars": 4536,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/planlint.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 8734
+  },
+  {
+   "name": "list_loop_features",
+   "local_chars": 886,
+   "donor_chars": 515,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/loopanalytics.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 886
+  },
+  {
+   "name": "load_bm25_cache",
+   "local_chars": 825,
+   "donor_chars": 811,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 825
+  },
+  {
+   "name": "load_embedder",
+   "local_chars": 1843,
+   "donor_chars": 1859,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/vectorcache.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1859
+  },
+  {
+   "name": "load_gold_fixture",
+   "local_chars": 2348,
+   "donor_chars": 2317,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/goldfixture.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2348
+  },
+  {
+   "name": "load_index",
+   "local_chars": 1335,
+   "donor_chars": 370,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1335
+  },
+  {
+   "name": "operator_identity_strings",
+   "local_chars": 807,
+   "donor_chars": 819,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/privacy.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 819
+  },
+  {
+   "name": "provenance_coverage",
+   "local_chars": 707,
+   "donor_chars": 719,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/audit.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 719
+  },
+  {
+   "name": "rebuild_kb",
+   "local_chars": 1911,
+   "donor_chars": 1721,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1911
+  },
+  {
+   "name": "rebuild_vector_cache",
+   "local_chars": 997,
+   "donor_chars": 1066,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/vectorcache.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1066
+  },
+  {
+   "name": "recall_ranked",
+   "local_chars": 2324,
+   "donor_chars": 2160,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/skillpin.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 2324
+  },
+  {
+   "name": "record_acr_gate",
+   "local_chars": 653,
+   "donor_chars": 707,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 707
+  },
+  {
+   "name": "record_ledger",
+   "local_chars": 531,
+   "donor_chars": 585,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 585
+  },
+  {
+   "name": "record_ledger_suite",
+   "local_chars": 692,
+   "donor_chars": 746,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 746
+  },
+  {
+   "name": "redact_gold_path",
+   "local_chars": 1488,
+   "donor_chars": 1547,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/ledger.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1547
+  },
+  {
+   "name": "redact_ledger_gold_paths",
+   "local_chars": 1628,
+   "donor_chars": 1636,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bench.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1636
+  },
+  {
+   "name": "render_frontmatter",
+   "local_chars": 558,
+   "donor_chars": 689,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/frontmatter.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 689
+  },
+  {
+   "name": "require_knowledge_dir",
+   "local_chars": 527,
+   "donor_chars": 668,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/config.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 668
+  },
+  {
+   "name": "resolve_dream",
+   "local_chars": 414,
+   "donor_chars": 442,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 442
+  },
+  {
+   "name": "resolve_dream_max_runtime",
+   "local_chars": 611,
+   "donor_chars": 639,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 639
+  },
+  {
+   "name": "resolve_dream_schedule",
+   "local_chars": 668,
+   "donor_chars": 689,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 689
+  },
+  {
+   "name": "resolve_effective_retrieval_mode",
+   "local_chars": 948,
+   "donor_chars": 969,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/vectorcache.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 969
+  },
+  {
+   "name": "resolve_embed_model",
+   "local_chars": 426,
+   "donor_chars": 454,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 454
+  },
+  {
+   "name": "resolve_embedder_backend",
+   "local_chars": 592,
+   "donor_chars": 613,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 613
+  },
+  {
+   "name": "resolve_knowledge_dir",
+   "local_chars": 912,
+   "donor_chars": 1108,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/config.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1108
+  },
+  {
+   "name": "resolve_phase_cli",
+   "local_chars": 488,
+   "donor_chars": 516,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 516
+  },
+  {
+   "name": "resolve_phase_local",
+   "local_chars": 508,
+   "donor_chars": 515,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 515
+  },
+  {
+   "name": "resolve_phase_model",
+   "local_chars": 535,
+   "donor_chars": 563,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 563
+  },
+  {
+   "name": "resolve_user_handle",
+   "local_chars": 425,
+   "donor_chars": 446,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/routing.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 446
+  },
+  {
+   "name": "retrieve",
+   "local_chars": 1753,
+   "donor_chars": 1787,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/skillpin.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1787
+  },
+  {
+   "name": "retrieve_bm25",
+   "local_chars": 651,
+   "donor_chars": 593,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 651
+  },
+  {
+   "name": "retrieve_bm25_acr",
+   "local_chars": 1346,
+   "donor_chars": 1000,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/acr.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1346
+  },
+  {
+   "name": "retrieve_bm25_embed_scored",
+   "local_chars": 1921,
+   "donor_chars": 1964,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/hybrid.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1964
+  },
+  {
+   "name": "run_ab_gate",
+   "local_chars": 1564,
+   "donor_chars": 1532,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/regressiongate.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1564
+  },
+  {
+   "name": "save_index",
+   "local_chars": 1763,
+   "donor_chars": 1058,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1763
+  },
+  {
+   "name": "save_lanes",
+   "local_chars": 182,
+   "donor_chars": 194,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 194
+  },
+  {
+   "name": "scan_entry_files",
+   "local_chars": 744,
+   "donor_chars": 1126,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1126
+  },
+  {
+   "name": "scan_unindexed",
+   "local_chars": 587,
+   "donor_chars": 588,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 588
+  },
+  {
+   "name": "scan_worklog",
+   "local_chars": 476,
+   "donor_chars": 1080,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1080
+  },
+  {
+   "name": "split_frontmatter",
+   "local_chars": 958,
+   "donor_chars": 1051,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/core/frontmatter.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1051
+  },
+  {
+   "name": "stale_entries",
+   "local_chars": 924,
+   "donor_chars": 1047,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/ops/freshness.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1047
+  },
+  {
+   "name": "swe_build_ledger_row",
+   "local_chars": 1312,
+   "donor_chars": 1320,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bench.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1320
+  },
+  {
+   "name": "swe_score_task",
+   "local_chars": 1896,
+   "donor_chars": 1514,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bench.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 1896
+  },
+  {
+   "name": "tag_consistency_errors",
+   "local_chars": 964,
+   "donor_chars": 948,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 964
+  },
+  {
+   "name": "validate_index",
+   "local_chars": 3200,
+   "donor_chars": 2780,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/knowledge/index.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 3200
+  },
+  {
+   "name": "write_bm25_cache",
+   "local_chars": 909,
+   "donor_chars": 391,
+   "winner": "local",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 909
+  },
+  {
+   "name": "write_scorecard",
+   "local_chars": 472,
+   "donor_chars": 488,
+   "winner": "donor",
+   "local_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "donor_sites": [
+    "scripts/agentware_lib/retrieval/scorecard.py"
+   ],
+   "adjudication": "longer-body",
+   "winner_chars": 488
+  }
+ ]
+}
