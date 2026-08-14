@@ -88,7 +88,7 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 
 ## Retrieval ladder (information-needs)
 
-> On an information-need, walk these STAGES IN ORDER and ADVANCE only when the current stage is dry, insufficient, or not useful. Recall ESCALATES within itself: STAGE 1 = recall at the default top-5/budget-1500 over curated knowledge (skills take precedence, learnings always included); STAGE 2 = WIDEN recall to top-10/budget-3000 (still curated) before leaving curated knowledge; STAGE 3 = work/ plans+worklogs + targeted workspace grep + logs; STAGE 4 = package code (mandatory for any code change); then MCP, then web. This ladder governs INFORMATION-NEEDS only; on a FAILED step follow R-FAIL-01..07 instead (rung 1 there is the error-signature KB query, R-FAIL-02). Bound each stage to one pass and never re-run an exhausted stage (R-FAIL-04, R-FAIL-07).
+> On an information-need, walk these STAGES IN ORDER and ADVANCE only when the current stage is dry, insufficient, or not useful. Recall ESCALATES within itself: STAGE 1 = recall at its default top-k and token budget over curated knowledge, whose figures live in R-RET-03 and live there ONCE (skills take precedence, learnings always included); STAGE 2 = WIDEN both, still curated, per R-RET-04 before leaving curated knowledge; STAGE 3 = work/ plans+worklogs + targeted workspace grep + logs; STAGE 4 = package code (mandatory for any code change); then MCP, then web. This ladder governs INFORMATION-NEEDS only; on a FAILED step follow R-FAIL-01..07 instead (rung 1 there is the error-signature KB query, R-FAIL-02). Bound each stage to one pass and never re-run an exhausted stage (R-FAIL-04, R-FAIL-07).
 
 - IF any rung returns content applicable to the LIVE need THEN READ it, USE it, and STOP descending; advance ONLY when the current rung is dry, insufficient, or not useful. [R-RET-01]
 - IF a rung's source cannot hold the needed information, OR its tool is unavailable or errors rather than returning empty, THEN treat that rung as dry and advance; NEVER run an irrelevant rung or stall on one that cannot run. [R-RET-02]
@@ -173,3 +173,17 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 - MUST use relative paths inside repo files; resolve the external knowledge dir at runtime. [R-CONV-02]
 - MUST use the write tool for all file creation, never cat/heredoc or multiline echo. [R-CONV-03]
 - READ a file's references across the repo before you delete, rename, or move it. [R-CONV-04]
+
+## Org-level KB (teams + shared + fleet observability)
+
+> Inert on a flat single-operator install: every rule below is conditioned on the org keys being set, and with `AGENTWARE_ORG_ROOT` unset the resolution is byte-identical to a flat install (R-ORG-04).
+
+- IF the KB is org-level (`AGENTWARE_ORG_ROOT` set) THEN every org invariant MUST be enforced by `scripts/agentware org lint`, never asserted as prose. [R-ORG-01]
+- ALWAYS write knowledge to the caller's own `teams/<team>/`; NEVER write into another team's folder — the git-stage allowlist refuses it and `org lint` O13 fails on it. [R-ORG-02]
+- NEVER write into `shared/` from the default team loop; a `shared/` write requires a curator via `--to-shared` (CR-gated). [R-ORG-03]
+- MUST resolve the knowledge dir with precedence `AGENTWARE_KNOWLEDGE_DIR` then `AGENTWARE_ORG_ROOT`+`AGENTWARE_TEAM`; org keys unset MUST be byte-identical to a flat single-team install. [R-ORG-04]
+- ALWAYS stamp `origin` + `team` on every org entry and every committed work artifact (plan/worklog); `org lint` O1 enforces it. [R-ORG-05]
+- IF a loop run ends THEN it MUST emit ONE committed `steering_sha`-stamped terminal event to `teams/<team>/fleet/<handle>.jsonl`, including on failure exit paths. [R-ORG-06]
+- MUST keep every `fleet` report deterministic and stdlib-only (exact counts + OLS); NEVER present a before/after delta as causal proof — report n-per-side + the correlational caveat. [R-ORG-07]
+- NEVER let the ORG FRONTMATTER KEYS — the top-level `origin:`, `team:`, `project:`, `status:` and `supersedes:` fields, and NOT the `relates: [supersedes:<id>]` graph edge, which STAYS a ranking signal through the read-time trust downweight — enter ranking; the org keys are excluded from `_entry_doc_text` (INV-1). [R-ORG-08]
+- IF a team keeps its own entry templates THEN each MUST carry the frontmatter a filled entry needs to be org-valid; `agentware templates lint` (folded into `org lint`) enforces the T1..T5 contract. [R-ORG-09]
