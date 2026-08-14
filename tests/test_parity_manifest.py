@@ -193,9 +193,14 @@ class GeneratedTierCoverageTest(unittest.TestCase):
             self.assertIn(row["superseded_by"], self.by_id)
 
     def test_every_surface_exclusion_becomes_an_excluded_row_with_a_probe(self):
+        # Scoped to the CLI-surface dimension: exclusions in other dimensions are
+        # adjudicated deletions (a plan task retiring a capability), not flags the
+        # union fixture dropped. Every excluded row, wherever it came from, still
+        # owes the same four fields and a probe from the closed grammar.
         union = load("surface-union.json")
         excluded = [r for r in self.manifest["rows"] if r["status"] == "excluded"]
-        self.assertEqual(len(excluded), len(union["exclusions"]))
+        surface = [r for r in excluded if r["dimension"] == "cli_surface"]
+        self.assertEqual(len(surface), len(union["exclusions"]))
         for row in excluded:
             self.assertIn(row["absence_probe"]["kind"], PROBE_KINDS)
             self.assertTrue(row["reason"] and row["approver"] and row["follow_up"])
@@ -209,8 +214,18 @@ class CuratedTierTest(unittest.TestCase):
                         if r["verification"] == "curated"]
 
     def test_the_committed_curated_rows_are_the_curated_table(self):
+        # The hand-written table holds two shapes: `curated` rows (a named test +
+        # its mutation) and hand-written `excluded` rows (a runnable absence
+        # probe). Both must land in the manifest; neither may appear there
+        # without appearing here.
+        hand_written = {r["verification"]: [] for r in CURATED_ROWS}
+        for row in CURATED_ROWS:
+            hand_written[row["verification"]].append(row["id"])
         self.assertEqual(sorted(r["id"] for r in self.curated),
-                         sorted(r["id"] for r in CURATED_ROWS))
+                         sorted(hand_written["curated"]))
+        committed = {r["id"] for r in self.manifest["rows"]}
+        for rid in hand_written.get("absence_probe", []):
+            self.assertIn(rid, committed)
 
     def test_every_curated_row_names_a_plan_task_and_a_test_and_a_mutation(self):
         for row in self.curated:
@@ -244,7 +259,19 @@ class CuratedTierTest(unittest.TestCase):
         for row in self.curated:
             if row["id"] in ratchet["pending_verification"]:
                 continue
-            self.assertIn(row["evidence"]["test"], frozen, row["id"])
+            dotted = row["evidence"]["test"]
+            if dotted in frozen:
+                checked += 1
+                continue
+            # A test module authored AFTER the task-9 freeze cannot be in the
+            # frozen capture. It still has to hold real collected tests, so
+            # assert that directly rather than exempting it.
+            path = pm.test_module_path(REPO, dotted)
+            self.assertTrue(os.path.exists(path), row["id"])
+            with open(path, encoding="utf-8") as fh:
+                body = fh.read()
+            self.assertIn("unittest.TestCase", body, row["id"])
+            self.assertGreater(body.count("    def test_"), 2, row["id"])
             checked += 1
         self.assertGreater(checked, 30)
 

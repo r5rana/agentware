@@ -258,7 +258,7 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor's content corpus_fingerprint is the "
                                  "decided cache-freshness authority, and its "
                                  "roster/injection lint is wired into index validate"),
-        "plan_tasks": [22, 23, 24, 53, 57],
+        "plan_tasks": [15, 22, 23, 24, 53, 57],
     },
     {
         "name": "loop_orchestration",

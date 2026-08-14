@@ -41,6 +41,28 @@ def _row(rid, dimension, capability, sides, task, test, mutation, **extra):
     return row
 
 
+def _exrow(rid, dimension, capability, sides, reason, approver, follow_up,
+           probe):
+    """An EXCLUDED row: deliberately not carried across, and provably absent.
+
+    No `task`/`evidence` — an exclusion is refuted by its probe finding the thing
+    present, not by a test. The schema obliges reason, approver, follow_up and a
+    runnable absence_probe, so an exclusion can never be bare prose.
+    """
+    return {
+        "id": rid,
+        "dimension": dimension,
+        "capability": capability,
+        "sides": sides,
+        "status": "excluded",
+        "verification": "absence_probe",
+        "reason": reason,
+        "approver": approver,
+        "follow_up": follow_up,
+        "absence_probe": probe,
+    }
+
+
 CURATED_ROWS = [
 
     # ---------------------------------------------------------------- retrieval
@@ -142,6 +164,42 @@ CURATED_ROWS = [
          "The donor's roster and injection lint wired into index validate",
          DONOR, 53, "tests.test_skill_roster",
          "blank a roster row: index validate must fail rather than pass"),
+    _row("kb:pointer-target-guard", "kb_integrity",
+         "The knowledge-dir TARGET guard — the only 'is this directory safe to "
+         "point the KB at?' check in either tree — relocated into the core "
+         "layout module and wired into BOTH repoint paths (`init` and `config "
+         "--set-knowledge-dir`), keeping its deliberate asymmetry over the "
+         "derived index: absent is fine, present-but-corrupt is a refusal",
+         DONOR, 15, "tests.test_kbtarget_guard",
+         "drop the guard from either repoint path, or make it require the "
+         "derived index: a fresh checkout stops being pointable, or a directory "
+         "that is not a knowledge base is silently accepted"),
+    _row("kb:init-clobber-guard-union", "kb_integrity",
+         "The `init` clobber guard as the UNION: the wider trigger (the config "
+         "already points elsewhere, sentinel or not) with this tree's exit code "
+         "3 and its structured `kb-already-configured` JSON payload",
+         BOTH, 15, "tests.test_kbtarget_guard",
+         "narrow the trigger back to sentinel-only, or return the generic exit "
+         "1 without the JSON body: a half-onboarded pointer is clobbered "
+         "silently, or a caller can no longer tell a clobber refusal from a "
+         "filesystem failure"),
+    _exrow("kb:vendor-kb-repoint-migration", "kb_integrity",
+           "The one-shot KB auto-repoint / autoprovision migration: two "
+           "hard-coded checkout basenames, a sibling-path derivation, an opt-in "
+           "env key and a best-effort shell-out to a vendor workspace tool, run "
+           "at the start of a dream cycle",
+           DONOR,
+           "environment-specific by construction — it names two of the "
+           "operator's employer's checkouts and shells out to a vendor build "
+           "tool that no clone of this package can have. Its ONLY generic part, "
+           "the target guard, was relocated FIRST and is carried by "
+           "kb:pointer-target-guard.",
+           "plan task 15 (operator-approved self-extension plan)",
+           "none for the migration itself. A generic 'move my knowledge base' "
+           "verb, if ever wanted, belongs in the config surface with the "
+           "relocated guard in front of it — not in the nightly dream cycle.",
+           {"kind": "path-absent",
+            "path": "scripts/agentware_lib/features/dreamrepoint.py"}),
 
     # -------------------------------------------------------- loop orchestration
     _row("loop:adversarial-review-gate", "loop_orchestration",

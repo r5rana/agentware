@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 535,
+    "rows": 538,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
@@ -42,7 +42,7 @@
       "dream_maintenance": 5,
       "env_config": 80,
       "evaluation_quality": 4,
-      "kb_integrity": 9,
+      "kb_integrity": 12,
       "loop_orchestration": 6,
       "modularity": 5,
       "org_team": 6,
@@ -52,13 +52,13 @@
     },
     "by_status": {
       "required": 530,
-      "excluded": 1,
+      "excluded": 4,
       "superseded": 4
     },
     "by_verification": {
-      "generated": 482,
-      "curated": 52,
-      "absence_probe": 1
+      "generated": 480,
+      "curated": 54,
+      "absence_probe": 4
     },
     "donor_side_rows_by_dimension": {
       "assets": 19,
@@ -67,7 +67,7 @@
       "dream_maintenance": 2,
       "env_config": 52,
       "evaluation_quality": 1,
-      "kb_integrity": 3,
+      "kb_integrity": 6,
       "loop_orchestration": 3,
       "modularity": 4,
       "org_team": 6,
@@ -160,6 +160,7 @@
       "donor_delta": true,
       "donor_delta_evidence": "the donor's content corpus_fingerprint is the decided cache-freshness authority, and its roster/injection lint is wired into index validate",
       "plan_tasks": [
+        15,
         22,
         23,
         24,
@@ -2491,8 +2492,15 @@
       "sides": [
         "donor"
       ],
-      "status": "required",
-      "verification": "generated"
+      "status": "excluded",
+      "verification": "absence_probe",
+      "reason": "the opt-in autoprovision key for the retired repoint migration. Its ONLY read sites were inside that module, and the workspace provisioner it gated is an environment-specific tool this vendor-neutral package must not shell out to.",
+      "approver": "plan task 15 (operator-approved self-extension plan)",
+      "follow_up": "none: the capability is environment-specific by construction. It stays listed in the env fixture's shrink-only pending_in_destination, which is now permanent for this key.",
+      "absence_probe": {
+        "kind": "path-absent",
+        "path": "scripts/agentware_lib/features/dreamrepoint.py"
+      }
     },
     {
       "id": "env:AGENTWARE_RETRIEVAL_LINT_MODE",
@@ -2958,6 +2966,37 @@
       }
     },
     {
+      "id": "kb:init-clobber-guard-union",
+      "dimension": "kb_integrity",
+      "capability": "The `init` clobber guard as the UNION: the wider trigger (the config already points elsewhere, sentinel or not) with this tree's exit code 3 and its structured `kb-already-configured` JSON payload",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 15,
+      "evidence": {
+        "test": "tests.test_kbtarget_guard",
+        "mutation": "narrow the trigger back to sentinel-only, or return the generic exit 1 without the JSON body: a half-onboarded pointer is clobbered silently, or a caller can no longer tell a clobber refusal from a filesystem failure"
+      }
+    },
+    {
+      "id": "kb:pointer-target-guard",
+      "dimension": "kb_integrity",
+      "capability": "The knowledge-dir TARGET guard \u2014 the only 'is this directory safe to point the KB at?' check in either tree \u2014 relocated into the core layout module and wired into BOTH repoint paths (`init` and `config --set-knowledge-dir`), keeping its deliberate asymmetry over the derived index: absent is fine, present-but-corrupt is a refusal",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 15,
+      "evidence": {
+        "test": "tests.test_kbtarget_guard",
+        "mutation": "drop the guard from either repoint path, or make it require the derived index: a fresh checkout stops being pointable, or a directory that is not a knowledge base is silently accepted"
+      }
+    },
+    {
       "id": "kb:poisoned-index-list-normalizer",
       "dimension": "kb_integrity",
       "capability": "The lenient list-field normalizer at every raw index read site (graph adjacency, relation lint, corpus text, frontmatter migration)",
@@ -3015,6 +3054,23 @@
       "evidence": {
         "test": "tests.test_skill_roster",
         "mutation": "blank a roster row: index validate must fail rather than pass"
+      }
+    },
+    {
+      "id": "kb:vendor-kb-repoint-migration",
+      "dimension": "kb_integrity",
+      "capability": "The one-shot KB auto-repoint / autoprovision migration: two hard-coded checkout basenames, a sibling-path derivation, an opt-in env key and a best-effort shell-out to a vendor workspace tool, run at the start of a dream cycle",
+      "sides": [
+        "donor"
+      ],
+      "status": "excluded",
+      "verification": "absence_probe",
+      "reason": "environment-specific by construction \u2014 it names two of the operator's employer's checkouts and shells out to a vendor build tool that no clone of this package can have. Its ONLY generic part, the target guard, was relocated FIRST and is carried by kb:pointer-target-guard.",
+      "approver": "plan task 15 (operator-approved self-extension plan)",
+      "follow_up": "none for the migration itself. A generic 'move my knowledge base' verb, if ever wanted, belongs in the config surface with the relocated guard in front of it \u2014 not in the nightly dream cycle.",
+      "absence_probe": {
+        "kind": "path-absent",
+        "path": "scripts/agentware_lib/features/dreamrepoint.py"
       }
     },
     {
@@ -5552,8 +5608,15 @@
       "sides": [
         "donor"
       ],
-      "status": "required",
-      "verification": "generated"
+      "status": "excluded",
+      "verification": "absence_probe",
+      "reason": "the granular unit test OF the retired repoint module: 26 donor node ids that cannot survive their subject. The generic half of the module (the target guard) kept its coverage \u2014 it moved to the core layout module's own unit test, and the guard is additionally gated end-to-end by tests/_kbtarget_gate.py.",
+      "approver": "plan task 15 (operator-approved self-extension plan)",
+      "follow_up": "task 58 reconciles the frozen node-id union; these 26 ids, plus the 14 tests.test_dream.DreamKbRepointTests ids deleted with them (40 in total), are the adjudicated subtraction it must honour.",
+      "absence_probe": {
+        "kind": "path-absent",
+        "path": "scripts/agentware_lib/features/dreamrepoint.py"
+      }
     },
     {
       "id": "tests:tests.unit.features.test_dreamsched",

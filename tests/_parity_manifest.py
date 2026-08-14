@@ -63,6 +63,68 @@ EXCLUSION_PROBES = {
     },
 }
 
+#: The module plan task 15 retires: a one-shot, environment-specific KB
+#: auto-repoint migration that hard-coded two checkout basenames and shelled out
+#: to a vendor workspace tool. Everything generic inside it — the "is this
+#: directory safe to point the KB at?" guard — moved DOWN into the core
+#: knowledge-dir layout module instead, so only the environment-specific half is
+#: excluded. Its absence is the probe for every row below.
+_RETIRED_REPOINT_MODULE = "scripts/agentware_lib/features/dreamrepoint.py"
+_RETIRED_REPOINT_PROBE = {"kind": "path-absent", "path": _RETIRED_REPOINT_MODULE}
+
+#: GENERATED rows whose capability the merged tree deliberately does NOT carry.
+#: A generated row is `required` by construction — it is re-derived from a binding
+#: fixture that froze the donor tree as it was. When a plan task DELETES the thing
+#: a frozen row describes, leaving the row `required` makes the ledger assert the
+#: opposite of the truth, and the deletion becomes invisible until some later gate
+#: fails for an unrelated-looking reason. Adjudicate it HERE, by row id, with the
+#: same reason/approver/follow_up/probe an excluded row always carries; `derive`
+#: asserts every id matches exactly one derived row, so a stale adjudication is a
+#: hard error rather than dead weight.
+GENERATED_EXCLUSIONS = {
+    "env:AGENTWARE_REPOINT_AUTOPROVISION": {
+        "reason": "the opt-in autoprovision key for the retired repoint migration. "
+                  "Its ONLY read sites were inside that module, and the workspace "
+                  "provisioner it gated is an environment-specific tool this "
+                  "vendor-neutral package must not shell out to.",
+        "approver": "plan task 15 (operator-approved self-extension plan)",
+        "follow_up": "none: the capability is environment-specific by construction. "
+                     "It stays listed in the env fixture's shrink-only "
+                     "pending_in_destination, which is now permanent for this key.",
+        "absence_probe": _RETIRED_REPOINT_PROBE,
+    },
+    "tests:tests.unit.features.test_dreamrepoint": {
+        "reason": "the granular unit test OF the retired repoint module: 26 donor "
+                  "node ids that cannot survive their subject. The generic half of "
+                  "the module (the target guard) kept its coverage — it moved to "
+                  "the core layout module's own unit test, and the guard is "
+                  "additionally gated end-to-end by tests/_kbtarget_gate.py.",
+        "approver": "plan task 15 (operator-approved self-extension plan)",
+        "follow_up": "task 58 reconciles the frozen node-id union; these 26 ids, "
+                     "plus the 14 tests.test_dream.DreamKbRepointTests ids deleted "
+                     "with them (40 in total), are the adjudicated subtraction it "
+                     "must honour.",
+        "absence_probe": _RETIRED_REPOINT_PROBE,
+    },
+}
+
+
+def apply_generated_exclusions(rows):
+    """Convert adjudicated generated rows to `excluded`. Returns the rows.
+
+    Halts on an adjudication that matches no row: an exclusion nobody can see is
+    the same failure mode as an exclusion nobody adjudicated.
+    """
+    by_id = {row["id"]: row for row in rows}
+    for rid, adjudication in sorted(GENERATED_EXCLUSIONS.items()):
+        row = by_id.get(rid)
+        if row is None:
+            raise SystemExit("stale generated exclusion, no such row: %s" % rid)
+        row["status"] = "excluded"
+        row["verification"] = "absence_probe"
+        row.update(adjudication)
+    return rows
+
 
 def load_json(path):
     with open(path) as fh:
@@ -257,6 +319,7 @@ def derive(root=REPO):
     rows = (surface_rows(union) + env_rows(env)
             + test_corpus_rows(preserved, local_ids, donor_ids)
             + asset_rows(preserved) + [dict(r) for r in CURATED_ROWS])
+    apply_generated_exclusions(rows)
     rows.sort(key=lambda r: (r["dimension"], r["id"]))
 
     derived = _derived_donor_delta(union, env, preserved)
