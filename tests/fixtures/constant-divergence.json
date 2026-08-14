@@ -1,0 +1,2526 @@
+{
+ "schema": "agentware/constant-divergence@1",
+ "generated_by": "tests/_constant_differ.py --write",
+ "normalisation": "module-scope assignment to a name matching ^_?[A-Z][A-Z0-9_]*$ (dunders excluded); literal is ast.unparse of the assigned value expression; a name assigned twice on one side is represented by its longest literal",
+ "scope": {
+  "legacy": "scripts/agentware_legacy.py",
+  "lib": "scripts/agentware_lib/**.py"
+ },
+ "counts": {
+  "legacy": 473,
+  "lib": 280,
+  "legacy_only": 248,
+  "shared": 225,
+  "divergent": 17
+ },
+ "ratchet": {
+  "unresolved_max": 248,
+  "undecided_max": 9
+ },
+ "multi_literal": {
+  "DREAM_STEP_FUNCS": [
+   2,
+   1
+  ],
+  "_EXPORTS": [
+   0,
+   109
+  ]
+ },
+ "legacy_only": [
+  {
+   "name": "ALLOWED_SIGNERS_NAME",
+   "literal": "'allowed_signers'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 40"
+  },
+  {
+   "name": "AUTO_DRAFT_TTL_DAYS",
+   "literal": "7",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "CHECKUP_ACK_REL",
+   "literal": "os.path.join('logs', 'checkup', '.ack')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_CORPUS_ENTRIES_MAX",
+   "literal": "7000",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_DEFAULT",
+   "literal": "'0'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_DIR_REL",
+   "literal": "os.path.join('logs', 'checkup')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_FROZEN_METRICS",
+   "literal": "{'d.reliability': 0.005, 'c.tests_ran': 0.0, 'd.rows_added': 0.0}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_HEARTBEAT_STALE_H",
+   "literal": "6",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_INTERVAL_SEC",
+   "literal": "7 * 24 * 3600",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_KEY",
+   "literal": "'AGENTWARE_CHECKUP'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_LASTRUN_REL",
+   "literal": "os.path.join('logs', 'checkup', '.last-run')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_LEARNING_FRESH_DAYS",
+   "literal": "14",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_LLM_DEFAULT",
+   "literal": "'1'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_LLM_KEY",
+   "literal": "'AGENTWARE_CHECKUP_LLM'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_RECALL_P50_MS_MAX",
+   "literal": "1000",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_REPORT_REL",
+   "literal": "os.path.join('logs', 'checkup', 'checkup-latest.md')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_WINDOW_DAYS",
+   "literal": "7",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "CHECKUP_WORKTREE_MAX",
+   "literal": "12",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 44"
+  },
+  {
+   "name": "DREAM_CADENCE_INTERVAL_SEC",
+   "literal": "6 * 3600",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 46"
+  },
+  {
+   "name": "DREAM_PLAN_ONLY_MIN_AGE_HOURS",
+   "literal": "48",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 46"
+  },
+  {
+   "name": "GIT_GUARD_MARKER",
+   "literal": "'agentware commit-msg guard'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 35"
+  },
+  {
+   "name": "GRAPH_BLOCK_SUBTREE",
+   "literal": "'BLOCK_SUBTREE'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_CONCURRENCY_MAX",
+   "literal": "16",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_CONCURRENCY_MIN",
+   "literal": "1",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_CONTINUE",
+   "literal": "'CONTINUE'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DEADLINE_HOURS",
+   "literal": "48",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DEFAULT_CONCURRENCY",
+   "literal": "3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DETAIL_AWAITING_MERGE",
+   "literal": "'awaiting_merge'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DETAIL_DEGENERATE",
+   "literal": "'degenerate'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DETAIL_DONE_UNFINALIZED",
+   "literal": "'done_unfinalized'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DETAIL_FAILED_WATCHDOG",
+   "literal": "'failed_watchdog'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_DETAIL_PLAN_MISSING",
+   "literal": "'plan_missing'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_HALT",
+   "literal": "'HALT'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_KERNEL_SERIALIZE_TOKEN",
+   "literal": "'scripts/agentware'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_KILL_SWITCH_VARS",
+   "literal": "('AGENTWARE_DISABLE_PREMISE_GATE', 'AGENTWARE_DISABLE_TARGET_GATE', 'AGENTWARE_DISABLE_RELEASE_GATE', 'AGENTWARE_SKIP_ADVERSARIAL_REVIEW')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_LANE_ENV_ALLOW",
+   "literal": "('PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TERM', 'TMPDIR', 'SHELL', 'SSH_AUTH_SOCK')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_MANIFEST_SCHEMA",
+   "literal": "1",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_MAX_NODES",
+   "literal": "32",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_BLOCKED",
+   "literal": "'blocked'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_DONE",
+   "literal": "'done'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_FAILED",
+   "literal": "'failed'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_HALT",
+   "literal": "'halt'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_PENDING",
+   "literal": "'pending'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_RUNNING",
+   "literal": "'running'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_NODE_TIMEOUT_HOURS",
+   "literal": "24",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_PAUSE",
+   "literal": "'PAUSE'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "GRAPH_TICK_CEILING",
+   "literal": "1000",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "KB_DERIVED_GITIGNORE_RELS",
+   "literal": "('index.json', 'FEATURES.md') + tuple(('%s/index.md' % sub for sub in KNOWLEDGE_SUBDIRS))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 57"
+  },
+  {
+   "name": "KB_SCHEMA_VERSION",
+   "literal": "max((m[0] for m in _KB_MIGRATIONS), default=0)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 37"
+  },
+  {
+   "name": "LEARN_NEAR_DUP_THRESHOLD",
+   "literal": "0.75",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 61"
+  },
+  {
+   "name": "MAX_QUARANTINED_TAGS",
+   "literal": "50",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 61"
+  },
+  {
+   "name": "MINER_CMD_CHAIN_OPS",
+   "literal": "frozenset(('&&', '||', ';', '|', '&'))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_CMD_TOOLS",
+   "literal": "frozenset(('bash', 'shell', 'terminal', 'command_execution', 'run_command', 'execute_command', 'local_shell', 'exec_command'))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_CMD_WRAPPERS",
+   "literal": "frozenset(('sudo', 'env', 'time', 'nohup', 'nice', 'exec', 'command', 'builtin'))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_EMITTED_CAP",
+   "literal": "4000",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_ERRREC_DEDUP",
+   "literal": "'class'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_ERRREC_DEDUP_KEY",
+   "literal": "'AGENTWARE_MINER_ERRREC_DEDUP'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_PATH_TOOLS",
+   "literal": "frozenset(('read', 'edit', 'write', 'multiedit', 'notebookedit', 'notebook_edit', 'apply_patch', 'str_replace_editor'))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_CUE_REQUIRED",
+   "literal": "False",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_CUE_REQUIRED_KEY",
+   "literal": "'AGENTWARE_MINER_RECURRENCE_CUE_REQUIRED'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_MIN_LEN",
+   "literal": "16",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_MIN_LEN_KEY",
+   "literal": "'AGENTWARE_MINER_RECURRENCE_MIN_LEN'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_N",
+   "literal": "2",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_RETIRED",
+   "literal": "True",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_STOPWORDS",
+   "literal": "frozenset(('continue', 'cont', 'go', 'ahead', 'proceed', 'resume', 'next', 'again', 'now', 'then', 'keep', 'going', 'run', 'it', 'this', 'that', 'do', 'done', 'yes', 'y', 'yeah', 'yep', 'yup', 'yea', 'ok', 'okay', 'k', 'sure', 'please', 'pls', 'plz', 'thanks', 'thank', 'thankyou', 'thx', 'ty', 'good', 'great', 'cool', 'nice', 'perfect', 'awesome', 'lgtm', 'fine', 'works', 'and', 'the', 'a', 'an', 'to', 'up', 'more', 'all', 'no', 'nope', 'stop', 'wait'))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_RECURRENCE_STOPWORDS_KEY",
+   "literal": "'AGENTWARE_MINER_RECURRENCE_STOPWORDS'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_SESSION_CAP",
+   "literal": "50",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_SOURCE_SESSIONS_CAP",
+   "literal": "10",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_STATE_REL",
+   "literal": "'logs/steering/.transcript-miner.state.json'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_TALLY_CAP",
+   "literal": "2000",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_TRANSCRIPT_MAXLEN",
+   "literal": "1500",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_TRANSCRIPT_ROOT_REL",
+   "literal": "('.claude', 'projects')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MINER_TRANSCRIPT_TRUNC_MARKER",
+   "literal": "' …[truncated]'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "MIN_FROZEN_CYCLES",
+   "literal": "3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "OPERATOR_DRAFT_TTL_DAYS",
+   "literal": "90",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "PKG_CHANNEL_RE",
+   "literal": "re.compile('^v(\\\\d+)\\\\.(\\\\d+)\\\\.(\\\\d+)$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "PKG_FETCH_TIMEOUT",
+   "literal": "120",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "PKG_PUBLISHER_PRINCIPAL",
+   "literal": "'agentware-release'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "PKG_SMOKE_TIMEOUT",
+   "literal": "600",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "PKG_STALENESS_MAX_AGE_SEC",
+   "literal": "24 * 3600",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "PREFER_CLASSIFY_REPORT_REL",
+   "literal": "'logs/steering/prefer-classify-latest.md'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "PREFER_QUEUE_ARCHIVE_REL",
+   "literal": "'logs/steering/prefer-queue.archive.jsonl'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "PREFER_QUEUE_CURSOR_REL",
+   "literal": "'logs/steering/.prefer-queue.cursor.json'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "PREFER_QUEUE_MINER_PRODUCER",
+   "literal": "'transcript-miner'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "PREFER_QUEUE_PRODUCER",
+   "literal": "'stop-hook-regex'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "PREFER_QUEUE_REL",
+   "literal": "'logs/steering/prefer-queue.jsonl'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "REVIEW_AGENT_TIMEOUT",
+   "literal": "900",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_BLOCKING_SEVERITIES",
+   "literal": "('high', 'medium')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_CONTROL_CHARS_RE",
+   "literal": "re.compile('[\\x00-\\x1f\\x7f-\\x9f]')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_DEFAULT_EFFORT",
+   "literal": "'max'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_DEFAULT_MAX_ROUNDS",
+   "literal": "3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_DEFAULT_MODEL",
+   "literal": "'opus'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_DIMENSIONS",
+   "literal": "({'key': 'correctness', 'title': 'Correctness vs. acceptance criteria', 'focus': \"Read the diff against EACH acceptance criterion. Construct concrete inputs/states where the code does NOT satisfy the criterion — off-by-one, wrong branch, unhandled None/empty, race, wrong exit code, spec-vs-code mismatch. Do not re-run the author's tests; build NEW adversarial cases.\"}, {'key': 'security-governance', 'title': 'Security & governance', 'focus': 'Hunt injection (untrusted finding/plan text reaching a --target, Verify line, shell, or eval — R-SEC-02), authz gaps, secret handling, weakened governance gates, and any kernel-path write that should have been refused. Assume every external string is hostile and try to make it execute.'}, {'key': 'reuse-in-new-context', 'title': 'Reuse-in-new-context gaps', 'focus': 'Find code reused/moved into a NEW context whose original invariants no longer hold — a helper called with new argument shapes, an env/global the new caller does not set, a copied claude-branch that drifts from run_agent, a predicate that matched in the old path but not the new one.'}, {'key': 'novel-input-edge-cases', 'title': 'Novel-input & edge cases', 'focus': 'Feed inputs the author almost certainly did not test: empty/huge/unicode, malformed JSON, missing files, zero findings, max-rounds boundary, concurrent runs, non-self-extension diffs, Opus unreachable. Show the failure mode for each that breaks.'}, {'key': 'test-quality', 'title': 'Test quality & false-pass risk', 'focus': 'Attack the tests themselves: assertions that pass on wrong behavior, stubs that hide the real path, missing regression lock for a claimed fix, a hermetic fake that no longer mirrors the real agent seam. A green suite that would stay green if the feature were broken is a HIGH finding.'})",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_DIMENSIONS_BY_KEY",
+   "literal": "OrderedDict(((d['key'], d) for d in REVIEW_DIMENSIONS))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_DIMENSION_KEYS",
+   "literal": "tuple((d['key'] for d in REVIEW_DIMENSIONS))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_EFFORT_RANK",
+   "literal": "{'low': 1, 'medium': 2, 'high': 3, 'max': 4}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_FINDING_FIELDS",
+   "literal": "REVIEW_FINDING_REQUIRED_FIELDS + REVIEW_FINDING_OPTIONAL_FIELDS",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_FINDING_OPTIONAL_FIELDS",
+   "literal": "('line', 'verdict', 'verdict_rationale', 'suggested_fix')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_FINDING_REQUIRED_FIELDS",
+   "literal": "('dimension', 'severity', 'file', 'summary', 'failure_scenario')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_FINDING_SCHEMA",
+   "literal": "{'type': 'object', 'required': list(REVIEW_FINDING_REQUIRED_FIELDS), 'additionalProperties': False, 'properties': {'dimension': {'type': 'string', 'enum': list(REVIEW_DIMENSION_KEYS)}, 'severity': {'type': 'string', 'enum': list(REVIEW_SEVERITIES)}, 'file': {'type': 'string'}, 'line': {'type': ['integer', 'null']}, 'summary': {'type': 'string'}, 'failure_scenario': {'type': 'string'}, 'verdict': {'type': 'string', 'enum': list(REVIEW_VERDICTS)}, 'verdict_rationale': {'type': 'string'}, 'suggested_fix': {'type': 'string'}}}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_FIXER_PERSONA",
+   "literal": "'agentware-execution'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_FIX_STATUSES",
+   "literal": "('fixed', 'unfixable', 'deferred')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_GATE_STEP_NAMES",
+   "literal": "('tests', 'steering-lint', 'gate-release')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_MODEL_RANK",
+   "literal": "{'haiku': 1, 'sonnet': 2, 'opus': 3}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_PROMPT_ARGV_MAX",
+   "literal": "65536",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_REPORT_REL",
+   "literal": "'adversarial-review.md'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_REVIEWER_PERSONA",
+   "literal": "'agentware-adversarial-reviewer'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SEVERITIES",
+   "literal": "('high', 'medium', 'low', 'info')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SKIP_ENV",
+   "literal": "'AGENTWARE_SKIP_ADVERSARIAL_REVIEW'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SLEEP",
+   "literal": "time.sleep",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SLOW_FAILURE_FRACTION",
+   "literal": "0.5",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SPAWN_BACKOFF_BASE",
+   "literal": "1.0",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SPAWN_RETRIES",
+   "literal": "2",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_SPAWN_TIMEOUT_RETRIES",
+   "literal": "1",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_STDERR_TAIL_BYTES",
+   "literal": "2048",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_TRANSIENT_STDERR_RE",
+   "literal": "re.compile('(?i)\\\\b(?:429|500|502|503|504|529)\\\\b|overload|rate.?limit|too many requests|timeout|timed out|\\\\bECONN(?:RESET|REFUSED|ABORTED)\\\\b|\\\\bENOTFOUND\\\\b|\\\\bEAI_AGAIN\\\\b|\\\\bETIMEDOUT\\\\b|\\\\bENETUNREACH\\\\b|\\\\bEHOSTUNREACH\\\\b|\\\\bEPIPE\\\\b|socket hang.?up|connection (?:reset|refused|closed|aborted)|network (?:error|is unreachable)|fetch failed|internal server error|bad gateway|service unavailable|gateway time.?out')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_VERDICTS",
+   "literal": "('confirmed', 'refuted', 'uncertain')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "REVIEW_WORKORDER_GENERATED_BY",
+   "literal": "'adversarial-review'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "SCHEMA_REL",
+   "literal": "'.schema'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 37"
+  },
+  {
+   "name": "SKILL_LOCK_SCHEMA",
+   "literal": "1",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_CAP_DEFAULT",
+   "literal": "2",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_CAP_KEY",
+   "literal": "'AGENTWARE_SKILL_PROMOTE_CAP'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_DEFAULT",
+   "literal": "'propose'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_DENSITY_MIN_KEY",
+   "literal": "'AGENTWARE_SKILL_PROMOTE_DENSITY_MIN'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_EDGE_MIN_KEY",
+   "literal": "'AGENTWARE_SKILL_PROMOTE_EDGE_MIN'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_KEY",
+   "literal": "'AGENTWARE_SKILL_PROMOTE'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SKILL_PROMOTE_SEPARATION_MIN_KEY",
+   "literal": "'AGENTWARE_SKILL_PROMOTE_SEPARATION_MIN'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "SLUG_RE",
+   "literal": "re.compile('^[a-z0-9][a-z0-9-]*$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "STALENESS_STALE_MULT",
+   "literal": "0.5",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "STALENESS_SUPERSEDED_MULT",
+   "literal": "0.3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "STALE_MAX_AGE_DAYS",
+   "literal": "120",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "STALLED_CLAIM_HOURS",
+   "literal": "72",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "SUGGESTED_ID_RE",
+   "literal": "re.compile('Suggested\\\\s+ID[*:\\\\s]*`([a-z0-9][a-z0-9-]*)`', re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "SUPERSEDES_RELATION",
+   "literal": "'supersedes'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 38"
+  },
+  {
+   "name": "TICK_CRON_REL",
+   "literal": "os.path.join('.agentware', 'tick.cron')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 43"
+  },
+  {
+   "name": "TICK_INTERVAL_SEC",
+   "literal": "1800",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 43"
+  },
+  {
+   "name": "TICK_LAUNCHD_LABEL",
+   "literal": "'com.agentware.tick'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 43"
+  },
+  {
+   "name": "UPDATER_CHECK_INTERVAL_SEC",
+   "literal": "6 * 3600",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "UPDATER_DEFAULT",
+   "literal": "'0'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "UPDATER_KEY",
+   "literal": "'AGENTWARE_UPDATE'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "UPDATER_LOCK_REL",
+   "literal": "os.path.join('.cache', 'updater.lock')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "UPDATE_STATE_LOCK_NAME",
+   "literal": "'update-state.lock'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "UPDATE_STATE_NAME",
+   "literal": "'update-state.json'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "WAIVED_RE",
+   "literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*WAIVED:\\\\s*(.*?)\\\\s*$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "WORKORDER_DRAFT_CAP",
+   "literal": "5",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "WORK_CORPUS_CACHE_REL",
+   "literal": "os.path.join('.cache', 'work-corpus.json')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "WORK_CORPUS_CACHE_VERSION",
+   "literal": "1",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "_CHECKPOINT_POLICIES",
+   "literal": "('none', 'review', 'manual')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_CHECK_METACHAR_RE",
+   "literal": "re.compile('[;&|`$\\\\n\\\\r]')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_CORPUS_METRICS",
+   "literal": "('recurrence-keys-at-n', 'claude-error-records')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_CORPUS_OPS",
+   "literal": "('>=', '<=', '==', '!=', '>', '<')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_CTX_ATX_HEADER_RE",
+   "literal": "re.compile('^#{1,6}(?:\\\\s|$)')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_CTX_FORGED_HEADER_RE",
+   "literal": "re.compile('^(Status|Claimed-by|Superseded-by|Origin|Generated-by|Trigger|Evidence)\\\\s*:', re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_CTX_LOOSE_TASK_RE",
+   "literal": "re.compile('^\\\\s*-\\\\s*(⬜|🟡|✅)\\\\s*\\\\*\\\\*\\\\d')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_DREAM_ACQ_GUARD",
+   "literal": "threading.RLock()",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 46"
+  },
+  {
+   "name": "_DREAM_ACQ_LOCKS",
+   "literal": "{}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 46"
+  },
+  {
+   "name": "_GRAPH_CHECKPOINT_VERDICTS",
+   "literal": "('proceed', 'hold', 'abort-subtree')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "_GRAPH_CONTAINED_FAIL_OUTCOMES",
+   "literal": "frozenset({'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort'})",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "_GRAPH_DEP_SATISFIED",
+   "literal": "frozenset({GRAPH_NODE_DONE})",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "_GRAPH_DISPATCHABLE",
+   "literal": "frozenset({GRAPH_NODE_PENDING})",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "_GRAPH_DISPOSITION_TABLE",
+   "literal": "{'completed': GRAPH_CONTINUE, 'hit_max_iterations': GRAPH_BLOCK_SUBTREE, 'post_hook_failure': GRAPH_BLOCK_SUBTREE, 'pre_hook_abort': GRAPH_BLOCK_SUBTREE, 'adversarial_review_blocked': GRAPH_HALT, 'blocked_on_ambiguity': GRAPH_HALT, 'quota_throttled': GRAPH_PAUSE, 'merged': GRAPH_CONTINUE, 'skipped': GRAPH_CONTINUE, 'halt-package': GRAPH_HALT, 'halt-kb': GRAPH_HALT, 'halt-gate': GRAPH_HALT, 'self_extension_reached': GRAPH_HALT, 'manifest_mutated': GRAPH_HALT}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "_GRAPH_EDGE_KINDS",
+   "literal": "('logical', 'resource')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 48"
+  },
+  {
+   "name": "_KB_MIGRATIONS",
+   "literal": "((1, 'additive', 'plan-state-backfill', _migration_001_state_backfill),)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 37"
+  },
+  {
+   "name": "_KB_MIGRATION_JOURNAL_REL",
+   "literal": "os.path.join('logs', 'migrations.jsonl')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 37"
+  },
+  {
+   "name": "_KERNEL_CONFUSABLE_TT",
+   "literal": "str.maketrans({'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x', 'к': 'k', 'м': 'm', 'т': 't', 'н': 'h', 'в': 'b', 'і': 'i', 'ѕ': 's', 'ԁ': 'd', 'ј': 'j', 'ԍ': 'g', 'ո': 'n', 'А': 'A', 'Е': 'E', 'О': 'O', 'Р': 'P', 'С': 'C', 'У': 'Y', 'Х': 'X', 'К': 'K', 'М': 'M', 'Т': 'T', 'Н': 'H', 'В': 'B', 'І': 'I', 'Ѕ': 'S', 'Ј': 'J', 'α': 'a', 'ο': 'o', 'ρ': 'p', 'ϲ': 'c', 'ς': 's', 'ν': 'v', 'κ': 'k', 'μ': 'm', 'τ': 't', 'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Κ': 'K', 'Μ': 'M', 'Ν': 'N', 'Η': 'H', 'Ι': 'I', 'Χ': 'X', 'Υ': 'Y', 'Ζ': 'Z', '⁄': '/', '∕': '/', '⧸': '/', '／': '/', '・': '.', '･': '.', '·': '.', '‧': '.', '․': '.', '·': '.'})",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 69"
+  },
+  {
+   "name": "_KERNEL_HOME_RE",
+   "literal": "re.compile('~[^/]*/')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 69"
+  },
+  {
+   "name": "_KERNEL_PATH_TOKENS",
+   "literal": "('scripts/agentware', 'scripts/hooks', '.claude', 'steering', 'AGENTS.md', 'CLAUDE.md', 'agentware.sh', 'session-start.sh', 'log-stop.sh', 'log-prompt.sh', 'log-tool.sh', 'log-subagent.sh', 'retrieval-state.sh', 'codex-stream.py', 'render-transcript.py', 'commit-msg')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 69"
+  },
+  {
+   "name": "_KERNEL_TOK_EDGE_RE",
+   "literal": "re.compile('^[^0-9A-Za-z./~]+|[^0-9A-Za-z./~]+$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 69"
+  },
+  {
+   "name": "_PATH_MODES",
+   "literal": "('exists', 'absent', 'mtime-before')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 69"
+  },
+  {
+   "name": "_PKG_STATE_LOCK_GUARD",
+   "literal": "threading.RLock()",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "_PKG_STATE_LOCK_STATE",
+   "literal": "{}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 41"
+  },
+  {
+   "name": "_PLAN_ACCEPT_PLACEHOLDER",
+   "literal": "'TODO: define the verifiable acceptance criteria'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_CHECKPOINT_LOG_HEADING",
+   "literal": "'## Checkpoint log'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_CHECKPOINT_RE",
+   "literal": "re.compile('(?im)^>\\\\s*Checkpoint:\\\\s*([A-Za-z-]+)\\\\s*$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_CHECK_ROW_RE",
+   "literal": "re.compile('^\\\\s*check:\\\\s*(.+?)\\\\s*$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_CITE_ROW_RE",
+   "literal": "re.compile('^\\\\s*cite:\\\\s*(.+?)\\\\s*$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_CLAIMED_BY_RE",
+   "literal": "re.compile('^>\\\\s*Claimed-by:\\\\s*(.+?)\\\\s*$', re.M)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_DEFAULT_STATE",
+   "literal": "'draft'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_DEPENDS_KINDS",
+   "literal": "('logical', 'resource')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_DEPENDS_SECTION_RE",
+   "literal": "re.compile('^##\\\\s+Depends-on:?\\\\s*$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_EDGE_MALFORMED",
+   "literal": "'__malformed__'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_GRAPH_ERROR_SCHEMA",
+   "literal": "2",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_PREMISES_ERROR_SCHEMA",
+   "literal": "2",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_PREMISES_FENCE_RE",
+   "literal": "re.compile('^\\\\s*```+\\\\s*premises\\\\s*$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_PREMISES_SECTION_RE",
+   "literal": "re.compile('^##\\\\s+Premises\\\\s*$', re.IGNORECASE | re.MULTILINE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_PREMISE_ROW_RE",
+   "literal": "re.compile('^\\\\s*-\\\\s+premise:\\\\s*(.+?)\\\\s*$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_READINESS_SIGNATURES",
+   "literal": "('_TODO: problem, goal, design, constraints, environment, pitfalls._', 'TODO: replace with the absolute or ~-rooted directory path(s) this plan targets', '*Verify:* TODO — exercise the feature end-to-end and capture the outcome.', '- [ ] TODO: define the verifiable acceptance criteria.')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_SERIALIZE_ON_RE",
+   "literal": "re.compile('(?i)^serialize_on\\\\s*:?\\\\s*')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_SLUG_RE",
+   "literal": "re.compile('^[A-Za-z0-9_-]+$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_STATES",
+   "literal": "('draft', 'ready', 'running', 'done', 'superseded', 'cancelled')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_STATE_RANK",
+   "literal": "{'draft': 0, 'ready': 1, 'running': 2, 'done': 3, 'cancelled': 4, 'superseded': 5}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_STATE_TRANSITIONS",
+   "literal": "{('draft', 'ready'): {'actors': None, 'needs': ()}, ('ready', 'draft'): {'actors': None, 'needs': ('reason',)}, ('ready', 'running'): {'actors': ('loop', 'operator'), 'needs': ()}, ('running', 'running'): {'actors': ('loop', 'operator'), 'needs': ()}, ('running', 'done'): {'actors': ('loop', 'operator'), 'needs': ()}, ('draft', 'superseded'): {'actors': None, 'needs': ('superseded_by',)}, ('ready', 'superseded'): {'actors': None, 'needs': ('superseded_by',)}, ('done', 'superseded'): {'actors': None, 'needs': ('superseded_by',)}, ('running', 'superseded'): {'actors': ('operator',), 'needs': ('superseded_by',)}, ('draft', 'cancelled'): {'actors': None, 'needs': ('reason',)}, ('ready', 'cancelled'): {'actors': None, 'needs': ('reason',)}, ('running', 'cancelled'): {'actors': ('operator',), 'needs': ('reason',)}, ('cancelled', 'draft'): {'actors': ('operator',), 'needs': ('reason',)}}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_STATUS_HEADER_RE",
+   "literal": "re.compile('^>\\\\s*Status:\\\\s*([A-Za-z-]+)\\\\s*$', re.M)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_STATUS_LOG_HEADING",
+   "literal": "'## Status log'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_SUPERSEDED_BY_RE",
+   "literal": "re.compile('^>\\\\s*Superseded-by:\\\\s*(.+?)\\\\s*$', re.M)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_TERMINAL_STATES",
+   "literal": "('done', 'superseded', 'cancelled')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PLAN_WRITESET_SECTION_RE",
+   "literal": "re.compile('^##\\\\s+Write set\\\\s*$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PREFER_CURSOR_CAP",
+   "literal": "200",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREFER_QUEUE_CAP",
+   "literal": "500",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREFER_QUEUE_RE",
+   "literal": "re.compile('\\\\b(always|never|from now on|going forward|prefer|do not ever|make sure to|by default)\\\\b', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREFER_REVIEW_DEFAULT_STATUSES",
+   "literal": "('proposed',)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREFER_REVIEW_TEXT_PREVIEW",
+   "literal": "240",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_CUE_RE",
+   "literal": "re.compile(\"\\\\b(always|never|prefer(?:s|red|ence)?|by default|default to|from now on|going forward|make sure|do not|don'?t|dont|should|must|avoid|ensure|use|keep|no longer|i (?:want|like|prefer|need)|we (?:want|use|prefer))\\\\b\", re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_DIGEST_CHAR_BUDGET",
+   "literal": "1500",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_DIGEST_MAX",
+   "literal": "20",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_MADE_OPTIONAL_RE",
+   "literal": "re.compile('\\\\b(?:make|makes|making|treat|treats|treating|render|renders|rendering|mark|marks|marking|consider|considers|considering|keep|keeps|keeping|leave|leaves|leaving|deem|deems|deeming)\\\\s+(?:the\\\\s+|a\\\\s+|any\\\\s+|all\\\\s+|our\\\\s+|your\\\\s+)?(?:\\\\w+\\\\s+){0,1}?(?:%s|%s)\\\\s+(?:as\\\\s+)?(?:optional|skippable|waived|unnecessary|non-?mandatory)\\\\b' % (_PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_NOUN_RE",
+   "literal": "re.compile('\\\\b(?:%s)\\\\b' % _PREF_GATE_NOUN_STRONG, re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_NOUN_STRONG",
+   "literal": "'verif\\\\w*|gates?|lint\\\\w*|acceptance|pre-?commit|sign-?offs?|R-[A-Z]+-\\\\d+'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_NOUN_WEAK",
+   "literal": "'tests?|testing|ci|cd|releases?|deploy\\\\w*|merges?|merging|reviews?|audits?|auditing|approvals?'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_NO_NEED_RE",
+   "literal": "re.compile('\\\\bno\\\\s+need\\\\s+(?:to\\\\s+(?:run|runs|running|execute\\\\w*|perform\\\\w*|do|have|check\\\\w*|validat\\\\w*|verif\\\\w*|enforc\\\\w*|require\\\\w*|pass)\\\\b(?:\\\\s+\\\\w+){0,3}?\\\\s+(?:the\\\\s+|a\\\\s+|an\\\\s+|any\\\\s+|all\\\\s+|our\\\\s+|your\\\\s+)?(?:%s|%s)|for\\\\s+(?:the\\\\s+|a\\\\s+|an\\\\s+)?(?:%s))\\\\b' % (_PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK, _PREF_GATE_NOUN_STRONG), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_PERMIT_FAIL_RE",
+   "literal": "re.compile(\"\\\\b(?:(?:allow|allows|allowing|let|lets|letting|permit\\\\w*|tolerat\\\\w*)\\\\s+(?:the\\\\s+|a\\\\s+|any\\\\s+|all\\\\s+|our\\\\s+|your\\\\s+)?(?:\\\\w+\\\\s+){0,2}?(?:%s|%s)(?:\\\\s+\\\\w+){0,3}?\\\\s+(?:to\\\\s+)?(?:fail\\\\w*|break\\\\w*|error\\\\w*|be\\\\s+red)|(?:non-?blocking|not\\\\s+block\\\\w*|do(?:es)?n'?t\\\\s+block|should(?:\\\\s?n'?t|\\\\s+not)\\\\s+block)\\\\s+(?:\\\\w+\\\\s+){0,2}?(?:%s|%s)|(?:%s|%s)(?:\\\\s+failures?)?(?:\\\\s+\\\\w+){0,3}?\\\\s+(?:should\\\\s+|must\\\\s+|will\\\\s+)?(?:be\\\\s+)?(?:non-?blocking|(?:should\\\\s+|must\\\\s+)?(?:not|never)\\\\s+block\\\\w*))\\\\b\" % (_PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK, _PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK, _PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_TURN_OFF_RE",
+   "literal": "re.compile('\\\\bturn\\\\s+(?:the\\\\s+|a\\\\s+|any\\\\s+|all\\\\s+|our\\\\s+|your\\\\s+)?(?:\\\\w+\\\\s+){0,2}?(?:%s|%s)(?:\\\\s+\\\\w+){0,2}?\\\\s+off\\\\b' % (_PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_GATE_WAIVED_RE",
+   "literal": "re.compile(\"\\\\b(?:%s|%s)\\\\b(?:\\\\s+\\\\w+){0,3}?\\\\s+(?:(?:is|are|can be|could be|may be|be|been|being|was|were|remains?|stays?|becomes?|became|gets?|got)\\\\s+(?:(?!not\\\\b|never\\\\b|no\\\\b)\\\\w+\\\\s+){0,1}?(?:optional|skippable|skipped|waived|unnecessary|non-?mandatory)|(?:is|are|be|been|being|was|were|remains?|stays?|gets?|got)\\\\s+(?:no longer|not|never)\\\\s+(?:\\\\w+\\\\s+){0,1}?(?:required|mandatory|mandated|needed|necessary|enforced|run)|(?:isn'?t|aren'?t|wasn'?t|weren'?t|won'?t\\\\s+be|no longer)\\\\s+(?:\\\\w+\\\\s+){0,1}?(?:required|mandatory|mandated|needed|necessary|enforced))\\\\b\" % (_PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_LOOSEN_GOVERNS_RE",
+   "literal": "re.compile('\\\\b(?:skip\\\\w*|disabl\\\\w*|bypass\\\\w*|ignor\\\\w*|omit\\\\w*|waiv\\\\w*|circumvent\\\\w*|sidestep\\\\w*|suppress\\\\w*|forgo|forego|turn\\\\s*off|relax\\\\w*|weaken\\\\w*|loosen\\\\w*)\\\\s+(?:the\\\\s+|a\\\\s+|an\\\\s+|any\\\\s+|all\\\\s+|our\\\\s+|its\\\\s+|your\\\\s+|these\\\\s+|those\\\\s+|my\\\\s+|their\\\\s+)?(?:(?!in\\\\b|on\\\\b|for\\\\b|of\\\\b|during\\\\b|with\\\\b|at\\\\b|by\\\\b|to\\\\b|from\\\\b|about\\\\b|and\\\\b|but\\\\b|or\\\\b|so\\\\b|because\\\\b|while\\\\b|when\\\\b|via\\\\b|per\\\\b)\\\\w+\\\\s+){0,2}?(?:%s|%s)\\\\b' % (_PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_LOOSEN_VERB_RE",
+   "literal": "re.compile('\\\\b(?:skip\\\\w*|disabl\\\\w*|bypass\\\\w*|ignor\\\\w*|turn off|relax\\\\w*|weaken\\\\w*|loosen\\\\w*|waiv\\\\w*|circumvent\\\\w*|sidestep\\\\w*|forgo|forego|omit\\\\w*|suppress\\\\w*)\\\\b', re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_MIN_TOKENS",
+   "literal": "3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_NEG",
+   "literal": "\"never|not|no longer|don'?t|do not|dont|does\\\\s?n'?t|didn'?t|won'?t|stops?(?:\\\\s+running)?|ceased?|no need(?:\\\\s+to)?|no longer need\"",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_NEG_ENFORCE_RE",
+   "literal": "re.compile('\\\\b(?:%s)\\\\s+(?:(?!skip|disabl|bypass|ignor|waiv|omit|forgo|forego|circumvent|sidestep|suppress|relax|weaken|loosen|turn|push|make|treat|keep)\\\\w+\\\\s+){0,1}?(?:run|runs|running|require\\\\w*|enforc\\\\w*|mandat\\\\w*|check\\\\w*|validat\\\\w*|verif\\\\w*|need\\\\w*|have\\\\s+to|has\\\\s+to|had\\\\s+to|bother\\\\s+with)\\\\b(?:\\\\s+\\\\w+){0,3}?\\\\s+(?:the\\\\s+|a\\\\s+|an\\\\s+|any\\\\s+|all\\\\s+|our\\\\s+|your\\\\s+)?(?:%s|%s)\\\\b' % (_PREF_NEG, _PREF_GATE_NOUN_STRONG, _PREF_GATE_NOUN_WEAK), re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_NEG_LOOSE",
+   "literal": "'%s|avoids?|avoiding|prevents?|preventing' % _PREF_NEG",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_NEG_LOOSEN_RE",
+   "literal": "re.compile('\\\\b(?:%s)\\\\s+(?:\\\\w+\\\\s+){0,1}?(?:skip\\\\w*|disabl\\\\w*|bypass\\\\w*|ignor\\\\w*|waiv\\\\w*|omit\\\\w*|forgo|forego|circumvent\\\\w*|sidestep\\\\w*|suppress\\\\w*|relax\\\\w*|weaken\\\\w*|loosen\\\\w*|turn\\\\w*|allow\\\\w*|lets?|letting|permit\\\\w*|tolerat\\\\w*|make\\\\w*|treat\\\\w*|keep\\\\w*|mark\\\\w*|leave\\\\w*|render\\\\w*|consider\\\\w*|deem\\\\w*)\\\\b' % _PREF_NEG_LOOSE, re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_NOISE_PHRASES",
+   "literal": "frozenset(('hi', 'hello', 'hey', 'yo', 'thanks', 'thank you', 'ty', 'ok', 'okay', 'k', 'cool', 'nice', 'great', 'got it', 'sounds good', 'yes', 'no', 'yep', 'nope', 'sure', 'please', 'done', 'good', 'np', 'lol'))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_STATEMENT_QUESTION_RE",
+   "literal": "re.compile(\"^\\\\s*(?:i\\\\s+(?:dont|don'?t|do\\\\s+not)\\\\s+understand|i'?m\\\\s+(?:confused|not\\\\s+sure|unclear|lost)|(?:can|could|would|should|will|do|does|did|are|is)\\\\s+(?:you|we|it|this|these|i)\\\\b)\", re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREF_STRONG_CUE_RE",
+   "literal": "re.compile('\\\\b(always|never|prefer(?:s|red|ence)?|by default|default to|from now on)\\\\b', re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_PREMISE_CHECK_KINDS",
+   "literal": "('cite-live', 'config-eq', 'path', 'corpus-metric')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_PROMPTS_HEADER_RE",
+   "literal": "re.compile('^\\\\[(?P<ts>[^\\\\]]*)\\\\] \\\\[session (?P<sid>[^\\\\]]*)\\\\] \\\\[cwd (?P<cwd>.*)\\\\] \\\\[origin=(?P<origin>[^\\\\]]*)\\\\] \\\\[turn=(?P<turn>[^\\\\]]*)\\\\]\\\\s*$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_RET_ID_RE",
+   "literal": "re.compile('\\\\b((?:learn|decide|config|project|ref|skill)-[a-z0-9][a-z0-9-]*)')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "_RET_PATH_RE",
+   "literal": "re.compile('\\\\b((?:learnings|decisions|projects|configurations|references|skills|prompts)/[A-Za-z0-9._/-]+\\\\.md)')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "_REVIEW_TIMEOUT_BREAKER",
+   "literal": "{'tripped': False}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 47"
+  },
+  {
+   "name": "_SAFE_SKILL_NAME_RE",
+   "literal": "re.compile('^[a-z0-9][a-z0-9._-]{0,63}$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_CLUSTER_DENSITY_MIN",
+   "literal": "0.7",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_CLUSTER_EDGE_MIN",
+   "literal": "0.3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_CLUSTER_MAX_SIZE",
+   "literal": "6",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_CLUSTER_MIN_SIZE",
+   "literal": "3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_CLUSTER_SEPARATION_MIN",
+   "literal": "0.1",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_CLUSTER_TAGSPINE_MIN",
+   "literal": "0.6",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_DISPLAY_RE",
+   "literal": "re.compile('[^A-Za-z0-9 <>@._-]')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_NAME_RE",
+   "literal": "re.compile('^[a-z0-9][a-z0-9._-]{0,63}$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_PROMOTE_OFF_TOKENS",
+   "literal": "('off', '0', 'no', 'false', 'disable', 'disabled')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SKILL_PROMOTE_ON_TOKENS",
+   "literal": "('propose', 'on', '1', 'yes', 'true', 'enable', 'enabled')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_SSH_KEYTYPES",
+   "literal": "('ssh-ed25519', 'ssh-rsa', 'ssh-dss', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'sk-ssh-ed25519@openssh.com', 'sk-ecdsa-sha2-nistp256@openssh.com')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 40"
+  },
+  {
+   "name": "_SWE_HIDDEN_TEST_RUNNER",
+   "literal": "'import importlib.util, sys, types, traceback\\n\\n# Minimal, dependency-free stand-in for the tiny slice of pytest the hidden\\n# graders use (only pytest.raises). Installed before the test module executes so\\n# an in-test `import pytest` resolves to this shim rather than failing.\\nclass _Raises:\\n    def __init__(self, exc):\\n        self.exc = exc\\n    def __enter__(self):\\n        return self\\n    def __exit__(self, exc_type, exc, tb):\\n        if exc_type is None:\\n            raise AssertionError(\"DID NOT RAISE %r\" % (self.exc,))\\n        return isinstance(exc, self.exc)\\n\\n_pytest = types.ModuleType(\"pytest\")\\n_pytest.raises = lambda exc, *a, **k: _Raises(exc)\\nsys.modules[\"pytest\"] = _pytest\\n\\n_test_path = sys.argv[1]\\n_spec = importlib.util.spec_from_file_location(\"hidden_test\", _test_path)\\n_module = importlib.util.module_from_spec(_spec)\\nsys.modules[\"hidden_test\"] = _module\\ntry:\\n    _spec.loader.exec_module(_module)\\nexcept Exception:\\n    traceback.print_exc()\\n    sys.exit(1)\\n\\n_tests = [getattr(_module, _n) for _n in dir(_module)\\n          if _n.startswith(\"test\") and callable(getattr(_module, _n))]\\nif not _tests:\\n    print(\"no tests collected\")\\n    sys.exit(1)\\n\\n_failures = 0\\nfor _fn in _tests:\\n    try:\\n        _fn()\\n        print(\"PASS \" + _fn.__name__)\\n    except Exception:\\n        _failures += 1\\n        print(\"FAIL \" + _fn.__name__)\\n        traceback.print_exc()\\nsys.exit(1 if _failures else 0)\\n'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 54"
+  },
+  {
+   "name": "_TICK_JOB_REGISTRY",
+   "literal": "[]",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 43"
+  },
+  {
+   "name": "_TRANSCRIPT_ERR_FRAME_RE",
+   "literal": "re.compile('^(traceback \\\\(most recent call last\\\\):?|traceback:?|stack ?trace:?|exit code \\\\d+:?|errors?:?|during handling of the above exception.*|the above exception was the direct cause.*|file \".*\", line \\\\d+.*|at [\\\\w$][\\\\w$.<>/-]* ?\\\\(.*\\\\)|\\\\.{3,}.*|(hint|note|help):.*|.*failed with exit code \\\\d+\\\\.?|run with [-\\\\w][\\\\w .-]* for (more|full|additional).*|(for|see) (more|full|additional|further) (info|information|details|help).*)$', re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_TRANSCRIPT_ERR_MSG_RE",
+   "literal": "re.compile(\"error|exception|fail|fatal|panic|abort|denied|refus|not found|no such|cannot|can't|could ?n'?t|unable|invalid|missing|undefined|unexpected|timed? ?out|timeout|\\\\b[eE]\\\\d{3,}\\\\b\", re.IGNORECASE)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_TRANSCRIPT_JSON_OBJ_RE",
+   "literal": "re.compile('\\\\s*\\\\{\\\\s*\"')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 45"
+  },
+  {
+   "name": "_WORKORDER_SLUG_RE",
+   "literal": "re.compile('^\\\\d{6}-')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  },
+  {
+   "name": "_WORK_STATUS_MULT",
+   "literal": "{'superseded': 0.3, 'cancelled': 0.3, 'done': 0.7}",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 49"
+  },
+  {
+   "name": "_WRITE_SET_WHOLE_REPO",
+   "literal": "'**'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "pending",
+   "follow_up": "task 39"
+  }
+ ],
+ "divergent": [
+  {
+   "name": "ATTACH_REQUIRED_DIRS",
+   "legacy_literal": "KNOWLEDGE_SUBDIRS + ('work', 'logs')",
+   "lib_literal": "index.KNOWLEDGE_SUBDIRS + ('work', 'logs')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/attach.py"
+   ],
+   "decision": "equivalent",
+   "rationale": "same tuple via `index.KNOWLEDGE_SUBDIRS`"
+  },
+  {
+   "name": "BM25_CACHE_VERSION",
+   "legacy_literal": "2",
+   "lib_literal": "3",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/retrieval/bm25.py"
+   ],
+   "rationale": "task 24 bumped the cache version to 3 -- a value NEITHER tree had used (2 here, 1 in the donor, over the SAME cache path), so a foreign-schema cache can never load as valid. The monolith's 2 is the thing being replaced.",
+   "decision": "lib",
+   "decided_literal": "3"
+  },
+  {
+   "name": "DECISION_RE",
+   "legacy_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
+   "lib_literal": "re.compile('^\\\\s*>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "follow_up": "task 45",
+   "rationale": "same list-bullet prefix as LEARNED_RE, on the R-AUTO-05 side: a bulleted `> DECISION:` would stop blocking.",
+   "decision": "legacy",
+   "decided_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
+   "landed": false,
+   "pending_literal": "re.compile('^\\\\s*>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')"
+  },
+  {
+   "name": "DREAM_STEP_FUNCS",
+   "legacy_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('s', 'stale-propose', _dream_step_stale_propose), ('k', 'skill-propose', _dream_step_skill_propose), ('m', 'transcript-mine', _dream_step_transcript_mine), ('g', 'prefer-classify', _dream_step_prefer_classify), ('f', 'kb-git-commit', _dream_step_kb_git))",
+   "lib_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('f', 'kb-git-commit', _dream_step_kb_git))",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/features/dreamsteps/registry.py"
+   ],
+   "follow_up": "task 46",
+   "rationale": "the donor registry holds 8 steps; this tree has 12. The four missing ones (stale-propose, skill-propose, transcript-mine, prefer-classify) are exactly the dropped nightly steps task 46 restores as four new step files.",
+   "decision": "legacy",
+   "decided_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('s', 'stale-propose', _dream_step_stale_propose), ('k', 'skill-propose', _dream_step_skill_propose), ('m', 'transcript-mine', _dream_step_transcript_mine), ('g', 'prefer-classify', _dream_step_prefer_classify), ('f', 'kb-git-commit', _dream_step_kb_git))",
+   "landed": false,
+   "pending_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('f', 'kb-git-commit', _dream_step_kb_git))"
+  },
+  {
+   "name": "FANOUT_MERGE_UNION_PATHS",
+   "legacy_literal": "('benchmarks/history.jsonl', 'benchmarks/SCORECARD.md', 'index.json', 'FEATURES.md', '**/index.md')",
+   "lib_literal": "('benchmarks/history.jsonl', 'benchmarks/SCORECARD.md', 'index.json', 'FEATURES.md', '**/index.md', 'scripts/agentware_lib/_registration.py')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/features/fanout.py"
+   ],
+   "rationale": "the lib's tuple is a strict superset: it adds the generated `_registration.py`, which every fanout lane regenerates and must union-merge rather than conflict on. Task 70 retires that file and must re-adjudicate this row.",
+   "follow_up": "task 70",
+   "decision": "lib",
+   "decided_literal": "('benchmarks/history.jsonl', 'benchmarks/SCORECARD.md', 'index.json', 'FEATURES.md', '**/index.md', 'scripts/agentware_lib/_registration.py')"
+  },
+  {
+   "name": "HOME_CONFIG",
+   "legacy_literal": "os.path.join(os.path.expanduser('~'), '.agentware', 'config.env')",
+   "lib_literal": "os.path.join(_CONFIG_HOME, 'config.env')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ],
+   "decision": "equivalent",
+   "rationale": "`_CONFIG_HOME` defaults to ~/.agentware, so the resolved path is unchanged; the indirection is task 53's config-home override arriving early"
+  },
+  {
+   "name": "KB_GITIGNORE_CONTENT",
+   "legacy_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, BM25 postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth.\\n.cache/\\n\\n# Derived, regenerable knowledge index + rosters — reconstructed from entry\\n# frontmatter by `index rebuild`; NEVER source of truth, so NEVER committed\\n# (a merge conflict on every push + git bloat at scale). Anchored per category\\n# — never a **/index.md glob (that would untrack per-project content).\\n' + ''.join((rel + '\\n' for rel in KB_DERIVED_GITIGNORE_RELS)) + '\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
+   "lib_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, future postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth — like index.json.\\n.cache/\\n\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/core/kblayout.py"
+   ],
+   "follow_up": "task 57",
+   "rationale": "the donor leaves the nine derived knowledge artifacts TRACKED, so two clones conflict on essentially every push. This tree's content de-commits them; task 57 lands it.",
+   "decision": "legacy",
+   "decided_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, BM25 postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth.\\n.cache/\\n\\n# Derived, regenerable knowledge index + rosters — reconstructed from entry\\n# frontmatter by `index rebuild`; NEVER source of truth, so NEVER committed\\n# (a merge conflict on every push + git bloat at scale). Anchored per category\\n# — never a **/index.md glob (that would untrack per-project content).\\n' + ''.join((rel + '\\n' for rel in KB_DERIVED_GITIGNORE_RELS)) + '\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
+   "landed": false,
+   "pending_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, future postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth — like index.json.\\n.cache/\\n\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'"
+  },
+  {
+   "name": "KB_GITIGNORE_REQUIRED",
+   "legacy_literal": "KB_GITIGNORE_DIR_RULES + KB_DERIVED_GITIGNORE_RELS + (KB_INDEX_LOCK_REL,)",
+   "lib_literal": "KB_GITIGNORE_DIR_RULES + (KB_INDEX_LOCK_REL,)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/core/kblayout.py"
+   ],
+   "follow_up": "task 57",
+   "rationale": "the enforcement half of the same decision -- the donor's required set omits KB_DERIVED_GITIGNORE_RELS, so a fresh init would PASS its own ignore check while tracking them.",
+   "decision": "legacy",
+   "decided_literal": "KB_GITIGNORE_DIR_RULES + KB_DERIVED_GITIGNORE_RELS + (KB_INDEX_LOCK_REL,)",
+   "landed": false,
+   "pending_literal": "KB_GITIGNORE_DIR_RULES + (KB_INDEX_LOCK_REL,)"
+  },
+  {
+   "name": "LEARNED_RE",
+   "legacy_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
+   "lib_literal": "re.compile('^\\\\s*>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "follow_up": "task 45",
+   "rationale": "the donor regex drops the `(?:[-*+]\\s+)?` list-bullet prefix, so a marker written as a markdown bullet stops matching -- the R-SI-03 direction that fails OPEN, letting an unpromoted learning through the completion promise.",
+   "decision": "legacy",
+   "decided_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
+   "landed": false,
+   "pending_literal": "re.compile('^\\\\s*>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')"
+  },
+  {
+   "name": "PROMOTED_RE",
+   "legacy_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*(?:->|→)\\\\s*|\\\\[\\\\s*kb:\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
+   "lib_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*->\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ],
+   "follow_up": "task 45",
+   "rationale": "the monolith also recognises the `→` arrow and the `[kb: <id>]` form. Losing them does not fail open on the marker -- it fails open on the PROMOTION, so an already promoted marker reads as unpromoted and the gate cries wolf until someone disables it.",
+   "decision": "legacy",
+   "decided_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*(?:->|→)\\\\s*|\\\\[\\\\s*kb:\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
+   "landed": false,
+   "pending_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*->\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)"
+  },
+  {
+   "name": "RELATION_TYPES",
+   "legacy_literal": "('depends-on', 'blocks', SUPERSEDES_RELATION, 'relates-to')",
+   "lib_literal": "('depends-on', 'blocks', 'supersedes', 'relates-to')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/core/frontmatter.py"
+   ],
+   "decision": "equivalent",
+   "rationale": "identical tuple; the monolith spells the third element through SUPERSEDES_RELATION, which is its own pending row"
+  },
+  {
+   "name": "REPO_CONFIG",
+   "legacy_literal": "os.path.join(REPO_ROOT, '.agentware', 'config.env')",
+   "lib_literal": "os.path.join(paths.REPO_ROOT, '.agentware', 'config.env')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ],
+   "decision": "equivalent",
+   "rationale": "same path via `paths.REPO_ROOT` rather than a local rebind"
+  },
+  {
+   "name": "REPO_ROOT",
+   "legacy_literal": "os.path.dirname(os.path.dirname(os.path.abspath(__file__)))",
+   "lib_literal": "_find_repo_root(__file__)",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/core/paths.py"
+   ],
+   "decision": "equivalent",
+   "rationale": "task 25 landed the lib package one level deeper than the monolith, so `_find_repo_root` replaces a fixed dirname walk"
+  },
+  {
+   "name": "SKILLS_CATALOG_PATH",
+   "legacy_literal": "os.path.join(REPO_ROOT, 'catalog', 'skills.json')",
+   "lib_literal": "os.path.join(paths.REPO_ROOT, 'catalog', 'skills.json')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/features/skills.py"
+   ],
+   "decision": "equivalent",
+   "rationale": "same path via `paths.REPO_ROOT`"
+  },
+  {
+   "name": "SKILL_PIN_FLOOR",
+   "legacy_literal": "0.85",
+   "lib_literal": "None",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/retrieval/skillpin.py"
+   ],
+   "follow_up": "task 49",
+   "rationale": "the stage-1 skill pin is OFF in the donor (`None`), which disables R-RET-03 stage-1 precedence with NO failing test, because the donor's tests were written against the disabled state. 0.85 is the committed floor; task 49 ports it with its three-argument signature and all three call sites including the evaluation path.",
+   "decision": "legacy",
+   "decided_literal": "0.85",
+   "landed": false,
+   "pending_literal": "None"
+  },
+  {
+   "name": "_DREAM_METRIC_STEP_FIELDS",
+   "legacy_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran', 'proposed', 'deferred', 'blocked', 'reason', 'extended', 'clean')",
+   "lib_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/features/dreamjournal.py"
+   ],
+   "follow_up": "task 46",
+   "rationale": "the metric fields the four dropped steps report (proposed, deferred, blocked, reason, extended, clean). Restoring the steps without these leaves them running and unmeasured, which is the same silence one level down.",
+   "decision": "legacy",
+   "decided_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran', 'proposed', 'deferred', 'blocked', 'reason', 'extended', 'clean')",
+   "landed": false,
+   "pending_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran')"
+  },
+  {
+   "name": "_TERMINAL_OUTCOMES",
+   "legacy_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort', 'premise_falsified')",
+   "lib_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort')",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "lib_sites": [
+    "scripts/agentware_lib/ops/derive.py"
+   ],
+   "follow_up": "task 34",
+   "rationale": "this tree emits `premise_falsified` as a distinct terminal so the premise-grounding pre-hook's precision is separately measurable. The donor tuple lacks it, and its org lint check O12 REJECTS unknown outcomes -- which is precisely the hard-block task 34 exists to prevent.",
+   "decision": "legacy",
+   "decided_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort', 'premise_falsified')",
+   "landed": false,
+   "pending_literal": "('completed', 'hit_max_iterations', 'post_hook_failure', 'pre_hook_abort')"
+  }
+ ]
+}
