@@ -34,30 +34,30 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 548,
+    "rows": 552,
     "by_dimension": {
       "assets": 20,
-      "cli_surface": 127,
+      "cli_surface": 130,
       "docs_templates": 4,
       "dream_maintenance": 7,
       "env_config": 82,
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
-      "modularity": 8,
+      "modularity": 9,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 539,
+      "required": 543,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 61,
+      "curated": 65,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -90,7 +90,8 @@
         29,
         32,
         52,
-        54
+        54,
+        73
       ],
       "donor_delta_derived": true
     },
@@ -1527,6 +1528,51 @@
       ],
       "status": "required",
       "verification": "generated"
+    },
+    {
+      "id": "surface:scaffold",
+      "dimension": "cli_surface",
+      "capability": "The `scaffold` verb: `new` emits a compliant unit of any of the four kinds (module, verb, panel, loop lib) WITH its verb declaration, manifest entry, mirrored test, doc row and parity row, and `check` is the read-only CI audit. Post-merge capability, so it is in NEITHER pre-merge tree's union fixture and only a curated row can cover it",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 73,
+      "evidence": {
+        "test": "tests.unit.ops.test_scaffoldcmd",
+        "mutation": "drop the `check` subcommand, collapse the two exit codes (2 for an invalid unit description, 1 for a standing finding) into one, or let `new` write without --kind: each reddens its own surface assertion"
+      }
+    },
+    {
+      "id": "surface:scaffold.check",
+      "dimension": "cli_surface",
+      "capability": "`scaffold check [--format]`: the read-only wiring audit, exiting 1 on any finding so it is usable as a CI step",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 73,
+      "evidence": {
+        "test": "tests.unit.ops.test_scaffoldcmd",
+        "mutation": "return 0 from cmd_scaffold_check while findings stand, or drop the subcommand from the parser: the exit-code and subcommand assertions redden"
+      }
+    },
+    {
+      "id": "surface:scaffold.new",
+      "dimension": "cli_surface",
+      "capability": "`scaffold new --kind {module,verb,panel,loop-lib} --name --layer --verb --task --dry-run --force --no-regen`: emits the unit and its wiring, writing ONLY inside the package checkout and never the knowledge dir",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 73,
+      "evidence": {
+        "test": "tests.unit.ops.test_scaffoldcmd",
+        "mutation": "drop --kind or --task from the `new` parser, or widen --kind's choices past the four kinds: the required-argument and choices assertions redden by name"
+      }
     },
     {
       "id": "surface:skill",
@@ -3358,6 +3404,21 @@
       "evidence": {
         "test": "tests.test_modularity_negative",
         "mutation": "add a function over the per-function cap inside a small file: the negative test must redden on that shape alone"
+      }
+    },
+    {
+      "id": "mod:scaffold-wiring-audit",
+      "dimension": "modularity",
+      "capability": "The five-question wiring audit R-MOD-11 obliges \u2014 manifest entry, declared-verb/manifest agreement, mirrored owning test, a parity row per top-level verb and a README router row \u2014 with the last two honouring shrink-only debt ledgers in which an undeclared gap AND a stale declared row both fail",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 73,
+      "evidence": {
+        "test": "tests.unit.ops.test_scaffoldcheck",
+        "mutation": "delete any one check from `audit`, accept an undeclared testless or undocumented module, or keep a doc-row debt row after its module gains a README row: each planted gap must be named by its own finding kind"
       }
     },
     {

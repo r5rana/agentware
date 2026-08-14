@@ -61,7 +61,7 @@ from tests import _help_golden as HG
 FROZEN_SURFACE_FIXTURE = os.path.join(TESTS_DIR, "fixtures",
                                       "preserved-surface.json")
 
-#: The 44 top-level verbs in EXACT ``--help`` display order.
+#: The 45 top-level verbs in EXACT ``--help`` display order.
 #:
 #: An INDEPENDENT pin, deliberately NOT derived from the discovered verb rows:
 #: the parser is BUILT from those, so a self-consistency check would move on both
@@ -79,12 +79,16 @@ EXPECTED_VERBS = [
     "bench", "metrics", "fleet", "fleet-emit", "team", "dashboard",
     "dream", "kb-git", "steering", "org", "templates", "gate",
     "whereami", "plan", "fanout", "trust", "release", "tick", "checkup",
-    "prefer", "review", "remediate", "review-report", "graph",
+    "prefer", "review", "remediate", "review-report", "graph", "scaffold",
 ]
 
-#: 1 root + 44 verbs + 80 sub-verbs. Pinned mechanically so a lost sub-verb
-#: cannot diff clean by also losing its fixture.
-EXPECTED_SURFACES = 125
+#: 1 root + 45 verbs + 82 sub-verbs. Pinned mechanically so a lost sub-verb
+#: cannot diff clean by also losing its fixture. Task 73 added `scaffold` and its
+#: two sub-verbs (`new`, `check`) -- the first verb this tree has gained since the
+#: merge, and the reason `scaffold new` REPORTS this pin as a step for the author
+#: rather than editing it: a generator that moved its own pin would certify its
+#: own surface change.
+EXPECTED_SURFACES = 128
 
 #: Every leaf parser must dispatch into the decomposed package. The monolith is
 #: gone (task 96) and the facade is a bootstrap plus a dispatch tail, so a

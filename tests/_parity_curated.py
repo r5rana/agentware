@@ -520,4 +520,42 @@ CURATED_ROWS = [
          "stub with no subcommands and no arguments of its own, or allowlist "
          "one under a token the router's argv scan cannot resolve: the gate "
          "names that verb"),
+
+    # ------------------------------------------------------ scaffold (task 73)
+    _row("surface:scaffold", "cli_surface",
+         "The `scaffold` verb: `new` emits a compliant unit of any of the four "
+         "kinds (module, verb, panel, loop lib) WITH its verb declaration, "
+         "manifest entry, mirrored test, doc row and parity row, and `check` is "
+         "the read-only CI audit. Post-merge capability, so it is in NEITHER "
+         "pre-merge tree's union fixture and only a curated row can cover it",
+         LOCAL, 73, "tests.unit.ops.test_scaffoldcmd",
+         "drop the `check` subcommand, collapse the two exit codes (2 for an "
+         "invalid unit description, 1 for a standing finding) into one, or let "
+         "`new` write without --kind: each reddens its own surface assertion"),
+    _row("surface:scaffold.new", "cli_surface",
+         "`scaffold new --kind {module,verb,panel,loop-lib} --name --layer "
+         "--verb --task --dry-run --force --no-regen`: emits the unit and its "
+         "wiring, writing ONLY inside the package checkout and never the "
+         "knowledge dir",
+         LOCAL, 73, "tests.unit.ops.test_scaffoldcmd",
+         "drop --kind or --task from the `new` parser, or widen --kind's choices "
+         "past the four kinds: the required-argument and choices assertions "
+         "redden by name"),
+    _row("surface:scaffold.check", "cli_surface",
+         "`scaffold check [--format]`: the read-only wiring audit, exiting 1 on "
+         "any finding so it is usable as a CI step",
+         LOCAL, 73, "tests.unit.ops.test_scaffoldcmd",
+         "return 0 from cmd_scaffold_check while findings stand, or drop the "
+         "subcommand from the parser: the exit-code and subcommand assertions "
+         "redden"),
+    _row("mod:scaffold-wiring-audit", "modularity",
+         "The five-question wiring audit R-MOD-11 obliges — manifest entry, "
+         "declared-verb/manifest agreement, mirrored owning test, a parity row "
+         "per top-level verb and a README router row — with the last two "
+         "honouring shrink-only debt ledgers in which an undeclared gap AND a "
+         "stale declared row both fail",
+         LOCAL, 73, "tests.unit.ops.test_scaffoldcheck",
+         "delete any one check from `audit`, accept an undeclared testless or "
+         "undocumented module, or keep a doc-row debt row after its module gains "
+         "a README row: each planted gap must be named by its own finding kind"),
 ]

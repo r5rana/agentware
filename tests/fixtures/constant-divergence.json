@@ -8,7 +8,7 @@
  },
  "counts": {
   "legacy": 227,
-  "lib": 549,
+  "lib": 576,
   "legacy_only": 248,
   "shared": 227,
   "divergent": 17
@@ -32,7 +32,7 @@
   ],
   "_EXPORTS": [
    0,
-   190
+   194
   ]
  },
  "legacy_only": [

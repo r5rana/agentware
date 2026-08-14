@@ -292,6 +292,12 @@ NON_WRITERS = {
     "remediate": "reader-on-this-path: with zero confirmed blocking findings it "
                  "short-circuits; its fixer mutates the PACKAGE repo, never the "
                  "knowledge dir",
+    "scaffold": "parent: subcommands only, no action of its own",
+    "scaffold.check": "reader: audits the tree's own wiring, writes nothing",
+    "scaffold.new": "writer-on-another-target: emits a unit and its wiring into "
+                    "the PACKAGE checkout (module, test, README row, curated "
+                    "parity row), never the knowledge dir — the same shape as "
+                    "`remediate`",
     "skill.sync": "config: writes skills.lock.json under AGENTWARE_CONFIG_HOME",
     "trust.list": "reader: prints the pinned publisher keys",
     "trust.pin": "config: appends to allowed_signers under AGENTWARE_CONFIG_HOME",

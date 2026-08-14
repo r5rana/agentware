@@ -1,0 +1,23 @@
+usage: agentware scaffold new [-h] [--format {text,json}]
+                              --kind {loop-lib,module,panel,verb} --name NAME
+                              [--layer {core,knowledge,retrieval,ops,features,cli}]
+                              [--verb VERB] --task TASK [--dry-run] [--force]
+                              [--no-regen]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --kind {loop-lib,module,panel,verb}
+                        what kind of unit to emit
+  --name NAME           the unit stem: lowercase letters and digits (e.g.
+                        `planlint`)
+  --layer {core,knowledge,retrieval,ops,features,cli}
+                        the lib layer (required for --kind module/verb)
+  --verb VERB           the top-level CLI verb (required for --kind verb)
+  --task TASK           the plan task number this unit lands under; it is
+                        recorded on the curated parity row, which the parity
+                        schema refuses without one
+  --dry-run             report every path the scaffold would claim, and write
+                        nothing
+  --force               overwrite an existing unit or test file
+  --no-regen            skip the manifest and parity regenerators

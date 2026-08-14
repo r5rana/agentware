@@ -204,7 +204,7 @@ DIMENSIONS = [
         "gate": "tests/_surface_union.py",
         "donor_delta": True,
         "donor_delta_evidence": "surface-union sides.nodes.donor_only > 0",
-        "plan_tasks": [7, 29, 32, 52, 54],
+        "plan_tasks": [7, 29, 32, 52, 54, 73],
     },
     {
         "name": "env_config",

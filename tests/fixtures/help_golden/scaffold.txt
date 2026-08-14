@@ -1,0 +1,12 @@
+usage: agentware scaffold [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    new         emit a unit (module, verb, panel or loop lib) plus its verb
+                declaration, manifest entry, mirrored test, doc row and parity
+                row
+    check       CI audit: every module has its manifest entry, owning test,
+                doc row and parity row (exit 1 on any finding)
+
+options:
+  -h, --help    show this help message and exit

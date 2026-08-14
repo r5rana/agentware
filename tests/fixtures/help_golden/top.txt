@@ -81,6 +81,8 @@ positional arguments:
                         and file a workorder per low finding
     graph               deterministic DAG orchestration over fanout lanes +
                         gated merge
+    scaffold            emit a compliant new unit with all its wiring, and
+                        audit the tree for units missing theirs
 
 options:
   -h, --help            show this help message and exit

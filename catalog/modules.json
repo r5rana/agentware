@@ -1035,6 +1035,26 @@
     {
       "layer": "lib",
       "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/scaffoldcheck.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/scaffoldcmd.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/scaffoldunit.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/scaffoldwire.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
       "path": "scripts/agentware_lib/ops/sessionparse/__init__.py"
     },
     {
@@ -2855,6 +2875,26 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_scaffoldcheck.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_scaffoldcmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_scaffoldunit.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_scaffoldwire.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_setstate_matrix.py"
     },
     {
@@ -4108,6 +4148,7 @@
         "agentware_lib.ops.reviewaudit",
         "agentware_lib.ops.reviewremediate",
         "agentware_lib.ops.reviewreport",
+        "agentware_lib.ops.scaffoldunit",
         "agentware_lib.ops.staging",
         "agentware_lib.ops.steering",
         "agentware_lib.ops.tickcmd",
@@ -9166,6 +9207,138 @@
     },
     {
       "anchor_symbols": [
+        "FINDING_KINDS",
+        "_finding",
+        "_read_json",
+        "audit",
+        "check_docs",
+        "check_manifest",
+        "check_parity",
+        "check_tests",
+        "check_verbs",
+        "debt_locations",
+        "declared_verbs",
+        "doc_rows",
+        "lib_module_paths"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.scaffoldcmd"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.scaffoldunit",
+        "agentware_lib.verbs"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.scaffoldcheck",
+      "not_owns": "EMITTING a unit or its wiring -> ops.scaffoldunit renders and ops.scaffoldwire writes; the argparse surface -> ops.scaffoldcmd; the gates themselves — `tests/gates/test_module_manifest.py`, `test_test_ownership.py`, `test_verb_discovery.py` and `test_parity_gate.py` remain the authorities, and this audit is the same question asked from the CLI where CI (and an author mid-change) can ask it without running the suite.",
+      "owns": "`scaffold check` — the five wiring questions asked of the WHOLE tree rather than of one generated unit: does every lib module have a manifest entry (`check_manifest`), does every declared verb reach the manifest's published verb list (`check_verbs`), does every module have its mirrored owning test (`check_tests`), does every top-level verb carry a parity row (`check_parity`), and does every module have its README router row (`check_docs`) — plus the two shrink-only debt ledgers those last two honour, and the `audit` that runs them all and the `FINDING KINDS` it reports.",
+      "path": "scripts/agentware_lib/ops/scaffoldcheck.py",
+      "test_file": "tests/unit/ops/test_scaffoldcheck.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
+        "RC_BAD_UNIT",
+        "_emit_json",
+        "_print_new",
+        "_register_new",
+        "cmd_scaffold_check",
+        "cmd_scaffold_new",
+        "register_scaffold"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.scaffoldcheck",
+        "agentware_lib.ops.scaffoldunit",
+        "agentware_lib.ops.scaffoldwire"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.scaffoldcmd",
+      "not_owns": "the unit model and the rendered artifacts -> ops.scaffoldunit; the writes and the regenerator invocations -> ops.scaffoldwire; the audit's five checks -> ops.scaffoldcheck. This module is the SURFACE and nothing else, so the scaffold contract is testable without argparse and the surface is testable without touching disk.",
+      "owns": "the `scaffold` verb — its `__verbs__` declaration, the `register_scaffold` argparse registrar, and the two handlers `cmd_scaffold_new` (emit a compliant unit and all of its wiring) and `cmd_scaffold_check` (the CI audit), plus their text and `--format json` rendering.",
+      "path": "scripts/agentware_lib/ops/scaffoldcmd.py",
+      "test_file": "tests/unit/ops/test_scaffoldcmd.py",
+      "test_file_present": true,
+      "verbs": [
+        {
+          "attr": "register_scaffold",
+          "order": 4500,
+          "verb": "scaffold"
+        }
+      ]
+    },
+    {
+      "anchor_symbols": [
+        "KINDS",
+        "KIND_NAMES",
+        "LIB_LAYERS",
+        "ScaffoldError",
+        "TODO",
+        "_assemble",
+        "_camel",
+        "_deps_sentence",
+        "_pysafe",
+        "_require",
+        "layer_direction",
+        "next_order",
+        "render_doc_row",
+        "render_parity_row",
+        "render_test",
+        "render_unit",
+        "repo_root",
+        "resolve"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.scaffoldcheck",
+        "agentware_lib.ops.scaffoldcmd",
+        "agentware_lib.ops.scaffoldwire"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.paths",
+        "agentware_lib.verbs"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.scaffoldunit",
+      "not_owns": "WRITING any of it to disk or invoking the regenerators -> that is ops.scaffoldwire's; the CI audit over an already-written tree -> ops.scaffoldcheck's; the `scaffold` verb's argparse surface and handlers -> ops.scaffoldcmd's; the manifest generator, the parity manifest and the ownership rule themselves, which live in the test corpus (`tests/_manifest_gen.py`, `tests/_parity_manifest.py`, `tests/_test_ownership.py`) and are this module's DOWNSTREAM, never its import.",
+      "owns": "what a compliant new UNIT is — the four kinds (`module`, `verb`, `panel`, `loop-lib`), the `KINDS` spec table declaring which artifacts each kind must emit, name/layer/verb validation (`resolve`, `ScaffoldError`), the target paths every artifact lands on, the next display ORDER key a new verb takes, and the rendered TEXT of each artifact (module skeleton, mirrored test stub, README doc row, curated parity row).",
+      "path": "scripts/agentware_lib/ops/scaffoldunit.py",
+      "test_file": "tests/unit/ops/test_scaffoldunit.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
+        "REGENERATORS",
+        "_abs",
+        "emit",
+        "insert_doc_row",
+        "insert_parity_row",
+        "next_steps",
+        "regenerate",
+        "write_text"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.scaffoldcmd"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.scaffoldunit"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.scaffoldwire",
+      "not_owns": "what a unit IS or what its artifacts SAY -> ops.scaffoldunit renders every byte this module writes; the audit over an already-written tree -> ops.scaffoldcheck; the argparse surface -> ops.scaffoldcmd. Nor the generators themselves: `tests/_manifest_gen.py` and `tests/_parity_manifest.py` are RUN as subprocesses, never imported, so the test corpus stays downstream of the package.",
+      "owns": "the write half of `scaffold new` — creating the unit file and its mirrored test (`write_text`), inserting the README doc row (`insert_doc_row`) and the curated parity row (`insert_parity_row`) into the ledgers that own them, invoking the two REGENERATORS whose output must not be hand-edited (`regenerate`), the manual follow-ups a generator must not fake (`next_steps`), and the one transaction that does all of it (`emit`).",
+      "path": "scripts/agentware_lib/ops/scaffoldwire.py",
+      "test_file": "tests/unit/ops/test_scaffoldwire.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
         "MINER_CMD_CHAIN_OPS",
         "MINER_CMD_TOOLS",
         "MINER_CMD_WRAPPERS",
@@ -10422,7 +10595,9 @@
         "resolve"
       ],
       "depended_on_by": [
-        "agentware_lib.cli"
+        "agentware_lib.cli",
+        "agentware_lib.ops.scaffoldcheck",
+        "agentware_lib.ops.scaffoldunit"
       ],
       "dependency_direction": "cli -> core, features, knowledge, ops, retrieval",
       "depends_on": [],
