@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 540,
+    "rows": 541,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
@@ -45,19 +45,19 @@
       "kb_integrity": 12,
       "loop_orchestration": 6,
       "modularity": 5,
-      "org_team": 6,
+      "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 6,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 531,
+      "required": 532,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 480,
-      "curated": 55,
+      "curated": 56,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -70,7 +70,7 @@
       "kb_integrity": 6,
       "loop_orchestration": 3,
       "modularity": 4,
-      "org_team": 6,
+      "org_team": 7,
       "retrieval_policy": 2,
       "security_trust": 4,
       "test_corpus": 153
@@ -194,6 +194,7 @@
       "donor_delta": true,
       "donor_delta_evidence": "the entire org/team kernel is donor-only; this tree has none of it",
       "plan_tasks": [
+        17,
         36,
         50,
         63,
@@ -3351,6 +3352,21 @@
       "evidence": {
         "test": "tests.test_org_curator",
         "mutation": "allow a non-curator shared write: the shared corpus becomes writable by every teammate"
+      }
+    },
+    {
+      "id": "org:marker-driven-org-root-identity",
+      "dimension": "org_team",
+      "capability": "The org-root identity anchor: when a project name is configured, a resolved org root whose STANDARD project markers do not declare that name as a WHOLE token is refused loudly instead of silently becoming the live knowledge base. Genericised off one vendor's build system onto the marker table, with the deprecated key spelling still READ so an existing config.env keeps the guard",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 17,
+      "evidence": {
+        "test": "tests.test_orgidentity_gate",
+        "mutation": "relax the match to a substring (a sibling checkout named <Name>V2 satisfies <Name>), shrink the marker table below its floor, or stop reading the deprecated key spelling (the guard silently disarms for every operator who configured it before the rename)"
       }
     },
     {

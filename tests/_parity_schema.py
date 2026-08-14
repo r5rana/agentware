@@ -280,7 +280,7 @@ DIMENSIONS = [
         "gate": None,
         "donor_delta": True,
         "donor_delta_evidence": "the entire org/team kernel is donor-only; this tree has none of it",
-        "plan_tasks": [36, 50, 63, 64, 65, 66],
+        "plan_tasks": [17, 36, 50, 63, 64, 65, 66],
     },
     {
         "name": "security_trust",

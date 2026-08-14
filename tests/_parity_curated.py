@@ -267,6 +267,18 @@ CURATED_ROWS = [
          DONOR, 36, "tests.test_org_resolver_parity",
          "diverge either resolver's org-root tier: the hooks and the CLI resolve "
          "different knowledge dirs in the same session"),
+    _row("org:marker-driven-org-root-identity", "org_team",
+         "The org-root identity anchor: when a project name is configured, a "
+         "resolved org root whose STANDARD project markers do not declare that "
+         "name as a WHOLE token is refused loudly instead of silently becoming "
+         "the live knowledge base. Genericised off one vendor's build system "
+         "onto the marker table, with the deprecated key spelling still READ so "
+         "an existing config.env keeps the guard",
+         DONOR, 17, "tests.test_orgidentity_gate",
+         "relax the match to a substring (a sibling checkout named <Name>V2 "
+         "satisfies <Name>), shrink the marker table below its floor, or stop "
+         "reading the deprecated key spelling (the guard silently disarms for "
+         "every operator who configured it before the rename)"),
     _row("org:additive-team-mode-migration", "org_team",
          "Team mode arrives as a REGISTERED, idempotent migration step leaving "
          "flat behaviour byte-identical",
