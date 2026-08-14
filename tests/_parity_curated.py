@@ -267,6 +267,22 @@ CURATED_ROWS = [
          DONOR, 36, "tests.test_org_resolver_parity",
          "diverge either resolver's org-root tier: the hooks and the CLI resolve "
          "different knowledge dirs in the same session"),
+    _row("context:marker-driven-project-context-resolution",
+         "loop_orchestration",
+         "The project/repo CONTEXT the session-start banner and the "
+         "steering-capture auto-scope both read: a marker-driven upward walk "
+         "that resolves in ANY repository layout (the donor required a vendor "
+         "marker file whose parent was named `src`, and answered empty fields "
+         "with exit 0 in every other layout — a silent failure the hook renders "
+         "as no banner at all), plus the deprecated workspace/package key "
+         "mirrors so a consumer written against the donor vocabulary keeps "
+         "resolving",
+         BOTH, 18, "tests.test_whereami_gate",
+         "reintroduce a parent-directory-name constraint on the project dir, "
+         "add a non-standard marker to the root table (directly or via a table "
+         "it composes), home the resolver in the cli leaf where the "
+         "features-layer caller cannot import it, or drop a deprecated key "
+         "mirror"),
     _row("org:marker-driven-org-root-identity", "org_team",
          "The org-root identity anchor: when a project name is configured, a "
          "resolved org root whose STANDARD project markers do not declare that "

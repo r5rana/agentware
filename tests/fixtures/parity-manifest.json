@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 541,
+    "rows": 542,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
@@ -43,7 +43,7 @@
       "env_config": 80,
       "evaluation_quality": 4,
       "kb_integrity": 12,
-      "loop_orchestration": 6,
+      "loop_orchestration": 7,
       "modularity": 5,
       "org_team": 7,
       "retrieval_policy": 7,
@@ -51,13 +51,13 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 532,
+      "required": 533,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 480,
-      "curated": 56,
+      "curated": 57,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -68,7 +68,7 @@
       "env_config": 52,
       "evaluation_quality": 1,
       "kb_integrity": 6,
-      "loop_orchestration": 3,
+      "loop_orchestration": 4,
       "modularity": 4,
       "org_team": 7,
       "retrieval_policy": 2,
@@ -177,6 +177,7 @@
       "donor_delta": true,
       "donor_delta_evidence": "the donor holds the pre/post-hook org lint gates, the per-run retrieval-quality gate and working SessionStart roster injection",
       "plan_tasks": [
+        18,
         33,
         34,
         35,
@@ -3110,6 +3111,22 @@
       "absence_probe": {
         "kind": "path-absent",
         "path": "scripts/agentware_lib/features/dreamrepoint.py"
+      }
+    },
+    {
+      "id": "context:marker-driven-project-context-resolution",
+      "dimension": "loop_orchestration",
+      "capability": "The project/repo CONTEXT the session-start banner and the steering-capture auto-scope both read: a marker-driven upward walk that resolves in ANY repository layout (the donor required a vendor marker file whose parent was named `src`, and answered empty fields with exit 0 in every other layout \u2014 a silent failure the hook renders as no banner at all), plus the deprecated workspace/package key mirrors so a consumer written against the donor vocabulary keeps resolving",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 18,
+      "evidence": {
+        "test": "tests.test_whereami_gate",
+        "mutation": "reintroduce a parent-directory-name constraint on the project dir, add a non-standard marker to the root table (directly or via a table it composes), home the resolver in the cli leaf where the features-layer caller cannot import it, or drop a deprecated key mirror"
       }
     },
     {

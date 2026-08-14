@@ -270,7 +270,7 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor holds the pre/post-hook org lint gates, "
                                  "the per-run retrieval-quality gate and working "
                                  "SessionStart roster injection"),
-        "plan_tasks": [33, 34, 35, 45, 47, 53],
+        "plan_tasks": [18, 33, 34, 35, 45, 47, 53],
     },
     {
         "name": "org_team",
