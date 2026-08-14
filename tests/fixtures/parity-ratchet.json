@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "generated_by": "tests/_parity_manifest.py --stamp-ratchet",
+  "stamped_at_head": "7130b07fb8e8",
+  "note": "Per-dimension row floors live OUTSIDE the manifest on purpose: a count stored beside the rows it counts is trivially self-consistent, so deleting a row and its count in one edit would leave nothing to compare against. pending_verification is the shrink-only backlog of curated rows whose named test does not exist yet; it may only get shorter.",
+  "row_floor": {
+    "assets": 20,
+    "cli_surface": 127,
+    "docs_templates": 4,
+    "dream_maintenance": 5,
+    "env_config": 80,
+    "evaluation_quality": 4,
+    "kb_integrity": 9,
+    "loop_orchestration": 6,
+    "modularity": 5,
+    "org_team": 6,
+    "retrieval_policy": 7,
+    "security_trust": 6,
+    "test_corpus": 256
+  },
+  "total_floor": 535,
+  "pending_verification": [
+    "docs:readme-union-anchors",
+    "docs:roadmap-preserved",
+    "docs:template-frontmatter-corpus",
+    "dream:step-registry-package",
+    "eval:help-golden-corpus",
+    "loop:org-lint-hook-gates",
+    "loop:retrieval-quality-gate",
+    "mod:legacy-shrink-only-ratchet",
+    "mod:lib-decomposition",
+    "mod:module-manifest-catalog",
+    "mod:per-function-caps",
+    "org:bash-python-resolver-parity",
+    "org:corpus-scoping-and-shared-precedence",
+    "org:cross-team-write-isolation",
+    "org:curator-gate-on-shared-writes",
+    "retrieval:bm25-exact-score-pin"
+  ]
+}

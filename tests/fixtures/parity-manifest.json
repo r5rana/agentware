@@ -1,0 +1,6099 @@
+{
+  "schema": 1,
+  "generated_by": "tests/_parity_manifest.py --out",
+  "feature": "260813-modular-core-adoption",
+  "task": 10,
+  "statuses": [
+    "required",
+    "excluded",
+    "superseded"
+  ],
+  "verifications": [
+    "generated",
+    "curated",
+    "absence_probe"
+  ],
+  "status_modes": {
+    "required": [
+      "generated",
+      "curated"
+    ],
+    "excluded": [
+      "absence_probe"
+    ],
+    "superseded": [
+      "generated",
+      "curated",
+      "absence_probe"
+    ]
+  },
+  "derived_from": {
+    "surface_union": "tests/fixtures/surface-union.json",
+    "env_config": "tests/fixtures/env-config-parity.json",
+    "preserved_surface": "tests/fixtures/preserved-surface.json",
+    "curated_table": "tests/_parity_curated.py"
+  },
+  "counts": {
+    "rows": 535,
+    "by_dimension": {
+      "assets": 20,
+      "cli_surface": 127,
+      "docs_templates": 4,
+      "dream_maintenance": 5,
+      "env_config": 80,
+      "evaluation_quality": 4,
+      "kb_integrity": 9,
+      "loop_orchestration": 6,
+      "modularity": 5,
+      "org_team": 6,
+      "retrieval_policy": 7,
+      "security_trust": 6,
+      "test_corpus": 256
+    },
+    "by_status": {
+      "required": 530,
+      "excluded": 1,
+      "superseded": 4
+    },
+    "by_verification": {
+      "generated": 482,
+      "curated": 52,
+      "absence_probe": 1
+    },
+    "donor_side_rows_by_dimension": {
+      "assets": 19,
+      "cli_surface": 82,
+      "docs_templates": 3,
+      "dream_maintenance": 2,
+      "env_config": 52,
+      "evaluation_quality": 1,
+      "kb_integrity": 3,
+      "loop_orchestration": 3,
+      "modularity": 4,
+      "org_team": 6,
+      "retrieval_policy": 2,
+      "security_trust": 4,
+      "test_corpus": 153
+    }
+  },
+  "dimensions": [
+    {
+      "name": "cli_surface",
+      "title": "CLI verb, subverb and flag surface",
+      "tier": "generated",
+      "source": "tests/fixtures/surface-union.json",
+      "gate": "tests/_surface_union.py",
+      "donor_delta": true,
+      "donor_delta_evidence": "surface-union sides.nodes.donor_only > 0",
+      "plan_tasks": [
+        7,
+        29,
+        32,
+        52,
+        54
+      ],
+      "donor_delta_derived": true
+    },
+    {
+      "name": "env_config",
+      "title": "Environment variables and config keys",
+      "tier": "generated",
+      "source": "tests/fixtures/env-config-parity.json",
+      "gate": "tests/_env_config_capture.py",
+      "donor_delta": true,
+      "donor_delta_evidence": "env-config-parity counts.donor_only > 0",
+      "plan_tasks": [
+        8,
+        53
+      ],
+      "donor_delta_derived": true
+    },
+    {
+      "name": "test_corpus",
+      "title": "Test modules and their frozen node ids",
+      "tier": "generated",
+      "source": "tests/fixtures/preserved-surface.json",
+      "gate": "tests/_preserved_freeze.py",
+      "donor_delta": true,
+      "donor_delta_evidence": "preserved-surface node_ids.pending_in_destination > 0",
+      "plan_tasks": [
+        9,
+        58
+      ],
+      "donor_delta_derived": true
+    },
+    {
+      "name": "assets",
+      "title": "Executables, templates, catalogs and fixture families",
+      "tier": "generated",
+      "source": "tests/fixtures/preserved-surface.json",
+      "gate": "tests/_preserved_freeze.py",
+      "donor_delta": true,
+      "donor_delta_evidence": "preserved-surface assets.pending_in_destination > 0",
+      "plan_tasks": [
+        9,
+        51
+      ],
+      "donor_delta_derived": true
+    },
+    {
+      "name": "retrieval_policy",
+      "title": "Retrieval ranking, pinning and read-time trust policy",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor pins BM25 scores exactly (mutating K1 or B survives every order-based test here) and adds the 'shared' recall scope",
+      "plan_tasks": [
+        24,
+        49,
+        55,
+        59
+      ]
+    },
+    {
+      "name": "kb_integrity",
+      "title": "Knowledge-base durability, locking and poison tolerance",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor's content corpus_fingerprint is the decided cache-freshness authority, and its roster/injection lint is wired into index validate",
+      "plan_tasks": [
+        22,
+        23,
+        24,
+        53,
+        57
+      ]
+    },
+    {
+      "name": "loop_orchestration",
+      "title": "Loop phases, hook gates and completion promises",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor holds the pre/post-hook org lint gates, the per-run retrieval-quality gate and working SessionStart roster injection",
+      "plan_tasks": [
+        33,
+        34,
+        35,
+        45,
+        47,
+        53
+      ]
+    },
+    {
+      "name": "org_team",
+      "title": "Org root, team scoping and shared-corpus governance",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the entire org/team kernel is donor-only; this tree has none of it",
+      "plan_tasks": [
+        36,
+        50,
+        63,
+        64,
+        65,
+        66
+      ]
+    },
+    {
+      "name": "security_trust",
+      "title": "Update trust, staging isolation and untrusted-content handling",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor holds the scoped staging allowlist with its blob cap, push retry with backoff, and injection scanning of knowledge content",
+      "plan_tasks": [
+        40,
+        41,
+        53
+      ]
+    },
+    {
+      "name": "dream_maintenance",
+      "title": "Nightly dream steps, its lock and its cadence guards",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor's dream steps live in a package with one file per step behind a registry, which this tree adopts as the destination shape",
+      "plan_tasks": [
+        16,
+        21,
+        46,
+        61
+      ]
+    },
+    {
+      "name": "docs_templates",
+      "title": "Top-level documents and the knowledge template corpus",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor carries a decision template, declared frontmatter on every template, an architecture README section and the artifact capture standard",
+      "plan_tasks": [
+        20,
+        51,
+        61,
+        74
+      ]
+    },
+    {
+      "name": "evaluation_quality",
+      "title": "Retrieval evaluation, gold fixtures and golden help output",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor holds the 80-member help_golden corpus and the exact-score BM25 pin",
+      "plan_tasks": [
+        26,
+        27,
+        59,
+        60
+      ]
+    },
+    {
+      "name": "modularity",
+      "title": "Package decomposition, ceilings and the modularity ratchets",
+      "tier": "curated",
+      "source": null,
+      "gate": null,
+      "donor_delta": true,
+      "donor_delta_evidence": "the donor IS the modular tree: agentware_lib, the split loop and catalog/modules.json have no local equivalent",
+      "plan_tasks": [
+        21,
+        25,
+        32,
+        56,
+        67,
+        68,
+        69,
+        70,
+        73
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "id": "asset:catalog:modules.json",
+      "dimension": "assets",
+      "capability": "catalog modules.json",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:catalog:skills.json",
+      "dimension": "assets",
+      "capability": "catalog skills.json",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/agentware",
+      "dimension": "assets",
+      "capability": "exec scripts/agentware",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/aw-knowledge-dir",
+      "dimension": "assets",
+      "capability": "exec scripts/aw-knowledge-dir",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/codex-stream.py",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/codex-stream.py",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/commit-msg",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/commit-msg",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/log-prompt.sh",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/log-prompt.sh",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/log-stop.sh",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/log-stop.sh",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/log-subagent.sh",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/log-subagent.sh",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/log-tool.sh",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/log-tool.sh",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/render-transcript.py",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/render-transcript.py",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/retrieval-state.sh",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/retrieval-state.sh",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:exec:scripts/hooks/session-start.sh",
+      "dimension": "assets",
+      "capability": "exec scripts/hooks/session-start.sh",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:fixture:gold_fixture_suite",
+      "dimension": "assets",
+      "capability": "fixture gold_fixture_suite",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:fixture:help_golden",
+      "dimension": "assets",
+      "capability": "fixture help_golden",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:fixture:swe_tasks",
+      "dimension": "assets",
+      "capability": "fixture swe_tasks",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:template:decision-template.md",
+      "dimension": "assets",
+      "capability": "template decision-template.md",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:template:learning-template.md",
+      "dimension": "assets",
+      "capability": "template learning-template.md",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:template:project-template.md",
+      "dimension": "assets",
+      "capability": "template project-template.md",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "asset:template:skill-template.md",
+      "dimension": "assets",
+      "capability": "template skill-template.md",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface-adjudication:recall:--scope:choices",
+      "dimension": "cli_surface",
+      "capability": "the local tree's choices for `--scope` on `agentware recall`, superseded by the decided value [\"curated\", \"work\", \"all\", \"shared\"]",
+      "sides": [
+        "local"
+      ],
+      "status": "superseded",
+      "verification": "generated",
+      "superseded_by": "surface:recall"
+    },
+    {
+      "id": "surface-adjudication:recall:--token-budget:default",
+      "dimension": "cli_surface",
+      "capability": "the donor tree's default for `--token-budget` on `agentware recall`, superseded by the decided value 1500",
+      "sides": [
+        "donor"
+      ],
+      "status": "superseded",
+      "verification": "generated",
+      "superseded_by": "surface:recall"
+    },
+    {
+      "id": "surface-flag:recall:--all-teams",
+      "dimension": "cli_surface",
+      "capability": "flag `--all-teams` on `agentware recall`",
+      "sides": [
+        "donor"
+      ],
+      "status": "excluded",
+      "verification": "absence_probe",
+      "reason": "Plan decision: fleet-wide recall needs either an org-root-spanning index rebuild or an N-index merge whose BM25 scores are not comparable across shards, so the flag cannot be honoured correctly by simply carrying it across.",
+      "approver": "operator (plan-approved self-extension, R-PKG-03)",
+      "follow_up": "named follow-up plan: recall --all-teams",
+      "absence_probe": {
+        "kind": "cli-absent",
+        "argv": [
+          "recall",
+          "parity-probe",
+          "--all-teams"
+        ],
+        "expect": "unrecognized arguments"
+      }
+    },
+    {
+      "id": "surface:<root>",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware (root)` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:attach",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware attach` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:audit",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware audit` with 5 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:bench",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware bench` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:bench.lint",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware bench lint` with 2 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:bench.redact",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware bench redact` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:bench.scorecard",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware bench scorecard` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:bench.swe",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware bench swe` with 5 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:checkup",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware checkup` with 2 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:config",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware config` with 64 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:dashboard",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware dashboard` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:decide",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware decide` with 10 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:dream",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware dream` with 6 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:eval",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware eval` with 18 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fanout",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fanout` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fanout.list",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fanout list` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fanout.merge-policy",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fanout merge-policy` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fanout.merge-queue",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fanout merge-queue` with 10 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fanout.spin-up",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fanout spin-up` with 7 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fanout.teardown",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fanout teardown` with 7 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:features",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware features` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fleet",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fleet` with 1 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fleet-emit",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fleet-emit` with 10 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fleet.impact",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fleet impact` with 3 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:fleet.issues",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware fleet issues` with 3 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:gate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware gate` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:gate.release",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware gate release` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph` with 0 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.add-edge",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph add-edge` with 5 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.add-node",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph add-node` with 4 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.cancel",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph cancel` with 6 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.checkpoint",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph checkpoint` with 8 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.new",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph new` with 4 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.resume",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph resume` with 7 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.rm-edge",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph rm-edge` with 4 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.rm-node",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph rm-node` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.run",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph run` with 7 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.show",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph show` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.status",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph status` with 4 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.teardown",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph teardown` with 7 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:graph.validate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware graph validate` with 2 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index.add",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index add` with 9 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index.migrate-frontmatter",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index migrate-frontmatter` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index.rebuild",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index rebuild` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index.remove",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index remove` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index.sync",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index sync` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:index.validate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware index validate` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:ingest",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware ingest` with 6 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:init",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware init` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:kb-git",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware kb-git` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:kb-git.commit",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware kb-git commit` with 4 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:kb-git.merge-continue",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware kb-git merge-continue` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:kb-git.pull",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware kb-git pull` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:kb-git.push",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware kb-git push` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:kb-git.status",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware kb-git status` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:learn",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware learn` with 10 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:mcp",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware mcp` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:mcp.serve",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware mcp serve` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:metrics",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware metrics` with 7 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:migrate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware migrate` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:org",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware org` with 0 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:org.lint",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware org lint` with 2 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.add-task",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan add-task` with 6 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.claim",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan claim` with 6 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.lint",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan lint` with 4 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.new",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan new` with 13 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.set-state",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan set-state` with 9 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.set-status",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan set-status` with 4 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.state-backfill",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan state-backfill` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.target-dirs",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan target-dirs` with 1 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:plan.verify-premises",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware plan verify-premises` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer` with 0 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.approve",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer approve` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.capture",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer capture` with 8 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.digest",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer digest` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.forget",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer forget` with 2 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.list",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer list` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.mine",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer mine` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.reject",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer reject` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.review",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer review` with 4 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.scan-queue",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer scan-queue` with 3 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:prefer.seed-cursor",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware prefer seed-cursor` with 2 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:profile",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware profile` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:query",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware query` with 9 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:recall",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware recall` with 12 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:relate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware relate` with 6 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:release",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware release` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:release.preflight",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware release preflight` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:remediate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware remediate` with 6 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:review",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware review` with 6 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:review-report",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware review-report` with 7 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.add",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill add` with 5 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.list",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill list` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.promote",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill promote` with 3 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.proposals",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill proposals` with 2 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.propose",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill propose` with 8 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.remove",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill remove` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.roster-injectable",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill roster-injectable` with 2 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.search",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill search` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.sync",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill sync` with 10 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:skill.validate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware skill validate` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:steering",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware steering` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:steering.lint",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware steering lint` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:team",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware team` with 1 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:team.create",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware team create` with 4 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:team.list",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware team list` with 1 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:team.register",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware team register` with 4 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:templates",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware templates` with 0 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:templates.lint",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware templates lint` with 2 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:tick",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware tick` with 4 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:trust",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware trust` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:trust.list",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware trust list` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:trust.pin",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware trust pin` with 7 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:trust.rotate",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware trust rotate` with 7 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:trust.verify",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware trust verify` with 1 actions",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:update",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware update` with 6 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:whereami",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware whereami` with 2 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:work",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware work` with 0 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:work.stamp",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware work stamp` with 3 actions",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:worklog",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware worklog` with 0 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "surface:worklog.scan",
+      "dimension": "cli_surface",
+      "capability": "parser node `agentware worklog scan` with 3 actions",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "docs:artifact-capture-standard",
+      "dimension": "docs_templates",
+      "capability": "The donor's artifact capture standard: a learning referencing a concrete artifact captures it verbatim",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 61,
+      "evidence": {
+        "test": "tests.test_learn_provenance",
+        "mutation": "store the reference without the artifact: the captured body no longer reproduces the cited artifact"
+      }
+    },
+    {
+      "id": "docs:readme-union-anchors",
+      "dimension": "docs_templates",
+      "capability": "The README as a UNION: this tree's hero, badges, maturity rows, roadmap and licence sections plus the donor's architecture section and its not-the-source-of-truth note",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 20,
+      "evidence": {
+        "test": "tests.test_docs_union",
+        "mutation": "drop any one of the six local or two donor anchors: the anchor assertion names the missing one"
+      }
+    },
+    {
+      "id": "docs:roadmap-preserved",
+      "dimension": "docs_templates",
+      "capability": "ROADMAP.md preserved byte-identical to aw-pre-merge (the donor deleted it outright)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 20,
+      "evidence": {
+        "test": "tests.test_docs_union",
+        "mutation": "regenerate or drop ROADMAP.md: the byte-identity assertion reddens"
+      }
+    },
+    {
+      "id": "docs:template-frontmatter-corpus",
+      "dimension": "docs_templates",
+      "capability": "Four templates including a decision template, each opening with a frontmatter block declaring the full required field set",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 51,
+      "evidence": {
+        "test": "tests.test_templates_lint",
+        "mutation": "remove a required field from any template: the linter must redden naming the field"
+      }
+    },
+    {
+      "id": "dream:donor-toctou-lock",
+      "dimension": "dream_maintenance",
+      "capability": "The donor's read-decide-write dream lock, replaced by this tree's atomic critical section",
+      "sides": [
+        "donor"
+      ],
+      "status": "superseded",
+      "verification": "curated",
+      "task": 46,
+      "evidence": {
+        "test": "tests.test_dream_min_interval",
+        "mutation": "restore the donor acquisition: the double-acquire probe shows two winners"
+      },
+      "superseded_by": "dream:race-free-lock"
+    },
+    {
+      "id": "dream:four-restored-nightly-steps",
+      "dimension": "dream_maintenance",
+      "capability": "The four nightly dream steps the donor dropped, restored as four files behind the step registry",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 46,
+      "evidence": {
+        "test": "tests.test_dream",
+        "mutation": "unregister any one restored step: the registry stops matching this tree's full set"
+      }
+    },
+    {
+      "id": "dream:min-interval-guard",
+      "dimension": "dream_maintenance",
+      "capability": "The dream min-interval gate, so a second cycle inside the interval is skipped rather than run",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 61,
+      "evidence": {
+        "test": "tests.test_dream_min_interval",
+        "mutation": "remove the interval check: a second dream inside the window runs"
+      }
+    },
+    {
+      "id": "dream:race-free-lock",
+      "dimension": "dream_maintenance",
+      "capability": "The race-free dream lock critical section, replacing the donor's read-decide-write TOCTOU",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 46,
+      "evidence": {
+        "test": "tests.test_dream_min_interval",
+        "mutation": "restore read-decide-write acquisition: a concurrent double-acquire shows two winners"
+      }
+    },
+    {
+      "id": "dream:step-registry-package",
+      "dimension": "dream_maintenance",
+      "capability": "The donor's dream step PACKAGE \u2014 one file per step behind a registry, which is the destination shape the restored steps land in",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 21,
+      "evidence": {
+        "test": "tests.test_dream_steps_package",
+        "mutation": "collapse the package back to one module: the per-step file ceiling stops being enforceable"
+      }
+    },
+    {
+      "id": "env:AGENTWARE_CHECKUP",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CHECKUP (agentware, config key, flag set_checkup)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_CHECKUP_EFFORT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CHECKUP_EFFORT (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_CHECKUP_LLM",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CHECKUP_LLM (agentware, config key)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_CHECKUP_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CHECKUP_MODEL (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_CLI",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CLI (agentware, config key, flag set_cli)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_CODEX_SANDBOX",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CODEX_SANDBOX (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_CONFIG_HOME",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_CONFIG_HOME (agentware)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DISABLE_PREMISE_GATE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DISABLE_PREMISE_GATE (agentware, kill switch)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DISABLE_RECALL_GATE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DISABLE_RECALL_GATE (agentware, kill switch)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DISABLE_RELEASE_GATE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DISABLE_RELEASE_GATE (agentware, kill switch)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DISABLE_RETRIEVAL_LINT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DISABLE_RETRIEVAL_LINT (agentware, kill switch)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DISABLE_TARGET_GATE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DISABLE_TARGET_GATE (agentware, kill switch)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DREAM",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DREAM (agentware, config key, flag set_dream)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DREAM_MAX_RUNTIME",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DREAM_MAX_RUNTIME (agentware, config key, flag set_dream_max_runtime)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_DREAM_SCHEDULE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_DREAM_SCHEDULE (agentware, config key, flag set_dream_schedule)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_EMBEDDER_BACKEND",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_EMBEDDER_BACKEND (agentware, config key, flag set_embedder)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_EMBED_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_EMBED_MODEL (agentware, config key, flag set_embed_model)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_FANOUT_DIR",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_FANOUT_DIR (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_INVOKED_FROM",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_INVOKED_FROM (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_KB_AUTOCOMMIT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_KB_AUTOCOMMIT (agentware, config key, flag set_autocommit)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_KB_MODE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_KB_MODE (agentware, config key, flag set_kb_mode)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_KB_PUSH",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_KB_PUSH (agentware, config key, flag set_push)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_KNOWLEDGE_DIR",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_KNOWLEDGE_DIR (agentware, config key, flag set_knowledge_dir)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_LIVE_LOG",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_LIVE_LOG (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MAIN_CLI",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MAIN_CLI (agentware, config key, flag set_main_cli)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MAIN_FALLBACK",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MAIN_FALLBACK (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MAIN_LOCAL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MAIN_LOCAL (agentware, config key, flag set_main_local)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MAIN_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MAIN_MODEL (agentware, config key, flag set_main_model)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_METRICS_EMIT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_METRICS_EMIT (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MINER_ERRREC_DEDUP",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MINER_ERRREC_DEDUP (agentware, config key)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MINER_RECURRENCE_CUE_REQUIRED",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MINER_RECURRENCE_CUE_REQUIRED (agentware, config key)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MINER_RECURRENCE_MIN_LEN",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MINER_RECURRENCE_MIN_LEN (agentware, config key)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MINER_RECURRENCE_STOPWORDS",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MINER_RECURRENCE_STOPWORDS (agentware, config key)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_MODEL (agentware, config key)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_NESTED_UNITTEST",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_NESTED_UNITTEST (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_NOPROGRESS_LIMIT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_NOPROGRESS_LIMIT (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_NO_STREAM",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_NO_STREAM (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_OLLAMA_HOST",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_OLLAMA_HOST (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_ORG_PACKAGE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_ORG_PACKAGE (agentware, config key, flag set_org_package)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_ORG_ROOT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_ORG_ROOT (agentware, config key, flag set_org_root)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_ORIGIN",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_ORIGIN (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_POST_CLI",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_POST_CLI (agentware, config key, flag set_post_cli)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_POST_LOCAL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_POST_LOCAL (agentware, config key, flag set_post_local)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_POST_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_POST_MODEL (agentware, config key, flag set_post_model)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_PRE_CLI",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_PRE_CLI (agentware, config key, flag set_pre_cli)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_PRE_LOCAL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_PRE_LOCAL (agentware, config key, flag set_pre_local)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_PRE_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_PRE_MODEL (agentware, config key, flag set_pre_model)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REPOINT_AUTOPROVISION",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REPOINT_AUTOPROVISION (agentware, config key)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_RETRIEVAL_LINT_MODE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_RETRIEVAL_LINT_MODE (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_RETRIEVAL_MODE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_RETRIEVAL_MODE (agentware, config key, flag set_retrieval)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REVIEW_DIFF_FILES_OVERRIDE (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REVIEW_DIFF_RANGE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REVIEW_DIFF_RANGE (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REVIEW_EFFORT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REVIEW_EFFORT (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REVIEW_FANOUT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REVIEW_FANOUT (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REVIEW_MAX_ROUNDS",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REVIEW_MAX_ROUNDS (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_REVIEW_MODEL",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_REVIEW_MODEL (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKILLS_HARNESS_DIR",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKILLS_HARNESS_DIR (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKILLS_LOCK_PATH",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKILLS_LOCK_PATH (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKILL_PROMOTE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKILL_PROMOTE (agentware, config key, flag set_skill_promote)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKILL_PROMOTE_CAP",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKILL_PROMOTE_CAP (agentware, config key, flag set_skill_promote_cap)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKILL_PROPOSE_THRESHOLD",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKILL_PROPOSE_THRESHOLD (agentware, config key, flag set_skill_propose_threshold)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKIP_ADVERSARIAL_REVIEW",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKIP_ADVERSARIAL_REVIEW (agentware, kill switch)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_SKIP_ADVERSARIAL_REVIEW_REASON",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_SKIP_ADVERSARIAL_REVIEW_REASON (agentware)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_STAGE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_STAGE (agentware)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_TEAM",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_TEAM (agentware, config key, flag set_team)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_UPDATE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_UPDATE (agentware, config key, flag set_updater)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_USER_HANDLE",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_USER_HANDLE (agentware, config key, flag set_user_handle)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:CI",
+      "dimension": "env_config",
+      "capability": "CI (external)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:CLAUDE_TOOL_INPUT",
+      "dimension": "env_config",
+      "capability": "CLAUDE_TOOL_INPUT (external)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:CLAUDE_TOOL_NAME",
+      "dimension": "env_config",
+      "capability": "CLAUDE_TOOL_NAME (external)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:COMPUTERNAME",
+      "dimension": "env_config",
+      "capability": "COMPUTERNAME (external)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:GIT_AUTHOR_EMAIL",
+      "dimension": "env_config",
+      "capability": "GIT_AUTHOR_EMAIL (external)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:GIT_AUTHOR_NAME",
+      "dimension": "env_config",
+      "capability": "GIT_AUTHOR_NAME (external)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:GIT_EDITOR",
+      "dimension": "env_config",
+      "capability": "GIT_EDITOR (external)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:GIT_TERMINAL_PROMPT",
+      "dimension": "env_config",
+      "capability": "GIT_TERMINAL_PROMPT (external)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:HOME",
+      "dimension": "env_config",
+      "capability": "HOME (external)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:HOMEBREW_NO_AUTO_UPDATE",
+      "dimension": "env_config",
+      "capability": "HOMEBREW_NO_AUTO_UPDATE (external)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:HOSTNAME",
+      "dimension": "env_config",
+      "capability": "HOSTNAME (external)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:USER",
+      "dimension": "env_config",
+      "capability": "USER (external)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:npm_config_yes",
+      "dimension": "env_config",
+      "capability": "npm_config_yes (external)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "eval:ab-gate-layout-aware-extraction",
+      "dimension": "evaluation_quality",
+      "capability": "The A/B retrieval no-regression gate extracts the WHOLE package for the HEAD arm; under the modular layout a flat blob is a 110-line facade with no lib behind it",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 26,
+      "evidence": {
+        "test": "tests.test_eval_pinning",
+        "mutation": "extract only the entrypoint blob: the HEAD arm reports unavailable instead of a score, and the gate silently stops gating"
+      }
+    },
+    {
+      "id": "eval:gold-fixture-superset",
+      "dimension": "evaluation_quality",
+      "capability": "The gold-fixture corpus as the union, carrying the only document in a skills category",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 59,
+      "evidence": {
+        "test": "tests.test_eval",
+        "mutation": "drop the skills-category document: the skills query stops ranking it first and the loader returns no category for it"
+      }
+    },
+    {
+      "id": "eval:help-golden-corpus",
+      "dimension": "evaluation_quality",
+      "capability": "The donor's 80-member help_golden fixture family, regenerated exactly once on the operator's own interpreter after the verb surface is final",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 60,
+      "evidence": {
+        "test": "tests.test_help_golden",
+        "mutation": "regenerate on a different interpreter version: the rendering diff reddens every golden"
+      }
+    },
+    {
+      "id": "eval:security-invariant-coverage",
+      "dimension": "evaluation_quality",
+      "capability": "The security-invariant corpus as a per-path-class policy table plus a coverage assertion that every Python file on disk is claimed",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 27,
+      "evidence": {
+        "test": "tests.test_invariants",
+        "mutation": "add an unclaimed Python file under scripts: the coverage assertion must redden rather than silently skip it"
+      }
+    },
+    {
+      "id": "kb:atomic-durable-write",
+      "dimension": "kb_integrity",
+      "capability": "The atomic durable index write (temp file, fsync, rename) rather than the donor's truncating open() + json.dump",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 22,
+      "evidence": {
+        "test": "tests.test_atomic_save",
+        "mutation": "replace the temp-file+rename+fsync with a truncating open(): a concurrent reader can observe a torn index"
+      }
+    },
+    {
+      "id": "kb:auto-rebuild-once-recovery",
+      "dimension": "kb_integrity",
+      "capability": "load_index auto-rebuild-once on a missing or corrupt index, which is what makes a fresh clone recover instead of hard-failing",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 22,
+      "evidence": {
+        "test": "tests.test_rebuild",
+        "mutation": "remove the auto-rebuild-once recovery: a corrupt index stops self-recovering on load"
+      }
+    },
+    {
+      "id": "kb:corpus-fingerprint-freshness-authority",
+      "dimension": "kb_integrity",
+      "capability": "The donor's content corpus_fingerprint as the cache-freshness authority (the monotonic counter goes stale-blind after a pull), with the coupled drop-on-write guard",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 24,
+      "evidence": {
+        "test": "tests.test_bm25_cache",
+        "mutation": "restore the monotonic generation counter as the authority: an entry arriving via a pull stops invalidating the cache"
+      }
+    },
+    {
+      "id": "kb:derived-artifacts-decommitted",
+      "dimension": "kb_integrity",
+      "capability": "The nine derived knowledge-base artifacts stay gitignored (the donor tracks index.json, FEATURES.md and every roster)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 57,
+      "evidence": {
+        "test": "tests.test_decommit",
+        "mutation": "track any derived artifact again: a simulated two-clone sync conflicts on it"
+      }
+    },
+    {
+      "id": "kb:foreign-schema-cache-rejection",
+      "dimension": "kb_integrity",
+      "capability": "A cache version neither tree has used, so a foreign-schema cache written under either old number can never load as valid",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 24,
+      "evidence": {
+        "test": "tests.test_vector_cache",
+        "mutation": "accept a cache written under either legacy version number: a foreign schema loads as valid at the same cache path"
+      }
+    },
+    {
+      "id": "kb:poisoned-index-list-normalizer",
+      "dimension": "kb_integrity",
+      "capability": "The lenient list-field normalizer at every raw index read site (graph adjacency, relation lint, corpus text, frontmatter migration)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 23,
+      "evidence": {
+        "test": "tests.test_poisoned_index",
+        "mutation": "read a list field raw at any one site: a mapping where a list is expected raises an uncaught type or hashability error"
+      }
+    },
+    {
+      "id": "kb:quarantine-and-continue-rebuild",
+      "dimension": "kb_integrity",
+      "capability": "Fault-isolating rebuild: duplicate-id dedup plus quarantine-and-continue, so one malformed entry cannot fail the whole rebuild",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 22,
+      "evidence": {
+        "test": "tests.test_quarantine",
+        "mutation": "raise on the first malformed entry: a single bad file takes down the rebuild and the index with it"
+      }
+    },
+    {
+      "id": "kb:reentrant-index-lock",
+      "dimension": "kb_integrity",
+      "capability": "The reentrant fcntl.flock index lock with its process-wide guard around every mutation (the donor has zero fcntl/flock/fsync)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 22,
+      "evidence": {
+        "test": "tests.test_indexlock",
+        "mutation": "remove the flock acquisition: the 5,000-poll concurrent probe records torn reads"
+      }
+    },
+    {
+      "id": "kb:roster-and-injection-lint",
+      "dimension": "kb_integrity",
+      "capability": "The donor's roster and injection lint wired into index validate",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 53,
+      "evidence": {
+        "test": "tests.test_skill_roster",
+        "mutation": "blank a roster row: index validate must fail rather than pass"
+      }
+    },
+    {
+      "id": "loop:adversarial-review-gate",
+      "dimension": "loop_orchestration",
+      "capability": "The adversarial review gate and its reviewer persona, run over the shipped diff at the end of a self-extension run",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 47,
+      "evidence": {
+        "test": "tests.test_loop_selfheal_gate",
+        "mutation": "make the review gate return PROCEED unconditionally: a diff violating an acceptance criterion stops being caught"
+      }
+    },
+    {
+      "id": "loop:org-lint-hook-gates",
+      "dimension": "loop_orchestration",
+      "capability": "The donor's pre- and post-hook org lint gates, each a no-op when the knowledge base is flat",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 33,
+      "evidence": {
+        "test": "tests.test_loop_org_lint",
+        "mutation": "remove either call site: an org-invalid artifact passes the phase gate"
+      }
+    },
+    {
+      "id": "loop:outcome-value-union",
+      "dimension": "loop_orchestration",
+      "capability": "The LOOP_OUTCOME value set is the UNION, so the two values this tree emits are not rejected by the donor's org lint check O12",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 34,
+      "evidence": {
+        "test": "tests.test_loop_emission",
+        "mutation": "drop either locally-emitted outcome value from the accepted set: the pre-hook hard-blocks the next run in team mode"
+      }
+    },
+    {
+      "id": "loop:retrieval-quality-gate",
+      "dimension": "loop_orchestration",
+      "capability": "The donor's per-run retrieval-quality gate in post-hooks with its kill switch, a no-op when the gold set is absent",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 33,
+      "evidence": {
+        "test": "tests.test_loop_retrieval_gate",
+        "mutation": "remove the post-hook call site: a run that degraded retrieval quality completes clean"
+      }
+    },
+    {
+      "id": "loop:session-start-roster-injection",
+      "dimension": "loop_orchestration",
+      "capability": "Working SessionStart roster injection via the shared injectable predicate \u2014 this fixes a LIVE defect in this tree",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 53,
+      "evidence": {
+        "test": "tests.test_skill_hook",
+        "mutation": "make the injectable predicate return False for an always-on skill: the roster stops being injected at session start"
+      }
+    },
+    {
+      "id": "loop:worklog-marker-regexes-fail-closed",
+      "dimension": "loop_orchestration",
+      "capability": "The R-SI-03 marker regexes fail CLOSED: an unpromoted `> LEARNED:` marker blocks the completion promise (they fail open donor-side)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 45,
+      "evidence": {
+        "test": "tests.test_loop_worklog_gate",
+        "mutation": "relax a marker regex to the donor form: an unpromoted marker stops blocking the promise"
+      }
+    },
+    {
+      "id": "mod:dashboard-package-route-union",
+      "dimension": "modularity",
+      "capability": "The dashboard as a package with its path-confinement kernel in its own file, serving the UNION of both trees' routes",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 69,
+      "evidence": {
+        "test": "tests.test_dashboard_api",
+        "mutation": "drop any route from the served union: the route-set assertion names it"
+      }
+    },
+    {
+      "id": "mod:legacy-shrink-only-ratchet",
+      "dimension": "modularity",
+      "capability": "The shrink-only legacy ratchet, so agentware_legacy.py can only get smaller and is deletable when empty",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 32,
+      "evidence": {
+        "test": "tests.test_legacy_ratchet",
+        "mutation": "raise the high-water mark: legacy is allowed to grow again"
+      }
+    },
+    {
+      "id": "mod:lib-decomposition",
+      "dimension": "modularity",
+      "capability": "The agentware_lib decomposition itself: a facade plus ~70 modules under the layer contract, replacing the 34,792-line monolith",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 25,
+      "evidence": {
+        "test": "tests.test_module_manifest",
+        "mutation": "add a file under the lib with no manifest entry: the completeness check must redden"
+      }
+    },
+    {
+      "id": "mod:module-manifest-catalog",
+      "dimension": "modularity",
+      "capability": "The generated module manifest (catalog/modules.json) as the completeness gate over every file on disk",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 67,
+      "evidence": {
+        "test": "tests.test_module_manifest",
+        "mutation": "regenerate the manifest twice: the second run must produce no diff"
+      }
+    },
+    {
+      "id": "mod:per-function-caps",
+      "dimension": "modularity",
+      "capability": "The per-function ceilings (120 lines, 12 branches) \u2014 a file cap alone is insufficient, configcmd.py is 799 lines with 2 defs",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 68,
+      "evidence": {
+        "test": "tests.test_modularity_negative",
+        "mutation": "add a function over the per-function cap inside a small file: the negative test must redden on that shape alone"
+      }
+    },
+    {
+      "id": "org:additive-team-mode-migration",
+      "dimension": "org_team",
+      "capability": "Team mode arrives as a REGISTERED, idempotent migration step leaving flat behaviour byte-identical",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 63,
+      "evidence": {
+        "test": "tests.test_migrate_runner",
+        "mutation": "make the step non-idempotent: a second apply changes entry counts"
+      }
+    },
+    {
+      "id": "org:bash-python-resolver-parity",
+      "dimension": "org_team",
+      "capability": "The bash and Python knowledge-dir resolvers agree for flat, org and config-home-overridden configurations (five hooks call the bash one on every agent spawn)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 36,
+      "evidence": {
+        "test": "tests.test_org_resolver_parity",
+        "mutation": "diverge either resolver's org-root tier: the hooks and the CLI resolve different knowledge dirs in the same session"
+      }
+    },
+    {
+      "id": "org:corpus-scoping-and-shared-precedence",
+      "dimension": "org_team",
+      "capability": "Corpus scoping BEFORE index build and shared-corpus precedence, so recall scores are computed over the scoped corpus",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 50,
+      "evidence": {
+        "test": "tests.test_org_scoping",
+        "mutation": "scope after the build: two-team recall isolation breaks and scores are computed over the unscoped corpus"
+      }
+    },
+    {
+      "id": "org:cross-team-write-isolation",
+      "dimension": "org_team",
+      "capability": "Cross-team staging isolation: a write aimed at another team's shard is refused",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 50,
+      "evidence": {
+        "test": "tests.test_org_isolation",
+        "mutation": "drop the target-team assertion: a cross-team write succeeds"
+      }
+    },
+    {
+      "id": "org:curator-gate-on-shared-writes",
+      "dimension": "org_team",
+      "capability": "The curator gate on shared-root writes, plus the payload contract keys",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 50,
+      "evidence": {
+        "test": "tests.test_org_curator",
+        "mutation": "allow a non-curator shared write: the shared corpus becomes writable by every teammate"
+      }
+    },
+    {
+      "id": "org:team-inference-from-knowledge-dir",
+      "dimension": "org_team",
+      "capability": "Team inference from the knowledge-dir path plus shared-root detection",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 50,
+      "evidence": {
+        "test": "tests.test_team_mode_e2e",
+        "mutation": "return a constant team: a knowledge dir under another team's root resolves to the wrong shard"
+      }
+    },
+    {
+      "id": "retrieval:bm25-exact-score-pin",
+      "dimension": "retrieval_policy",
+      "capability": "The donor's exact-score BM25 pin \u2014 order-based assertions alone let a mutated K1 or B survive every test in this tree",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 59,
+      "evidence": {
+        "test": "tests.test_bm25_exact_scores",
+        "mutation": "perturb K1 or B by a value that preserves ranking ORDER: the exact score assertions must still redden"
+      }
+    },
+    {
+      "id": "retrieval:read-time-trust-and-freshness",
+      "dimension": "retrieval_policy",
+      "capability": "The read-time trust surface on every recall and query record: the live-anchored abs_path plus age_days, last_verified, stale, superseded_by and trust (zero donor equivalent, 7 symbols)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 49,
+      "evidence": {
+        "test": "tests.test_trust_surface",
+        "mutation": "emit the RELATIVE path instead of re-anchoring to the live knowledge dir, or drop any one of the six trust fields from the record"
+      }
+    },
+    {
+      "id": "retrieval:stage-1-skill-pin-floor",
+      "dimension": "retrieval_policy",
+      "capability": "The stage-1 skill pin at its 0.85 floor with the three-argument signature and the learnings-eviction guarantee, applied at all three call sites including retrieve_bm25 and the bm25+embed pre-trim branch",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 49,
+      "evidence": {
+        "test": "tests.test_skill_pin_floor",
+        "mutation": "set SKILL_PIN_FLOOR to the donor's None, or drop the pin from the pre-trim branch: a skill scoring above the floor stops ranking first"
+      }
+    },
+    {
+      "id": "retrieval:staleness-and-supersede-downweight",
+      "dimension": "retrieval_policy",
+      "capability": "The ranking downweight applied to stale and superseded entries, sharing ONE stale-window definition with the audit and trust signals",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 49,
+      "evidence": {
+        "test": "tests.test_staleness_downweight",
+        "mutation": "return a flat 1.0 multiplier: a superseded entry stops ranking below its successor"
+      }
+    },
+    {
+      "id": "retrieval:token-budget-ladder",
+      "dimension": "retrieval_policy",
+      "capability": "The committed R-RET-03/R-RET-04 ladder: default token budget 1500 with a stage-2 escalation to 3000, not the donor's collapsing 10000",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 49,
+      "evidence": {
+        "test": "tests.test_recall",
+        "mutation": "raise the default token budget to the donor's 10000: stage 1 and stage 2 become indistinguishable"
+      }
+    },
+    {
+      "id": "retrieval:work-corpus-stat-short-circuit",
+      "dimension": "retrieval_policy",
+      "capability": "The work-corpus stat short-circuit, so a warm work-scope recall reads zero work bodies",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 55,
+      "evidence": {
+        "test": "tests.test_workcache",
+        "mutation": "always read work bodies: the warm path stops being O(1) in body reads"
+      }
+    },
+    {
+      "id": "retrieval:work-scope-plan-status-multipliers",
+      "dimension": "retrieval_policy",
+      "capability": "Plan-status ranking multipliers sourced per feature and inherited by sibling worklogs (done, running and superseded score differently)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 55,
+      "evidence": {
+        "test": "tests.test_scopework_recall",
+        "mutation": "flatten every plan-status multiplier to 1.0: a sibling worklog under a done plan stops scoring its recorded fraction"
+      }
+    },
+    {
+      "id": "sec:donor-plain-fetch-updater",
+      "dimension": "security_trust",
+      "capability": "The donor's plain-fetch updater, replaced wholesale by the signed SemVer channel",
+      "sides": [
+        "donor"
+      ],
+      "status": "superseded",
+      "verification": "curated",
+      "task": 41,
+      "evidence": {
+        "test": "tests.test_pkg_channel",
+        "mutation": "restore the plain fetch: an unsigned update installs"
+      },
+      "superseded_by": "sec:signed-semver-update-channel"
+    },
+    {
+      "id": "sec:knowledge-content-injection-scan",
+      "dimension": "security_trust",
+      "capability": "Injection and conflict-marker scanning of KNOWLEDGE CONTENT before it is injected into a session",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 53,
+      "evidence": {
+        "test": "tests.test_target_injection",
+        "mutation": "skip the scan: a poisoned knowledge file reaches the session prompt"
+      }
+    },
+    {
+      "id": "sec:push-retry-backoff-jitter",
+      "dimension": "security_trust",
+      "capability": "Push retry with backoff and deterministic jitter, required because this tree has fanout AND graph run --concurrency",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 53,
+      "evidence": {
+        "test": "tests.test_kb_push",
+        "mutation": "remove the retry loop: simulated push contention fails the run"
+      }
+    },
+    {
+      "id": "sec:scoped-staging-allowlist",
+      "dimension": "security_trust",
+      "capability": "The donor's scoped staging allowlist with its 256 KiB blob cap, converting ALL eight blanket `git add -A` call sites",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 53,
+      "evidence": {
+        "test": "tests.test_kb_git",
+        "mutation": "restore a blanket add at any one of the eight sites: one survivor defeats staging isolation"
+      }
+    },
+    {
+      "id": "sec:signed-semver-update-channel",
+      "dimension": "security_trust",
+      "capability": "The signed SemVer-tag update channel with its six self-heal call sites",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 41,
+      "evidence": {
+        "test": "tests.test_pkg_channel",
+        "mutation": "accept an unsigned or untrusted tag: the updater installs an unverified package"
+      }
+    },
+    {
+      "id": "sec:trust-publisher-anchor",
+      "dimension": "security_trust",
+      "capability": "The trust publisher signing-key anchor (no donor equivalent at all)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 40,
+      "evidence": {
+        "test": "tests.test_pkg_trust_anchor",
+        "mutation": "accept a key absent from the anchor: any publisher can sign a release"
+      }
+    },
+    {
+      "id": "tests-collision:tests/test_attach_validate.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_attach_validate.py: 1 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_bm25_cache.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_bm25_cache.py: 3 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_codex_log.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_codex_log.py: 1 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_dashboard_api.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_dashboard_api.py: 4 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_dream.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_dream.py: 5 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_eval_pinning.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_eval_pinning.py: 1 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_plan_lint.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_plan_lint.py: 7 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_rebuild.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_rebuild.py: 3 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_recall.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_recall.py: 4 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_skill_promote.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_skill_promote.py: 30 local ids destroyed by a blanket copy, resolution split-two-destinations",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_whereami.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_whereami.py: 5 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests-collision:tests/test_worklog_promotion.py",
+      "dimension": "test_corpus",
+      "capability": "same-path collision on tests/test_worklog_promotion.py: 12 local ids destroyed by a blanket copy, resolution reconcile-in-place",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.e2e.test_cli_surface",
+      "dimension": "test_corpus",
+      "capability": "test module tests.e2e.test_cli_surface (0 local, 5 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.integration.test_bootstrap_isolation",
+      "dimension": "test_corpus",
+      "capability": "test module tests.integration.test_bootstrap_isolation (0 local, 2 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.integration.test_cli",
+      "dimension": "test_corpus",
+      "capability": "test module tests.integration.test_cli (0 local, 2 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.integration.test_core",
+      "dimension": "test_corpus",
+      "capability": "test module tests.integration.test_core (0 local, 3 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_acr",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_acr (24 local, 24 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_acr_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_acr_gate (26 local, 26 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_agent_identity",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_agent_identity (12 local, 12 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_atomic_save",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_atomic_save (4 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_attach_validate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_attach_validate (7 local, 7 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_backfill_migration",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_backfill_migration (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_bench_swe",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_bench_swe (38 local, 38 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_bm25_cache",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_bm25_cache (18 local, 16 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_bm25_ranking_pin",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_bm25_ranking_pin (0 local, 3 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_aggregate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_aggregate (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_config",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_config (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_drift",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_drift (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_e2e (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_emit",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_emit (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_report",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_report (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_tick",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_tick (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_triggers",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_triggers (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_checkup_watcher",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_checkup_watcher (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_codex_log",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_codex_log (9 local, 9 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_config_mode",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_config_mode (25 local, 25 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_coverage_holes",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_coverage_holes (0 local, 12 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dashboard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dashboard (24 local, 26 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dashboard_api",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dashboard_api (34 local, 30 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_decisions",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_decisions (12 local, 12 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_decisions_category",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_decisions_category (0 local, 7 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_declare_habitual_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_declare_habitual_e2e (2 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_decommit",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_decommit (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dependency_graph",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dependency_graph (21 local, 21 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_donestamp",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_donestamp (2 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dream",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dream (73 local, 82 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dream_change_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dream_change_gate (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dream_min_interval",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dream_min_interval (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dream_pkg_retire",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dream_pkg_retire (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dream_skill_propose",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dream_skill_propose (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_dream_stale_propose",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_dream_stale_propose (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_drift_dream",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_drift_dream (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_e2e_updater",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_e2e_updater (14 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_e2e_writepath",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_e2e_writepath (1 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_embedder",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_embedder (14 local, 14 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_embedder_fastembed",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_embedder_fastembed (15 local, 15 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_embedding",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_embedding (10 local, 10 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_env_config_parity",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_env_config_parity (40 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_eval",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_eval (26 local, 26 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_eval_pinning",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_eval_pinning (27 local, 27 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_existing_cli",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_existing_cli (45 local, 45 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_fanout",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_fanout (32 local, 32 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_fresh_clone",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_fresh_clone (7 local, 7 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_freshness",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_freshness (6 local, 6 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_freshness_gen",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_freshness_gen (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_frontmatter",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_frontmatter (10 local, 10 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_g1harden",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_g1harden (19 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_gate (13 local, 13 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_gatebaseline",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_gatebaseline (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_git_coauthor_guard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_git_coauthor_guard (15 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_indexlock",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_indexlock (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_ingestion",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_ingestion (13 local, 13 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_init_guard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_init_guard (0 local, 5 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_invariants",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_invariants (13 local, 14 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_kb_git",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_kb_git (37 local, 37 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_kb_push",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_kb_push (23 local, 23 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_learn_hardening",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_learn_hardening (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_learn_provenance",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_learn_provenance (5 local, 5 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_ledger",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_ledger (13 local, 13 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_longmemeval",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_longmemeval (10 local, 10 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_loop_emission",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_loop_emission (2 local, 2 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_loop_guards",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_loop_guards (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_loop_perf",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_loop_perf (16 local, 16 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_loop_selfheal_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_loop_selfheal_gate (14 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_loop_transitions",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_loop_transitions (2 local, 2 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_loop_worklog_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_loop_worklog_gate (2 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_mcp_server",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_mcp_server (28 local, 28 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_metrics",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_metrics (71 local, 71 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_migrate_runner",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_migrate_runner (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_module_boundaries",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_module_boundaries (0 local, 31 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_module_manifest",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_module_manifest (0 local, 12 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_org_kb",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_org_kb (0 local, 62 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_parser_golden",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_parser_golden (0 local, 9 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_apply_edges",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_apply_edges (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_channel",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_channel (13 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_cleanup",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_cleanup (5 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_heartbeat",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_heartbeat (8 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_rollback",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_rollback (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_smoke",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_smoke (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_staleness",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_staleness (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_state_lock",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_state_lock (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_tamper_consistency",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_tamper_consistency (12 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_trust_anchor",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_trust_anchor (14 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_pkg_updater",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_pkg_updater (11 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_plan_authoring",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_plan_authoring (15 local, 15 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_plan_graph",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_plan_graph (151 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_plan_lint",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_plan_lint (35 local, 28 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_poisoned_index",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_poisoned_index (23 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_capture",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_capture (51 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_classify",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_classify (28 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_context_seam",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_context_seam (13 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_e2e (22 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_forget",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_forget (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_injection",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_injection (20 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_precision",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_precision (16 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_precision_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_precision_e2e (1 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_queue",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_queue (24 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_reject",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_reject (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_review",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_review (19 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_prefer_scope",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_prefer_scope (12 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_premise_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_premise_gate (31 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_premise_prehook",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_premise_prehook (3 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_preserved_gates",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_preserved_gates (29 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_preserved_surface",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_preserved_surface (48 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_proposal_integrity",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_proposal_integrity (0 local, 9 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_provenance_logging",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_provenance_logging (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_provenance_observability",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_provenance_observability (6 local, 6 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_quarantine",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_quarantine (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_rebuild",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_rebuild (9 local, 6 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_recall",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_recall (37 local, 33 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_recall_mode",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_recall_mode (9 local, 9 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_relate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_relate (16 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_release_gate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_release_gate (7 local, 7 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_release_preflight",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_release_preflight (5 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_remediate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_remediate (20 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_retrieval_lint",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_retrieval_lint (10 local, 10 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_retrieval_metrics",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_retrieval_metrics (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_reverse_guard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_reverse_guard (3 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_review_config",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_review_config (15 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_review_orchestrator",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_review_orchestrator (147 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_review_report",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_review_report (12 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_roster_injection",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_roster_injection (0 local, 12 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_schemaguard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_schemaguard (17 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_scopework_recall",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_scopework_recall (7 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_scorecard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_scorecard (8 local, 8 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_setstate_matrix",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_setstate_matrix (24 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_catalog",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_catalog (0 local, 4 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_e2e (1 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_hook",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_hook (4 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_lockfile",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_lockfile (14 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_pin_floor",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_pin_floor (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_promote",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_promote (30 local, 8 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_proposal_staging",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_proposal_staging (0 local, 7 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_propose",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_propose (0 local, 9 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_roster",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_roster (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_sync",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_sync (13 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_sync_adjudicate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_sync_adjudicate (24 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_threshold",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_threshold (0 local, 7 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_skill_trust",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_skill_trust (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_sortonce",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_sortonce (3 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_staleness",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_staleness (9 local, 9 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_staleness_downweight",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_staleness_downweight (19 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_staleness_propose",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_staleness_propose (15 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_steering_content",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_steering_content (6 local, 6 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_surface_fixture",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_surface_fixture (12 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_surface_union",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_surface_union (29 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_target_injection",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_target_injection (13 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_team_mode_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_team_mode_e2e (2 local, 2 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_tick_dispatch",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_tick_dispatch (16 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_tick_dream_cadence",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_tick_dream_cadence (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_tick_schedule",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_tick_schedule (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_transcript_miner",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_transcript_miner (114 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_transcript_miner_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_transcript_miner_e2e (6 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_transcript_miner_governance",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_transcript_miner_governance (5 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_transcript_miner_wiring",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_transcript_miner_wiring (9 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_trust_determinism",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_trust_determinism (10 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_trust_e2e",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_trust_e2e (1 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_trust_surface",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_trust_surface (35 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_update_state",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_update_state (16 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_updater_activation",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_updater_activation (13 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_vector_cache",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_vector_cache (14 local, 14 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_whereami",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_whereami (9 local, 8 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_workcache",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_workcache (5 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_worklog_promotion",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_worklog_promotion (21 local, 9 donor node ids)",
+      "sides": [
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_worklog_scan_promotion",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_worklog_scan_promotion (0 local, 9 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.test_workorder_emit",
+      "dimension": "test_corpus",
+      "capability": "test module tests.test_workorder_emit (17 local, 0 donor node ids)",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.cli.test_cli",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.cli.test_cli (0 local, 16 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.cli.test_registration",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.cli.test_registration (0 local, 5 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_config",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_config (0 local, 30 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_dates",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_dates (0 local, 6 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_frontmatter",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_frontmatter (0 local, 30 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_gitio",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_gitio (0 local, 15 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_kblayout",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_kblayout (0 local, 9 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_orgkeys",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_orgkeys (0 local, 6 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_paths",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_paths (0 local, 5 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.core.test_routing",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.core.test_routing (0 local, 25 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_configcmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_configcmd (0 local, 13 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_curationcmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_curationcmd (0 local, 21 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_dream",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_dream (0 local, 25 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_dreamgate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_dreamgate (0 local, 28 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_dreamjournal",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_dreamjournal (0 local, 31 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_dreamrepoint",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_dreamrepoint (0 local, 26 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_dreamsched",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_dreamsched (0 local, 24 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_dreamsteps",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_dreamsteps (0 local, 23 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_fanout",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_fanout (0 local, 24 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_fanoutmq",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_fanoutmq (0 local, 29 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_indexcmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_indexcmd (0 local, 18 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_mcp",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_mcp (0 local, 32 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_proposals",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_proposals (0 local, 31 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_setupcmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_setupcmd (0 local, 15 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_skills",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_skills (0 local, 18 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.features.test_updatecmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.features.test_updatecmd (0 local, 21 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_attach",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_attach (0 local, 13 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_curation",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_curation (0 local, 17 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_graph",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_graph (0 local, 15 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_index",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_index (0 local, 32 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_privacy",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_privacy (0 local, 16 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_proposals",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_proposals (0 local, 17 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.knowledge.test_worklog",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.knowledge.test_worklog (0 local, 12 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_alerts",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_alerts (0 local, 40 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_audit",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_audit (0 local, 15 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_derive",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_derive (0 local, 28 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_failureladder",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_failureladder (0 local, 30 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_fleet",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_fleet (0 local, 42 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_freshness",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_freshness (0 local, 17 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_kbgit",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_kbgit (0 local, 11 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_kbsync",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_kbsync (0 local, 12 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_loopanalytics",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_loopanalytics (0 local, 19 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_loophealth",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_loophealth (0 local, 34 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_looptrace",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_looptrace (0 local, 21 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_metrics",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_metrics (0 local, 29 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_metricscmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_metricscmd (0 local, 27 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_orglint",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_orglint (0 local, 14 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_planauthor",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_planauthor (0 local, 45 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_planlint",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_planlint (0 local, 19 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_releasegate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_releasegate (0 local, 22 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_sessionparse",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_sessionparse (0 local, 43 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_staging",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_staging (0 local, 16 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_steering",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_steering (0 local, 27 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.ops.test_team",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.ops.test_team (0 local, 23 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_acr",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_acr (0 local, 31 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_acrgate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_acrgate (0 local, 26 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_bench",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_bench (0 local, 59 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_bm25",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_bm25 (0 local, 15 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_corpus",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_corpus (0 local, 16 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_evalcmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_evalcmd (0 local, 20 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_goldfixture",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_goldfixture (0 local, 29 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_hybrid",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_hybrid (0 local, 21 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_ledger",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_ledger (0 local, 43 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_longmemeval",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_longmemeval (0 local, 25 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_metrics_rank",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_metrics_rank (0 local, 23 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_recallcmd",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_recallcmd (0 local, 19 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_regressiongate",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_regressiongate (0 local, 37 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_scorecard",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_scorecard (0 local, 19 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_skillpin",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_skillpin (0 local, 34 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "tests:tests.unit.retrieval.test_vectorcache",
+      "dimension": "test_corpus",
+      "capability": "test module tests.unit.retrieval.test_vectorcache (0 local, 24 donor node ids)",
+      "sides": [
+        "donor"
+      ],
+      "status": "required",
+      "verification": "generated"
+    }
+  ]
+}
