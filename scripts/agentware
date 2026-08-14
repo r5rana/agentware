@@ -31,9 +31,13 @@ This file is therefore only three things:
     implementation of a verb that is not yet ported (task 26's layout-aware A/B
     HEAD extraction);
 
-  * the DISPATCH TAIL. The guard is NON-NEGOTIABLE: ``load_cli()``
-    exec_module()s this file, so an unguarded ``sys.exit(...)`` would run
-    ``main()`` at import time and raise SystemExit inside every test. It is
+  * the DISPATCH TAIL, which hands argv to ``agentware_lib.strangler.dispatch``:
+    a verb in the (currently EMPTY) ported allowlist goes to the lib, everything
+    else to the legacy ``main`` exec'd above — LEGACY-DEFAULT, so an
+    unported verb can never be served by a thinner modular implementation. The
+    guard is NON-NEGOTIABLE: ``load_cli()`` exec_module()s this file, so an
+    unguarded ``sys.exit(...)`` would run ``main()`` at import time and raise
+    SystemExit inside every test. It is
     carried HERE rather than left at the end of the exec'd legacy body because
     the exec runs to completion before anything after it: leaving the guard
     inside would dispatch and ``sys.exit`` before the wiring above ever ran —
@@ -41,10 +45,11 @@ This file is therefore only three things:
     non-``__main__`` load. Tests would be green on wiring production never had.
 
 Nothing of substance is defined here, and nothing here may grow: the ported
-surface belongs in ``agentware_lib``, never in this file. The explicit
-``_PORTED_VERBS`` routing allowlist arrives in task 29 (empty at that commit);
-the legacy module and this passthrough are deleted in task 56, at which point
-this file becomes the pure lib facade.
+surface belongs in ``agentware_lib``, never in this file — including the task-29
+routing ALLOWLIST and the argv scan that finds the verb past a global ``--format``,
+which live in ``agentware_lib.strangler`` so both are testable in-process rather
+than only through a subprocess. The legacy module, that allowlist and this
+passthrough are deleted together in task 56, leaving the pure lib facade.
 
 EXECUTABLE BIT: this file MUST stay mode 0755. ``agentware.sh`` guards eleven
 call sites on ``[[ -x scripts/agentware ]]`` and every one of them FAILS OPEN —
@@ -105,5 +110,9 @@ from agentware_lib.retrieval import regressiongate as _regressiongate  # noqa: E
 _regressiongate.install_ab_extraction(globals())
 
 # --- dispatch tail (legacy's own guard, carried here verbatim) ----------------
+# LEGACY-DEFAULT routing (task 29): the router owns the allowlist and the scan
+# past global flags; `main` here is the legacy one the exec above defined.
+from agentware_lib import strangler as _strangler  # noqa: E402
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_strangler.dispatch(sys.argv[1:], main))

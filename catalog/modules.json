@@ -55,7 +55,9 @@
         "main",
         "register_whereami"
       ],
-      "depended_on_by": [],
+      "depended_on_by": [
+        "agentware_lib.strangler"
+      ],
       "dependency_direction": "cli -> core, features, knowledge, ops, retrieval",
       "depends_on": [
         "agentware_lib._registration",
@@ -3344,6 +3346,26 @@
       "owns": "the lazy LOCAL-embedder loader (_load_embedder_module dotted-name/path import,",
       "path": "scripts/agentware_lib/retrieval/vectorcache.py",
       "test_file": "tests/unit/retrieval/test_vectorcache.py"
+    },
+    {
+      "anchor_symbols": [
+        "GLOBAL_OPTIONS",
+        "PORTED_VERBS",
+        "dispatch",
+        "route",
+        "verb_of"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "cli -> core, features, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.cli"
+      ],
+      "layer": "cli",
+      "name": "agentware_lib.strangler",
+      "not_owns": "the parser (agentware_lib.cli.assemble_parser/build_parser), any verb HANDLER (each lives in its owning agentware_lib module — see agentware_lib._registration for the verb->module map), and the legacy passthrough itself (scripts/agentware execs scripts/agentware_legacy.py into its own globals). Retired with that passthrough at feature 260813 task 56.",
+      "owns": "the STRANGLER ROUTER: PORTED_VERBS (the routing allowlist — EMPTY at task 29, one verb appended per port), GLOBAL_OPTIONS (the top-level option-arity table), verb_of (the argv scan PAST the global flags to the first positional), route (the allowlist decision) and dispatch (the two-way call). LEGACY-DEFAULT: anything not written down is served by the preserved monolith.",
+      "path": "scripts/agentware_lib/strangler.py",
+      "test_file": "tests/test_strangler_routing.py"
     }
   ],
   "naming_disambiguation": {

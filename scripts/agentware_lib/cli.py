@@ -3,7 +3,7 @@
 Owns: assemble_parser — building the argparse tree from the frozen registration tuple — PLUS the whereami verb (cmd_whereami + register_whereami), a self-contained CLI-lifecycle handler with no domain owner, homed with the assembler in the leaf per the target architecture (cli.py owns main() + cmd_whereami).
 Does NOT own: the DOMAIN per-verb registrars or command handlers — those live in each owning agentware_lib module (see agentware_lib._registration for the module->verb map); whereami is the exception because it belongs to no domain layer. Nor the RESOLUTION whereami renders: the marker-driven project/repo walk is agentware_lib.core.projectcontext's, so the steering-capture auto-scope (a features-layer caller that must not import the cli leaf) reaches the same answer.
 Layer deps: cli -> core, features, knowledge, ops, retrieval (the leaf; may import anything, nothing imports it).
-Fan-in: 0 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 1 — agentware_lib.strangler, which imports main() INSIDE dispatch() on the branch that routes an allowlisted verb here (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 
 ``assemble_parser`` builds the argparse tree by iterating the FROZEN
 ``_PARSER_REGISTRATION`` tuple (agentware_lib._registration) and invoking each
