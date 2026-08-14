@@ -299,6 +299,28 @@ agentware is honest about where it's *not yet* industry-standard:
 
 ---
 
+## Architecture
+
+`scripts/agentware` is a thin (~110-line) entrypoint: a `sys.path` bootstrap plus a
+frozen facade that re-exports the CLI **by name** from **`scripts/agentware_lib/`** — a
+stdlib-only, layered Python package. Layers import strictly downward —
+**core → knowledge → retrieval → ops → features → cli** (`cli` is the leaf that
+assembles the parser and `main()`) — and the layering boundary is enforced by tests.
+The generated `catalog/modules.json` manifest and `scripts/agentware_lib/README.md`
+router map each module to what it owns and its test file. The full contract lives in
+`docs/architecture.md`.
+
+> **This README is the public/marketing face — it is _not_ the source of truth.**
+> Badges and prose here (including any test-count badge) can lag the code. The
+> authoritative, machine-checked docs are `docs/architecture.md` (system of record),
+> `docs/agent-readme.md` (agent router), and `docs/human-readme.md` (operator guide).
+
+<!-- doc-links-pending: architecture.md, agent-readme.md, human-readme.md and the
+     agentware_lib router land with the modular core; task 74 turns the code spans
+     above into links once the files exist and the manifest claims them. -->
+
+---
+
 ## Contributing
 
 PRs and issues welcome. agentware governs *itself* the same way it governs your work — changes to its own steering/skills/loop go through a plan, a `!! WARNING !!` self-extension gate, and the `steering lint` + benchmark gates before they ship. Run `python3 -m unittest discover -s tests` and `scripts/agentware audit --with-tests` before opening a PR.

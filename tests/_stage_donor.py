@@ -76,9 +76,12 @@ EXCLUSIONS = (
      "reason": "installed dependency trees and bundler caches; restored from "
                "the committed lockfile."},
     {"class": "log_dirs", "kind": DIR_NAME,
-     "patterns": (".<neutralised>-logs", ".agentware-logs", "logs"),
-     "reason": "stray per-run log directories from the donor operator's "
-               "environment; never part of the package."},
+     "patterns": (".*-logs", "logs"),
+     "reason": "stray per-run log directories written by an agent runtime, "
+               "IDE or harness into the working tree. Matched by SHAPE (a "
+               "hidden `.<tool>-logs` directory) rather than by any one "
+               "tool's name, so the rule covers a runtime this migration "
+               "never saw and names no operator's environment."},
     {"class": "log_dirs", "kind": FILE_GLOB, "patterns": ("*.log",),
      "reason": "loose log files, ignored by the donor's own gitignore."},
     {"class": "built_bundle", "kind": REL_PREFIX,

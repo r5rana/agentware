@@ -88,11 +88,28 @@ class PolicyTest(unittest.TestCase):
         for rel, cls in ((".git", "vcs"),
                          ("scripts/__pycache__", "python_cache"),
                          (".pytest_cache", "python_cache"),
-                         (".<neutralised>-logs", "log_dirs"),
+                         (".editor-logs", "log_dirs"),
+                         (".agentware-logs", "log_dirs"),
                          ("webui/dist", "built_bundle"),
                          ("webui/dist/assets", "built_bundle"),
                          ("webui/test-results", "built_bundle")):
             self.assertEqual(sd.classify_dir(rel), cls, rel)
+
+    def test_the_log_dir_rule_matches_by_shape_not_by_tool_name(self):
+        """A runtime this migration never saw must still be excluded.
+
+        The rule used to name one IDE's log directory literally, which both
+        leaked an operator's environment into a committed file and left every
+        OTHER runtime's stray log directory staged. It is now shape-driven.
+        """
+        for rel in (".editor-logs", ".agentware-logs", ".someagent-logs",
+                    "tools/.newruntime-logs", "logs", "scripts/logs"):
+            self.assertEqual(sd.classify_dir(rel), "log_dirs", rel)
+
+    def test_the_log_dir_shape_does_not_swallow_real_directories(self):
+        for rel in ("docs/logs-and-metrics", "scripts/logging",
+                    "webui/src/loggers", "docs/changelogs", "catalog"):
+            self.assertIsNone(sd.classify_dir(rel), rel)
 
     def test_files_the_plan_names_are_classified(self):
         for rel, cls in (("scripts/x.pyc", "python_cache"),
@@ -162,8 +179,8 @@ class StagingTest(TempTreeTest):
         write(self.src, "DUE-DILIGENCE.md", "private\n")
         write(self.src, ".DS_Store", "junk\n")
         # empty directory surfaces
-        mkdir(self.src, ".<neutralised>-logs/12463")
-        mkdir(self.src, ".claude/skills/<neutralised>-ops-report")
+        mkdir(self.src, ".editor-logs/12463")
+        mkdir(self.src, ".claude/skills/vendor-ops-report")
         mkdir(self.src, "deep/empty/nest")
 
     def test_the_kept_surface_survives_byte_for_byte(self):
@@ -210,7 +227,7 @@ class StagingTest(TempTreeTest):
         self.assertEqual(sd.empty_dirs(self.dst), [])
         self.assertIn("deep/empty/nest", report["pruned_empty_dirs"])
         self.assertIn("deep", report["pruned_empty_dirs"])
-        self.assertIn(".claude/skills/<neutralised>-ops-report",
+        self.assertIn(".claude/skills/vendor-ops-report",
                       report["pruned_empty_dirs"])
 
     def test_a_directory_emptied_by_an_exclusion_is_pruned_too(self):

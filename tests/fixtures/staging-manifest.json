@@ -1,6 +1,6 @@
 {
   "schema": "agentware/staging-manifest@1",
-  "policy_digest": "ccc03c36fc1b5e292913f17d402024767625e60a8b7d39c85cea70a6c7475d3a",
+  "policy_digest": "2a90556208b9c2af70cddad390db2b237f8c34dcc479e708ab1bdc2bd55e28cf",
   "policy": [
     {
       "class": "vcs",
@@ -65,11 +65,10 @@
       "class": "log_dirs",
       "kind": "dir_name",
       "patterns": [
-        ".<neutralised>-logs",
-        ".agentware-logs",
+        ".*-logs",
         "logs"
       ],
-      "reason": "stray per-run log directories from the donor operator's environment; never part of the package.",
+      "reason": "stray per-run log directories written by an agent runtime, IDE or harness into the working tree. Matched by SHAPE (a hidden `.<tool>-logs` directory) rather than by any one tool's name, so the rule covers a runtime this migration never saw and names no operator's environment.",
       "ratchet": false
     },
     {

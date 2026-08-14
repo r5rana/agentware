@@ -10,6 +10,10 @@
 # Claude Code local settings overrides (machine-specific). settings.json IS tracked.
 .claude/settings.local.json
 
+# Runtime scratch space the agent harness leaves in the working tree. It ships
+# nothing, so an unignored copy makes this checkout diverge from a fresh clone.
+.claude/.scratch/
+
 # Per-feature work artifacts (plans/worklogs may reference project specifics).
 # The directory itself is tracked via .gitkeep so the loop has a home.
 docs/design/*

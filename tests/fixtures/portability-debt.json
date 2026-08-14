@@ -6,30 +6,6 @@
     {
       "surface": "contents",
       "class": "environment",
-      "location": "tests/_stage_donor.py",
-      "count": 1,
-      "owner": "task 20",
-      "reason": "the task-11 staging exclusion policy names the donor's stray per-run log directory literally, because that is the thing it must exclude. Generalise the rule to a pattern once the staged tree has been consumed by tasks 13/19/20, at the latest before task 83's final neutrality proof."
-    },
-    {
-      "surface": "contents",
-      "class": "environment",
-      "location": "tests/test_stage_donor.py",
-      "count": 2,
-      "owner": "task 20",
-      "reason": "the staging suite plants the donor's real stray-log and vendor-skill directories as fixtures so the exclusion rules are proven against the shapes they actually meet. Follows tests/_stage_donor.py: generalise together."
-    },
-    {
-      "surface": "contents",
-      "class": "environment",
-      "location": "tests/fixtures/staging-manifest.json",
-      "count": 1,
-      "owner": "task 20",
-      "reason": "the committed staging manifest embeds the exclusion policy verbatim so its digest is reviewable; it inherits the literal from tests/_stage_donor.py and is re-stamped with it."
-    },
-    {
-      "surface": "contents",
-      "class": "environment",
       "location": "tests/baselines/baseline-donor.json",
       "count": 2,
       "owner": "task 58",
@@ -50,14 +26,6 @@
       "count": 2,
       "owner": "task 58",
       "reason": "the task-9 preserved-surface manifest carries the same three frozen donor node ids in its pending_in_destination ratchet and is re-stamped alongside nodeids-donor.json. OWNER MOVED 19 -> 58 by task 19; same reason."
-    },
-    {
-      "surface": "empty_dirs",
-      "class": null,
-      "location": ".claude/.scratch",
-      "count": 1,
-      "owner": "task 20",
-      "reason": "an untracked, non-ignored scratch directory the harness leaves in the working tree. It ships nothing, so a fresh clone diverges from this checkout; task 20 removes it or adds it to the ignore set while doing the top-level document and surface sweep."
     }
   ]
 }
