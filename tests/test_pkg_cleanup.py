@@ -20,16 +20,17 @@ import re
 import unittest
 
 try:
-    from tests._fixtures import CLI_PATH, load_cli
+    from tests._fixtures import cli_source, load_cli
 except ImportError:
-    from _fixtures import CLI_PATH, load_cli
+    from _fixtures import cli_source, load_cli
 
 
 class CleanupTests(unittest.TestCase):
     def setUp(self):
         self.mod = load_cli()
-        with open(CLI_PATH, encoding="utf-8") as f:
-            self.source = f.read()
+        # The IMPLEMENTATION source, not the entrypoint path: task 25 moved the
+        # monolith body to scripts/agentware_legacy.py behind a thin facade.
+        self.source = cli_source()
 
     # --- F12: dead PKG_UPDATE_GATES removed --------------------------------
     def test_pkgcleanup_pkg_update_gates_attr_gone(self):

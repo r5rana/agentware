@@ -1,0 +1,274 @@
+"""agentware_lib.knowledge.graph — declared-edge KB dependency graph + `query` (layer: knowledge).
+
+Owns: the deterministic, read-only declared-edge graph reconstructed from each
+entry's `relates` frontmatter — build_adjacency (forward/reverse), _canonical_cycle,
+find_cycles (colored DFS), graph_relation_errors (dangling/unknown-type scan),
+graph_health (Rule-7 advisory counts), graph_traverse (cycle-safe closure) — plus
+the `query` verb: its handler cmd_query (O(1) id/path/tag/category + graph
+--depends-on/--impact/--relates dispatch) and its parser registrar register_query.
+Does NOT own: the `relates` token PARSE/vocab (agentware_lib.core.frontmatter:
+_fm_parse_relate_token/RELATION_TYPES); index load + layout (agentware_lib.knowledge.index);
+the graph_integrity AUDIT check and the graph_health metric EMISSION (still
+entrypoint-resident; join agentware_lib.ops in waves 4/5 and call graph.* downward).
+Layer deps: knowledge -> core (config, frontmatter) + knowledge (index); nothing
+above. The edges are DECLARED by a human/agent, never LLM-extracted (INV-2); every
+op is pure/stdlib/no-clock/no-network and visits neighbors in stable sorted
+(type, target) order, so output is byte-identical given the same KB (INV-1).
+Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+"""
+
+import json
+import sys
+
+import agentware_lib.core.config as config
+import agentware_lib.core.frontmatter as frontmatter
+import agentware_lib.knowledge.index as index
+
+
+def build_adjacency(data):
+    """Build (forward, reverse) adjacency from `data["entries"]` `relates` edges.
+
+    forward[id] = sorted, de-duplicated [(type, target_id), ...]
+    reverse[id] = sorted, de-duplicated [(type, source_id), ...]
+    Ordered by (type, target) for determinism (INV-1). Malformed tokens are
+    skipped. Pure + read-only — never mutates the KB or index (INV-2).
+
+    `relates` is read through `frontmatter._entry_list_field`: this is the recall
+    HOT PATH (trust signals / superseded ids build adjacency), so a poisoned index
+    entry whose `relates` is a scalar, string or mapping must degrade to "no edges
+    for that entry", never crash the caller.
+    """
+    forward, reverse = {}, {}
+    for e in data.get("entries") or []:
+        if not isinstance(e, dict):
+            continue
+        eid = e.get("id")
+        if not eid:
+            continue
+        for tok in frontmatter._entry_list_field(e, "relates"):
+            parsed = frontmatter._fm_parse_relate_token(tok)
+            if parsed is None:
+                continue
+            etype, target = parsed
+            forward.setdefault(eid, []).append((etype, target))
+            reverse.setdefault(target, []).append((etype, eid))
+    for amap in (forward, reverse):
+        for k in list(amap):
+            amap[k] = sorted(set(amap[k]))
+    return forward, reverse
+
+
+def _canonical_cycle(cyc):
+    """Rotate a cycle to start at its lexically-smallest id (stable form)."""
+    i = cyc.index(min(cyc))
+    return tuple(cyc[i:] + cyc[:i])
+
+
+def find_cycles(forward):
+    """Return a sorted list of canonical cycles (each a tuple of ids).
+
+    Iterative colored DFS over the sorted forward adjacency — deterministic and
+    cycle-safe (no infinite loop). Each distinct cycle (by node set) reported
+    once. Pure + read-only (advisory; never mutates anything).
+    """
+    nodes = sorted(set(forward) | {t for es in forward.values() for (_, t) in es})
+    adj = {n: sorted({t for (_, t) in forward.get(n, [])}) for n in nodes}
+    color = {n: 0 for n in nodes}  # 0 white, 1 grey (on stack), 2 black
+    cycles, seen = [], set()
+    for root in nodes:
+        if color[root] != 0:
+            continue
+        color[root] = 1
+        stack = [(root, 0)]
+        path = [root]
+        while stack:
+            node, idx = stack[-1]
+            nbrs = adj[node]
+            if idx < len(nbrs):
+                stack[-1] = (node, idx + 1)
+                nxt = nbrs[idx]
+                if color[nxt] == 0:
+                    color[nxt] = 1
+                    path.append(nxt)
+                    stack.append((nxt, 0))
+                elif color[nxt] == 1 and nxt in path:
+                    cyc = path[path.index(nxt):]
+                    key = frozenset(cyc)
+                    if key not in seen:
+                        seen.add(key)
+                        cycles.append(_canonical_cycle(cyc))
+            else:
+                color[node] = 2
+                stack.pop()
+                path.pop()
+    return sorted(cycles)
+
+
+def graph_relation_errors(data):
+    """Declared-edge integrity scan. Returns (dangling, unknown_types).
+
+    dangling       = sorted [(source_id, target_id)] where target is not in the
+                     index (a `relates` id that does not resolve).
+    unknown_types  = sorted [(source_id, token)] whose type is out of vocab.
+    Pure + read-only (INV-2); consumed by the graph_integrity audit (Task 8) and
+    edge validation (Task 4).
+    """
+    ids = {e.get("id") for e in (data.get("entries") or [])
+           if isinstance(e, dict) and e.get("id")}
+    dangling, unknown = [], []
+    for e in data.get("entries") or []:
+        if not isinstance(e, dict):
+            continue
+        eid = e.get("id")
+        if not eid:
+            continue
+        for tok in frontmatter._entry_list_field(e, "relates"):
+            parsed = frontmatter._fm_parse_relate_token(tok)
+            if parsed is None:
+                continue
+            etype, target = parsed
+            if etype not in frontmatter.RELATION_TYPES:
+                unknown.append((eid, tok))
+            if target not in ids:
+                dangling.append((eid, target))
+    return sorted(set(dangling)), sorted(set(unknown))
+
+
+def graph_health(data):
+    """Advisory graph-health counts (Rule-7 observability). Pure + read-only."""
+    forward, _reverse = build_adjacency(data)
+    dangling, unknown = graph_relation_errors(data)
+    cycles = find_cycles(forward)
+    edges = sum(len(v) for v in forward.values())
+    return {
+        "edges": edges,
+        "nodes_with_edges": len([k for k in forward if forward[k]]),
+        "dangling": len(dangling),
+        "unknown_types": len(unknown),
+        "cycles": len(cycles),
+    }
+
+
+def graph_traverse(adjacency, start, depth):
+    """Deterministic, cycle-safe closure from `start` over `adjacency`.
+
+    depth == 1 -> direct neighbors; depth == 0 -> full transitive closure;
+    depth == N -> up to N hops. Neighbors are visited in sorted (type, target)
+    order; the returned id list excludes `start` and is in deterministic BFS
+    order. A visited-set makes cycles terminate (INV-1 + cycle-safe).
+    """
+    visited = {start}
+    order = []
+    frontier = [start]
+    level = 0
+    while frontier:
+        level += 1
+        if depth != 0 and level > depth:
+            break
+        neigh = []
+        for node in frontier:
+            for (etype, target) in sorted(adjacency.get(node, [])):
+                neigh.append((etype, target))
+        next_frontier = []
+        for (_etype, target) in sorted(neigh):
+            if target not in visited:
+                visited.add(target)
+                order.append(target)
+                next_frontier.append(target)
+        frontier = sorted(next_frontier)
+    return order
+
+
+def cmd_query(args):
+    kdir = config.require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, err = index.load_index(kdir)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+
+    entries = data.get("entries") or []
+    tags_map = data.get("tags") or {}
+    by_id, by_path = {}, {}
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        eid = e.get("id")
+        if eid is not None and eid not in by_id:
+            by_id[eid] = e
+        path = e.get("path")
+        if path is not None and path not in by_path:
+            by_path[path] = e
+
+    results = []
+    if args.id is not None:
+        hit = by_id.get(args.id)
+        if hit is not None:
+            results = [hit]
+    elif args.path is not None:
+        hit = by_path.get(args.path)
+        if hit is not None:
+            results = [hit]
+    elif args.tag is not None:
+        for eid in tags_map.get(args.tag, []):
+            hit = by_id.get(eid)
+            if hit is not None:
+                results.append(hit)
+    elif args.category is not None:
+        results = [e for e in entries
+                   if isinstance(e, dict) and e.get("category") == args.category]
+    elif getattr(args, "depends_on", None) is not None:
+        forward, _reverse = build_adjacency(data)
+        ids = graph_traverse(forward, args.depends_on, getattr(args, "depth", 1))
+        results = [by_id[i] for i in ids if i in by_id]
+    elif getattr(args, "impact", None) is not None:
+        _forward, reverse = build_adjacency(data)
+        ids = graph_traverse(reverse, args.impact, getattr(args, "depth", 1))
+        results = [by_id[i] for i in ids if i in by_id]
+    elif getattr(args, "relates", None) is not None:
+        forward, reverse = build_adjacency(data)
+        combined = {}
+        for amap in (forward, reverse):
+            for k, v in amap.items():
+                combined.setdefault(k, []).extend(v)
+        for k in list(combined):
+            combined[k] = sorted(set(combined[k]))
+        ids = graph_traverse(combined, args.relates, getattr(args, "depth", 1))
+        results = [by_id[i] for i in ids if i in by_id]
+
+    json.dump(results, sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
+def register_query(sub, fmt_parent):
+    # query ------------------------------------------------------------------
+    p_query = sub.add_parser(
+        "query", parents=[fmt_parent], help="look up entries (O(1) by id/path/tag)")
+    q_group = p_query.add_mutually_exclusive_group(required=True)
+    q_group.add_argument("--id", help="look up a single entry by id")
+    q_group.add_argument("--path", help="look up a single entry by path")
+    q_group.add_argument("--category", help="list all entries in a category")
+    q_group.add_argument("--tag", help="list all entries carrying a tag")
+    q_group.add_argument("--depends-on", dest="depends_on",
+                         help="forward closure: entries the given id depends on")
+    q_group.add_argument("--impact",
+                         help="reverse closure: entries that depend on the given id")
+    q_group.add_argument("--relates",
+                         help="direct graph neighbors of the given id (both directions)")
+    p_query.add_argument("--depth", type=int, default=1,
+                         help="traversal hops for graph queries (default 1; 0 = full closure)")
+    p_query.set_defaults(func=cmd_query)
+
+
+_EXPORTS = [
+    "build_adjacency",
+    "_canonical_cycle",
+    "find_cycles",
+    "graph_relation_errors",
+    "graph_health",
+    "graph_traverse",
+    "cmd_query",
+    "register_query",
+]

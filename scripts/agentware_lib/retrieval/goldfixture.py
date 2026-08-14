@@ -1,0 +1,141 @@
+"""agentware_lib.retrieval.goldfixture - the frozen synthetic gold-fixture suite (layer: retrieval).
+
+Owns: the DRIFT-FREE frozen gold-fixture regression suite (`eval --suite gold-fixture`) -
+the suite name constant (GOLD_FIXTURE_SUITE), the repo-relative fixture path
+(_GOLD_FIXTURE_REL) + its absolute resolver (gold_fixture_path), the fixture
+loader/validator (load_gold_fixture -> (entries, gold), full error taxonomy), and the
+scorer (evaluate_gold_fixture - score a strategy over the FROZEN synthetic corpus, tag
+the result as the gold-fixture suite, and assert determinism by re-scoring). Because the
+corpus ships frozen in the repo (tests/fixtures/gold_fixture_suite.json - synthetic, NO
+operator data, R-LOC-03), its corpus_fingerprint is stable across runs AND independent of
+any operator KB, so the absolute-score gate on this suite never false-FAILs on live-KB growth.
+Does NOT own: the ranking/scoring engine it reuses (evaluate -> agentware_lib.retrieval.metrics_rank
+via _metrics_rank); the repo-root anchor (REPO_ROOT -> agentware_lib.core.paths via paths);
+the benchmark-suite ledger recorder (record_ledger_suite -> agentware_lib.retrieval.ledger,
+wave 3 seam 12), the ablation instrument (evaluate_ablation, now
+agentware_lib.retrieval.evalcmd), the ACR win gate, the regression + A/B gates, the scorecard and
+the SWE bench (agentware_lib.retrieval.{acrgate,regressiongate,scorecard,bench}); the eval CLI
+handler (cmd_eval, now agentware_lib.retrieval.evalcmd, wave-3 seam 16b - reaches these via the
+_goldfixture alias) and the release gate's gold-fixture check (_gate2_lite_gold_fixture, resident -
+calls gold_fixture_path / evaluate_gold_fixture as bare names via the facade bind on the entrypoint).
+Layer deps: retrieval -> core (agentware_lib.core.paths as `paths` for REPO_ROOT) + retrieval ->
+retrieval (agentware_lib.retrieval.metrics_rank as `_metrics_rank` for evaluate, so the
+global-resolve gate never walks a foreign sibling function held in this module's __dict__).
+Imports nothing above retrieval, nothing in knowledge/; nothing in core/ or knowledge/ imports from here.
+Fan-in: 2 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+
+INV-1: evaluate_gold_fixture is deterministic at a fixed as_of - it re-scores the frozen
+corpus and surfaces the ranked-order match as determinism_ok; the ONLY non-deterministic
+field is latency_ms* (time.perf_counter), which downstream diffing strips. INV-2: read-only -
+it builds a synthetic in-memory index (entries carry their text inline, no file I/O beyond
+reading the package fixture, no network, no LLM) and never mutates the entry, index.json or the KB.
+"""
+
+import json
+import os
+
+from agentware_lib.core import paths
+from agentware_lib.retrieval import metrics_rank as _metrics_rank
+
+
+GOLD_FIXTURE_SUITE = "gold-fixture"
+_GOLD_FIXTURE_REL = os.path.join(
+    "tests", "fixtures", "gold_fixture_suite.json")
+
+
+def gold_fixture_path():
+    """Absolute path to the frozen gold-fixture file shipped with the package."""
+    return os.path.join(paths.REPO_ROOT, _GOLD_FIXTURE_REL)
+
+
+def load_gold_fixture(path):
+    """Load the frozen gold-fixture: returns (entries, gold). Raises ValueError.
+
+    `entries` is the synthetic corpus as index-style dicts (id/title/summary/tags)
+    ready for build_corpus; `gold` is the {query, expected_ids[]} list validated by
+    the shared load_gold rules. The file is package-shipped synthetic data with NO
+    operator content (R-LOC-03). Pure read; deterministic.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            doc = json.load(f)
+    except FileNotFoundError:
+        raise ValueError("gold-fixture not found: %s" % path)
+    except json.JSONDecodeError as exc:
+        raise ValueError("invalid JSON in gold-fixture %s: %s" % (path, exc))
+    if not isinstance(doc, dict):
+        raise ValueError("gold-fixture must be a JSON object")
+    corpus = doc.get("corpus")
+    gold_rows = doc.get("gold")
+    if not isinstance(corpus, list) or not corpus:
+        raise ValueError("gold-fixture 'corpus' must be a non-empty list")
+    entries = []
+    seen = set()
+    for i, e in enumerate(corpus):
+        if not isinstance(e, dict):
+            raise ValueError("gold-fixture corpus entry #%d is not an object" % i)
+        eid = e.get("id")
+        if not isinstance(eid, str) or not eid.strip():
+            raise ValueError("gold-fixture corpus entry #%d missing 'id'" % i)
+        if eid in seen:
+            raise ValueError("gold-fixture corpus has duplicate id %r" % eid)
+        seen.add(eid)
+        entries.append({
+            "id": eid,
+            "title": e.get("title") or "",
+            "summary": e.get("summary") or "",
+            "tags": list(e.get("tags") or []),
+        })
+    if not isinstance(gold_rows, list) or not gold_rows:
+        raise ValueError("gold-fixture 'gold' must be a non-empty list")
+    gold = []
+    for i, row in enumerate(gold_rows):
+        if not isinstance(row, dict):
+            raise ValueError("gold-fixture gold entry #%d is not an object" % i)
+        q = row.get("query")
+        exp = row.get("expected_ids")
+        if not isinstance(q, str) or not q.strip():
+            raise ValueError("gold-fixture gold entry #%d missing 'query'" % i)
+        if not isinstance(exp, list) or not exp:
+            raise ValueError(
+                "gold-fixture gold entry #%d missing 'expected_ids'" % i)
+        for x in exp:
+            if str(x) not in seen:
+                raise ValueError(
+                    "gold-fixture gold entry #%d expects unknown id %r" % (i, x))
+        gold.append({"query": q, "expected_ids": [str(x) for x in exp]})
+    return entries, gold
+
+
+def evaluate_gold_fixture(kdir, fixture_path, strategy, top_k, as_of=None):
+    """Score `strategy` over the FROZEN synthetic gold-fixture corpus.
+
+    Reuses evaluate() over a synthetic in-memory index (entries carry their text
+    inline, so no file I/O, network, or LLM), then tags the result as the
+    `gold-fixture` suite. The whole-corpus fingerprint is stable across runs/
+    machines (the corpus is frozen in the repo), so the absolute gate on this
+    suite is DRIFT-FREE. Determinism (INV-1) is asserted by re-scoring and
+    comparing ranked ordering; surfaced as `determinism_ok`. Read-only (INV-2).
+    """
+    entries, gold = load_gold_fixture(fixture_path)
+    synth = {"entries": entries}
+    result = _metrics_rank.evaluate(kdir, synth, gold, strategy, top_k, as_of=as_of)
+    # Determinism check (INV-1): re-score and compare the ranked ordering of every
+    # query. The fixture is tiny, so a full re-run is cheap. Latency is the only
+    # non-deterministic field and is excluded from the comparison.
+    again = _metrics_rank.evaluate(kdir, synth, gold, strategy, top_k, as_of=as_of)
+    result["determinism_ok"] = (
+        [q["ranked"] for q in result["per_query"]]
+        == [q["ranked"] for q in again["per_query"]])
+    result["suite"] = GOLD_FIXTURE_SUITE
+    result["as_of"] = as_of
+    return result
+
+
+_EXPORTS = [
+    "GOLD_FIXTURE_SUITE",
+    "_GOLD_FIXTURE_REL",
+    "gold_fixture_path",
+    "load_gold_fixture",
+    "evaluate_gold_fixture",
+]

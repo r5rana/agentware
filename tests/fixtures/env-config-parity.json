@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "ebf8569f42fd"
+      "git_head": "bca096467532"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -34,32 +34,26 @@
     }
   },
   "counts": {
-    "keys": 80,
-    "side_attributed": 80,
-    "shared": 40,
-    "local_only": 28,
-    "donor_only": 12,
+    "keys": 81,
+    "side_attributed": 81,
+    "shared": 46,
+    "local_only": 29,
+    "donor_only": 6,
     "kill_switches": 6,
-    "config_keys": 36,
+    "config_keys": 37,
     "with_flag": 29,
     "dynamic": 9,
-    "agentware_namespace": 67,
+    "agentware_namespace": 68,
     "external_namespace": 13,
-    "read_sites": 203
+    "read_sites": 257
   },
   "pending_in_destination": [
-    "AGENTWARE_CONFIG_HOME",
     "AGENTWARE_DISABLE_RECALL_GATE",
-    "AGENTWARE_ORG_PACKAGE",
-    "AGENTWARE_ORG_ROOT",
     "AGENTWARE_REPOINT_AUTOPROVISION",
-    "AGENTWARE_SKILL_PROPOSE_THRESHOLD",
-    "AGENTWARE_TEAM",
     "CLAUDE_TOOL_INPUT",
     "CLAUDE_TOOL_NAME",
     "GIT_AUTHOR_EMAIL",
-    "GIT_AUTHOR_NAME",
-    "USER"
+    "GIT_AUTHOR_NAME"
   ],
   "keys": [
     {
@@ -87,7 +81,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30714,
             "lang": "python",
             "form": "get()",
@@ -95,7 +89,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30717,
             "lang": "python",
             "form": "_read_config_key()",
@@ -132,7 +126,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 31571,
             "lang": "python",
             "form": "get()",
@@ -169,7 +163,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30728,
             "lang": "python",
             "form": "get()",
@@ -177,7 +171,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30731,
             "lang": "python",
             "form": "_read_config_key()",
@@ -214,7 +208,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 31570,
             "lang": "python",
             "form": "get()",
@@ -265,7 +259,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 1214,
             "lang": "python",
             "form": "get()",
@@ -273,7 +267,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2708,
             "lang": "python",
             "form": "get()",
@@ -281,8 +275,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2711,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 191,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 194,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -390,9 +400,10 @@
       "key": "AGENTWARE_CONFIG_HOME",
       "namespace": "agentware",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": false,
       "dynamic": false,
@@ -409,7 +420,16 @@
       "flag_dests": [],
       "flag_source": "none",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/agentware_lib/core/config/configkeys.py",
+            "line": 41,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/agentware_lib/core/config.py",
@@ -466,7 +486,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25536,
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
@@ -553,7 +573,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 19694,
             "lang": "python",
             "form": "get()",
@@ -561,11 +581,19 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25536,
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
             "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/releasegate.py",
+            "line": 233,
+            "lang": "python",
+            "form": "get()",
+            "default": "",
             "kind": "read"
           }
         ],
@@ -675,7 +703,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25536,
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
@@ -725,7 +753,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2857,
             "lang": "python",
             "form": "get()",
@@ -733,8 +761,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2860,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 172,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 175,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -791,7 +835,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2937,
             "lang": "python",
             "form": "get()",
@@ -799,8 +843,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2940,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 252,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 255,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -857,7 +917,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2893,
             "lang": "python",
             "form": "get()",
@@ -865,8 +925,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2898,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 208,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 213,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -923,7 +999,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3108,
             "lang": "python",
             "form": "get()",
@@ -931,8 +1007,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3111,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 308,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 311,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -989,7 +1081,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3123,
             "lang": "python",
             "form": "get()",
@@ -997,8 +1089,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3126,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 323,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 326,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1052,8 +1160,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 23631,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/fanout.py",
+            "line": 84,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1101,7 +1217,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 7399,
             "lang": "python",
             "form": "get()",
@@ -1109,8 +1225,16 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 33191,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/cli.py",
+            "line": 107,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1215,7 +1339,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2522,
             "lang": "python",
             "form": "get()",
@@ -1223,8 +1347,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2525,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 126,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 129,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1281,7 +1421,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2664,
             "lang": "python",
             "form": "get()",
@@ -1289,8 +1429,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2667,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 176,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 179,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1347,7 +1503,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2540,
             "lang": "python",
             "form": "get()",
@@ -1355,8 +1511,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2543,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 144,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 147,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1417,7 +1589,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2417,
             "lang": "python",
             "form": "get()",
@@ -1425,7 +1597,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 27502,
             "lang": "python",
             "form": "get()",
@@ -1433,8 +1605,32 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 27503,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 72,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsteps/stephealthgate.py",
+            "line": 105,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsteps/stephealthgate.py",
+            "line": 106,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1535,7 +1731,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 13655,
             "lang": "python",
             "form": "environ[]",
@@ -1543,7 +1739,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 14309,
             "lang": "python",
             "form": "pop()",
@@ -1551,7 +1747,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 18186,
             "lang": "python",
             "form": "environ[]",
@@ -1559,7 +1755,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 23963,
             "lang": "python",
             "form": "environ[]",
@@ -1567,7 +1763,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25584,
             "lang": "python",
             "form": "environ[]",
@@ -1575,7 +1771,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 29516,
             "lang": "python",
             "form": "environ[]",
@@ -1583,8 +1779,40 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 29726,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/features/fanout.py",
+            "line": 396,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/audit.py",
+            "line": 116,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/bench/benchswe.py",
+            "line": 351,
+            "lang": "python",
+            "form": "pop()",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/regressiongate.py",
+            "line": 328,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -1752,8 +1980,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -1851,8 +2087,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -1901,8 +2145,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -1996,7 +2248,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 9051,
             "lang": "python",
             "form": "get()",
@@ -2004,7 +2256,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 9053,
             "lang": "python",
             "form": "_read_config_key()",
@@ -2041,7 +2293,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 8263,
             "lang": "python",
             "form": "get()",
@@ -2049,7 +2301,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 8265,
             "lang": "python",
             "form": "_read_config_key()",
@@ -2086,7 +2338,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 8256,
             "lang": "python",
             "form": "get()",
@@ -2094,7 +2346,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 8259,
             "lang": "python",
             "form": "_read_config_key()",
@@ -2131,7 +2383,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 8270,
             "lang": "python",
             "form": "get()",
@@ -2139,7 +2391,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 8273,
             "lang": "python",
             "form": "_read_config_key()",
@@ -2187,7 +2439,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2798,
             "lang": "python",
             "form": "_read_config_key()",
@@ -2195,8 +2447,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2798,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 113,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 113,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2260,7 +2528,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 13070,
             "lang": "python",
             "form": "get()",
@@ -2268,7 +2536,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 27653,
             "lang": "python",
             "form": "get()",
@@ -2276,7 +2544,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 28433,
             "lang": "python",
             "form": "get()",
@@ -2284,7 +2552,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 28756,
             "lang": "python",
             "form": "get()",
@@ -2292,7 +2560,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 28792,
             "lang": "python",
             "form": "get()",
@@ -2300,7 +2568,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30054,
             "lang": "python",
             "form": "get()",
@@ -2308,8 +2576,48 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30093,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dream.py",
+            "line": 245,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsched.py",
+            "line": 165,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsched.py",
+            "line": 201,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/dreamsteps/stepaudit.py",
+            "line": 74,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/ledger.py",
+            "line": 114,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2362,7 +2670,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 13073,
             "lang": "python",
             "form": "environ[]",
@@ -2370,7 +2678,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 18147,
             "lang": "python",
             "form": "environ[]",
@@ -2378,11 +2686,27 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 29517,
             "lang": "python",
             "form": "setdefault()",
             "default": "1",
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/audit.py",
+            "line": 78,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/retrieval/ledger.py",
+            "line": 117,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
             "kind": "write"
           }
         ],
@@ -2555,9 +2879,10 @@
       "key": "AGENTWARE_ORG_PACKAGE",
       "namespace": "agentware",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": true,
       "dynamic": false,
@@ -2573,7 +2898,16 @@
       ],
       "flag_source": "derived",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/agentware_lib/core/config/orgresolve.py",
+            "line": 74,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/agentware_lib/core/config.py",
@@ -2591,12 +2925,50 @@
       }
     },
     {
+      "key": "AGENTWARE_ORG_PROJECT",
+      "namespace": "agentware",
+      "sides": [
+        "local"
+      ],
+      "side": "local-only",
+      "direction": "read",
+      "config_key": true,
+      "dynamic": false,
+      "kill_switch": false,
+      "unset_means": null,
+      "default": null,
+      "default_divergent": false,
+      "defaults_observed": [],
+      "has_explicit_default": false,
+      "flag": null,
+      "flag_dests": [],
+      "flag_source": "none",
+      "read_sites": {
+        "local": [
+          {
+            "file": "scripts/agentware_lib/core/config/orgresolve.py",
+            "line": 71,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
+        "donor": []
+      },
+      "write_sites": {
+        "local": [],
+        "donor": []
+      }
+    },
+    {
       "key": "AGENTWARE_ORG_ROOT",
       "namespace": "agentware",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": true,
       "dynamic": false,
@@ -2612,7 +2984,16 @@
       ],
       "flag_source": "derived",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/agentware_lib/core/config/orgresolve.py",
+            "line": 40,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/agentware_lib/core/config.py",
@@ -2711,8 +3092,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2761,8 +3150,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2811,8 +3208,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2861,8 +3266,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2911,8 +3324,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2961,8 +3382,16 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2721,
+            "lang": "python",
+            "form": "template:AGENTWARE_%s_%s",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 36,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3107,7 +3536,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2620,
             "lang": "python",
             "form": "get()",
@@ -3115,8 +3544,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2623,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 161,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 164,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -3255,7 +3700,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 668,
             "lang": "python",
             "form": "get()",
@@ -3268,7 +3713,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 1238,
             "lang": "python",
             "form": "environ[]",
@@ -3301,7 +3746,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 670,
             "lang": "python",
             "form": "get()",
@@ -3348,7 +3793,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 672,
             "lang": "python",
             "form": "get()",
@@ -3385,7 +3830,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 667,
             "lang": "python",
             "form": "get()",
@@ -3422,7 +3867,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 32473,
             "lang": "python",
             "form": "get()",
@@ -3459,7 +3904,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 32265,
             "lang": "python",
             "form": "get()",
@@ -3499,7 +3944,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2979,
             "lang": "python",
             "form": "get()",
@@ -3507,7 +3952,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 2982,
             "lang": "python",
             "form": "_read_config_key()",
@@ -3546,7 +3991,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3005,
             "lang": "python",
             "form": "get()",
@@ -3554,7 +3999,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3008,
             "lang": "python",
             "form": "_read_config_key()",
@@ -3573,9 +4018,10 @@
       "key": "AGENTWARE_SKILL_PROPOSE_THRESHOLD",
       "namespace": "agentware",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": true,
       "dynamic": false,
@@ -3592,7 +4038,24 @@
       ],
       "flag_source": "derived",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 234,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/config/configresolve.py",
+            "line": 236,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/agentware_lib/core/config.py",
@@ -3649,7 +4112,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 745,
             "lang": "python",
             "form": "get()",
@@ -3657,7 +4120,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25536,
             "lang": "python",
             "form": "registry:GRAPH_KILL_SWITCH_VARS",
@@ -3694,7 +4157,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 761,
             "lang": "python",
             "form": "get()",
@@ -3776,9 +4239,10 @@
       "key": "AGENTWARE_TEAM",
       "namespace": "agentware",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": true,
       "dynamic": false,
@@ -3796,7 +4260,16 @@
       ],
       "flag_source": "derived",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/agentware_lib/core/config/orgresolve.py",
+            "line": 48,
+            "lang": "python",
+            "form": "_resolve_key_env_then_config()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/agentware_lib/core/config.py",
@@ -3838,7 +4311,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30214,
             "lang": "python",
             "form": "get()",
@@ -3846,7 +4319,7 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 30217,
             "lang": "python",
             "form": "_read_config_key()",
@@ -3887,7 +4360,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3090,
             "lang": "python",
             "form": "get()",
@@ -3895,8 +4368,24 @@
             "kind": "read"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 3093,
+            "lang": "python",
+            "form": "_read_config_key()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 290,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/core/routing.py",
+            "line": 293,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -3953,7 +4442,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 1233,
             "lang": "python",
             "form": "environ[]",
@@ -3961,7 +4450,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25586,
             "lang": "python",
             "form": "environ[]",
@@ -4072,7 +4561,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 22086,
             "lang": "python",
             "form": "get()",
@@ -4192,8 +4681,16 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 23146,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/core/gitio.py",
+            "line": 65,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4239,7 +4736,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 22929,
             "lang": "python",
             "form": "environ[]",
@@ -4247,7 +4744,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 22943,
             "lang": "python",
             "form": "environ[]",
@@ -4255,7 +4752,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 23145,
             "lang": "python",
             "form": "environ[]",
@@ -4263,7 +4760,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 23964,
             "lang": "python",
             "form": "environ[]",
@@ -4271,8 +4768,40 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25585,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/core/gitio.py",
+            "line": 64,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/features/fanout.py",
+            "line": 397,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/staging.py",
+            "line": 335,
+            "lang": "python",
+            "form": "environ[]",
+            "default": null,
+            "kind": "write"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/staging.py",
+            "line": 349,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4420,7 +4949,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 1235,
             "lang": "python",
             "form": "environ[]",
@@ -4453,7 +4982,7 @@
       "read_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 22086,
             "lang": "python",
             "form": "get()",
@@ -4472,9 +5001,10 @@
       "key": "USER",
       "namespace": "external",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": false,
       "dynamic": false,
@@ -4488,7 +5018,32 @@
       "flag_dests": [],
       "flag_source": "none",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/agentware_lib/ops/fleet/fleetguard.py",
+            "line": 67,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/fleet/fleetshard.py",
+            "line": 181,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/ops/team.py",
+            "line": 186,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/agentware_lib/ops/fleet.py",
@@ -4547,7 +5102,7 @@
       "write_sites": {
         "local": [
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 1234,
             "lang": "python",
             "form": "environ[]",
@@ -4555,7 +5110,7 @@
             "kind": "write"
           },
           {
-            "file": "scripts/agentware",
+            "file": "scripts/agentware_legacy.py",
             "line": 25587,
             "lang": "python",
             "form": "environ[]",

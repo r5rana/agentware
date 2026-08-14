@@ -278,16 +278,43 @@ except (ImportError, AttributeError):
     NAME_FILE = %(name_file)r
     TABLE_PRESENT = False
 
-entry = os.path.join(tree, "scripts", "agentware")
+# Address the SUBJECT, not the path. `<tree>/scripts/agentware` is a strangler
+# facade from plan task 25 on, and it routes by LEGACY DEFAULT: until `whereami`
+# is promoted onto the lib (task 54) the entrypoint serves the monolith's old
+# src-parent-constrained resolver, so a probe through the entrypoint would report
+# task 18's rewrite as broken in every tree that carries both. Driving
+# `agentware_lib.cli.main` runs exactly what the donor entrypoint ran and exactly
+# what the entrypoint will run once the verb is promoted.
+#
+# A tree with no lib CLI leaf (the synthetic trees this gate's own mutation cases
+# build, where the entrypoint IS the only implementation) falls back to the
+# entrypoint. The mode is reported in the payload, never inferred, so a lib that
+# stops being importable shows up as a MODE CHANGE rather than as a silent
+# re-measurement of the legacy resolver.
+scripts_dir = os.path.join(tree, "scripts")
+lib_cli = os.path.join(scripts_dir, "agentware_lib", "cli.py")
+entry_mode = "entrypoint"
+try:
+    with open(lib_cli, encoding="utf-8") as fh:
+        if "def main(" in fh.read():
+            entry_mode = "lib"
+except OSError:
+    pass
+if entry_mode == "lib":
+    entry_argv = [sys.executable, "-c",
+                  "import sys; sys.path.insert(0, " + repr(scripts_dir)
+                  + "); from agentware_lib.cli import main; sys.exit(main())"]
+else:
+    entry_argv = [sys.executable, os.path.join(scripts_dir, "agentware")]
 env = dict(os.environ)
 env["AGENTWARE_CONFIG_HOME"] = os.path.join(scratch, "config-home")
 env["AGENTWARE_KNOWLEDGE_DIR"] = os.path.join(scratch, "kb")
 env.pop("AGENTWARE_INVOKED_FROM", None)
 
 def run(where, fmt="json"):
-    proc = subprocess.run([sys.executable, entry, "whereami", "--dir", where,
-                           "--format", fmt], capture_output=True, text=True,
-                          env=env)
+    proc = subprocess.run(entry_argv + ["whereami", "--dir", where,
+                                        "--format", fmt],
+                          capture_output=True, text=True, env=env)
     row = {"rc": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
     if fmt == "json" and proc.returncode == 0:
         try:
@@ -307,6 +334,7 @@ def mark(path, marker):
     return path
 
 out = {"markers": MARKERS, "table_present": TABLE_PRESENT,
+       "entry_mode": entry_mode,
        "layouts": [], "parents": [], "nowhere": {}, "mirrors": {}}
 
 # 1. one checkout per marker: <root>/.git + <root>/pkg/<Name>/<marker> + nested

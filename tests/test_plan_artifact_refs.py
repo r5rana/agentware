@@ -62,18 +62,22 @@ COMPILED = tuple((label, re.compile(pattern)) for label, pattern in BANNED)
 #: task provably cannot remove. A hit at any other path fails; a row the tree no
 #: longer produces fails as stale.
 DECLARED = {
-    "scripts/agentware": {
+    "scripts/agentware_legacy.py": {
         "count": 3,
         "owner": "task 56",
         "reason": "the monolith carries this tree's own instance of the same "
                   "leak -- a FANOUT NOTE citing the private auto-skill-"
                   "promotion plan by name. It cannot be fixed here: task 25 "
-                  "lands this file as the legacy module and asserts it is "
+                  "landed this file as the legacy module and asserts it is "
                   "BYTE-IDENTICAL to its aw-pre-merge content, so any edit "
-                  "reddens that criterion. The successor module that replaces "
-                  "the comment (features/proposals.py) was cleaned by task 20 "
-                  "in the same change, so the fix is already staged; task 56 "
-                  "deletes the monolith and this row with it.",
+                  "reddens that criterion. The row was keyed "
+                  "`scripts/agentware` until task 25 moved the body to "
+                  "`scripts/agentware_legacy.py` behind the facade; the LOCATION "
+                  "moved, the hits did not, and the ledger stays shrink-only "
+                  "because the count is unchanged. The successor module that "
+                  "replaces the comment (features/proposals.py) was cleaned by "
+                  "task 20 in the same change, so the fix is already staged; "
+                  "task 56 deletes the monolith and this row with it.",
     },
 }
 

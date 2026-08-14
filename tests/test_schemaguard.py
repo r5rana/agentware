@@ -251,9 +251,16 @@ class SchemaGuardTest(unittest.TestCase):
         # cmd_dream), and (2) every writer-def's owning command is registered OR a
         # documented exemption.
         import re
-        with open(os.path.join(REPO_ROOT, "scripts", "agentware"),
-                  encoding="utf-8") as f:
-            lines = f.read().split("\n")
+        try:
+            from tests._fixtures import cli_source
+        except ImportError:
+            from _fixtures import cli_source
+        # The IMPLEMENTATION source, not the entrypoint path. Task 25 moved the
+        # monolith body to scripts/agentware_legacy.py behind a thin facade, and
+        # a scan still reading the entrypoint would find ZERO writer defs and
+        # report the completeness check as "changed" rather than as "looking at
+        # nothing" — the vacuous shape this check exists to prevent.
+        lines = cli_source().split("\n")
         defs = [(i + 1, re.match(r"^def (\w+)\(", l).group(1))
                 for i, l in enumerate(lines) if re.match(r"^def \w+\(", l)]
 

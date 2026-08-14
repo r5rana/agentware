@@ -118,7 +118,13 @@ class FixtureShapeTest(unittest.TestCase):
     def test_both_catalog_files_are_claimed_by_basename_without_a_count(self):
         catalogs = self.fx["catalogs"]
         self.assertEqual(set(catalogs), {"skills.json", "modules.json"})
-        self.assertEqual(catalogs["modules.json"]["sides"], ["donor"])
+        # PROVENANCE, not membership: modules.json is the donor's generated
+        # module manifest and must stay claimed as a donor contribution for as
+        # long as the freeze exists. Task 25 landed it HERE too (the lib README
+        # links to it, so the two cannot land apart), which is why this is an
+        # `in` and not an equality — a landing must not be able to erase the
+        # record of which tree the capability came from.
+        self.assertIn("donor", catalogs["modules.json"]["sides"])
         # A pinned file count would redden on the legitimate catalog growth
         # tasks 67 and 73 introduce; basenames cannot.
         self.assertNotIn("count", catalogs)
@@ -134,9 +140,19 @@ class FixtureShapeTest(unittest.TestCase):
                          ["donor", "local"])
 
     def test_pending_assets_are_donor_only_and_resolve_to_real_rows(self):
+        """SHRINK-ONLY. `catalog:modules.json` was dropped by task 25.
+
+        The ratchet is one-directional by design: a pending asset that starts
+        resolving in this tree must be REMOVED from the backlog (the gate emits
+        "RATCHET: pending asset now satisfied, drop it"), never left parked. Task
+        25 landed `scripts/agentware_lib/` and its generated module manifest
+        `catalog/modules.json` together — the lib README links to it, so the two
+        cannot land apart without a dangling link. Two donor assets remain: the
+        help goldens (task 60, regenerated once the verb surface is final) and
+        the decision template (task 51, which reconciles the template corpus).
+        """
         pending = self.fx["assets"]["pending_in_destination"]
-        self.assertEqual(set(pending), {"catalog:modules.json",
-                                        "fixture_family:help_golden",
+        self.assertEqual(set(pending), {"fixture_family:help_golden",
                                         "template:decision-template.md"})
 
     def test_fixture_carries_no_operator_home_path(self):

@@ -1,0 +1,583 @@
+"""agentware_lib.ops.staging -- scoped-staging engine + KB-git commit/pull workflow (layer: ops).
+
+Owns: the cross-team-write-isolation scoped-staging engine -- the
+blob/artifact caps (KB_BLOB_MAX_BYTES / _KB_STAGE_REJECT_EXTS), the rel-prefix machinery
+(kb_rel_prefix / _strip_rel_prefix / _is_derived_rel / _is_derived_rel_scoped), the
+team-scoped stage allowlist (kb_git_stage_allowlist), the conventional-commit subject
+rules (COMMIT_MSG_RE / COMMIT_SUBJECT_MAX / COMMIT_TOPICS_LIMIT / kb_changed_knowledge_topics
+/ _format_topics_label / _truncate_subject) + the commit CLI (cmd_kb_git_commit), the
+fast-forward pull/fetch primitives (git_pull_ff / git_fetch) + pull CLI (cmd_kb_git_pull),
+the conflict-introspection helpers (git_unmerged_paths / git_rebase_in_progress /
+file_has_conflict_markers), the push primitive + rejection classifier (git_push /
+_push_was_rejected / RC_REPUSH_RACE), the entry-id readers the nothing-lost gate compares
+(git_entry_ids_at_ref / kb_entry_ids), and the bounded-retry backoff schedule
+(KB_PUSH_MAX_RETRIES / _KB_PUSH_BACKOFF_BASE / _KB_PUSH_BACKOFF_CAP / _kb_push_backoff_delay).
+
+Does NOT own: the nothing-lost gate kb_nothing_lost_gate and the push/merge orchestration
+kb_git_push_once / kb_git_push_synced / kb_git_merge_continue + cmd_kb_git_push /
+cmd_kb_git_merge_continue + the `kb-git` registrar register_kb_git -- these CONSUME the
+primitives above and moved to a NEW pure-sink module ops.kbsync (wave-6 seam 20; the wave-5
+deferral is complete now that rebuild_kb / build_index_from_frontmatter live in
+knowledge.index). They were NOT folded back INTO staging because 581 + ~380 > the 900-line
+module cap. Also does NOT own the git state queries (ops.kbgit, imported downward as a
+same-layer ops->ops edge) or the low-level git runners (core.gitio).
+
+Layer deps: ops.staging -> core (config/frontmatter/orgkeys/paths/gitio) + knowledge (index)
++ a same-layer ops edge to ops.kbgit. Nothing above ops imports it.
+
+Determinism: read-only git introspection + deterministic string ops over the staged diff
+(INV-1: the retry backoff jitter is derived from attempt+pid, NO RNG). No new dependency
+(shells `git` only); every helper takes an explicit target dir and degrades gracefully.
+
+_EXPORTS is imported BY NAME onto the scripts/agentware facade so the resident deferred
+kb_nothing_lost_gate / kb_git_push_once / kb_git_push_synced / kb_git_merge_continue +
+their cmd_* handlers + the resident loop-sync / org-lint callers + the kb-git registrar
+resolve these as bare names, and load_cli tests reach them as CLI.<name>.
+Fan-in: 8 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+"""
+
+import os
+import re
+import subprocess  # noqa: F401 — resolves the by-name-imported gitio._git's LOAD_GLOBAL 'subprocess' (global-resolve gate)
+import sys
+
+import agentware_lib.core.config as config
+import agentware_lib.core.frontmatter as frontmatter
+import agentware_lib.core.orgkeys as orgkeys
+import agentware_lib.knowledge.index as index
+from agentware_lib.core.gitio import _git, _git_noninteractive_env
+from agentware_lib.core.paths import REPO_ROOT
+from agentware_lib.ops.kbgit import (
+    _sanitize_commit_tag, git_changed_paths, git_has_upstream, git_is_clean,
+    git_is_work_tree, git_toplevel)
+
+
+# When the KB is a SUBDIR of a bigger git repo (org mode: kdir == <repo>/teams/<t>),
+# git emits repo-relative paths. rel_prefix = relpath(kdir, git_toplevel) is stripped
+# so the flat-layout classifiers (_is_derived_rel, entry-id scan) keep working, and
+# is prepended when we need a repo-relative path to stage. When kdir IS the repo root
+# (flat single-team KB), rel_prefix == "" and everything is byte-identical to today.
+KB_BLOB_MAX_BYTES = 262144  # 256 KiB — reject an oversized blob from the KB commit
+# Artifact extensions never staged by the KB auto-commit (heavy/binary/derived).
+# NOTE: fleet *.jsonl + benchmarks history-*.jsonl + assets *.png are text/committed
+# sink data and are ALLOWED explicitly below — this set is for stray heavy blobs.
+_KB_STAGE_REJECT_EXTS = (".har", ".zip", ".tar", ".gz", ".mp4", ".mov", ".pdf",
+                         ".trace", ".webm")
+
+
+def kb_rel_prefix(target):
+    """The kdir's path RELATIVE to its git work-tree root ('' when kdir IS the root).
+
+    Org mode: kdir == <repo>/teams/<team> → 'teams/<team>'. Flat mode: '' (INV-1).
+    Returns '' on any resolution failure (degrade to today's behavior).
+    """
+    top = git_toplevel(target)
+    if not top:
+        return ""
+    try:
+        rel = os.path.relpath(os.path.realpath(target), top).replace(os.sep, "/")
+    except ValueError:
+        return ""
+    return "" if rel == "." else rel
+
+
+def _strip_rel_prefix(rel, rel_prefix):
+    """Drop a leading 'rel_prefix/' from a repo-relative path (kdir-relative out).
+
+    Returns None if `rel` is OUTSIDE rel_prefix (a different team / shared root /
+    repo-root file) — the caller treats None as 'not this KB's business'.
+    """
+    rel = rel.strip().strip('"')
+    if not rel_prefix:
+        return rel
+    pfx = rel_prefix.rstrip("/") + "/"
+    if rel.startswith(pfx):
+        return rel[len(pfx):]
+    if rel == rel_prefix:
+        return ""
+    return None
+
+
+def _is_derived_rel_scoped(rel, rel_prefix=""):
+    """rel_prefix-aware _is_derived_rel: classify a REPO-relative path.
+
+    Strips rel_prefix, then applies the flat-layout derived-file rule. A path
+    outside rel_prefix is NOT this KB's derived file → False.
+    """
+    inner = _strip_rel_prefix(rel, rel_prefix)
+    if inner is None:
+        return False
+    return _is_derived_rel(inner)
+
+
+def kb_git_stage_allowlist(target, rel_prefix=None):
+    """Repo-relative paths this KB commit SHOULD stage — team-scoped + guarded.
+
+    Replaces a blanket `git add -A`. Rules, applied to each pending
+    path from `git_changed_paths`:
+      - MUST be inside rel_prefix (the caller's team folder / KB root). A path in a
+        DIFFERENT team folder or the shared root is REFUSED here (cross-team write
+        isolation) — those are staged only via their own team's loop / the curator
+        --to-shared path.
+      - DROP derived files (index.json / FEATURES.md / <sub>/index.md rosters):
+        they are gitignored + rebuilt, never committed.
+      - DROP an artifact-ext blob or any blob > KB_BLOB_MAX_BYTES (except the
+        committed sink files: teams/*/fleet/*.jsonl, benchmarks/history-*.jsonl,
+        configurations/assets/*.png — those are allowed text/data).
+    Returns (allow, rejected) where `rejected` is [(path, reason)] for observability.
+    Deterministic, read-only. When rel_prefix == '' (flat KB) it still enforces the
+    derived/artifact drops but never rejects for team scope.
+    """
+    if rel_prefix is None:
+        rel_prefix = kb_rel_prefix(target)
+    allow, rejected = [], []
+    for rel in git_changed_paths(target):
+        inner = _strip_rel_prefix(rel, rel_prefix)
+        if inner is None:
+            rejected.append((rel, "outside caller team folder (cross-team write refused)"))
+            continue
+        if _is_derived_rel(inner):
+            continue  # derived → silently skip (regenerable)
+        base = inner.rsplit("/", 1)[-1]
+        # Allowed committed sink/data files (explicit allow before ext-reject).
+        is_sink = (("/" + orgkeys.ORG_FLEET_DIR + "/") in ("/" + inner) and inner.endswith(".jsonl")) \
+            or (base.startswith("history-") and inner.endswith(".jsonl")) \
+            or ("/configurations/assets/" in ("/" + inner) and base.lower().endswith((".png", ".jpg", ".jpeg", ".svg", ".gif")))
+        ext = os.path.splitext(base)[1].lower()
+        if not is_sink and ext in _KB_STAGE_REJECT_EXTS:
+            rejected.append((rel, "artifact extension %s not staged" % ext))
+            continue
+        # Blob-size guard (skip sink files; a HAR-size .md is still rejected).
+        if not is_sink:
+            try:
+                sz = os.path.getsize(os.path.join(target, inner))
+                if sz > KB_BLOB_MAX_BYTES:
+                    rejected.append((rel, "blob %d bytes > %d cap" % (sz, KB_BLOB_MAX_BYTES)))
+                    continue
+            except OSError:
+                pass
+        allow.append(rel)
+    return allow, rejected
+
+
+# Conventional-commit subject the auto-commit must satisfy: feat|chore(scope): msg
+COMMIT_MSG_RE = re.compile(r"^(feat|chore)\([a-z0-9._-]+\): .+")
+
+# A commit subject stays one sane line; cap its total length (C-1) and truncate
+# with an ellipsis rather than spill the dir list / topic list across the line.
+COMMIT_SUBJECT_MAX = 100
+# How many knowledge topics to name before collapsing the tail to "+N more".
+COMMIT_TOPICS_LIMIT = 5
+
+
+def kb_changed_knowledge_topics(changed):
+    """Knowledge entry 'topics' (basenames) among the changed paths.
+
+    `learnings/<topic>.md` -> `<topic>`; `skills/<topic>/...` or
+    `skills/<topic>.md` -> `<topic>`. De-duplicated, sorted, deterministic — used
+    to make the autocommit subject name WHAT knowledge changed instead of the
+    generic top-level dir list. Pure string ops over the staged diff (no LLM /
+    network), so the moat is preserved (feature 260625-autocommit-message-fix).
+    """
+    seen = set()
+    for p in changed:
+        parts = p.split("/")
+        if len(parts) < 2:
+            continue  # top-level file (MAIN.md, index.json) — not a knowledge entry
+        topic = None
+        if parts[0] == "learnings" and parts[-1].endswith(".md"):
+            topic = parts[-1][:-3]
+        elif parts[0] == "skills":
+            seg = parts[1]
+            topic = seg[:-3] if seg.endswith(".md") else seg
+        if topic:
+            seen.add(topic)
+    return sorted(seen)
+
+
+def _format_topics_label(topics, limit=COMMIT_TOPICS_LIMIT):
+    """`learnings: a, b, c` (first `limit`, tail collapsed to `+N more`)."""
+    shown = topics[:limit]
+    label = ", ".join(shown)
+    extra = len(topics) - len(shown)
+    if extra > 0:
+        label += ", +%d more" % extra
+    return "learnings: %s" % label
+
+
+def _truncate_subject(subject, limit=COMMIT_SUBJECT_MAX):
+    """Clamp a commit subject to one sane line ≤ `limit` chars (C-1)."""
+    subject = subject.splitlines()[0] if subject else subject
+    if len(subject) > limit:
+        subject = subject[:limit - 3].rstrip().rstrip(",") + "..."
+    return subject
+
+
+def cmd_kb_git_commit(args):
+    """Stage + commit ONLY the knowledge-base repo as one conventional commit.
+
+    Deterministic, opt-in commit discipline (feature 260625-kb-git-sync, Task
+    2.1). Scope is the KB repo ONLY (C-3): the helper operates with `git -C
+    <target>` against a SEPARATE git repo and refuses if the target's work-tree
+    root resolves to the agentware package repo, so the project/package can
+    never be staged. No-ops (rc 0) on a non-tracked KB (C-4) or a clean tree.
+
+    Message format is ENFORCED: `feat|chore(<tag>): <summary>`. The tag is
+    derived deterministically (caller-supplied --tag, sanitized); when --message
+    is omitted a deterministic summary of the changed top-level dirs is built.
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = config.require_knowledge_dir()
+        if not target:
+            return 1
+
+    # C-4: degrade to local-only (no failure) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git commit: %s is not a git work tree — skipping commit "
+              "(local-only)." % target)
+        return 0
+
+    # C-3 scope guard: NEVER commit the agentware package repo. The KB is a
+    # separate repo; if the target somehow resolves to this package's work-tree
+    # root, refuse loudly rather than stage package/project files.
+    top = git_toplevel(target)
+    pkg_top = git_toplevel(REPO_ROOT)
+    if top and pkg_top and top == pkg_top:
+        sys.stderr.write(
+            "kb-git commit: refusing — target resolves to the agentware "
+            "package repo (%s); commits are scoped to the KB repo only "
+            "(C-3).\n" % top)
+        return 1
+
+    changed = git_changed_paths(target)
+    if not changed:
+        print("kb-git commit: nothing to commit — work tree clean.")
+        return 0
+
+    tag = _sanitize_commit_tag(getattr(args, "tag", None))
+    ctype = getattr(args, "type", None) or "chore"
+    message = getattr(args, "message", None)
+    # Name WHAT knowledge changed (deterministic, from the staged diff). Used as
+    # the default summary, or appended as a compact suffix to a caller --message.
+    topics = kb_changed_knowledge_topics(changed)
+    if not message:
+        if topics:
+            # Default summary describes the changed knowledge entries...
+            message = _format_topics_label(topics)
+        else:
+            # ...else fall back to the changed top-level dir list (C-2, never empty).
+            tops = sorted({p.split("/", 1)[0] for p in changed})
+            n = len(changed)
+            message = "sync %s (%d file%s)" % (
+                ", ".join(tops), n, "" if n == 1 else "s")
+    elif topics:
+        # A caller-supplied title (e.g. the plan title from agentware.sh) gets a
+        # compact knowledge suffix so the subject names BOTH feature + knowledge.
+        message = "%s — %s" % (message, _format_topics_label(topics))
+
+    subject = _truncate_subject("%s(%s): %s" % (ctype, tag, message))
+    if not COMMIT_MSG_RE.match(subject):
+        sys.stderr.write(
+            "kb-git commit: refusing — message '%s' does not match "
+            "feat|chore(<tag>): <summary>.\n" % subject)
+        return 1
+
+    # Stage via the SCOPED ALLOWLIST — never a blanket `git add -A`.
+    # Team-scoped (refuses cross-team paths), drops derived/artifact/oversized blobs,
+    # allows the committed sink/data files. rel_prefix='' (flat KB) => stages the
+    # same knowledge files as before (byte-compatible), just guarded.
+    rel_prefix = kb_rel_prefix(target)
+    allow, rejected = kb_git_stage_allowlist(target, rel_prefix)
+    for path, reason in rejected:
+        sys.stderr.write("kb-git commit: skipping %s — %s\n" % (path, reason))
+    if not allow:
+        print("kb-git commit: nothing to stage after the scoped allowlist "
+              "(only derived/artifact/out-of-scope changes).")
+        return 0
+    # Stage exactly the allowlisted paths. `allow` holds REPO-ROOT-relative paths
+    # (from `git status --porcelain`), but `git -C <target> add` resolves pathspecs
+    # relative to <target> (the team subdir in org mode) — so we MUST convert to
+    # ABSOLUTE paths via the git toplevel, else org-mode staging fails with a
+    # `pathspec 'teams/<t>/teams/<t>/…' did not match` error (F1). Absolute paths
+    # are unambiguous regardless of git's cwd; flat KBs (toplevel==target) are
+    # unaffected.
+    top = git_toplevel(target) or target
+    abs_paths = [os.path.join(top, p) for p in allow]
+    add = _git(target, "add", "--", *abs_paths)
+    if add.returncode != 0:
+        sys.stderr.write("kb-git commit: git add failed: %s\n" % add.stderr.strip())
+        return 1
+
+    commit = _git(target, "commit", "-m", subject)
+    if commit.returncode != 0:
+        sys.stderr.write("kb-git commit: git commit failed: %s\n"
+                         % (commit.stderr.strip() or commit.stdout.strip()))
+        return 1
+
+    head = _git(target, "rev-parse", "HEAD").stdout.strip()
+    print("kb-git commit: %s — %s" % (head[:9], subject))
+    return 0
+
+
+def git_pull_ff(target):
+    """Fast-forward-only `git pull`; non-interactive (never prompts for input).
+
+    Returns the CompletedProcess. `GIT_TERMINAL_PROMPT=0` makes an offline /
+    auth-required fetch fail fast instead of hanging for credentials
+    (R-SHELL-01), and `--ff-only` refuses to create a merge commit — a divergent
+    upstream is reported as a non-zero exit the caller treats as a graceful skip
+    (the push/rebase path, Phase 4, owns real divergence).
+    """
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return _git(target, "pull", "--ff-only", env=env)
+
+
+def git_fetch(target):
+    """Read-only `git fetch` of the configured upstream; non-interactive.
+
+    Returns the CompletedProcess. `GIT_TERMINAL_PROMPT=0` makes an offline /
+    auth-required fetch fail fast instead of hanging for credentials
+    (R-SHELL-01). A fetch updates only the remote-tracking refs — it NEVER
+    touches the work tree, so it is safe to run for a read-only `update --check`
+    (and as a SessionStart updates-available nudge).
+    """
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return _git(target, "fetch", "--quiet", env=env)
+
+
+def cmd_kb_git_pull(args):
+    """Fast-forward the KB repo from its upstream at a safe point.
+
+    Pull cadence (feature 260625-kb-git-sync, Task 3.1): run at agent start and
+    again right before a push. Preconditions — the target is a git work tree
+    (C-4), has a configured upstream, and the tree is CLEAN (prior writes must be
+    committed first; we NEVER pull onto uncommitted edits). Any unmet
+    precondition, an offline fetch, or a non-fast-forward divergence is a
+    graceful SKIP (rc 0 + a clear notice) — pulling NEVER blocks work. Beyond the
+    fast-forward this mutates nothing.
+    """
+    override = getattr(args, "path", None)
+    if override:
+        target = os.path.abspath(os.path.expanduser(override))
+    else:
+        target = config.require_knowledge_dir()
+        if not target:
+            return 1
+
+    # C-4: degrade to local-only (never block) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git pull: %s is not a git work tree — skipping pull "
+              "(local-only)." % target)
+        return 0
+
+    if not git_has_upstream(target):
+        print("kb-git pull: no upstream tracking branch — skipping pull "
+              "(local-only).")
+        return 0
+
+    # Precondition: a clean tree. Prior writes must be committed first so a
+    # fast-forward can never clobber or conflict with uncommitted edits.
+    if not git_is_clean(target):
+        print("kb-git pull: work tree has uncommitted changes — skipping pull "
+              "(commit first; never pulling onto uncommitted writes).")
+        return 0
+
+    cp = git_pull_ff(target)
+    if cp.returncode != 0:
+        detail = [l for l in (cp.stderr or "").strip().splitlines() if l.strip()]
+        first = detail[0] if detail else "fetch failed"
+        print("kb-git pull: skipped — %s (offline or diverged; not blocking "
+              "work)." % first)
+        return 0
+
+    out_lines = [l for l in (cp.stdout or "").strip().splitlines() if l.strip()]
+    summary = out_lines[0] if out_lines else "up to date"
+    print("kb-git pull: %s" % summary)
+    return 0
+
+
+def _is_derived_rel(rel):
+    """True iff a KB-relative path is a DERIVED file regenerated by `index rebuild`.
+
+    The derived set is exactly `index.json`, `FEATURES.md`, and each
+    `<sub>/index.md` roster (sub in KNOWLEDGE_SUBDIRS). These are NEVER merged by
+    hand or by an agent (C-1) — conflicts in them are resolved deterministically
+    by rebuilding from the union of entry frontmatter.
+    """
+    rel = rel.strip().strip('"')
+    if rel in ("index.json", "FEATURES.md"):
+        return True
+    parts = rel.split("/")
+    return (len(parts) == 2 and parts[1] == "index.md"
+            and parts[0] in index.KNOWLEDGE_SUBDIRS)
+
+
+def git_unmerged_paths(target):
+    """Repo-relative paths currently in a conflicted (unmerged) state, sorted."""
+    cp = _git(target, "diff", "--name-only", "--diff-filter=U")
+    if cp.returncode != 0:
+        return []
+    return sorted({l.strip().strip('"') for l in cp.stdout.splitlines()
+                   if l.strip()})
+
+
+def git_rebase_in_progress(target):
+    """True iff a rebase is currently paused/in progress in `target`.
+
+    Checks both git rebase backends (merge → `rebase-merge`, am → `rebase-apply`)
+    via `rev-parse --git-path`, which respects worktrees. Used by the prose-merge
+    path (Phase 5): `kb-git push --on-prose-conflict pause` leaves a rebase in
+    progress for the MERGE_PROMPT, and `kb-git merge-continue` only proceeds when
+    one is actually in progress.
+    """
+    for marker in ("rebase-merge", "rebase-apply"):
+        cp = _git(target, "rev-parse", "--git-path", marker)
+        if cp.returncode != 0:
+            continue
+        p = cp.stdout.strip()
+        if not p:
+            continue
+        if not os.path.isabs(p):
+            p = os.path.join(target, p)
+        if os.path.isdir(p):
+            return True
+    return False
+
+
+def file_has_conflict_markers(path):
+    """True iff `path` still contains git conflict markers (`<<<<<<<`/`>>>>>>>`).
+
+    Only the 7-angle-bracket markers are checked: they never occur in normal
+    prose/markdown, so this avoids false positives on a `=======` setext heading
+    or horizontal rule. The nothing-lost prose merge (Phase 5) refuses to continue
+    a rebase while any reconciled entry file still carries an unresolved marker.
+    """
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith("<<<<<<<") or line.startswith(">>>>>>>"):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
+def git_push(target):
+    """`git push` to the upstream; non-interactive. Returns the CompletedProcess."""
+    return _git(target, "push", env=_git_noninteractive_env())
+
+
+def _push_was_rejected(cp):
+    """True iff a non-zero push failed because the upstream moved (non-fast-forward).
+
+    Distinguishes a resolvable rejection (rebase + retry) from an offline / auth /
+    network failure (graceful skip, C-4). Matches git's stable wording.
+    """
+    blob = ((cp.stderr or "") + (cp.stdout or "")).lower()
+    return ("rejected" in blob or "non-fast-forward" in blob
+            or "fetch first" in blob or "updates were rejected" in blob)
+
+
+# Distinct return code for a re-push RACE (upstream moved again between our
+# resolve and our push). It is recoverable — `kb_git_push_synced` retries the
+# whole pull→resolve→push up to a bounded cap (C-2) — so it is kept separate from
+# a fail-loud rc 1. Never surfaced to a CLI caller: the wrapper maps an exhausted
+# race to a plain rc 1.
+RC_REPUSH_RACE = 4
+
+
+def git_entry_ids_at_ref(target, ref, rel_prefix=None):
+    """Set of entry frontmatter IDs present at a git ref's tree, or None.
+
+    Lists the tree at `ref` WITHOUT a checkout (`git ls-tree -r`), keeps only
+    indexable entry files (the same `<sub>/…md` candidate rule as
+    `scan_entry_files`, minus the `<sub>/index.md` rosters), reads each blob via
+    `git show <ref>:<path>`, and parses its frontmatter `id`. Returns None when
+    `ref` does not resolve, so the nothing-lost gate can SKIP an unavailable
+    parent (e.g. `@{upstream}` during a detached-HEAD rebase) rather than
+    mis-count it as empty. Pure git — no new dependency (C-5).
+
+    rel_prefix: when the KB is a repo SUBDIR (org mode), the tree
+    lists repo-relative paths; strip rel_prefix so the flat `<sub>/…` candidate
+    rule matches, and count ONLY entries under this KB's prefix. rel_prefix='' /
+    None (flat KB) → byte-identical to before.
+    """
+    if rel_prefix is None:
+        rel_prefix = kb_rel_prefix(target)
+    ls = _git(target, "ls-tree", "-r", "--name-only", ref)
+    if ls.returncode != 0:
+        return None
+    ids = set()
+    for rel in ls.stdout.splitlines():
+        rel = rel.strip().strip('"')
+        if not rel.endswith(".md"):
+            continue
+        inner = _strip_rel_prefix(rel, rel_prefix)
+        if inner is None:  # outside this KB's prefix (another team / shared)
+            continue
+        parts = inner.split("/")
+        if parts[0] not in index.KNOWLEDGE_SUBDIRS:
+            continue
+        if not index._is_sync_candidate(inner):
+            continue
+        show = _git(target, "show", "%s:%s" % (ref, rel))
+        if show.returncode != 0:
+            continue
+        fields, _body = frontmatter.split_frontmatter(show.stdout)
+        if fields and fields.get("id"):
+            ids.add(fields["id"])
+    return ids
+
+
+def kb_entry_ids(target):
+    """Set of entry frontmatter IDs in the WORKING TREE at `target`.
+
+    The same enumeration the index derives from (`scan_entry_files` +
+    `read_entry_frontmatter`); used by the nothing-lost gate to compute the
+    MERGED entry-ID set after a resolution.
+    """
+    ids = set()
+    for rel in index.scan_entry_files(target):
+        fm = frontmatter.read_entry_frontmatter(os.path.join(target, rel))
+        if fm.get("id"):
+            ids.add(fm["id"])
+    return ids
+
+
+# Org-scale push retry: a shared knowledge repo behind a server-side write lock
+# strands ~40% of pushes at ~100 concurrent writers (measured on a centrally
+# hosted git server). Raise the retry cap and add exponential backoff + jitter so
+# a lost fast-forward race retries instead of failing the run. Jitter is
+# DETERMINISTIC (attempt + pid derived) — no RNG (INV-1 forbids Math.random in the
+# moat; this is off the recall path but we keep it reproducible). Cap ~8-10 models
+# peak strand 40% -> < 10%.
+KB_PUSH_MAX_RETRIES = 8
+_KB_PUSH_BACKOFF_BASE = 0.2   # seconds
+_KB_PUSH_BACKOFF_CAP = 5.0    # seconds
+
+
+def _kb_push_backoff_delay(attempt):
+    """Deterministic exponential backoff + jitter for push retry `attempt` (1-based)."""
+    base = min(_KB_PUSH_BACKOFF_BASE * (2 ** (attempt - 1)), _KB_PUSH_BACKOFF_CAP)
+    # Deterministic jitter in [0, base/2): derived from attempt + pid, no RNG.
+    jitter = (base / 2.0) * (((attempt * 2654435761 + os.getpid()) % 1000) / 1000.0)
+    return base + jitter
+
+
+_EXPORTS = [
+    "KB_BLOB_MAX_BYTES", "_KB_STAGE_REJECT_EXTS", "kb_rel_prefix", "_strip_rel_prefix",
+    "_is_derived_rel_scoped", "kb_git_stage_allowlist", "COMMIT_MSG_RE",
+    "COMMIT_SUBJECT_MAX", "COMMIT_TOPICS_LIMIT", "kb_changed_knowledge_topics",
+    "_format_topics_label", "_truncate_subject", "cmd_kb_git_commit", "git_pull_ff",
+    "git_fetch", "cmd_kb_git_pull", "_is_derived_rel", "git_unmerged_paths",
+    "git_rebase_in_progress", "file_has_conflict_markers", "git_push", "_push_was_rejected",
+    "RC_REPUSH_RACE", "git_entry_ids_at_ref", "kb_entry_ids", "KB_PUSH_MAX_RETRIES",
+    "_KB_PUSH_BACKOFF_BASE", "_KB_PUSH_BACKOFF_CAP", "_kb_push_backoff_delay",
+]
+
+__all__ = list(_EXPORTS)

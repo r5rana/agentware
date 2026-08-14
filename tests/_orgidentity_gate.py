@@ -138,6 +138,29 @@ ORG_IDENTITY_STEMS = (
     os.path.join("tests", "unit", "features", "test_configcmd"),
 )
 
+#: Stems that travel with the DONOR TEST CORPUS rather than with the lib. Task 25
+#: lands `scripts/agentware_lib/**` in this repo; the layered `tests/unit/**` tree
+#: those tests live in is landed by task 58, which is also the task that resolves
+#: the disjoint-test-file collision. So between 25 and 58 the resolved tree
+#: legitimately carries the lib WITHOUT them, and a flat "every stem must
+#: resolve" check reports the migration's own sequencing as a defect.
+#:
+#: They are pended rather than deleted, and the ratchet bites in BOTH directions:
+#: a pending stem that starts resolving must be promoted out of this set (else
+#: the gate would keep excusing a path it is now able to check), and a required
+#: stem that stops resolving still fails as before. Every pending stem must also
+#: appear in ORG_IDENTITY_STEMS, so pending can only ever narrow the LIVE check,
+#: never smuggle in a path nobody declared.
+PENDING_STEMS = frozenset((
+    os.path.join("tests", "unit", "core", "test_config"),
+    os.path.join("tests", "unit", "core", "test_orgkeys"),
+    os.path.join("tests", "unit", "core", "test_orgidentity"),
+    os.path.join("tests", "unit", "features", "test_configcmd"),
+))
+
+assert PENDING_STEMS <= set(ORG_IDENTITY_STEMS), \
+    "a pending stem must also be a declared stem"
+
 SCAN_SKIP_DIRS = (".git", "__pycache__", ".venv", "node_modules", ".mypy_cache",
                   ".cache", "logs")
 
@@ -168,14 +191,30 @@ def owned_paths(tree):
     return sorted(out)
 
 
+def _resolves(tree, stem):
+    return (os.path.isfile(os.path.join(tree, stem + ".py"))
+            or os.path.isdir(os.path.join(tree, stem)))
+
+
 def unresolved_stems(tree):
     """Stems matching neither a flat module nor a package — a scan pointed at
-    nothing. Renaming a file must not quietly narrow this gate's scope."""
+    nothing. Renaming a file must not quietly narrow this gate's scope.
+
+    PENDING_STEMS are exempt while absent (task 58 lands them) and REPORTED the
+    moment they appear, so the exemption can only shrink.
+    """
     missing = []
     for stem in ORG_IDENTITY_STEMS:
-        if (not os.path.isfile(os.path.join(tree, stem + ".py"))
-                and not os.path.isdir(os.path.join(tree, stem))):
-            missing.append(stem.replace(os.sep, "/"))
+        rel = stem.replace(os.sep, "/")
+        if _resolves(tree, stem):
+            continue
+        if stem in PENDING_STEMS:
+            continue
+        missing.append(rel)
+    for stem in sorted(PENDING_STEMS):
+        if _resolves(tree, stem):
+            missing.append("RATCHET: pending stem now resolves, promote it: %s"
+                           % stem.replace(os.sep, "/"))
     return missing
 
 

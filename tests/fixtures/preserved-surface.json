@@ -6203,8 +6203,9 @@
  },
  "catalogs": {
   "modules.json": {
-   "bytes": 104004,
+   "bytes": 147320,
    "sides": [
+    "local",
     "donor"
    ]
   },
@@ -6334,7 +6335,6 @@
  },
  "assets": {
   "pending_in_destination": [
-   "catalog:modules.json",
    "fixture_family:help_golden",
    "template:decision-template.md"
   ]

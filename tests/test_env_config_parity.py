@@ -216,10 +216,37 @@ class DestinationGateTest(unittest.TestCase):
         self.assertEqual(problems, [])
 
     def test_the_pending_backlog_is_exactly_the_donor_only_keys(self):
-        self.assertEqual(set(self.fixture["pending_in_destination"]),
-                         set(DONOR_ONLY_KEYS))
-        for key in DONOR_ONLY_KEYS:
-            self.assertEqual(rows_by_key(self.fixture)[key]["side"], "donor-only")
+        """The backlog is exactly the frozen donor keys that are STILL donor-only.
+
+        DONOR_ONLY_KEYS is the record of the backlog as captured at task 8, and
+        the migration exists to close it: task 25 landed
+        `scripts/agentware_lib/**`, which gave six of the twelve a real read site
+        in this tree. So the invariant is "pending == the open subset", measured
+        against each row's live side rather than restated as a literal — a set
+        pinned by hand would have to be edited on every closure, which is the
+        edit that hides a key going missing.
+        """
+        rows = rows_by_key(self.fixture)
+        still_open = {k for k in DONOR_ONLY_KEYS
+                      if rows[k]["side"] == "donor-only"}
+        self.assertEqual(set(self.fixture["pending_in_destination"]), still_open)
+
+    def test_the_backlog_only_shrinks_and_only_by_landing_the_capability(self):
+        """Both directions. A key may leave the backlog ONLY by becoming
+        readable here — so a row cannot be deleted to buy green — and no key may
+        ever ENTER it that task 8 did not record."""
+        pending = set(self.fixture["pending_in_destination"])
+        rows = rows_by_key(self.fixture)
+        self.assertTrue(pending <= set(DONOR_ONLY_KEYS),
+                        "a key entered the backlog that task 8 never recorded: "
+                        "%s" % sorted(pending - set(DONOR_ONLY_KEYS)))
+        closed = set(DONOR_ONLY_KEYS) - pending
+        self.assertTrue(closed, "task 25 closed six of these; none did")
+        for key in closed:
+            self.assertEqual(rows[key]["side"], "shared", key)
+            # Donor provenance must survive the closure.
+            self.assertIn("donor", rows[key]["sides"], key)
+            self.assertTrue(rows[key]["read_sites"]["local"], key)
 
     def test_a_lost_key_reddens_the_gate_by_name(self):
         broken = copy.deepcopy(self.fixture)

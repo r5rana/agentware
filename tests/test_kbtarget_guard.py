@@ -241,6 +241,49 @@ class MutationTest(unittest.TestCase):
         self.assertTrue(any("still referenced" in p for p in problems), problems)
         self.assertIn("docs/architecture.md", problems[0])
 
+    def test_kbtarget_a_reference_in_PACKAGE_CODE_can_never_be_declared(self):
+        """The record ledger forgives capture artifacts, never shippable code.
+
+        Task 25 landed the lib in this repo, so `check_retired` now scans a tree
+        that also holds this migration's donor CAPTURES — frozen node ids, the
+        staging manifest, the parity rows — every one of which names the retired
+        module in order to RECORD that it was dropped. Those are declared. What
+        must stay impossible is quieting a real reintroduction by adding a row,
+        so the ledger refuses a `scripts/` path in code rather than in prose.
+        """
+        with self.assertRaises(SystemExit) as ctx:
+            gate._assert_no_package_path(
+                {"scripts/agentware_lib/features/x.py": "please ignore me"})
+        self.assertIn("may not cover package code", str(ctx.exception))
+
+    def test_kbtarget_an_undeclared_hit_still_reddens_with_records_present(self):
+        """The ledger is an allowlist of LOCATIONS, not a mute switch."""
+        tree = self.synth("undeclared")
+        declared = sorted(gate.RETIRED_NAME_RECORDS)[0]
+        write(os.path.join(tree.root, declared.replace("/", os.sep)),
+              "%s recorded here\n" % gate.RETIRED_STEM)
+        write(os.path.join(tree.root, "docs", "notes.md"),
+              "%s mentioned here too\n" % gate.RETIRED_STEM)
+        problems = gate.check_retired(tree.root)
+        joined = "\n".join(problems)
+        self.assertIn("undeclared", joined)
+        self.assertIn("docs/notes.md", joined)
+        self.assertNotIn(declared, joined)
+
+    def test_kbtarget_a_record_row_the_tree_stopped_producing_is_stale(self):
+        """Shrink-only bites both ways: a row nobody needs must be deleted."""
+        tree = self.synth("stale-row")
+        declared = sorted(gate.RETIRED_NAME_RECORDS)[0]
+        write(os.path.join(tree.root, declared.replace("/", os.sep)),
+              "this file no longer names the retired module\n")
+        problems = gate.check_retired(tree.root)
+        self.assertTrue(any("stale record row" in p for p in problems), problems)
+        self.assertTrue(any(declared in p for p in problems), problems)
+
+    def test_kbtarget_every_record_row_names_an_owning_task(self):
+        for path, reason in gate.RETIRED_NAME_RECORDS.items():
+            self.assertRegex(reason, r"task \d+", path)
+
     def test_kbtarget_a_second_definition_of_the_index_filename_reddens(self):
         tree = self.synth("dup").package(_STUB_ALWAYS_OK)
         write(tree.lib("knowledge", "index.py"), 'INDEX_REL = "index.json"\n')

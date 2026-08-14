@@ -34,13 +34,13 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 542,
+    "rows": 543,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
       "docs_templates": 4,
       "dream_maintenance": 7,
-      "env_config": 80,
+      "env_config": 81,
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
@@ -51,12 +51,12 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 533,
+      "required": 534,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
-      "generated": 480,
+      "generated": 481,
       "curated": 57,
       "absence_probe": 5
     },
@@ -290,7 +290,8 @@
       "dimension": "assets",
       "capability": "catalog modules.json",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2089,7 +2090,8 @@
       "dimension": "env_config",
       "capability": "AGENTWARE_CONFIG_HOME (agentware)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2434,7 +2436,18 @@
       "dimension": "env_config",
       "capability": "AGENTWARE_ORG_PACKAGE (agentware, config key, flag set_org_package)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
+      ],
+      "status": "required",
+      "verification": "generated"
+    },
+    {
+      "id": "env:AGENTWARE_ORG_PROJECT",
+      "dimension": "env_config",
+      "capability": "AGENTWARE_ORG_PROJECT (agentware, config key)",
+      "sides": [
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2444,7 +2457,8 @@
       "dimension": "env_config",
       "capability": "AGENTWARE_ORG_ROOT (agentware, config key, flag set_org_root)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2669,7 +2683,8 @@
       "dimension": "env_config",
       "capability": "AGENTWARE_SKILL_PROPOSE_THRESHOLD (agentware, config key, flag set_skill_propose_threshold)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2710,7 +2725,8 @@
       "dimension": "env_config",
       "capability": "AGENTWARE_TEAM (agentware, config key, flag set_team)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2854,7 +2870,8 @@
       "dimension": "env_config",
       "capability": "USER (external)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"

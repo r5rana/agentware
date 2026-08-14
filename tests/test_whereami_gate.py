@@ -228,6 +228,31 @@ class BaselineTest(_TreeCase):
         self.assertEqual(problems, [])
         self.assertEqual(gate.check(tree), [])
 
+    def test_the_real_tree_is_probed_through_the_LIB_not_the_entrypoint(self):
+        """The whole point of task 18's rewrite is in `agentware_lib`.
+
+        `scripts/agentware` is a strangler facade routing by LEGACY DEFAULT from
+        task 25 until `whereami` is promoted (task 54), so probing the entrypoint
+        on the real tree would measure the monolith's src-parent-constrained
+        resolver and report the ported one as broken. The fallback to the
+        entrypoint exists only for lib-less synthetic trees; asserting the MODE
+        here is what stops it from silently swallowing an unimportable lib.
+        """
+        tree, problems = gate.resolve_tree()
+        self.assertEqual(problems, [])
+        scratch = tempfile.mkdtemp(prefix="aw-whereami-mode-")
+        self.addCleanup(shutil.rmtree, scratch, True)
+        payload, probe_problems = gate.run_probe(tree, scratch)
+        self.assertEqual(probe_problems, [])
+        self.assertEqual(payload["entry_mode"], "lib")
+
+    def test_a_lib_less_tree_falls_back_to_the_entrypoint(self):
+        """And says so, so the two subjects can never be confused."""
+        scratch = tempfile.mkdtemp(prefix="aw-whereami-mode2-")
+        self.addCleanup(shutil.rmtree, scratch, True)
+        payload, _problems = gate.run_probe(self.tree, scratch)
+        self.assertEqual(payload["entry_mode"], "entrypoint")
+
     def test_a_tree_without_the_lib_fails_rather_than_passes(self):
         empty = os.path.join(self.root, "empty")
         os.makedirs(empty)

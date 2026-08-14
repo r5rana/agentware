@@ -59,6 +59,55 @@ LIB_REL = os.path.join("scripts", "agentware_lib")
 RETIRED_STEM = "dream" + "repoint"
 RETIRED_REL = os.path.join(LIB_REL, "features", RETIRED_STEM + ".py")
 
+#: SHRINK-ONLY RECORD LEDGER. `check_retired` scans the WHOLE tree, and once the
+#: lib landed in this repo (task 25) that tree also holds this migration's own
+#: CAPTURE artifacts — frozen donor node ids, the staging manifest, the parity
+#: rows and the env/config fixture — every one of which names the retired module
+#: precisely in order to RECORD that the donor had it and that it was dropped.
+#:
+#: Those are not the regression this check hunts. Rewriting a capture to hide a
+#: deletion destroys the only evidence of what the other tree actually contained
+#: (the same finding the task-12 portability debt ratchet and the task-19 owner
+#: move are built on), so they are DECLARED here instead, with the task that
+#: removes each. The ledger bites in both directions: a hit at an undeclared path
+#: fails, and a declared path the tree no longer produces fails as stale.
+#:
+#: NOTHING under `scripts/` may ever be declared — a hit in package code is the
+#: live regression, and `_assert_no_package_path` enforces that in code so a
+#: future author cannot quiet a real reintroduction by adding a row.
+RETIRED_NAME_RECORDS = {
+    "tests/_parity_curated.py": "task 79 — the curated parity row that RECORDS "
+                                "the retirement as an excluded capability; the "
+                                "row must name what was excluded to be auditable",
+    "tests/_parity_manifest.py": "task 79 — same row, in the manifest builder",
+    "tests/baselines/baseline-donor.json": "task 58 — the task-5 donor test "
+                                           "baseline, a capture at a pinned "
+                                           "donor head; task 58 re-derives it",
+    "tests/fixtures/env-config-parity.json": "task 58 — the task-8 env/config "
+                                             "capture, same pinned head",
+    "tests/fixtures/nodeids-donor.json": "task 58 — the task-9 frozen donor "
+                                         "node-id set, same pinned head",
+    "tests/fixtures/parity-manifest.json": "task 79 — the generated parity "
+                                           "manifest carrying the excluded row",
+    "tests/fixtures/preserved-surface.json": "task 58 — the task-9 freeze, "
+                                             "which carries the same donor ids",
+    "tests/fixtures/staging-manifest.json": "task 58 — the task-11 staging "
+                                            "manifest, a record of what the "
+                                            "donor tree contained when staged",
+}
+
+
+def _assert_no_package_path(records):
+    """A record row may never forgive a hit in shippable package code."""
+    bad = sorted(p for p in records
+                 if p.startswith("scripts/") or p.startswith("steering/"))
+    if bad:
+        raise SystemExit("retired-name record rows may not cover package code: %s"
+                         % ", ".join(bad))
+
+
+_assert_no_package_path(RETIRED_NAME_RECORDS)
+
 GUARD_MODULE = "agentware_lib.core.kblayout"
 GUARD_NAME = "kb_pointable"
 
@@ -524,14 +573,25 @@ def scan_hits(tree, needle):
 
 
 def check_retired(tree):
-    """Check 6: the retired module is gone, name and all."""
+    """Check 6: the retired module is gone, and its name survives only in the
+    declared CAPTURE artifacts that exist to record the retirement."""
     problems = []
     if os.path.exists(os.path.join(tree, RETIRED_REL)):
         problems.append("retired module still present: %s" % RETIRED_REL)
-    hits = scan_hits(tree, RETIRED_STEM)
-    if hits:
-        problems.append("retired module name still referenced in %d file(s): %s"
-                        % (len(hits), ", ".join(hits[:8])))
+    _assert_no_package_path(RETIRED_NAME_RECORDS)
+    hits = set(scan_hits(tree, RETIRED_STEM))
+    declared = set(RETIRED_NAME_RECORDS)
+    undeclared = sorted(hits - declared)
+    if undeclared:
+        problems.append("retired module name still referenced in %d undeclared "
+                        "file(s): %s" % (len(undeclared),
+                                         ", ".join(undeclared[:8])))
+    for stale in sorted(declared - hits):
+        # Only a tree that HAS the record files can report one as stale: a
+        # staged tree carrying the lib alone must not fail for lacking tests/.
+        if os.path.exists(os.path.join(tree, stale.replace("/", os.sep))):
+            problems.append("stale record row: %s no longer names the retired "
+                            "module; delete the row" % stale)
     return problems
 
 

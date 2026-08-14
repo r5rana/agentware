@@ -24,7 +24,35 @@ from importlib.machinery import SourceFileLoader
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLI_PATH = os.path.join(REPO_ROOT, "scripts", "agentware")
 
+#: The preserved monolith, byte-identical to `aw-pre-merge:scripts/agentware`.
+#: Present only during the strangler window (feature 260813 tasks 25..56).
+LEGACY_PATH = os.path.join(REPO_ROOT, "scripts", "agentware_legacy.py")
+
 _CLI_MODULE = None
+
+
+def cli_source():
+    """The CLI IMPLEMENTATION source, wherever it currently lives.
+
+    A source-scanning test asserts on the implementation, not on a path. Task 25
+    turned `scripts/agentware` into a thin facade and moved the monolith's body
+    to `scripts/agentware_legacy.py` (which the facade execs into its own
+    namespace), so a test still reading CLI_PATH alone would scan a 74-line
+    docstring and pass — or fail — for reasons that have nothing to do with the
+    behaviour it guards. That is the silent-vacuous shape this migration keeps
+    finding, so the seam is defined ONCE here rather than re-pinned per test.
+
+    Returns the entrypoint concatenated with the legacy module while the legacy
+    module exists; task 56 deletes it and this collapses back to the entrypoint.
+    The facade defines no `def`, so line-order scans that track the enclosing
+    definition are unaffected by the concatenation.
+    """
+    parts = []
+    for path in (CLI_PATH, LEGACY_PATH):
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as fh:
+                parts.append(fh.read())
+    return "\n".join(parts)
 
 
 def load_cli():

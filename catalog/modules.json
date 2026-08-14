@@ -1,0 +1,4012 @@
+{
+  "description": "GENERATED discovery manifest for the agentware_lib package — one entry per module (name, the ONE domain it owns, what it does NOT own + a pointer, its test file, allowed dependency direction, grep anchor symbols, and both fan-out (depends_on) and fan-in (depended_on_by)). Answers the operator's #1 pain — 'find the owning module without reading the monolith' — as a COMMAND: scripts/agentware recall/query reach the indexed KB entry that points here. DO NOT hand-edit: regenerate with 'python3 tests/_manifest_gen.py --write'; tests/test_module_manifest.py asserts this file is byte-identical to a fresh AST regeneration.",
+  "generator": "tests/_manifest_gen.py",
+  "layer_direction": {
+    "cli": [
+      "core",
+      "features",
+      "knowledge",
+      "ops",
+      "retrieval"
+    ],
+    "core": [],
+    "features": [
+      "core",
+      "knowledge",
+      "ops",
+      "retrieval"
+    ],
+    "knowledge": [
+      "core"
+    ],
+    "ops": [
+      "core",
+      "knowledge",
+      "retrieval"
+    ],
+    "retrieval": [
+      "core",
+      "knowledge"
+    ]
+  },
+  "modules": [
+    {
+      "anchor_symbols": [
+        "_PARSER_REGISTRATION"
+      ],
+      "depended_on_by": [
+        "agentware_lib.cli"
+      ],
+      "dependency_direction": "cli -> core, features, knowledge, ops, retrieval",
+      "depends_on": [],
+      "layer": "cli",
+      "name": "agentware_lib._registration",
+      "not_owns": "the registrar functions or their argparse bodies — each lives in its owning agentware_lib module; the assembler is agentware_lib.cli.assemble_parser.",
+      "owns": "_PARSER_REGISTRATION — the frozen (verb, module, attr) map in EXACT --help order.",
+      "path": "scripts/agentware_lib/_registration.py",
+      "test_file": "tests/unit/cli/test_registration.py"
+    },
+    {
+      "anchor_symbols": [
+        "_resolve_registrar",
+        "assemble_parser",
+        "build_parser",
+        "cmd_whereami",
+        "main",
+        "register_whereami"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "cli -> core, features, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib._registration",
+        "agentware_lib.core.projectcontext"
+      ],
+      "layer": "cli",
+      "name": "agentware_lib.cli",
+      "not_owns": "the DOMAIN per-verb registrars or command handlers — those live in each owning agentware_lib module (see agentware_lib._registration for the module->verb map); whereami is the exception because it belongs to no domain layer. Nor the RESOLUTION whereami renders: the marker-driven project/repo walk is agentware_lib.core.projectcontext's, so the steering-capture auto-scope (a features-layer caller that must not import the cli leaf) reaches the same answer.",
+      "owns": "assemble_parser — building the argparse tree from the frozen registration tuple — PLUS the whereami verb (cmd_whereami + register_whereami), a self-contained CLI-lifecycle handler with no domain owner, homed with the assembler in the leaf per the target architecture (cli.py owns main() + cmd_whereami).",
+      "path": "scripts/agentware_lib/cli.py",
+      "test_file": "tests/unit/cli/test_cli.py"
+    },
+    {
+      "anchor_symbols": [
+        "AUTOCOMMIT_DEFAULT",
+        "AUTOCOMMIT_KEY",
+        "CLI_CLAUDE",
+        "CLI_CODEX",
+        "CLI_DEFAULT",
+        "CLI_KEY",
+        "CONFIG_KEY",
+        "CONFIG_PATHS",
+        "DREAM_DEFAULT",
+        "DREAM_KEY",
+        "DREAM_MAX_RUNTIME_DEFAULT",
+        "DREAM_MAX_RUNTIME_KEY",
+        "DREAM_SCHEDULE_KEY",
+        "EMBEDDER_BACKEND_KEY",
+        "EMBED_MODEL_DEFAULT",
+        "EMBED_MODEL_KEY",
+        "HOME_CONFIG",
+        "KB_MODE_DEFAULT",
+        "KB_MODE_KEY",
+        "KB_MODE_POWER",
+        "KB_MODE_TEAM",
+        "MODEL_KEY",
+        "PHASES",
+        "PUSH_DEFAULT",
+        "PUSH_KEY",
+        "REPO_CONFIG",
+        "RETRIEVAL_MODE_DEFAULT",
+        "RETRIEVAL_MODE_DETERMINISTIC",
+        "RETRIEVAL_MODE_KEY",
+        "RETRIEVAL_MODE_SEMANTIC",
+        "SKILL_PROPOSE_THRESHOLD_DEFAULT",
+        "SKILL_PROPOSE_THRESHOLD_KEY",
+        "USER_HANDLE_KEY",
+        "_AUTOCOMMIT_OFF_TOKENS",
+        "_AUTOCOMMIT_ON_TOKENS",
+        "_CLI_CLAUDE_TOKENS",
+        "_CLI_CODEX_TOKENS",
+        "_CONFIG_HOME",
+        "_DREAM_MAX_RUNTIME_OFF_TOKENS",
+        "_DREAM_OFF_TOKENS",
+        "_DREAM_ON_TOKENS",
+        "_KB_MODE_POWER_TOKENS",
+        "_KB_MODE_TEAM_TOKENS",
+        "_LOCAL_TOKENS",
+        "_RETRIEVAL_MODE_DETERMINISTIC_TOKENS",
+        "_RETRIEVAL_MODE_SEMANTIC_TOKENS"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.config.configresolve",
+        "agentware_lib.core.config.configvalidate"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.paths"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.config.configkeys",
+      "not_owns": "the resolvers that READ these keys (agentware_lib.core.config.",
+      "owns": "the config.env file locations (_CONFIG_HOME/HOME_CONFIG/REPO_CONFIG/",
+      "path": "scripts/agentware_lib/core/config/configkeys.py",
+      "test_file": "tests/unit/core/test_configkeys.py"
+    },
+    {
+      "anchor_symbols": [
+        "_read_config_key",
+        "_resolve_key_env_then_config",
+        "require_knowledge_dir",
+        "resolve_cli",
+        "resolve_kb_autocommit",
+        "resolve_kb_mode",
+        "resolve_kb_push",
+        "resolve_knowledge_dir",
+        "resolve_retrieval_mode",
+        "resolve_skill_propose_threshold"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.config.configkeys"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.config.configresolve",
+      "not_owns": "the key/default constants it resolves (agentware_lib.core.config.",
+      "owns": "the ONE resolution precedence every layer shares (env -> config.env",
+      "path": "scripts/agentware_lib/core/config/configresolve.py",
+      "test_file": "tests/unit/core/test_configresolve.py"
+    },
+    {
+      "anchor_symbols": [
+        "_parse_autocommit",
+        "_parse_autocommit_strict",
+        "_parse_cli",
+        "_parse_cli_strict",
+        "_parse_embed_model_strict",
+        "_parse_embedder_backend_strict",
+        "_parse_kb_mode",
+        "_parse_kb_mode_strict",
+        "_parse_retrieval_mode",
+        "_parse_retrieval_mode_strict",
+        "_parse_skill_propose_threshold"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.config.configkeys"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.config.configvalidate",
+      "not_owns": "the key/default/token-set constants it validates against",
+      "owns": "every raw-value VALIDATOR for a SETTINGS_AW setting, in both flavours —",
+      "path": "scripts/agentware_lib/core/config/configvalidate.py",
+      "test_file": "tests/unit/core/test_configvalidate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_CONFIG_HEADER",
+        "_persisted_knowledge_dir",
+        "_set_config_value",
+        "_unset_config_value",
+        "_write_config"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.config.configwrite",
+      "not_owns": "the file LOCATIONS it writes (agentware_lib.core.config.configkeys",
+      "owns": "every mutation of ~/.agentware/config.env — the standard file header",
+      "path": "scripts/agentware_lib/core/config/configwrite.py",
+      "test_file": "tests/unit/core/test_configwrite.py"
+    },
+    {
+      "anchor_symbols": [
+        "_entry_origin_team",
+        "_infer_team_from_kdir",
+        "_kdir_is_shared_root",
+        "_resolve_org_project",
+        "org_project_identity_error",
+        "resolve_org_project",
+        "resolve_org_root",
+        "resolve_org_team_dir",
+        "resolve_team"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.orgidentity",
+        "agentware_lib.core.orgkeys"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.config.orgresolve",
+      "not_owns": "the org KEY NAMES and layout constants (agentware_lib.core.orgkeys);",
+      "owns": "WHICH org identity the caller declared and where it lands on disk —",
+      "path": "scripts/agentware_lib/core/config/orgresolve.py",
+      "test_file": "tests/unit/core/test_orgresolve.py"
+    },
+    {
+      "anchor_symbols": [
+        "_is_valid_date",
+        "_today",
+        "utc_now_iso"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.features.curationcmd",
+        "agentware_lib.features.dream",
+        "agentware_lib.features.dreamjournal",
+        "agentware_lib.features.mcp",
+        "agentware_lib.features.proposals.proposalpromote",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.knowledge.curation.curationingest",
+        "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.knowledge.index.indexvalidate",
+        "agentware_lib.knowledge.index.indexwrite",
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.fleet.fleetreport",
+        "agentware_lib.ops.fleet.fleetshard",
+        "agentware_lib.ops.freshness",
+        "agentware_lib.ops.metrics.metricsemit",
+        "agentware_lib.ops.metricscmd",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.team",
+        "agentware_lib.retrieval.acr",
+        "agentware_lib.retrieval.bench.benchswe",
+        "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.recallcmd",
+        "agentware_lib.retrieval.regressiongate",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.dates",
+      "not_owns": "freshness / age math (entry_last_verified, date_age_days, freshness",
+      "owns": "the two pure, stdlib-only calendar-date primitives with high cross-domain",
+      "path": "scripts/agentware_lib/core/dates.py",
+      "test_file": "tests/unit/core/test_dates.py"
+    },
+    {
+      "anchor_symbols": [
+        "DEFAULT_ENTRY_SOURCE",
+        "FRONTMATTER_FIELDS",
+        "RELATION_TYPES",
+        "_FM_INDEX_SCALARS",
+        "_LEGACY_CATEGORY_RE",
+        "_LEGACY_CREATED_RE",
+        "_LEGACY_TAGS_RE",
+        "_entry_list_field",
+        "_fm_emit_scalar",
+        "_fm_emit_tag",
+        "_fm_needs_quote",
+        "_fm_parse_relate_token",
+        "_fm_parse_relates",
+        "_fm_parse_scalar",
+        "_fm_parse_tags",
+        "_fm_quote",
+        "_fm_split_inline_list",
+        "_operator_handle",
+        "_parse_legacy_header",
+        "build_entry_frontmatter",
+        "ensure_entry_frontmatter",
+        "read_entry_frontmatter",
+        "render_frontmatter",
+        "split_frontmatter",
+        "strip_frontmatter"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.curationcmd",
+        "agentware_lib.features.indexcmd",
+        "agentware_lib.features.proposals.proposalpromote",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.features.skills",
+        "agentware_lib.knowledge.curation.curationingest",
+        "agentware_lib.knowledge.curation.curationrender",
+        "agentware_lib.knowledge.graph",
+        "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.knowledge.index.indexvalidate",
+        "agentware_lib.knowledge.privacy",
+        "agentware_lib.knowledge.skillentry",
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.fleet.fleetreport",
+        "agentware_lib.ops.fleet.fleettemplates",
+        "agentware_lib.ops.orglint",
+        "agentware_lib.ops.planauthor.workstamp",
+        "agentware_lib.ops.staging",
+        "agentware_lib.retrieval.bench.benchledger",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.orgkeys"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.frontmatter",
+      "not_owns": "the index that CONSUMES frontmatter (agentware_lib.knowledge.index);",
+      "owns": "the deterministic, stdlib-only frontmatter EMIT + PARSE (render_frontmatter,",
+      "path": "scripts/agentware_lib/core/frontmatter.py",
+      "test_file": "tests/unit/core/test_frontmatter.py"
+    },
+    {
+      "anchor_symbols": [
+        "_git",
+        "_git_capture",
+        "_git_noninteractive_env",
+        "_git_upstream_name"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.dreamgit",
+        "agentware_lib.features.dreamsteps.stepkbgit",
+        "agentware_lib.features.dreamsteps.stepkbpull",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.fanoutmq.mqbranch",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.fanoutmq.mqteardown",
+        "agentware_lib.features.skills",
+        "agentware_lib.features.updatecmd",
+        "agentware_lib.ops.fleet.fleetshard",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.ops.staging",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.regressiongate"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.paths"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.gitio",
+      "not_owns": "any git WORKFLOW (pull/fetch/push/rebase/status/staging helpers stay",
+      "owns": "the low-level git subprocess runner(s) with high cross-domain fan-in.",
+      "path": "scripts/agentware_lib/core/gitio.py",
+      "test_file": "tests/unit/core/test_gitio.py"
+    },
+    {
+      "anchor_symbols": [
+        "GITIGNORE_REL",
+        "INDEX_REL",
+        "KB_GITIGNORE_CONTENT",
+        "KB_GITIGNORE_DIR_RULES",
+        "KB_GITIGNORE_MARKER",
+        "KB_GITIGNORE_REQUIRED",
+        "KB_INDEX_LOCK_REL",
+        "MAIN_REL",
+        "NON_INDEXED_DIRS",
+        "SENTINEL_REL",
+        "_ensure_kb_gitignore",
+        "_gitignore_rule_line",
+        "kb_pointable"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgidentity",
+        "agentware_lib.features.configcmd.cfgshow",
+        "agentware_lib.features.dreamgate",
+        "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.setupcmd",
+        "agentware_lib.knowledge.attach",
+        "agentware_lib.knowledge.index.indexlock",
+        "agentware_lib.knowledge.index.indexread",
+        "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.ops.team",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.kblayout",
+      "not_owns": "config.env values or knowledge-dir resolution (see agentware_lib.core.config),",
+      "owns": "the knowledge-dir-relative layout NAMES — the `.initialized` sentinel, the",
+      "path": "scripts/agentware_lib/core/kblayout.py",
+      "test_file": "tests/unit/core/test_kblayout.py"
+    },
+    {
+      "anchor_symbols": [
+        "PROJECT_MARKERS",
+        "PROJECT_MARKER_READ_BYTES",
+        "PROJECT_NAME_FILE",
+        "PROJECT_PRESENCE_MARKERS",
+        "PROJECT_ROOT_MARKERS",
+        "_PROJECT_MARKER_RE_CACHE",
+        "_dir_declares_project",
+        "_dir_has_project_marker",
+        "_project_marker_re",
+        "_read_marker"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.config.orgresolve",
+        "agentware_lib.core.projectcontext"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.orgidentity",
+      "not_owns": "WHERE the project root is relative to a starting directory — that",
+      "owns": "ALL project-marker knowledge — the STANDARD name-declaring marker table",
+      "path": "scripts/agentware_lib/core/orgidentity.py",
+      "test_file": "tests/unit/core/test_orgidentity.py"
+    },
+    {
+      "anchor_symbols": [
+        "ORG_DENYLIST_REL",
+        "ORG_FLEET_DIR",
+        "ORG_PROJECT_KEY",
+        "ORG_PROJECT_LEGACY_KEY",
+        "ORG_REGISTRY_REL",
+        "ORG_ROOT_KEY",
+        "ORG_SHARED_DIR",
+        "ORG_TEAMS_DIR",
+        "ORG_TEAM_KEY",
+        "_ORG_FRONTMATTER_FIELDS"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.config.orgresolve",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.features.configcmd.cfgorg",
+        "agentware_lib.ops.fleet.fleetguard",
+        "agentware_lib.ops.fleet.fleetshard",
+        "agentware_lib.ops.orglint",
+        "agentware_lib.ops.staging",
+        "agentware_lib.ops.team",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.orgkeys",
+      "not_owns": "the resolvers that READ these keys (resolve_org_root / resolve_team /",
+      "owns": "the org-mode env-var key names (AGENTWARE_ORG_ROOT / _TEAM / _PROJECT plus the",
+      "path": "scripts/agentware_lib/core/orgkeys.py",
+      "test_file": "tests/unit/core/test_orgkeys.py"
+    },
+    {
+      "anchor_symbols": [
+        "CLI_SELF",
+        "REPO_ROOT",
+        "_find_repo_root"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.config.configkeys",
+        "agentware_lib.core.gitio",
+        "agentware_lib.features.dreamsched",
+        "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.fanoutmq.mqteardown",
+        "agentware_lib.features.setupcmd",
+        "agentware_lib.features.skills",
+        "agentware_lib.features.updatecmd",
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.fleet.fleetshard",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.ops.metricscmd",
+        "agentware_lib.ops.releasegate",
+        "agentware_lib.ops.staging",
+        "agentware_lib.ops.steering",
+        "agentware_lib.retrieval.goldfixture",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.regressiongate"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.paths",
+      "not_owns": "config values or git runners — see agentware_lib.core.config and agentware_lib.core.gitio.",
+      "owns": "the REPO_ROOT marker-walk and the CLI_SELF entrypoint-path constant.",
+      "path": "scripts/agentware_lib/core/paths.py",
+      "test_file": "tests/unit/core/test_paths.py"
+    },
+    {
+      "anchor_symbols": [
+        "VCS_MARKERS",
+        "WHEREAMI_KEY_MIRRORS",
+        "_dir_is_vcs_root",
+        "_resolve_context",
+        "whereami_payload"
+      ],
+      "depended_on_by": [
+        "agentware_lib.cli"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [
+        "agentware_lib.core.orgidentity"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.projectcontext",
+      "not_owns": "WHICH files mark a project — that is marker knowledge and lives in",
+      "owns": "the marker-driven project/repo CONTEXT resolver — the VCS marker set",
+      "path": "scripts/agentware_lib/core/projectcontext.py",
+      "test_file": "tests/unit/core/test_projectcontext.py"
+    },
+    {
+      "anchor_symbols": [
+        "_normalize_user_handle",
+        "_parse_dream",
+        "_parse_dream_max_runtime",
+        "_parse_dream_schedule_strict",
+        "_parse_dream_strict",
+        "_parse_local",
+        "_parse_local_strict",
+        "_parse_model",
+        "_parse_model_strict",
+        "_phase_key",
+        "resolve_dream",
+        "resolve_dream_max_runtime",
+        "resolve_dream_schedule",
+        "resolve_embed_model",
+        "resolve_embedder_backend",
+        "resolve_phase_cli",
+        "resolve_phase_local",
+        "resolve_phase_model",
+        "resolve_user_handle"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgdream",
+        "agentware_lib.features.configcmd.cfgidentity",
+        "agentware_lib.features.configcmd.cfgphases",
+        "agentware_lib.features.configcmd.cfgretrieval",
+        "agentware_lib.features.configcmd.cfgshow",
+        "agentware_lib.features.curationcmd",
+        "agentware_lib.features.dream",
+        "agentware_lib.features.dreamsched",
+        "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.indexcmd",
+        "agentware_lib.features.proposals.proposalpromote",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.fleet.fleetguard",
+        "agentware_lib.ops.fleet.fleetshard",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.workstamp",
+        "agentware_lib.ops.team",
+        "agentware_lib.retrieval.hybrid",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "dependency_direction": "core -> (nothing above)",
+      "depends_on": [],
+      "layer": "core",
+      "name": "agentware_lib.core.routing",
+      "not_owns": "the setting KEY names/defaults/token-sets these resolvers READ, the",
+      "owns": "the per-phase (CLI/MODEL/LOCAL) routing resolvers (resolve_phase_cli/model/",
+      "path": "scripts/agentware_lib/core/routing.py",
+      "test_file": "tests/unit/core/test_routing.py"
+    },
+    {
+      "anchor_symbols": [
+        "_cli_only",
+        "_dream_max_runtime_only",
+        "_dream_only",
+        "_dream_schedule_only",
+        "_set_cli",
+        "_set_dream",
+        "_set_dream_max_runtime",
+        "_set_dream_schedule"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgroutes"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.routing"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgdream",
+      "not_owns": "the PER-PHASE cli/model/local overrides (--set-<phase>-<axis> /",
+      "owns": "the `config` handlers for the DREAM + RUNTIME-CLI family — --set-cli /",
+      "path": "scripts/agentware_lib/features/configcmd/cfgdream.py",
+      "test_file": "tests/unit/features/test_cfgdream.py"
+    },
+    {
+      "anchor_symbols": [
+        "_record_onboarding",
+        "_set_knowledge_dir",
+        "_set_skill_propose_threshold",
+        "_set_user_handle",
+        "_skill_propose_threshold_only",
+        "_user_handle_only"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgroutes"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.kblayout",
+        "agentware_lib.core.routing"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgidentity",
+      "not_owns": "the org-mode keys + workspace kb-mode (--set-org-root/--set-team/",
+      "owns": "the `config` handlers for the KNOWLEDGE-DIR POINTER + PROVENANCE family —",
+      "path": "scripts/agentware_lib/features/configcmd/cfgidentity.py",
+      "test_file": "tests/unit/features/test_cfgidentity.py"
+    },
+    {
+      "anchor_symbols": [
+        "_kb_autocommit_only",
+        "_kb_push_only",
+        "_set_autocommit",
+        "_set_push"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgroutes"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgkbgit",
+      "not_owns": "the git work-tree operations themselves -> agentware_lib.ops.kbgit /",
+      "owns": "the `config` handlers for the KB-GIT WRITE-BACK family — --set-autocommit /",
+      "path": "scripts/agentware_lib/features/configcmd/cfgkbgit.py",
+      "test_file": "tests/unit/features/test_cfgkbgit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_register_cli_flags",
+        "_register_dream_flags",
+        "_register_kb_mode_flags",
+        "_register_kbgit_flags",
+        "_register_org_flags",
+        "_register_pointer_flags",
+        "_register_provenance_flags",
+        "_register_retrieval_flags",
+        "cmd_config",
+        "register_config"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.configcmd.cfgroutes",
+        "agentware_lib.features.configcmd.cfgshow"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgmain",
+      "not_owns": "any handler BODY — each settings family lives in its own sibling",
+      "owns": "cmd_config (the SLIM route walker: resolve --format, take the FIRST",
+      "path": "scripts/agentware_lib/features/configcmd/cfgmain.py",
+      "test_file": "tests/unit/features/test_cfgmain.py"
+    },
+    {
+      "anchor_symbols": [
+        "_apply_org_writes",
+        "_handle_org",
+        "_kb_mode_only",
+        "_org_triggered",
+        "_render_org",
+        "_resolve_org_project",
+        "_set_kb_mode"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgroutes"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.orgkeys"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgorg",
+      "not_owns": "the direct knowledge-dir POINTER write (--set-knowledge-dir) or the",
+      "owns": "the `config` handlers for the ORG + KB-MODE family — --set-org-root /",
+      "path": "scripts/agentware_lib/features/configcmd/cfgorg.py",
+      "test_file": "tests/unit/features/test_cfgorg.py"
+    },
+    {
+      "anchor_symbols": [
+        "_handle_phase",
+        "_phase_triggered"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgroutes"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.routing"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgphases",
+      "not_owns": "the GLOBAL --set-cli / --cli-only (the un-phased default) -> the",
+      "owns": "the `config` handlers for the PER-PHASE ROUTING family",
+      "path": "scripts/agentware_lib/features/configcmd/cfgphases.py",
+      "test_file": "tests/unit/features/test_cfgphases.py"
+    },
+    {
+      "anchor_symbols": [
+        "_embed_model_only",
+        "_embedder_only",
+        "_retrieval_mode_only",
+        "_set_embed_model",
+        "_set_embedder",
+        "_set_mode",
+        "_set_retrieval_mode"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgroutes"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.routing",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgretrieval",
+      "not_owns": "the WORKSPACE --set-kb-mode / --kb-mode-only (a DIFFERENT `mode`)",
+      "owns": "the `config` handlers for the RETRIEVAL/EMBEDDING family — --set-mode and",
+      "path": "scripts/agentware_lib/features/configcmd/cfgretrieval.py",
+      "test_file": "tests/unit/features/test_cfgretrieval.py"
+    },
+    {
+      "anchor_symbols": [
+        "CONFIG_ROUTES",
+        "_flag",
+        "_opt"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgmain"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.configcmd.cfgdream",
+        "agentware_lib.features.configcmd.cfgidentity",
+        "agentware_lib.features.configcmd.cfgkbgit",
+        "agentware_lib.features.configcmd.cfgorg",
+        "agentware_lib.features.configcmd.cfgphases",
+        "agentware_lib.features.configcmd.cfgretrieval"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgroutes",
+      "not_owns": "any handler BODY — each lives in its settings-family sibling",
+      "owns": "CONFIG_ROUTES — the ORDER-BEARING (predicate, handler) table the `config`",
+      "path": "scripts/agentware_lib/features/configcmd/cfgroutes.py",
+      "test_file": "tests/unit/features/test_cfgroutes.py"
+    },
+    {
+      "anchor_symbols": [
+        "_render_json",
+        "_render_text",
+        "_resolve_view",
+        "_show_config",
+        "_view_lines"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgmain"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.kblayout",
+        "agentware_lib.core.routing",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgshow",
+      "not_owns": "any SETTER — each settings family lives in its own sibling",
+      "owns": "the TERMINAL view of the `config` verb — the read-only report every",
+      "path": "scripts/agentware_lib/features/configcmd/cfgshow.py",
+      "test_file": "tests/unit/features/test_cfgshow.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_decide",
+        "cmd_learn",
+        "register_decide",
+        "register_learn"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.routing",
+        "agentware_lib.retrieval.acr"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.curationcmd",
+      "not_owns": "the pure entry WRITERS/renderers (_render_learning /",
+      "owns": "the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide) and",
+      "path": "scripts/agentware_lib/features/curationcmd.py",
+      "test_file": "tests/unit/features/test_curationcmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_STALE_HOURS",
+        "_audit_dream_health_check",
+        "_dream_age_hours",
+        "_dream_cycle_outcome",
+        "_dream_last_cycle",
+        "_dream_last_cycle_ts",
+        "cmd_dream",
+        "register_dream"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.audit"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.routing",
+        "agentware_lib.features.dreamgate",
+        "agentware_lib.features.dreamjournal",
+        "agentware_lib.features.dreamsched"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dream",
+      "not_owns": "the cycle's collaborators, all reached DOWNWARD/SIDEWAYS via module",
+      "owns": "(1) the dream CYCLE DRIVER cmd_dream -- the Phase-1 orchestrator that runs",
+      "path": "scripts/agentware_lib/features/dream.py",
+      "test_file": "tests/unit/features/test_dream.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_LOAD_RATIO",
+        "DREAM_LOCK_REL",
+        "DREAM_LOCK_TTL_SEC",
+        "DREAM_SESSION_TTL_SEC",
+        "_dream_load_state",
+        "_dream_lock_path",
+        "_dream_pid_alive",
+        "_dream_read_lock",
+        "dream_acquire_lock",
+        "dream_gate_reason",
+        "dream_lock_is_stale",
+        "dream_release_lock",
+        "is_session_active"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dream"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.kblayout"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamgate",
+      "not_owns": "the maintenance STEPS + DREAM_STEP_FUNCS, the journal/metric/output",
+      "owns": "the dream CYCLE's admission control -- the lock/session/load constants",
+      "path": "scripts/agentware_lib/features/dreamgate.py",
+      "test_file": "tests/unit/features/test_dreamgate.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_JOURNAL_REL",
+        "_DREAM_METRIC_STEP_FIELDS",
+        "_dream_emit_metric",
+        "_dream_failure_log_rel",
+        "_dream_metric_step",
+        "_dream_output",
+        "_dream_render_journal_entry",
+        "_dream_skip_output",
+        "_dream_step_summary",
+        "_dream_write_failure_capture",
+        "_dream_write_journal"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dream"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamjournal",
+      "not_owns": "the maintenance STEPS + DREAM_STEP_FUNCS + _dream_parse_steps",
+      "owns": "the dream cycle's DETERMINISTIC OBSERVABILITY surface -- the",
+      "path": "scripts/agentware_lib/features/dreamjournal.py",
+      "test_file": "tests/unit/features/test_dreamjournal.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_CRON_REL",
+        "DREAM_LAUNCHD_LABEL",
+        "DREAM_NICE",
+        "_dream_cli_path",
+        "_dream_cron_line",
+        "_dream_install_schedule",
+        "_dream_launchd_plist",
+        "_dream_launchd_plist_path",
+        "_dream_schedule_hm",
+        "_dream_scheduler_log_path",
+        "_dream_uninstall_schedule"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dream",
+        "agentware_lib.features.dreamsteps.stephealthgate"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.paths",
+        "agentware_lib.core.routing"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsched",
+      "not_owns": "the dream CYCLE machinery (locks, gate, steps, journal, repoint, cmd_dream)",
+      "owns": "the opt-in nightly-schedule installer for dream mode -- the DREAM_NICE priority",
+      "path": "scripts/agentware_lib/features/dreamsched.py",
+      "test_file": "tests/unit/features/test_dreamsched.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_REPORT_REL",
+        "_dream_capture",
+        "_dream_file_fp",
+        "_dream_perf"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepaudit",
+        "agentware_lib.features.dreamsteps.stepbenchredact",
+        "agentware_lib.features.dreamsteps.stepdetectreport",
+        "agentware_lib.features.dreamsteps.stepevalrecord",
+        "agentware_lib.features.dreamsteps.stepindexrebuild",
+        "agentware_lib.features.dreamsteps.stepkbgit"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.dreamcapture",
+      "not_owns": "the hard-timeout git runner + the post-pull conflict check ->",
+      "owns": "the cycle's monotonic perf clock (_dream_perf) the driver times every step",
+      "path": "scripts/agentware_lib/features/dreamsteps/dreamcapture.py",
+      "test_file": "tests/unit/features/test_dreamcapture.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_PULL_TIMEOUT",
+        "_dream_pull_post_check",
+        "_git_timed"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepkbpull"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.dreamgit",
+      "not_owns": "the perf clock / capture harness / fingerprint / report path ->",
+      "owns": "the per-pull hard timeout budget (DREAM_PULL_TIMEOUT), the process-group",
+      "path": "scripts/agentware_lib/features/dreamsteps/dreamgit.py",
+      "test_file": "tests/unit/features/test_dreamgit.py"
+    },
+    {
+      "anchor_symbols": [
+        "DREAM_STEP_FUNCS",
+        "_dream_parse_steps"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.dreamsteps.stepaudit",
+        "agentware_lib.features.dreamsteps.stepbenchredact",
+        "agentware_lib.features.dreamsteps.stepdetectreport",
+        "agentware_lib.features.dreamsteps.stepevalrecord",
+        "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.dreamsteps.stepindexrebuild",
+        "agentware_lib.features.dreamsteps.stepkbgit",
+        "agentware_lib.features.dreamsteps.stepkbpull"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.registry",
+      "not_owns": "any step HANDLER -> dreamsteps.step<step> (one file per step); the",
+      "owns": "DREAM_STEP_FUNCS, the ORDER-BEARING tuple that binds each step id to its",
+      "path": "scripts/agentware_lib/features/dreamsteps/registry.py",
+      "test_file": "tests/unit/features/test_registry.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_audit_read_capture",
+        "_dream_audit_unittest_counts",
+        "_dream_step_audit"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.dreamsteps.dreamcapture",
+        "agentware_lib.ops.audit"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepaudit",
+      "not_owns": "cmd_audit or any individual audit check -> ops.audit; the capture",
+      "owns": "dream step \"c\" (_dream_step_audit) and the two named readers it decomposes",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepaudit.py",
+      "test_file": "tests/unit/features/test_stepaudit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_bench_redact"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry",
+        "agentware_lib.features.dreamsteps.stepevalrecord"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.dreamsteps.dreamcapture",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.scorecard"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepbenchredact",
+      "not_owns": "the redaction itself -> retrieval.bench; the ledger reader ->",
+      "owns": "dream step \"b\" (_dream_step_bench_redact) -- the ONE mutation the cycle",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepbenchredact.py",
+      "test_file": "tests/unit/features/test_stepbenchredact.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_render_conflicts_section",
+        "_dream_render_detect_report",
+        "_dream_render_markers_section",
+        "_dream_render_stale_section",
+        "_dream_step_detect_report",
+        "_dream_write_detect_report"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.dreamsteps.dreamcapture",
+        "agentware_lib.knowledge.worklog",
+        "agentware_lib.ops.freshness"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepdetectreport",
+      "not_owns": "the stale/conflict report builder -> ops.freshness; the worklog",
+      "owns": "dream step \"e\" (_dream_step_detect_report), the markdown renderer",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepdetectreport.py",
+      "test_file": "tests/unit/features/test_stepdetectreport.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_eval_record"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.dreamsteps.dreamcapture",
+        "agentware_lib.features.dreamsteps.stepbenchredact",
+        "agentware_lib.retrieval.acrgate",
+        "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.ledger"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepevalrecord",
+      "not_owns": "cmd_eval -> retrieval.evalcmd; the ledger reader ->",
+      "owns": "dream step \"d\" (_dream_step_eval_record) -- the single",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepevalrecord.py",
+      "test_file": "tests/unit/features/test_stepevalrecord.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_health_gate_checks",
+        "_dream_hg_check_config",
+        "_dream_hg_check_cron",
+        "_dream_hg_check_gitignore",
+        "_dream_hg_check_identity",
+        "_dream_hg_check_kb_structure",
+        "_dream_hg_check_kdir_drift",
+        "_dream_hg_check_rebase",
+        "_dream_hg_check_sentinel",
+        "_dream_hg_check_templates",
+        "_dream_step_health_gate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.kblayout",
+        "agentware_lib.core.paths",
+        "agentware_lib.core.routing",
+        "agentware_lib.features.dreamsched",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.staging"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stephealthgate",
+      "not_owns": "the KB-pull step whose pulls this converges after ->",
+      "owns": "dream step \"2\" (_dream_step_health_gate), the battery that drives it",
+      "path": "scripts/agentware_lib/features/dreamsteps/stephealthgate.py",
+      "test_file": "tests/unit/features/test_stephealthgate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_index_rebuild"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.features.dreamsteps.dreamcapture",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.staging",
+        "agentware_lib.retrieval.bm25"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepindexrebuild",
+      "not_owns": "rebuild_kb itself -> knowledge.index; the fingerprint primitive ->",
+      "owns": "dream step \"a\" (_dream_step_index_rebuild) -- the single call to",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepindexrebuild.py",
+      "test_file": "tests/unit/features/test_stepindexrebuild.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_kb_git"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.features.dreamsteps.dreamcapture",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.ops.staging"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepkbgit",
+      "not_owns": "the commit + push verbs it re-enters (cmd_kb_git_commit ->",
+      "owns": "dream step \"f\" (_dream_step_kb_git) -- the cycle's LAST step and its only",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepkbgit.py",
+      "test_file": "tests/unit/features/test_stepkbgit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_pull_head_sha",
+        "_dream_pull_offline_reason",
+        "_dream_pull_ok",
+        "_dream_pull_resolve_derived",
+        "_dream_pull_skip_reason",
+        "_dream_step_kb_pull"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.features.dreamsteps.dreamgit",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.staging"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepkbpull",
+      "not_owns": "the timeout runner + post-pull conflict check ->",
+      "owns": "dream step \"1\" (_dream_step_kb_pull) and the named helpers it decomposes",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepkbpull.py",
+      "test_file": "tests/unit/features/test_stepkbpull.py"
+    },
+    {
+      "anchor_symbols": [
+        "FANOUT_FEATURE_RE",
+        "FANOUT_GITATTR_BEGIN",
+        "FANOUT_GITATTR_END",
+        "FANOUT_MERGE_UNION_PATHS",
+        "_branch_exists",
+        "_count_open_plan_markers",
+        "_fanout_dir",
+        "_fanout_gitattributes_block",
+        "_fanout_lane_paths",
+        "_fanout_lanes_path",
+        "_fanout_provision_lane",
+        "_install_merge_policy",
+        "_lane_outcome",
+        "_resolve_repo_arg",
+        "_run_gate",
+        "_strip_managed_block",
+        "cmd_fanout_list",
+        "cmd_fanout_merge_policy",
+        "cmd_fanout_spin_up",
+        "load_lanes",
+        "save_lanes"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.fanoutmq.mqbranch",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.fanoutmq.mqteardown",
+        "agentware_lib.features.updatecmd"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.knowledge.worklog",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.planlint"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.fanout",
+      "not_owns": "the merge-queue + teardown orchestration (_is_ancestor / _ensure_integration_branch /",
+      "owns": "the fanout lane-registry primitives (load_lanes / save_lanes / _fanout_dir /",
+      "path": "scripts/agentware_lib/features/fanout.py",
+      "test_file": "tests/unit/features/test_fanout.py"
+    },
+    {
+      "anchor_symbols": [
+        "_ensure_integration_branch",
+        "_is_ancestor",
+        "_lane_repo_args",
+        "_lanes_common_repo",
+        "_merge_in_progress",
+        "_union_resolve_conflict"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.fanoutmq.mqteardown"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.features.fanout"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqbranch",
+      "not_owns": "the integration ENGINE that calls these predicates",
+      "owns": "the small, side-effect-bounded predicates and resolvers every merge-queue /",
+      "path": "scripts/agentware_lib/features/fanoutmq/mqbranch.py",
+      "test_file": "tests/unit/features/test_mqbranch.py"
+    },
+    {
+      "anchor_symbols": [
+        "FANOUT_APPEND_ONLY_PATHS",
+        "FANOUT_DEFAULT_GATES",
+        "_mq_emit",
+        "_mq_integrate_kb",
+        "_mq_integrate_package",
+        "cmd_fanout_merge_queue"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.fanoutmq.mqteardown"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.fanoutmq.mqbranch",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.ops.staging"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqintegrate",
+      "not_owns": "the branch/ancestry/lane-repo predicates it is built on",
+      "owns": "the mq-only constants (`FANOUT_APPEND_ONLY_PATHS` — the derived ledgers a",
+      "path": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py",
+      "test_file": "tests/unit/features/test_mqintegrate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_remove_worktree",
+        "_teardown_blocker",
+        "cmd_fanout_teardown",
+        "register_fanout"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.fanoutmq.mqbranch",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.ops.kbgit"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqteardown",
+      "not_owns": "the branch/ancestry/lane-repo predicates it is built on",
+      "owns": "the teardown SAFETY gate (`_teardown_blocker`, the refusal reason for an",
+      "path": "scripts/agentware_lib/features/fanoutmq/mqteardown.py",
+      "test_file": "tests/unit/features/test_mqteardown.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_index_add",
+        "cmd_index_migrate",
+        "cmd_index_rebuild",
+        "cmd_index_remove",
+        "cmd_index_sync",
+        "cmd_index_validate",
+        "register_index"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.routing",
+        "agentware_lib.knowledge.proposals",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.indexcmd",
+      "not_owns": "the index CRUD/validate/rebuild primitives (_do_add / save_index /",
+      "owns": "the six `index` sub-command handlers (cmd_index_add / cmd_index_remove /",
+      "path": "scripts/agentware_lib/features/indexcmd.py",
+      "test_file": "tests/unit/features/test_indexcmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "MCP_PROTOCOL_VERSION",
+        "MCP_QUERY_SELECTORS",
+        "MCP_RECALL_STRATEGIES",
+        "MCP_SERVER_NAME",
+        "MCP_SERVER_VERSION",
+        "MCP_SUPPORTED_PROTOCOL_VERSIONS",
+        "_McpInvalidParams",
+        "_mcp_envelope",
+        "_mcp_error",
+        "_mcp_handle_tools_call",
+        "_mcp_initialize",
+        "_mcp_query_lookup",
+        "_mcp_require_int",
+        "_mcp_require_str",
+        "_mcp_result",
+        "_mcp_tool_definitions",
+        "_mcp_tool_query",
+        "_mcp_tool_recall",
+        "cmd_mcp",
+        "handle_mcp_request",
+        "register_mcp"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.recallcmd"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.mcp",
+      "not_owns": "the canonical recall payload builder",
+      "owns": "the `mcp serve` command surface -- a stdlib-only (json + sys) JSON-RPC 2.0",
+      "path": "scripts/agentware_lib/features/mcp.py",
+      "test_file": "tests/unit/features/test_mcp.py"
+    },
+    {
+      "anchor_symbols": [
+        "_promote_frontmatter",
+        "cmd_skill_promote",
+        "register_skill"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.routing",
+        "agentware_lib.features.proposals.proposalreport",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.features.skills",
+        "agentware_lib.knowledge.proposals"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposalpromote",
+      "not_owns": "the read-only proposal-ledger + integrity reads (proposal_dir /",
+      "owns": "the human-gated PROMOTION half of the proposal lifecycle -- the frontmatter",
+      "path": "scripts/agentware_lib/features/proposals/proposalpromote.py",
+      "test_file": "tests/unit/features/test_proposalpromote.py"
+    },
+    {
+      "anchor_symbols": [
+        "RIPE_PROPOSALS_REPORT_REL",
+        "_proposal_refs",
+        "_proposal_rows",
+        "cmd_skill_proposals",
+        "write_ripe_proposals_report"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.proposals.proposalpromote"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.knowledge.proposals"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposalreport",
+      "not_owns": "the read-only proposal-ledger + integrity reads (proposal_dir /",
+      "owns": "the read-only REPORTING half of the proposal lifecycle -- the unique-ref",
+      "path": "scripts/agentware_lib/features/proposals/proposalreport.py",
+      "test_file": "tests/unit/features/test_proposalreport.py"
+    },
+    {
+      "anchor_symbols": [
+        "_SLUG_RE",
+        "_render_proposal_skill_md",
+        "_slug_token_set",
+        "_valid_proposal_slug",
+        "cmd_skill_propose",
+        "near_duplicate_proposal"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.proposals.proposalpromote"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.routing",
+        "agentware_lib.features.skills",
+        "agentware_lib.knowledge.proposals",
+        "agentware_lib.ops.freshness",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposeauthor",
+      "not_owns": "the read-only proposal-ledger + integrity reads (proposal_dir /",
+      "owns": "the create-or-increment AUTHORING half of the proposal lifecycle -- the slug",
+      "path": "scripts/agentware_lib/features/proposals/proposeauthor.py",
+      "test_file": "tests/unit/features/test_proposeauthor.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_init",
+        "cmd_profile",
+        "register_init",
+        "register_profile"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.kblayout",
+        "agentware_lib.core.paths"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.setupcmd",
+      "not_owns": "the config WRITERS (_write_config, *_KEY) -> agentware_lib.core.config;",
+      "owns": "cmd_init (scaffold the external knowledge dir + seed index + write config)",
+      "path": "scripts/agentware_lib/features/setupcmd.py",
+      "test_file": "tests/unit/features/test_setupcmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "SKILLS_CATALOG_PATH",
+        "_SKILL_PROSE_DANGER",
+        "_SKILL_SCRIPT_DANGER",
+        "_SKILL_TEXT_EXTS",
+        "_catalog_skill",
+        "_copy_skill_tree",
+        "_pinned_ref",
+        "_validate_skill_dir",
+        "cmd_skill_add",
+        "cmd_skill_list",
+        "cmd_skill_remove",
+        "cmd_skill_roster_injectable",
+        "cmd_skill_search",
+        "cmd_skill_validate",
+        "load_skill_catalog",
+        "read_skill_frontmatter",
+        "vet_skill_dir"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.proposals.proposalpromote",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.features.updatecmd",
+        "agentware_lib.knowledge.index.indexrebuild"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.knowledge.skillentry"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.skills",
+      "not_owns": "the skill PROPOSAL/PROMOTION lifecycle (-> agentware_lib.features.proposals)",
+      "owns": "the in-package authored skill catalog and the trusted-in-repo installer --",
+      "path": "scripts/agentware_lib/features/skills.py",
+      "test_file": "tests/unit/features/test_skills.py"
+    },
+    {
+      "anchor_symbols": [
+        "PKG_UPDATE_GATES",
+        "_catalog_skill_names_at_ref",
+        "cmd_update",
+        "register_update"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.skills",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.staging"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.updatecmd",
+      "not_owns": "the low-level git runner (_git) -> agentware_lib.core.gitio; REPO_ROOT",
+      "owns": "the `update` command handler (cmd_update) + its authored-catalog diff helper",
+      "path": "scripts/agentware_lib/features/updatecmd.py",
+      "test_file": "tests/unit/features/test_updatecmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "ATTACH_REQUIRED_DIRS",
+        "_attach_migrate_structure",
+        "attach_conformance_report",
+        "cmd_attach",
+        "register_attach"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.kblayout"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.attach",
+      "not_owns": "the index CRUD/validate/rebuild core (see agentware_lib.knowledge.index",
+      "owns": "the team-mode onboarding surface that ADOPTS an existing repo as the shared",
+      "path": "scripts/agentware_lib/knowledge/attach.py",
+      "test_file": "tests/unit/knowledge/test_attach.py"
+    },
+    {
+      "anchor_symbols": [
+        "_render_features",
+        "cmd_features",
+        "register_features"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationfeatures",
+      "not_owns": "the learning/decision RENDERERS + _topic_to_title/_slugify ->",
+      "owns": "the derived FEATURES.md surface — the pure category-grouped markdown",
+      "path": "scripts/agentware_lib/knowledge/curation/curationfeatures.py",
+      "test_file": "tests/unit/knowledge/test_curationfeatures.py"
+    },
+    {
+      "anchor_symbols": [
+        "INGEST_SOURCES",
+        "_ingest_candidate",
+        "_ingest_docs_adapter",
+        "_ingest_emit_metric",
+        "_ingest_existing_dedup",
+        "_ingest_extract_body",
+        "_ingest_fingerprint",
+        "_ingest_first_heading",
+        "_ingest_first_paragraph",
+        "_ingest_github_issues_adapter",
+        "_ingest_register",
+        "_ingest_validate",
+        "_ingest_write_staging",
+        "cmd_ingest",
+        "register_ingest"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.knowledge.curation.curationrender"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationingest",
+      "not_owns": "the learning/decision RENDERERS + _topic_to_title/_slugify ->",
+      "owns": "the whole deterministic INGEST pipeline and its `ingest` verb — the",
+      "path": "scripts/agentware_lib/knowledge/curation/curationingest.py",
+      "test_file": "tests/unit/knowledge/test_curationingest.py"
+    },
+    {
+      "anchor_symbols": [
+        "_render_decision_body",
+        "_render_learning",
+        "_slugify",
+        "_topic_to_title"
+      ],
+      "depended_on_by": [
+        "agentware_lib.knowledge.curation.curationingest"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationrender",
+      "not_owns": "the ingestion connector pipeline (`_ingest_*` + INGEST_SOURCES +",
+      "owns": "the deterministic entry RENDERERS every KB write path funnels through —",
+      "path": "scripts/agentware_lib/knowledge/curation/curationrender.py",
+      "test_file": "tests/unit/knowledge/test_curationrender.py"
+    },
+    {
+      "anchor_symbols": [
+        "_canonical_cycle",
+        "build_adjacency",
+        "cmd_query",
+        "find_cycles",
+        "graph_health",
+        "graph_relation_errors",
+        "graph_traverse",
+        "register_query"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.audit"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.graph",
+      "not_owns": "the `relates` token PARSE/vocab (agentware_lib.core.frontmatter:",
+      "owns": "the deterministic, read-only declared-edge graph reconstructed from each",
+      "path": "scripts/agentware_lib/knowledge/graph.py",
+      "test_file": "tests/unit/knowledge/test_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_acquire_flock",
+        "_index_lock",
+        "_index_lock_path",
+        "_lock_state",
+        "_release_flock"
+      ],
+      "depended_on_by": [
+        "agentware_lib.knowledge.index.indexrebuild"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.kblayout"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexlock",
+      "not_owns": "the atomic index writer (save_index) ->",
+      "owns": "the gitignored lockfile path helper (_index_lock_path) and the reentrant,",
+      "path": "scripts/agentware_lib/knowledge/index/indexlock.py",
+      "test_file": "tests/unit/knowledge/test_indexlock.py"
+    },
+    {
+      "anchor_symbols": [
+        "CATEGORIES",
+        "DECISIONS_REL",
+        "ENTRY_SCAN_SUBDIRS",
+        "FEATURES_REL",
+        "KNOWLEDGE_SUBDIRS",
+        "LEARNINGS_REL",
+        "REQUIRED_FIELDS",
+        "SKILLS_PROPOSED_DIR",
+        "SYNC_CATEGORY_RULES",
+        "SYNC_EXCLUDE_BASENAMES",
+        "_try_rebuild_missing_index",
+        "decisions_dir",
+        "entry_last_verified",
+        "features_path",
+        "index_path",
+        "indexed_paths",
+        "learnings_dir",
+        "load_index",
+        "parse_tags"
+      ],
+      "depended_on_by": [
+        "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.knowledge.index.indexvalidate",
+        "agentware_lib.knowledge.index.indexwrite"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.kblayout",
+        "agentware_lib.knowledge.index.indexrebuild"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexread",
+      "not_owns": "the index WRITE core (save_index/_do_add/_entry_key/",
+      "owns": "the KB-layout constants (LEARNINGS_REL/DECISIONS_REL/FEATURES_REL,",
+      "path": "scripts/agentware_lib/knowledge/index/indexread.py",
+      "test_file": "tests/unit/knowledge/test_indexread.py"
+    },
+    {
+      "anchor_symbols": [
+        "_apply_org_facet",
+        "_entry_title_summary",
+        "_frontmatter_row",
+        "_infer_category",
+        "_is_sync_candidate",
+        "_rebuild_kb_locked",
+        "_suggest_id",
+        "_suggest_title",
+        "build_index_from_frontmatter",
+        "rebuild_kb",
+        "scan_entry_files",
+        "scan_unindexed"
+      ],
+      "depended_on_by": [
+        "agentware_lib.knowledge.index.indexread"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.kblayout",
+        "agentware_lib.features.skills",
+        "agentware_lib.knowledge.index.indexlock",
+        "agentware_lib.knowledge.index.indexread",
+        "agentware_lib.knowledge.index.indexvalidate",
+        "agentware_lib.knowledge.index.indexwrite",
+        "agentware_lib.retrieval.bm25",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexrebuild",
+      "not_owns": "the layout constants + READ primitives (indexed_paths/features_path)",
+      "owns": "the entry-file collection + unindexed-gap scan and the id/title/category",
+      "path": "scripts/agentware_lib/knowledge/index/indexrebuild.py",
+      "test_file": "tests/unit/knowledge/test_indexrebuild.py"
+    },
+    {
+      "anchor_symbols": [
+        "_entry_identity_errors",
+        "_entry_optional_errors",
+        "_entry_required_errors",
+        "_entry_shape_errors",
+        "_index_parity_errors",
+        "_learning_template_errors",
+        "_project_template_errors",
+        "_render_roster",
+        "_roster_link",
+        "_skill_field_errors",
+        "_tag_map_backref_errors",
+        "_tag_map_forward_errors",
+        "_validate_entry_tag_errors",
+        "_validate_tag_map_errors",
+        "orphaned_learning_errors",
+        "roster_injection_errors",
+        "roster_is_injectable",
+        "tag_consistency_errors",
+        "template_conformance_errors",
+        "validate_index"
+      ],
+      "depended_on_by": [
+        "agentware_lib.knowledge.index.indexrebuild"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.knowledge.index.indexread"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexvalidate",
+      "not_owns": "the layout constants + READ primitives ->",
+      "owns": "the index structural validator (validate_index + its per-entry/tag-map",
+      "path": "scripts/agentware_lib/knowledge/index/indexvalidate.py",
+      "test_file": "tests/unit/knowledge/test_indexvalidate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_do_add",
+        "_entry_key",
+        "_replace_mode",
+        "add_tags_to_map",
+        "insert_entry_sorted",
+        "remove_tags_from_map",
+        "save_index"
+      ],
+      "depended_on_by": [
+        "agentware_lib.knowledge.index.indexrebuild"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.knowledge.index.indexread"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexwrite",
+      "not_owns": "the layout constants + READ primitives (load_index/indexed_paths/",
+      "owns": "the canonical index.json writer (save_index, incl. the F2",
+      "path": "scripts/agentware_lib/knowledge/index/indexwrite.py",
+      "test_file": "tests/unit/knowledge/test_indexwrite.py"
+    },
+    {
+      "anchor_symbols": [
+        "PERSONAL_SCAN_EXCLUDE_DIRS",
+        "_EMAIL_RE",
+        "_GENERIC_HANDLES",
+        "_operator_email",
+        "_package_files",
+        "operator_identity_strings",
+        "scan_personal_data"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.audit",
+        "agentware_lib.retrieval.ledger"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.privacy",
+      "not_owns": "the operator handle PARSE (agentware_lib.core.frontmatter:",
+      "owns": "the read-only personal-data scan that keeps operator identity out of the",
+      "path": "scripts/agentware_lib/knowledge/privacy.py",
+      "test_file": "tests/unit/knowledge/test_privacy.py"
+    },
+    {
+      "anchor_symbols": [
+        "PROPOSAL_LEDGER_NAME",
+        "_malformed_ledger_lines",
+        "_stored_proposal_count",
+        "existing_proposal_slugs",
+        "proposal_count",
+        "proposal_dir",
+        "proposal_integrity_errors",
+        "proposal_ledger_path",
+        "read_proposal_ledger"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.indexcmd",
+        "agentware_lib.features.proposals.proposalpromote",
+        "agentware_lib.features.proposals.proposalreport",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.knowledge.worklog"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.proposals",
+      "not_owns": "the proposal WRITE / lifecycle (create-or-increment ledger append,",
+      "owns": "the READ-ONLY skill-proposal staging surface — the append-only",
+      "path": "scripts/agentware_lib/knowledge/proposals.py",
+      "test_file": "tests/unit/knowledge/test_proposals.py"
+    },
+    {
+      "anchor_symbols": [
+        "SKILL_DEFAULT_TAGS",
+        "SKILL_SUMMARY_FALLBACK",
+        "SKILL_SUMMARY_MAX",
+        "_skill_summary",
+        "skill_entry_id",
+        "skill_md_path",
+        "skill_register_entry",
+        "skill_unregister_entry"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.skills"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.skillentry",
+      "not_owns": "the authored-skill catalog, the SKILL.md frontmatter reader, the",
+      "owns": "the TWO index read-modify-write critical sections the `skill` verb performs",
+      "path": "scripts/agentware_lib/knowledge/skillentry.py",
+      "test_file": "tests/unit/knowledge/test_skillentry.py"
+    },
+    {
+      "anchor_symbols": [
+        "DECISION_RE",
+        "LEARNED_RE",
+        "PROMOTED_RE",
+        "_category_stems",
+        "_is_promoted",
+        "_learned_real_ids",
+        "_real_ids",
+        "cmd_worklog_scan",
+        "decision_stems",
+        "learning_stems",
+        "promoted_ids",
+        "register_worklog",
+        "scan_worklog",
+        "skill_promotion_ids"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepdetectreport",
+        "agentware_lib.features.fanout",
+        "agentware_lib.ops.alerts",
+        "agentware_lib.ops.failureladder"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.knowledge.proposals"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.worklog",
+      "not_owns": "the index CRUD/load or category-dir constants (see",
+      "owns": "the completion-gate worklog scanner — the LEARNED/DECISION/PROMOTED marker",
+      "path": "scripts/agentware_lib/knowledge/worklog.py",
+      "test_file": "tests/unit/knowledge/test_worklog.py"
+    },
+    {
+      "anchor_symbols": [
+        "_ALERT_DEEP_LINKS",
+        "_ALERT_NDCG_CRIT",
+        "_ALERT_NDCG_WARN",
+        "_ALERT_RELIABILITY_CRIT",
+        "_ALERT_RELIABILITY_WARN",
+        "_ALERT_SCALING_SLOPE_THRESHOLD",
+        "_ALERT_SEVERITY_RANK",
+        "_LOOP_STATUS_TO_ALERT",
+        "_alert",
+        "_alerts_cost",
+        "_alerts_kb",
+        "_alerts_loop",
+        "_alerts_regression",
+        "_alerts_scaling",
+        "_alerts_unpromoted",
+        "_ols_slope",
+        "_worst_alert_severity",
+        "derive_alerts"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.fleet.fleetreport"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.knowledge.worklog",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.freshness",
+        "agentware_lib.ops.loopanalytics",
+        "agentware_lib.ops.loophealth",
+        "agentware_lib.retrieval.ledger"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.alerts",
+      "not_owns": "loop feature discovery/throughput (ops.loopanalytics), the",
+      "owns": "the pure, read-only (INV-2) alerts primitives derived from the SAME sources",
+      "path": "scripts/agentware_lib/ops/alerts.py",
+      "test_file": "tests/unit/ops/test_alerts.py"
+    },
+    {
+      "anchor_symbols": [
+        "_append_graph_health_metric",
+        "_audit_bm25_cache_check",
+        "_audit_gate_check",
+        "_audit_graph_integrity_check",
+        "_audit_mode_b_health_check",
+        "_audit_personal_data_check",
+        "_audit_provenance_coverage_check",
+        "_audit_steering_lint_check",
+        "_audit_tests_check",
+        "cmd_audit",
+        "provenance_coverage",
+        "register_audit"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepaudit"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.paths",
+        "agentware_lib.core.routing",
+        "agentware_lib.features.dream",
+        "agentware_lib.knowledge.graph",
+        "agentware_lib.knowledge.privacy",
+        "agentware_lib.ops.freshness",
+        "agentware_lib.ops.steering",
+        "agentware_lib.retrieval.bm25",
+        "agentware_lib.retrieval.corpus",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.scorecard",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.audit",
+      "not_owns": "the dream-health check + its heartbeat closure (-> features.dream,",
+      "owns": "the one-pass consistency audit -- cmd_audit + every _audit_* check EXCEPT",
+      "path": "scripts/agentware_lib/ops/audit.py",
+      "test_file": "tests/unit/ops/test_audit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_STAGE_TO_PHASE",
+        "_TERMINAL_OUTCOMES",
+        "_cache_read_per_turn",
+        "_phase_for_stage",
+        "_plan_marker_status_counts",
+        "derive_agent_activity",
+        "derive_agents",
+        "derive_authoring",
+        "derive_context_tax",
+        "derive_iteration_costs",
+        "derive_outcome",
+        "derive_phase_costs",
+        "derive_plan_authoring",
+        "derive_plan_size"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.alerts",
+        "agentware_lib.ops.failureladder",
+        "agentware_lib.ops.loopanalytics",
+        "agentware_lib.ops.loophealth",
+        "agentware_lib.ops.metricscmd"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.planlint",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.derive",
+      "not_owns": "the plan-lint ENFORCEMENT regexes/linter themselves (-> ops.planlint,",
+      "owns": "the PLAN-FREE derive_* reporting family -- the deterministic report",
+      "path": "scripts/agentware_lib/ops/derive.py",
+      "test_file": "tests/unit/ops/test_derive.py"
+    },
+    {
+      "anchor_symbols": [
+        "_FAIL_KB_SIGNATURES",
+        "_FAIL_LADDER_TIERS",
+        "_FAIL_WEB_TOOLS",
+        "_classify_recovery",
+        "_fail_step_is_kb_lookup",
+        "_fail_step_is_web",
+        "_failure_marker_tally",
+        "derive_failures"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.knowledge.worklog",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.looptrace"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.failureladder",
+      "not_owns": "the alerts primitives (ops.alerts), loop",
+      "owns": "the pure, read-only (INV-2) failure-ladder classification primitives -- the",
+      "path": "scripts/agentware_lib/ops/failureladder.py",
+      "test_file": "tests/unit/ops/test_failureladder.py"
+    },
+    {
+      "anchor_symbols": [
+        "INJECTION_MARKERS",
+        "ORG_CONFLICT_MARKER_RE",
+        "_is_curator",
+        "_org_read_denylist",
+        "guard_shared_write"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.core.routing",
+        "agentware_lib.ops.fleet.fleetshard"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetguard",
+      "not_owns": "the org-root resolution and the committed telemetry sink it",
+      "owns": "the shared-write governance guard (wave-6 seam 3) -- guard_shared_write,",
+      "path": "scripts/agentware_lib/ops/fleet/fleetguard.py",
+      "test_file": "tests/unit/ops/test_fleetguard.py"
+    },
+    {
+      "anchor_symbols": [
+        "FLEET_IMPACT_FLOOR_N",
+        "_fleet_top_learning_tags",
+        "cmd_fleet",
+        "register_fleet"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.ops.alerts",
+        "agentware_lib.ops.fleet.fleetshard"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetreport",
+      "not_owns": "the sink itself -- the shard paths, the tolerant reader and the",
+      "owns": "the deterministic fleet observability REPORT surface -- cmd_fleet (the",
+      "path": "scripts/agentware_lib/ops/fleet/fleetreport.py",
+      "test_file": "tests/unit/ops/test_fleetreport.py"
+    },
+    {
+      "anchor_symbols": [
+        "FLEET_TERMINAL_REQUIRED",
+        "LOOP_OUTCOME_ENUM",
+        "_fleet_dir_for",
+        "_fleet_org_root",
+        "cmd_fleet_emit",
+        "fleet_read_all",
+        "fleet_shard_path",
+        "register_fleet_emit",
+        "resolve_steering_sha"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.fleet.fleetguard",
+        "agentware_lib.ops.fleet.fleetreport"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.core.paths",
+        "agentware_lib.core.routing"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetshard",
+      "not_owns": "the shared-write governance guard + the org-lint injection/conflict",
+      "owns": "the steering-version join key (resolve_steering_sha -- git HEAD, else a",
+      "path": "scripts/agentware_lib/ops/fleet/fleetshard.py",
+      "test_file": "tests/unit/ops/test_fleetshard.py"
+    },
+    {
+      "anchor_symbols": [
+        "SKILL_TEMPLATE_FM",
+        "TEMPLATE_ORG_FM",
+        "TEMPLATE_REQUIRED_FM",
+        "_template_kind",
+        "cmd_templates_lint",
+        "lint_templates",
+        "register_templates"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleettemplates",
+      "not_owns": "the committed telemetry sink (agentware_lib.ops.fleet.fleetshard);",
+      "owns": "the per-team template-contract lint (feature 260721 follow-up, R-ORG-09) --",
+      "path": "scripts/agentware_lib/ops/fleet/fleettemplates.py",
+      "test_file": "tests/unit/ops/test_fleettemplates.py"
+    },
+    {
+      "anchor_symbols": [
+        "VOLATILE_CATEGORIES",
+        "_CONFLICT_JACCARD",
+        "_print_stale_report",
+        "build_stale_report",
+        "conflict_pairs",
+        "stale_entries"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepdetectreport",
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.ops.alerts",
+        "agentware_lib.ops.audit"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.freshness",
+      "not_owns": "the `audit` command that CONSUMES this report -- cmd_audit + the _audit_*",
+      "owns": "the advisory freshness + conflict-detection domain (Phase 2.2): the volatile-",
+      "path": "scripts/agentware_lib/ops/freshness.py",
+      "test_file": "tests/unit/ops/test_freshness.py"
+    },
+    {
+      "anchor_symbols": [
+        "_sanitize_commit_tag",
+        "cmd_kb_git_status",
+        "git_changed_paths",
+        "git_has_upstream",
+        "git_is_clean",
+        "git_is_work_tree",
+        "git_status",
+        "git_toplevel"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.dreamsteps.stepindexrebuild",
+        "agentware_lib.features.dreamsteps.stepkbgit",
+        "agentware_lib.features.dreamsteps.stepkbpull",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.fanoutmq.mqteardown",
+        "agentware_lib.features.updatecmd",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.ops.staging"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbgit",
+      "not_owns": "the scoped-staging engine + commit/pull workflow (agentware_lib.ops.staging,",
+      "owns": "the read-only git work-tree STATE queries the conflict-safe KB sync is built on",
+      "path": "scripts/agentware_lib/ops/kbgit.py",
+      "test_file": "tests/unit/ops/test_kbgit.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_kb_git_merge_continue",
+        "cmd_kb_git_push",
+        "kb_git_merge_continue",
+        "kb_git_push_once",
+        "kb_git_push_synced",
+        "kb_nothing_lost_gate",
+        "register_kb_git"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepkbgit",
+        "agentware_lib.features.fanoutmq.mqintegrate"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.ops.staging"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbsync",
+      "not_owns": "the scoped-staging engine + commit/pull workflow + push/entry-id/backoff",
+      "owns": "the deterministic, agent-free KB-git PUSH/MERGE workflow (feature 260625-kb-git-sync,",
+      "path": "scripts/agentware_lib/ops/kbsync.py",
+      "test_file": "tests/unit/ops/test_kbsync.py"
+    },
+    {
+      "anchor_symbols": [
+        "_LOOP_PHASES",
+        "_loop_analytics_for_feature",
+        "_normalize_phase",
+        "derive_loop_analytics",
+        "derive_loop_throughput",
+        "list_loop_features"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.alerts",
+        "agentware_lib.ops.loophealth",
+        "agentware_lib.ops.looptrace"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.derive"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.loopanalytics",
+      "not_owns": "the trace family (ops.looptrace), loop-health (ops.loophealth), alerts",
+      "owns": "the loop-domain leaf primitives that nothing else loop-domain sits below —",
+      "path": "scripts/agentware_lib/ops/loopanalytics.py",
+      "test_file": "tests/unit/ops/test_loopanalytics.py"
+    },
+    {
+      "anchor_symbols": [
+        "_LOOP_HEALTH_CONTEXT_WARN",
+        "_LOOP_HEALTH_DUP_THRESHOLD",
+        "_LOOP_HEALTH_MAXITER_WARN",
+        "_LOOP_HEALTH_NOPROGRESS_K",
+        "_LOOP_HEALTH_SEVERITY",
+        "_longest_flat_run",
+        "_loop_health_burn_check",
+        "_loop_health_context_check",
+        "_loop_health_dup_check",
+        "_loop_health_for_feature",
+        "_loop_health_progress_check",
+        "_worst_status",
+        "derive_loop_health"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.alerts"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.loopanalytics",
+        "agentware_lib.ops.looptrace"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.loophealth",
+      "not_owns": "loop feature discovery/throughput + per-feature analytics",
+      "owns": "the pure, read-only runaway-detection primitives (INV-2) --",
+      "path": "scripts/agentware_lib/ops/loophealth.py",
+      "test_file": "tests/unit/ops/test_loophealth.py"
+    },
+    {
+      "anchor_symbols": [
+        "_iteration_for_ts",
+        "_main_tooluse_token_shares",
+        "_main_tooluse_token_shares_uncached",
+        "_trace_io",
+        "_trace_iteration_windows",
+        "_trace_session_dirs",
+        "_trace_steps_for_session",
+        "_trace_steps_for_session_uncached",
+        "derive_trace"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.failureladder",
+        "agentware_lib.ops.loophealth"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.loopanalytics"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.looptrace",
+      "not_owns": "loop feature discovery / phase normalization (ops.loopanalytics --",
+      "owns": "the deterministic, read-only per-session trace derivation —",
+      "path": "scripts/agentware_lib/ops/looptrace.py",
+      "test_file": "tests/unit/ops/test_looptrace.py"
+    },
+    {
+      "anchor_symbols": [
+        "_AGENT_ACTIVE_WINDOW_S",
+        "_UNATTRIBUTED",
+        "_agent_session_view",
+        "_group_events_by_feature",
+        "_is_noise_session",
+        "_session_matched_features",
+        "aggregate_metrics",
+        "build_session_index",
+        "resolve_session_identity"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricsaggregate",
+      "not_owns": "pricing, the cost/day/feature rollups, the p50 helper _median and the",
+      "owns": "the deterministic, read-only fold over parsed session rows and the identity",
+      "path": "scripts/agentware_lib/ops/metrics/metricsaggregate.py",
+      "test_file": "tests/unit/ops/test_metricsaggregate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_read_metrics_jsonl",
+        "emit_onboarding_metric"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricsemit",
+      "not_owns": "pricing, the cost/day/feature rollups and context-window sizing (the",
+      "owns": "both ends of the append-only loop-emission channel logs/metrics.jsonl --",
+      "path": "scripts/agentware_lib/ops/metrics/metricsemit.py",
+      "test_file": "tests/unit/ops/test_metricsemit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_CONTEXT_WINDOW_1M",
+        "_COST_ANOMALY_FACTOR",
+        "_COST_ANOMALY_MIN_HISTORY",
+        "_DEFAULT_CONTEXT_WINDOW",
+        "_DEFAULT_PRICES",
+        "_PRICE_COMPONENT",
+        "_TRUNCATION_RISK_THRESHOLD",
+        "_context_window_for_rows",
+        "_cost_record",
+        "_finalize_record",
+        "_median",
+        "_model_context_window",
+        "_price_for",
+        "_usage_cost",
+        "apply_pricing",
+        "load_price_table"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricspricing",
+      "not_owns": "cross-session aggregation + session identity (the sibling",
+      "owns": "the deterministic, read-only COST layer over parsed session rows --",
+      "path": "scripts/agentware_lib/ops/metrics/metricspricing.py",
+      "test_file": "tests/unit/ops/test_metricspricing.py"
+    },
+    {
+      "anchor_symbols": [
+        "DASHBOARD_SERVER",
+        "_fmt_duration",
+        "_print_metrics_text",
+        "cmd_dashboard",
+        "cmd_metrics",
+        "register_dashboard",
+        "register_metrics"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.paths",
+        "agentware_lib.ops.derive"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.metricscmd",
+      "not_owns": "the metrics COMPUTE itself (agentware_lib.ops.metrics --",
+      "owns": "the two CLI surfaces over the metrics COMPUTE layer -- cmd_metrics (the",
+      "path": "scripts/agentware_lib/ops/metricscmd.py",
+      "test_file": "tests/unit/ops/test_metricscmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_org_lint",
+        "lint_org",
+        "register_org"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.ops.staging",
+        "agentware_lib.ops.team"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.orglint",
+      "not_owns": "the fleet telemetry/reporter + the injection/conflict CONSTANTS and helpers",
+      "owns": "the read-only org-invariant linter lint_org -- the O1..O13",
+      "path": "scripts/agentware_lib/ops/orglint.py",
+      "test_file": "tests/unit/ops/test_orglint.py"
+    },
+    {
+      "anchor_symbols": [
+        "_PLAN_STATUS_GLYPH",
+        "_atomic_write",
+        "_load_plan_for_edit",
+        "_plan_marker_indices",
+        "_plan_path",
+        "_plan_promise",
+        "_plan_renumber",
+        "_plan_skeleton",
+        "cmd_plan_add_task",
+        "cmd_plan_new",
+        "cmd_plan_set_status",
+        "cmd_plan_target_dirs",
+        "register_plan"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.routing",
+        "agentware_lib.ops.planlint"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.planedit",
+      "not_owns": "the work-artifact team/author STAMPING family (_WORK_TEAM_STAMP_RE /",
+      "owns": "the GENERATION half of the plan toolkit (feature 260625-plan-authoring-toolkit) --",
+      "path": "scripts/agentware_lib/ops/planauthor/planedit.py",
+      "test_file": "tests/unit/ops/test_planedit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_WORK_TEAM_STAMP_RE",
+        "_ensure_work_frontmatter",
+        "_is_derived_roster",
+        "_stamp_work_artifact",
+        "cmd_work_stamp",
+        "register_work"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.routing"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.workstamp",
+      "not_owns": "the plan-authoring GENERATION half (_plan_skeleton / _plan_promise /",
+      "owns": "the work-artifact team/author STAMPING family (feature 260721 org provenance) --",
+      "path": "scripts/agentware_lib/ops/planauthor/workstamp.py",
+      "test_file": "tests/unit/ops/test_workstamp.py"
+    },
+    {
+      "anchor_symbols": [
+        "PLAN_TASK_MARKER_RE",
+        "_PLAN_CHECKBOX_RE",
+        "_PLAN_HEADING_RE",
+        "_PLAN_LETTERED_RE",
+        "_PLAN_MARKER_HINT",
+        "_PLAN_OPEN_MARKER_PY",
+        "_PLAN_PROMISE_RE",
+        "_PLAN_R7_TOKENS",
+        "_PLAN_R9_BLOCKING",
+        "_PLAN_R9_CARVEOUT",
+        "_PLAN_TARGET_PATH_RE",
+        "_PLAN_TARGET_SECTION_RE",
+        "_PLAN_TASK_LINE_RE",
+        "_PLAN_VERIFY_NONEMPTY_RE",
+        "_PLAN_VERIFY_RE",
+        "_check_task_numbering",
+        "_emit_plan_lint",
+        "_parse_task_number",
+        "_posix_ere_to_python",
+        "cmd_plan_lint",
+        "lint_plan",
+        "plan_target_dirs"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.fanout",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.planauthor.planedit"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planlint",
+      "not_owns": "plan AUTHORING -- the deterministic writers skeleton/new/add-task/set-status/",
+      "owns": "the plan-lint ENFORCEMENT half of the plan toolkit (feature 260625-plan-lint-gate).",
+      "path": "scripts/agentware_lib/ops/planlint.py",
+      "test_file": "tests/unit/ops/test_planlint.py"
+    },
+    {
+      "anchor_symbols": [
+        "_gate1_content_lint",
+        "_gate2_full",
+        "_gate2_lite_gold_fixture",
+        "_gate3_reliability_delta",
+        "_gate4_swe_task",
+        "cmd_gate_release",
+        "register_gate"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.paths",
+        "agentware_lib.ops.steering",
+        "agentware_lib.retrieval.goldfixture",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.regressiongate"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.releasegate",
+      "not_owns": "the domains it CONSUMES downward -- the steering DSF lint",
+      "owns": "the release-gate harness (feature 260630-release-gate) that prevents",
+      "path": "scripts/agentware_lib/ops/releasegate.py",
+      "test_file": "tests/unit/ops/test_releasegate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_CACHE_MISS",
+        "_READ_CACHE",
+        "_READ_CACHE_LOCK",
+        "_READ_CACHE_MAX",
+        "_cached_by_key",
+        "_cached_text",
+        "_duration_seconds",
+        "_file_key",
+        "_multi_file_key",
+        "_parse_iso",
+        "_reset_read_cache"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.sessionparse.sessionread",
+        "agentware_lib.ops.sessionparse.sessionusage"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessioncache",
+      "not_owns": "the JSONL transcript aggregator, the transcript regexes, the",
+      "owns": "the bounded thread-safe LRU read cache (_READ_CACHE + _READ_CACHE_LOCK +",
+      "path": "scripts/agentware_lib/ops/sessionparse/sessioncache.py",
+      "test_file": "tests/unit/ops/test_sessioncache.py"
+    },
+    {
+      "anchor_symbols": [
+        "LOGS_SESSIONS_REL",
+        "_dominant_feature",
+        "_parse_session_uncached",
+        "_session_feature_match",
+        "classify_stage",
+        "collect_sessions",
+        "logs_sessions_dir",
+        "parse_session"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.sessionparse.sessioncache",
+        "agentware_lib.ops.sessionparse.sessionusage"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessionread",
+      "not_owns": "the (mtime_ns,size)-keyed single-instance LRU read cache, the file",
+      "owns": "the sessions-dir resolver (LOGS_SESSIONS_REL/logs_sessions_dir), the pure",
+      "path": "scripts/agentware_lib/ops/sessionparse/sessionread.py",
+      "test_file": "tests/unit/ops/test_sessionread.py"
+    },
+    {
+      "anchor_symbols": [
+        "_FEATURE_RE",
+        "_INPUT_SIDE_KEYS",
+        "_PLAN_DOC_RE",
+        "_PLAN_PATH_RE",
+        "_PROMISE_RE",
+        "_STAGE_LOOP_RE",
+        "_STAGE_PLAN_SIGNALS",
+        "_STAGE_WORK_SIGNALS",
+        "_USAGE_KEYS",
+        "_cache_read_ratio",
+        "_empty_usage",
+        "_merge_models",
+        "_merge_tools",
+        "_merge_usage",
+        "aggregate_jsonl"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.sessionparse.sessionread"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.sessionparse.sessioncache"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessionusage",
+      "not_owns": "the (mtime_ns,size)-keyed LRU read cache, the file-identity keys and",
+      "owns": "the deterministic aggregation of ONE raw JSONL transcript file into a metric",
+      "path": "scripts/agentware_lib/ops/sessionparse/sessionusage.py",
+      "test_file": "tests/unit/ops/test_sessionusage.py"
+    },
+    {
+      "anchor_symbols": [
+        "COMMIT_MSG_RE",
+        "COMMIT_SUBJECT_MAX",
+        "COMMIT_TOPICS_LIMIT",
+        "KB_BLOB_MAX_BYTES",
+        "KB_PUSH_MAX_RETRIES",
+        "RC_REPUSH_RACE",
+        "_KB_PUSH_BACKOFF_BASE",
+        "_KB_PUSH_BACKOFF_CAP",
+        "_KB_STAGE_REJECT_EXTS",
+        "_format_topics_label",
+        "_is_derived_rel",
+        "_is_derived_rel_scoped",
+        "_kb_push_backoff_delay",
+        "_push_was_rejected",
+        "_strip_rel_prefix",
+        "_truncate_subject",
+        "cmd_kb_git_commit",
+        "cmd_kb_git_pull",
+        "file_has_conflict_markers",
+        "git_entry_ids_at_ref",
+        "git_fetch",
+        "git_pull_ff",
+        "git_push",
+        "git_rebase_in_progress",
+        "git_unmerged_paths",
+        "kb_changed_knowledge_topics",
+        "kb_entry_ids",
+        "kb_git_stage_allowlist",
+        "kb_rel_prefix"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.dreamsteps.stepindexrebuild",
+        "agentware_lib.features.dreamsteps.stepkbgit",
+        "agentware_lib.features.dreamsteps.stepkbpull",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.updatecmd",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.ops.orglint"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.core.paths",
+        "agentware_lib.ops.kbgit"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.staging",
+      "not_owns": "the nothing-lost gate kb_nothing_lost_gate and the push/merge orchestration",
+      "owns": "the cross-team-write-isolation scoped-staging engine -- the",
+      "path": "scripts/agentware_lib/ops/staging.py",
+      "test_file": "tests/unit/ops/test_staging.py"
+    },
+    {
+      "anchor_symbols": [
+        "DSF_BANNED_WORDS",
+        "DSF_BULLET_RE",
+        "DSF_RULE_ID_RE",
+        "DSF_VERBS",
+        "REQUIRED_RULE_IDS",
+        "REQUIRED_SECTIONS",
+        "RULE_COUNT_REGRESSION_MARGIN",
+        "STEERING_CHAR_BUDGET",
+        "STEERING_EXPLICIT",
+        "STEERING_GLOB",
+        "_first_token_verb",
+        "_iter_rule_lines",
+        "_read_rule_count_baseline",
+        "_steering_files",
+        "_write_rule_count_baseline",
+        "cmd_steering_lint",
+        "lint_steering",
+        "register_steering"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.releasegate"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.paths"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.steering",
+      "not_owns": "the release-gate harness that CONSUMES lint_steering -- _gate1_content_lint",
+      "owns": "the steering-lint domain that keeps the always-loaded steering corpus",
+      "path": "scripts/agentware_lib/ops/steering.py",
+      "test_file": "tests/unit/ops/test_steering.py"
+    },
+    {
+      "anchor_symbols": [
+        "_registry_add_member",
+        "_scaffold_team_dir",
+        "cmd_team",
+        "load_registry",
+        "register_team",
+        "registry_membership_errors",
+        "registry_path"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.orglint"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.kblayout",
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.core.routing"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.team",
+      "not_owns": "the org-invariant lint (lint_org / cmd_org_lint, still RESIDENT in",
+      "owns": "(1) the org team-membership registry primitives -- the registry path resolver",
+      "path": "scripts/agentware_lib/ops/team.py",
+      "test_file": "tests/unit/ops/test_team.py"
+    },
+    {
+      "anchor_symbols": [
+        "ACR_DEFAULT_SOURCE_WEIGHT",
+        "ACR_FRESHNESS_FLOOR",
+        "ACR_HALF_LIFE_DAYS",
+        "ACR_SOURCE_WEIGHTS",
+        "acr",
+        "answer_age_days",
+        "date_age_days",
+        "freshness",
+        "retrieve_bm25_acr",
+        "source_weight"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.curationcmd",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.bm25"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.acr",
+      "not_owns": "BM25 scoring + the postings cache (agentware_lib.retrieval.bm25,",
+      "owns": "the Authority/Confidence Re-ranking prior - the source-weight + half-life",
+      "path": "scripts/agentware_lib/retrieval/acr.py",
+      "test_file": "tests/unit/retrieval/test_acr.py"
+    },
+    {
+      "anchor_symbols": [
+        "ACR_GATE_ALPHA",
+        "ACR_GATE_LATENCY_BUDGET_MS",
+        "ACR_GATE_MARGIN",
+        "ACR_GATE_MRR_EPS",
+        "ACR_GATE_OLD_AGE_DAYS",
+        "ACR_GATE_RECALL_EPS",
+        "ACR_GATE_STRATUM_EPS",
+        "_T_CRIT",
+        "_T_CRIT_INF",
+        "acr_gate_decision",
+        "paired_t_test",
+        "t_critical"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepevalrecord",
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.acrgate",
+      "not_owns": "the ablation that produces its input (evaluate_ablation ->",
+      "owns": "the Phase-3.2 ACR win gate - the pure, table-driven decision rule that decides",
+      "path": "scripts/agentware_lib/retrieval/acrgate.py",
+      "test_file": "tests/unit/retrieval/test_acrgate.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_bench",
+        "register_bench"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.retrieval.bench.benchledger",
+        "agentware_lib.retrieval.bench.benchswe",
+        "agentware_lib.retrieval.scorecard"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchcmd",
+      "not_owns": "the SWE-task domain logic + the `bench swe` runner",
+      "owns": "cmd_bench (the `bench scorecard` handler, which regenerates",
+      "path": "scripts/agentware_lib/retrieval/bench/benchcmd.py",
+      "test_file": "tests/unit/retrieval/test_benchcmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_bench_lint",
+        "cmd_bench_redact",
+        "redact_ledger_gold_paths"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.bench.benchcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.scorecard"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchledger",
+      "not_owns": "the SWE-task domain logic + the `bench swe` runner",
+      "owns": "redact_ledger_gold_paths -- the ONLY sanctioned mutation of the append-only",
+      "path": "scripts/agentware_lib/retrieval/bench/benchledger.py",
+      "test_file": "tests/unit/retrieval/test_benchledger.py"
+    },
+    {
+      "anchor_symbols": [
+        "SWE_DEFAULT_ARMS",
+        "SWE_DEFAULT_SEEDS",
+        "SWE_REGRESSION_TOLERANCE",
+        "SWE_SUITE_FILE",
+        "_dirs_identical",
+        "cmd_bench_swe",
+        "swe_aggregate_arm",
+        "swe_aggregate_seeds",
+        "swe_build_dry_run_plan",
+        "swe_build_ledger_row",
+        "swe_load_suite",
+        "swe_load_task_meta",
+        "swe_regression_decision",
+        "swe_score_task",
+        "swe_task_passed"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.bench.benchcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.ledger"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchswe",
+      "not_owns": "the `bench scorecard` handler + the `bench` parser registrar",
+      "owns": "the frozen SWE-task suite constants (SWE_SUITE_FILE, SWE_DEFAULT_SEEDS,",
+      "path": "scripts/agentware_lib/retrieval/bench/benchswe.py",
+      "test_file": "tests/unit/retrieval/test_benchswe.py"
+    },
+    {
+      "anchor_symbols": [
+        "BM25_CACHE_REL",
+        "BM25_CACHE_VERSION",
+        "_BM25_B",
+        "_BM25_K1",
+        "_bm25_index",
+        "_corpus_stat_signature",
+        "bm25_cache_is_fresh",
+        "bm25_cache_path",
+        "bm25_positive_scores",
+        "bm25_scores",
+        "bm25_scores_cached",
+        "build_bm25_cache",
+        "load_bm25_cache",
+        "retrieve_bm25",
+        "write_bm25_cache"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepindexrebuild",
+        "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.ops.audit",
+        "agentware_lib.retrieval.acr",
+        "agentware_lib.retrieval.hybrid",
+        "agentware_lib.retrieval.recallcmd",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bm25",
+      "not_owns": "the shared tokenizer + corpus assembly it scores over",
+      "owns": "the fixed Okapi BM25 parameters (_BM25_K1/_BM25_B), the in-memory index build",
+      "path": "scripts/agentware_lib/retrieval/bm25.py",
+      "test_file": "tests/unit/retrieval/test_bm25.py"
+    },
+    {
+      "anchor_symbols": [
+        "_TOKEN_RE",
+        "_entry_doc_text",
+        "_read_entry_body",
+        "build_corpus",
+        "build_work_corpus",
+        "estimate_tokens",
+        "eval_corpus_fingerprint",
+        "retrieve_tag",
+        "tokenize"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.freshness",
+        "agentware_lib.retrieval.bm25",
+        "agentware_lib.retrieval.hybrid",
+        "agentware_lib.retrieval.longmemeval",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.recallcmd",
+        "agentware_lib.retrieval.skillpin",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.corpus",
+      "not_owns": "BM25 scoring + the derived postings cache (agentware_lib.retrieval.bm25,",
+      "owns": "the single shared tokenizer (_TOKEN_RE + tokenize) reused by every ranking",
+      "path": "scripts/agentware_lib/retrieval/corpus.py",
+      "test_file": "tests/unit/retrieval/test_corpus.py"
+    },
+    {
+      "anchor_symbols": [
+        "_ABLATE_METRIC_KEYS",
+        "_ok",
+        "_print_acr_gate",
+        "_run_acr_gate",
+        "_run_gold_fixture_suite",
+        "_run_longmemeval_suite",
+        "cmd_eval",
+        "evaluate_ablation",
+        "register_eval"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepevalrecord"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.acrgate",
+        "agentware_lib.retrieval.goldfixture",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.longmemeval",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.regressiongate",
+        "agentware_lib.retrieval.scorecard"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.evalcmd",
+      "not_owns": "the gold-set scorer/loader (evaluate/load_gold ->",
+      "owns": "the ablation instrument (_ABLATE_METRIC_KEYS + evaluate_ablation), the",
+      "path": "scripts/agentware_lib/retrieval/evalcmd.py",
+      "test_file": "tests/unit/retrieval/test_evalcmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "GOLD_FIXTURE_SUITE",
+        "_GOLD_FIXTURE_REL",
+        "evaluate_gold_fixture",
+        "gold_fixture_path",
+        "load_gold_fixture"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.releasegate",
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.paths",
+        "agentware_lib.retrieval.metrics_rank"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.goldfixture",
+      "not_owns": "the ranking/scoring engine it reuses (evaluate -> agentware_lib.retrieval.metrics_rank",
+      "owns": "the DRIFT-FREE frozen gold-fixture regression suite (`eval --suite gold-fixture`) -",
+      "path": "scripts/agentware_lib/retrieval/goldfixture.py",
+      "test_file": "tests/unit/retrieval/test_goldfixture.py"
+    },
+    {
+      "anchor_symbols": [
+        "_COSINE_ROUND",
+        "_EMBED_POOL",
+        "_RRF_K",
+        "_RRF_ROUND",
+        "_canonical_rank",
+        "_canonical_sort",
+        "_cosine",
+        "_embed_corpus_vectors",
+        "_rrf_fuse",
+        "_rrf_fuse_scored",
+        "retrieve_bm25_embed",
+        "retrieve_bm25_embed_scored"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.routing",
+        "agentware_lib.retrieval.bm25",
+        "agentware_lib.retrieval.corpus",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.hybrid",
+      "not_owns": "the BM25 lexical ranking it fuses (retrieval.bm25, reached via the _bm25",
+      "owns": "the Reciprocal Rank Fusion hybrid retriever (Phase 5.1, Mode B core) — the RRF +",
+      "path": "scripts/agentware_lib/retrieval/hybrid.py",
+      "test_file": "tests/unit/retrieval/test_hybrid.py"
+    },
+    {
+      "anchor_symbols": [
+        "ACR_GATE_MODE",
+        "HISTORY_REL",
+        "LEDGER_SCHEMA",
+        "_determinism_check",
+        "_determinism_check_at",
+        "_parse_failing_test_ids",
+        "_read_ledger",
+        "_record_test_passrate",
+        "_record_test_passrate_detail",
+        "active_default_strategy",
+        "active_recall_strategy",
+        "append_ledger_row",
+        "build_acr_gate_row",
+        "build_ledger_row",
+        "compute_reliability",
+        "git_info",
+        "record_acr_gate",
+        "record_ledger",
+        "record_ledger_suite",
+        "redact_gold_path"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepbenchredact",
+        "agentware_lib.features.dreamsteps.stepevalrecord",
+        "agentware_lib.ops.alerts",
+        "agentware_lib.ops.audit",
+        "agentware_lib.ops.releasegate",
+        "agentware_lib.retrieval.bench.benchledger",
+        "agentware_lib.retrieval.bench.benchswe",
+        "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.recallcmd",
+        "agentware_lib.retrieval.regressiongate",
+        "agentware_lib.retrieval.scorecard"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.knowledge.privacy",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.vectorcache"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.ledger",
+      "not_owns": "the ranking/scoring engine it reuses (evaluate -> agentware_lib.retrieval.metrics_rank",
+      "owns": "the immutable, commit+date-stamped benchmark ledger written to",
+      "path": "scripts/agentware_lib/retrieval/ledger.py",
+      "test_file": "tests/unit/retrieval/test_ledger.py"
+    },
+    {
+      "anchor_symbols": [
+        "_LME_DEFAULT_REL",
+        "_LME_DET_SAMPLE",
+        "evaluate_longmemeval",
+        "is_longmemeval_abstention",
+        "longmemeval_corpus_data",
+        "longmemeval_session_text"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.retrieval.corpus",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.longmemeval",
+      "not_owns": "the ranking metrics it calls (recall_at_k / precision_at_k /",
+      "owns": "the COMPARABLE public benchmark scorer (LongMemEval-S, arXiv:2410.10813) -",
+      "path": "scripts/agentware_lib/retrieval/longmemeval.py",
+      "test_file": "tests/unit/retrieval/test_longmemeval.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dcg",
+        "_median",
+        "evaluate",
+        "load_gold",
+        "ndcg_at_k",
+        "precision_at_k",
+        "recall_at_k",
+        "reciprocal_rank"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.releasegate",
+        "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.goldfixture",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.longmemeval"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.acr",
+        "agentware_lib.retrieval.corpus",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.metrics_rank",
+      "not_owns": "the retrieval strategies it scores (the retrieve dispatcher ->",
+      "owns": "the exact, hand-computable ranking metrics (recall_at_k / precision_at_k /",
+      "path": "scripts/agentware_lib/retrieval/metrics_rank.py",
+      "test_file": "tests/unit/retrieval/test_metrics_rank.py"
+    },
+    {
+      "anchor_symbols": [
+        "build_recall_payload",
+        "cmd_recall",
+        "register_recall"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.mcp"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.bm25",
+        "agentware_lib.retrieval.corpus",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.skillpin"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.recallcmd",
+      "not_owns": "the ranking core (recall_ranked/scope_entries_for_team ->",
+      "owns": "the canonical recall payload builder (build_recall_payload -- the single",
+      "path": "scripts/agentware_lib/retrieval/recallcmd.py",
+      "test_file": "tests/unit/retrieval/test_recallcmd.py"
+    },
+    {
+      "anchor_symbols": [
+        "GATE_METRICS",
+        "_ab_head_recall",
+        "_ab_verdict",
+        "_cleanup_head_cli",
+        "_extract_head_cli",
+        "_extract_head_scripts",
+        "_gate_exit",
+        "_print_ab",
+        "_print_gate",
+        "_record_and_gate",
+        "evaluate_gate",
+        "gate_baseline",
+        "run_ab_gate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.releasegate",
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.paths",
+        "agentware_lib.retrieval.ledger"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.regressiongate",
+      "not_owns": "the append-only benchmark ledger it reads + writes (HISTORY_REL /",
+      "owns": "the deterministic no-regression gate guarding every package update",
+      "path": "scripts/agentware_lib/retrieval/regressiongate.py",
+      "test_file": "tests/unit/retrieval/test_regressiongate.py"
+    },
+    {
+      "anchor_symbols": [
+        "SCORECARD_REL",
+        "_SCORECARD_COLS",
+        "_fmt_cell",
+        "render_scorecard",
+        "write_scorecard"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepbenchredact",
+        "agentware_lib.ops.audit",
+        "agentware_lib.retrieval.bench.benchcmd",
+        "agentware_lib.retrieval.bench.benchledger",
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.retrieval.ledger"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.scorecard",
+      "not_owns": "the append-only benchmark ledger it reads (HISTORY_REL / _read_ledger",
+      "owns": "the human-readable trend VIEW regenerated by `bench scorecard` from the",
+      "path": "scripts/agentware_lib/retrieval/scorecard.py",
+      "test_file": "tests/unit/retrieval/test_scorecard.py"
+    },
+    {
+      "anchor_symbols": [
+        "SKILL_PIN_FLOOR",
+        "_apply_skill_pin",
+        "_entry_is_shared",
+        "recall_ranked",
+        "retrieve",
+        "scope_entries_for_team"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.longmemeval",
+        "agentware_lib.retrieval.metrics_rank",
+        "agentware_lib.retrieval.recallcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.retrieval.acr",
+        "agentware_lib.retrieval.bm25",
+        "agentware_lib.retrieval.corpus",
+        "agentware_lib.retrieval.hybrid"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.skillpin",
+      "not_owns": "BM25 scoring + the postings cache (agentware_lib.retrieval.bm25, via",
+      "owns": "the R-RET-03 stage-1 skill-pin precedence (the default-OFF SKILL_PIN_FLOOR",
+      "path": "scripts/agentware_lib/retrieval/skillpin.py",
+      "test_file": "tests/unit/retrieval/test_skillpin.py"
+    },
+    {
+      "anchor_symbols": [
+        "VECTOR_CACHE_DIR_REL",
+        "VECTOR_CACHE_VERSION",
+        "_EMBEDDER_CACHE",
+        "_EMBEDDER_SENTINEL",
+        "_corpus_fingerprint",
+        "_load_embedder_module",
+        "_model_slug",
+        "_reset_embedder_cache",
+        "build_vector_cache",
+        "load_embedder",
+        "load_vector_cache",
+        "rebuild_vector_cache",
+        "resolve_effective_retrieval_mode",
+        "semantic_embedder_available",
+        "vector_cache_path"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.configcmd.cfgretrieval",
+        "agentware_lib.features.configcmd.cfgshow",
+        "agentware_lib.features.indexcmd",
+        "agentware_lib.ops.audit",
+        "agentware_lib.retrieval.hybrid",
+        "agentware_lib.retrieval.ledger"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.kblayout",
+        "agentware_lib.core.routing",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.vectorcache",
+      "not_owns": "the RRF hybrid fusion that consumes these vectors (retrieval.hybrid, a",
+      "owns": "the lazy LOCAL-embedder loader (_load_embedder_module dotted-name/path import,",
+      "path": "scripts/agentware_lib/retrieval/vectorcache.py",
+      "test_file": "tests/unit/retrieval/test_vectorcache.py"
+    }
+  ],
+  "naming_disambiguation": {
+    "SWE suites": "agentware_lib.retrieval.bench",
+    "audit checks": "agentware_lib.ops.audit",
+    "dream journal / metric / output": "agentware_lib.features.dreamjournal",
+    "dream maintenance steps / step registry": "agentware_lib.features.dreamsteps",
+    "eval gate": "agentware_lib.retrieval.evaluate",
+    "index CRUD": "agentware_lib.knowledge.index",
+    "index command handlers": "agentware_lib.features.indexcmd",
+    "index rebuild": "agentware_lib.knowledge.index",
+    "learn / decide / ingest / features writers": "agentware_lib.knowledge.curation",
+    "learn / decide command handlers": "agentware_lib.features.curationcmd",
+    "ledger gate": "agentware_lib.retrieval.evaluate",
+    "loop analytics / trace / alerts": "agentware_lib.ops.loopview",
+    "metrics command / dashboard": "agentware_lib.ops.metricscmd",
+    "org lint": "agentware_lib.ops.orglint",
+    "package self-update command": "agentware_lib.features.updatecmd",
+    "plan authoring": "agentware_lib.ops.planauthor",
+    "plan lint": "agentware_lib.ops.planlint",
+    "release gate": "agentware_lib.ops.releasegate",
+    "session parsing + aggregation": "agentware_lib.ops.metrics",
+    "steering lint": "agentware_lib.ops.steering",
+    "template lint": "agentware_lib.ops.fleet",
+    "work stamp": "agentware_lib.ops.planauthor"
+  },
+  "planned_layout": [
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.paths",
+      "owns": "REPO_ROOT marker-walk + CLI_SELF"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.kblayout",
+      "owns": "KB on-disk layout: .initialized sentinel + MAIN.md/index.json names + .gitignore scaffold + non-indexed dirs + the kb_pointable target guard"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.orgkeys",
+      "owns": "org-mode env key resolution"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.orgidentity",
+      "owns": "project identity from standard marker files"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.projectcontext",
+      "owns": "marker-driven project/repo context resolution (whereami)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.dates",
+      "owns": "calendar-date primitives (_today + _is_valid_date)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config",
+      "owns": "config.env read/resolve + knowledge-dir precedence (AGGREGATOR package; the five rows below own the behaviour)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configkeys",
+      "owns": "the config.env locations + every settings key, default and token set"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configvalidate",
+      "owns": "the lenient + strict config value parsers"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configresolve",
+      "owns": "the env -> config.env (HOME->REPO) -> default resolution precedence"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.configwrite",
+      "owns": "the config.env writers (_set/_unset/_write/_persisted)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.config.orgresolve",
+      "owns": "org root/team/project resolution + org path inference"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.routing",
+      "owns": "workspace/package routing resolvers"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.gitio",
+      "owns": "low-level git runners (_git, _git_capture)"
+    },
+    {
+      "layer": "core",
+      "name": "agentware_lib.core.frontmatter",
+      "owns": "YAML frontmatter parse/emit"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index",
+      "owns": "index.json CRUD/validate/rebuild + graph (AGGREGATOR package; the four rows below own the behaviour)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexread",
+      "owns": "KB-layout constants, knowledge-dir-relative path helpers, load_index/entry_last_verified/indexed_paths/parse_tags"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexwrite",
+      "owns": "save_index (the fingerprint-drop rule), the (category, id) ordering + tag-map mutators, and the shared add core"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexlock",
+      "owns": "the same-host index mutation lock (_index_lock): reentrant depth counter + per-knowledge-dir threading.RLock + fcntl.flock sidecar, wrapped around every load_index -> mutate -> save_index"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexvalidate",
+      "owns": "validate_index (its error ORDERING is a byte contract), derived-roster rendering + injection lint, and the knowledge validators"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.index.indexrebuild",
+      "owns": "the entry-file scan/inference and the KB-rebuild orchestrators build_index_from_frontmatter + rebuild_kb"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.attach",
+      "owns": "attach entries to the index"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.graph",
+      "owns": "relates-to graph over indexed entries"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.privacy",
+      "owns": "privacy scrubbing of KB content"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.ingest",
+      "owns": "ingest external docs into the KB"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation",
+      "owns": "learn/decide/ingest/features writers (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationrender",
+      "owns": "the entry RENDERERS (_render_learning/_render_decision_body) and the title/slug string helpers"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationingest",
+      "owns": "the whole ingest PIPELINE: the source adapters, candidate extraction, validation, fingerprint dedup, staging write, metric emit and cmd_ingest"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.curation.curationfeatures",
+      "owns": "the FEATURES.md derivation (_render_features + cmd_features)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.proposals",
+      "owns": "read-only skill-proposal ledger reads + integrity guard (proposal_integrity_errors folded into index validate)"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.skillentry",
+      "owns": "the skill <-> index ENTRY seam: the two lock-wrapped index read-modify-writes the `skill` verb performs, plus the shared id/summary/tag derivation"
+    },
+    {
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.worklog",
+      "owns": "the R-SI-03/R-AUTO-05 worklog-scan completion gate: LEARNED/DECISION promotion resolution + cmd_worklog_scan"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.corpus",
+      "owns": "corpus assembly for retrieval"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bm25",
+      "owns": "tokenize + BM25 scoring"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.hybrid",
+      "owns": "RRF hybrid fusion"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.vectorcache",
+      "owns": "embedder + vector cache"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.acr",
+      "owns": "ACR adaptive context ranking"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.skillpin",
+      "owns": "skill-precedence pinning in recall"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.metrics_rank",
+      "owns": "ranking metrics (nDCG/MRR)"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.longmemeval",
+      "owns": "LongMemEval harness"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.goldfixture",
+      "owns": "gold-fixture retrieval no-regression"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.acrgate",
+      "owns": "ACR gate thresholds"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.ledger",
+      "owns": "eval ledger rows + recording"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.regressiongate",
+      "owns": "reliability no-regression gate"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.scorecard",
+      "owns": "eval scorecard rendering"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.evaluate",
+      "owns": "eval gate + ledger gates orchestration"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.recallcmd",
+      "owns": "the `recall` verb: build_recall_payload + cmd_recall + register_recall"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.evalcmd",
+      "owns": "the `eval` verb: ablation instrument + cmd_eval handler family + register_eval"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench",
+      "owns": "SWE suites benchmark (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchswe",
+      "owns": "the frozen SWE suite: loading, per-task scoring, arm/seed aggregation, the regression decision, the dry-run plan and cmd_bench_swe"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchledger",
+      "owns": "the ledger surface: gold-path redaction, cmd_bench_redact and cmd_bench_lint (owns the lazy retrieval->knowledge edge)"
+    },
+    {
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.bench.benchcmd",
+      "owns": "the bench scorecard command (cmd_bench) and the register_bench registrar for all four subverbs"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessions",
+      "owns": "session file enumeration"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse",
+      "owns": "session read-cache + parse (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessioncache",
+      "owns": "the SINGLE-INSTANCE bounded LRU read cache + (mtime_ns,size) file keys + _cached_by_key/_cached_text/_reset_read_cache + _parse_iso/_duration_seconds"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessionusage",
+      "owns": "ONE-transcript JSONL aggregation (aggregate_jsonl), the usage-key tuples + transcript regexes + stage signals, and the usage/tool/model merge folds"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.sessionread",
+      "owns": "per-session parse (parse_session/_parse_session_uncached, the monkeypatch seam), classify_stage/_dominant_feature, the sessions-dir resolver and collect_sessions"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.derive",
+      "owns": "derive_* reporting family"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics",
+      "owns": "aggregation + pricing compute layer (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricspricing",
+      "owns": "the price table, model/context-window lookup, the pure usage->cost compute, the p50 helper and the cost-record rollups behind apply_pricing"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricsaggregate",
+      "owns": "cross-session AGGREGATION (aggregate_metrics/build_session_index/feature grouping) and session identity resolution"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metrics.metricsemit",
+      "owns": "both ends of the logs/metrics.jsonl channel: the tolerant reader and emit_onboarding_metric"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.metricscmd",
+      "owns": "the `metrics` + `dashboard` CLI verbs: cmd_metrics/cmd_dashboard + _print_metrics_text + register_metrics/register_dashboard"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.loopanalytics",
+      "owns": "loop analytics rollups"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.looptrace",
+      "owns": "loop trace reconstruction (named looptrace, not trace, to avoid shadowing the stdlib trace module)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.loophealth",
+      "owns": "loop health scoring"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.alerts",
+      "owns": "loop alert thresholds"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.loopview",
+      "owns": "loop analytics/trace/alerts surface"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet",
+      "owns": "org/fleet events + template lint (AGGREGATOR package; the four rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetshard",
+      "owns": "the committed fleet telemetry SINK: resolve_steering_sha, the per-user shard paths, the tolerant reader, the terminal-event schema constants, the org-root resolver and cmd_fleet_emit"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetguard",
+      "owns": "the shared-write governance guard (guard_shared_write/_is_curator) + the org read guards (injection/conflict constants + the read-denylist)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleetreport",
+      "owns": "the `fleet issues|impact` reporter cmd_fleet + its sufficiency floor FLEET_IMPACT_FLOOR_N"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.fleet.fleettemplates",
+      "owns": "the per-team template contract T1..T5 (_template_kind/lint_templates/cmd_templates_lint + its frontmatter vocabularies)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.orglint",
+      "owns": "org-invariant lint O1..O13 (lint_org + cmd_org_lint + register_org)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.team",
+      "owns": "team registry + provenance"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.failureladder",
+      "owns": "failure-ladder escalation reporting"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.freshness",
+      "owns": "KB freshness/staleness reporting"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.steering",
+      "owns": "steering lint"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.releasegate",
+      "owns": "release-gate harness (Gate 1-4 + cmd_gate_release)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planlint",
+      "owns": "plan-lint checks"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.plans",
+      "owns": "SUPERSEDED -> split into ops.planlint (enforcement) + ops.planauthor (authoring); never built as one module"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor",
+      "owns": "plan authoring + work-artifact stamping (AGGREGATOR package; the two rows below own the behaviour)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.planedit",
+      "owns": "the plan.md GENERATION half: the atomic writer, the lint-passing skeleton, task renumbering/marker indices and the four plan leaf handlers"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.workstamp",
+      "owns": "the work-artifact team/author STAMPING half: the both-layout stamp regex, the derived-roster detector, the prose stamper, the frontmatter ensurer and cmd_work_stamp"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.audit",
+      "owns": "audit checks (stale/duplicate)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbgit",
+      "owns": "KB git work-tree STATE helpers (kb-git status)"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.staging",
+      "owns": "git staging allowlist + commit/pull workflow"
+    },
+    {
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbsync",
+      "owns": "KB-git push/merge orchestration + nothing-lost gate + kb-git registrar"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanout",
+      "owns": "fanout lanes/base half: lane registry + provisioning + merge-policy + list + spin-up + gate runner"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq",
+      "owns": "fanout merge-queue + teardown half (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqbranch",
+      "owns": "the git branch/ancestry primitives and the lane-repo resolvers (package leaf; imports no sibling)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqintegrate",
+      "owns": "the serial gated INTEGRATION path: the append-only/gate constants, the package and KB integrators, the event emitter and cmd_fanout_merge_queue"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.fanoutmq.mqteardown",
+      "owns": "the TEARDOWN path (blocker check + worktree removal + cmd_fanout_teardown) and the register_fanout registrar"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.mcp",
+      "owns": "MCP server integration"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dream",
+      "owns": "dream nightly loop"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamgate",
+      "owns": "dream idle-gate + single-writer lock + live-session guard (cycle admission control)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsched",
+      "owns": "dream scheduler install"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamjournal",
+      "owns": "dream cycle journal/failure-capture/metric event + terminal output rendering"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps",
+      "owns": "the dream cycle's maintenance STEP family (AGGREGATOR package; the eleven rows below own the behaviour, one file per step)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.dreamcapture",
+      "owns": "the cycle's measure/capture primitives: _dream_perf, _dream_capture, _dream_file_fp + the DREAM_REPORT_REL artifact path"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.dreamgit",
+      "owns": "the hard-timeout git runner _git_timed + DREAM_PULL_TIMEOUT + the post-pull conflict check"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepkbpull",
+      "owns": "dream step \"1\", the KNOWLEDGE-BASE pull (step \"0\", the package-repo pull, is RETIRED)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stephealthgate",
+      "owns": "dream step \"2\", the convergence verify-and-auto-fix battery + its nine named checks"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepindexrebuild",
+      "owns": "dream step \"a\", the derived-cache rebuild (the SOLE cache writer)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepbenchredact",
+      "owns": "dream step \"b\", benchmark redaction"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepaudit",
+      "owns": "dream step \"c\", the audit sweep + its unittest-count and capture readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepevalrecord",
+      "owns": "dream step \"d\", the retrieval eval record"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepdetectreport",
+      "owns": "dream step \"e\", the detect-report render + write and its three section renderers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepkbgit",
+      "owns": "dream step \"f\", the kb-git commit (+ optional push) nightly backup"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.registry",
+      "owns": "the ordered DREAM_STEP_FUNCS registry + the --steps subset parser _dream_parse_steps"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.skills",
+      "owns": "skill list/search/add/remove/validate"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals",
+      "owns": "skill proposal/promotion lifecycle (AGGREGATOR package; the three rows below own the behaviour)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposeauthor",
+      "owns": "the AUTHORING half: the slug grammar, the near-duplicate guard, the proposed-SKILL.md renderer and cmd_skill_propose"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposalreport",
+      "owns": "the READ-ONLY half: the unique-ref enumerator, the one deterministic row builder, the ripeness nudge report and cmd_skill_proposals"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.proposals.proposalpromote",
+      "owns": "the human-gated PROMOTION half (_promote_frontmatter + cmd_skill_promote) and the `skill` verb registrar register_skill"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd",
+      "owns": "the `config` settings command (AGGREGATOR package; the nine rows below own the behaviour)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgmain",
+      "owns": "the slim `cmd_config` route-walker + `register_config` and its per-group argparse registrars"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgroutes",
+      "owns": "CONFIG_ROUTES — the ORDER-BEARING flag->handler table, and nothing else; branch order lives here alone"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgidentity",
+      "owns": "the knowledge-dir pointer + provenance settings (--set-knowledge-dir with its target guard, user handle, propose threshold, onboarding record)"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgorg",
+      "owns": "the org-mode keys + workspace kb-mode settings and their group predicate"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgkbgit",
+      "owns": "the KB git settings: autocommit + push setters and their bare readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgretrieval",
+      "owns": "the retrieval/embedding settings: mode, retrieval mode, embedder and embed-model setters + readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgdream",
+      "owns": "the dream + cli settings: cli, dream on/off, dream schedule and dream max-runtime setters + readers"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgphases",
+      "owns": "the per-phase routing settings — three phases x three axes — behind one group predicate"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.configcmd.cfgshow",
+      "owns": "the terminal resolved-config VIEW: the JSON dump, the knowledge-dir-only bare read and the human-readable report"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.setupcmd",
+      "owns": "the `init` + `profile` commands: cmd_init/cmd_profile + register_init/register_profile"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.curationcmd",
+      "owns": "the `learn` + `decide` command verbs: cmd_learn/cmd_decide + register_learn/register_decide"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.indexcmd",
+      "owns": "the `index` command verbs: cmd_index_add/remove/validate/sync/migrate/rebuild + register_index"
+    },
+    {
+      "layer": "features",
+      "name": "agentware_lib.features.updatecmd",
+      "owns": "the `update` verb: fast-forward-only package self-update (cmd_update + _catalog_skill_names_at_ref + PKG_UPDATE_GATES + register_update)"
+    },
+    {
+      "layer": "cli",
+      "name": "agentware_lib.cli",
+      "owns": "parser assembly from the frozen registration tuple"
+    },
+    {
+      "layer": "cli",
+      "name": "agentware_lib._registration",
+      "owns": "frozen _PARSER_REGISTRATION (verb, module, attr) map"
+    }
+  ],
+  "provenance": "generated-from-ast",
+  "regen": "python3 tests/_manifest_gen.py --write",
+  "schema": 1,
+  "source_repo": "github.com/r5rana/agentware"
+}

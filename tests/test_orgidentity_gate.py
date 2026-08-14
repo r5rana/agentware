@@ -503,6 +503,41 @@ class OwnedPathsTest(unittest.TestCase):
             "stem(s) resolve to nothing — the file moved and this gate is now "
             "scanning less than it claims")
 
+    def test_a_missing_REQUIRED_stem_still_reddens(self):
+        """Pending must narrow the check, never disable it."""
+        empty = tempfile.mkdtemp(prefix="aw-orgid-nostems-")
+        self.addCleanup(shutil.rmtree, empty, True)
+        missing = gate.unresolved_stems(empty)
+        required = [s.replace(os.sep, "/") for s in gate.ORG_IDENTITY_STEMS
+                    if s not in gate.PENDING_STEMS]
+        self.assertEqual(sorted(missing), sorted(required))
+
+    def test_a_PENDING_stem_that_lands_must_be_promoted(self):
+        """Task 58 lands `tests/unit/**`; the day it does, the exemption is a
+        lie and the gate says so rather than quietly excusing a path it can now
+        check. Shrink-only, in the direction the migration actually moves."""
+        root = tempfile.mkdtemp(prefix="aw-orgid-pending-")
+        self.addCleanup(shutil.rmtree, root, True)
+        landed = sorted(gate.PENDING_STEMS)[0]
+        path = os.path.join(root, landed + ".py")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("# landed by task 58\n")
+        problems = gate.unresolved_stems(root)
+        self.assertTrue(any("pending stem now resolves" in p for p in problems),
+                        problems)
+        self.assertTrue(any(landed.replace(os.sep, "/") in p for p in problems),
+                        problems)
+
+    def test_every_pending_stem_is_also_a_declared_stem(self):
+        """Pending can only ever exempt something the table already claims."""
+        self.assertTrue(gate.PENDING_STEMS)
+        self.assertLessEqual(set(gate.PENDING_STEMS),
+                             set(gate.ORG_IDENTITY_STEMS))
+        for stem in gate.PENDING_STEMS:
+            self.assertTrue(stem.startswith("tests" + os.sep),
+                            "only the donor TEST corpus may be pended: %s" % stem)
+
     def test_a_split_stem_expands_to_every_file_in_the_package(self):
         """Task 21 turned `core/config.py` into a package; the neutrality scan
         must cover ALL of it, not just whichever file kept the old name."""
