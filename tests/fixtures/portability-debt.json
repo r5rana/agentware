@@ -1,0 +1,63 @@
+{
+  "schema": "agentware/portability-debt@1",
+  "note": "SHRINK-ONLY. Every row is a finding the five-surface portability gate reports on this tree TODAY, with the plan task that removes it. A finding above a row's count, or at a location with no row, fails the gate; so does a row the tree no longer produces. Rows carry no token text: the 'environment' needles are private (R-LOC-03) and this file is committed. Task 83 asserts this file is empty.",
+  "captured": "2026-08-14, branch merge/modularize, task 12",
+  "rows": [
+    {
+      "surface": "contents",
+      "class": "environment",
+      "location": "tests/_stage_donor.py",
+      "count": 1,
+      "owner": "task 20",
+      "reason": "the task-11 staging exclusion policy names the donor's stray per-run log directory literally, because that is the thing it must exclude. Generalise the rule to a pattern once the staged tree has been consumed by tasks 13/19/20, at the latest before task 83's final neutrality proof."
+    },
+    {
+      "surface": "contents",
+      "class": "environment",
+      "location": "tests/test_stage_donor.py",
+      "count": 2,
+      "owner": "task 20",
+      "reason": "the staging suite plants the donor's real stray-log and vendor-skill directories as fixtures so the exclusion rules are proven against the shapes they actually meet. Follows tests/_stage_donor.py: generalise together."
+    },
+    {
+      "surface": "contents",
+      "class": "environment",
+      "location": "tests/fixtures/staging-manifest.json",
+      "count": 1,
+      "owner": "task 20",
+      "reason": "the committed staging manifest embeds the exclusion policy verbatim so its digest is reviewable; it inherits the literal from tests/_stage_donor.py and is re-stamped with it."
+    },
+    {
+      "surface": "contents",
+      "class": "environment",
+      "location": "tests/baselines/baseline-donor.json",
+      "count": 2,
+      "owner": "task 19",
+      "reason": "the task-5 donor test baseline records donor test node ids verbatim, and two of them name the donor environment's build system and auth cookie. Re-stamped when task 19 neutralises the fixture identities those tests carry."
+    },
+    {
+      "surface": "contents",
+      "class": "environment",
+      "location": "tests/fixtures/nodeids-donor.json",
+      "count": 2,
+      "owner": "task 19",
+      "reason": "the task-9 frozen donor node-id set, same two ids. It is a freeze, so it moves only when the tests it names are renamed by task 19; task 58 lands the renamed ids."
+    },
+    {
+      "surface": "contents",
+      "class": "environment",
+      "location": "tests/fixtures/preserved-surface.json",
+      "count": 2,
+      "owner": "task 19",
+      "reason": "the task-9 preserved-surface manifest carries the same two frozen donor node ids and is re-stamped alongside nodeids-donor.json."
+    },
+    {
+      "surface": "empty_dirs",
+      "class": null,
+      "location": ".claude/.scratch",
+      "count": 1,
+      "owner": "task 20",
+      "reason": "an untracked, non-ignored scratch directory the harness leaves in the working tree. It ships nothing, so a fresh clone diverges from this checkout; task 20 removes it or adds it to the ignore set while doing the top-level document and surface sweep."
+    }
+  ]
+}
