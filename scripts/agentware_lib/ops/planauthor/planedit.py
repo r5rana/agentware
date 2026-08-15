@@ -36,7 +36,7 @@ Determinism: pure deterministic text generation, stdlib json/os/re/sys only (INV
 INV-6). Plan structure/order is a pure function of inputs; no wall-clock enters ranking
 (INV-1); _plan_skeleton's only time input is dates._today() (the canonical date facade).
 
-Fan-in: 0 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 
 import json

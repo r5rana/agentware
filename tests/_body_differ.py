@@ -208,6 +208,47 @@ def build_rows(local, donor, adjudications):
     return rows
 
 
+#: Row keys that come from the hand-audited table rather than from either tree.
+#: Everything else on a row is a MEASUREMENT and may only be produced by --write.
+_ADJUDICATED_KEYS = ("adjudication", "host", "floor_chars", "absorbs",
+                     "rationale", "follow_up")
+
+
+def reapply(fixture, adjudications):
+    """Overlay the adjudication table onto the EXISTING rows. Returns (fixture, changed).
+
+    The maintenance path for a port (tasks 37..54), and the reason it is separate
+    from ``--write``: a port legitimately shrinks a shared definition (each one
+    moves a verb's argparse block out of the monolith's ``build_parser`` into its
+    own registrar), and re-deriving the baseline would silently RE-PIN
+    ``winner_chars`` to the post-move length — the floor would follow the code
+    down and the gate would certify its own regression. That is the trap recorded
+    in `learn-under-a-body-length-differ-a-move-must-be-a-pure-move`. So this
+    rewrites ONLY the hand-audited keys and never touches a measurement: the
+    floors stay exactly where the two trees put them, and what changes is the
+    written-down verdict about how the merged tree satisfies them.
+
+    Idempotent: a row absent from the table is reset to the default, so removing
+    an entry is as effective as adding one, and running it twice is a no-op.
+    """
+    changed = []
+    for row in fixture["rows"]:
+        before = {k: row.get(k) for k in _ADJUDICATED_KEYS}
+        verdict = dict(adjudications.get(row["name"], {}))
+        verdict.setdefault("adjudication", ADJUDICATIONS_DEFAULT)
+        # Assign in place (a dict keeps an existing key's POSITION) and delete
+        # only what the verdict no longer claims, so an unchanged row is
+        # byte-identical and the diff shows exactly the rows that moved.
+        for key in _ADJUDICATED_KEYS:
+            if key in verdict:
+                row[key] = verdict[key]
+            elif key in row:
+                del row[key]
+        if {k: row.get(k) for k in _ADJUDICATED_KEYS} != before:
+            changed.append(row["name"])
+    return fixture, changed
+
+
 def counts_of(local, donor, rows):
     shared = set(local) & set(donor)
     return {"shared": len(shared), "identical": len(shared) - len(rows),
@@ -367,6 +408,10 @@ def main(argv=None):
                     help="regenerate the baseline (requires --donor)")
     ap.add_argument("--check", action="store_true",
                     help="gate the merged tree against the baseline")
+    ap.add_argument("--adjudicate", action="store_true",
+                    help="re-apply the adjudication table to the existing "
+                         "baseline rows (no donor needed; measurements are "
+                         "never touched)")
     ap.add_argument("--donor", help="donor tree root (for --write)")
     ap.add_argument("--root", default=REPO_ROOT, help="merged/local tree root")
     ap.add_argument("--fixture", default=FIXTURE)
@@ -384,8 +429,19 @@ def main(argv=None):
         print("wrote %s: %s" % (args.fixture, fixture["counts"]))
         return 0
 
+    if args.adjudicate:
+        from _body_adjudication import ADJUDICATIONS
+        fixture, changed = reapply(load_fixture(args.fixture), ADJUDICATIONS)
+        with open(args.fixture, "w", encoding="utf-8") as fh:
+            json.dump(fixture, fh, indent=1, ensure_ascii=False, sort_keys=False)
+            fh.write("\n")
+        print("re-adjudicated %s: %d row(s) changed%s"
+              % (args.fixture, len(changed),
+                 (" (%s)" % ", ".join(changed)) if changed else ""))
+        return 0
+
     if not args.check:
-        ap.error("one of --write / --check is required")
+        ap.error("one of --write / --check / --adjudicate is required")
     fixture = load_fixture(args.fixture)
     report = check(fixture, merged_tree(args.root))
     if args.format == "json":

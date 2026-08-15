@@ -1544,8 +1544,15 @@
    "donor_sites": [
     "scripts/agentware_lib/cli.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 67081
+   "adjudication": "decomposed",
+   "winner_chars": 67081,
+   "host": "scripts/agentware_legacy.py",
+   "floor_chars": 66592,
+   "absorbs": [
+    "scripts/agentware_lib/cli.py::assemble_parser",
+    "scripts/agentware_lib/features/migratecmd.py::register_migrate"
+   ],
+   "rationale": "Every port moves a verb's argparse block from the monolith's build_parser into its own register_<verb> in the lib, which assemble_parser walks. Task 37 moved `migrate` (489 chars). Surface unchanged — the promotion gate proves that against the union fixture node by node."
   },
   {
    "name": "build_recall_payload",

@@ -3,11 +3,12 @@
 
 `_body_differ.py` computes every divergence mechanically and defaults each row
 to the length proxy: the longer body wins, and the merged tree must keep at
-least that many characters. That default is correct for 235 of the 242 rows.
+least that many characters. That default is correct for 234 of the 242 rows.
 
-The other seven are rows where the merged tree is ALREADY shorter than the
+The other eight are rows where the merged tree is ALREADY shorter than the
 adjudicated winner, and each one was read line by line before it was written
-down here. Three are the plan's own module splits, three are decisions the plan
+down here. Three are the plan's own module splits, one is the parser
+decomposition every verb PORT feeds (tasks 37..54), three are decisions the plan
 made deliberately, and one is a real donor capability this tree has not adopted
 yet. Nothing here forgives a row: every entry still leaves a floor the gate
 enforces on every run.
@@ -81,7 +82,42 @@ _CFG_HANDLERS = (
 )
 
 
+# Every PORT (tasks 37..54) moves one verb's argparse block out of the monolith's
+# `build_parser` and into that verb's own `register_<verb>` in the lib, where
+# `agentware_lib.cli.assemble_parser` walks the frozen registration tuple and
+# calls it. The parent therefore shrinks by construction on every port — the
+# whole point of the modularisation — while the SURFACE is unchanged, and that is
+# exactly what a length proxy cannot tell apart from a deleted flag. So the row
+# names the receiving registrar of each ported verb: the block has to be findable
+# at its declared path or the row reddens by name.
+#
+# MAINTENANCE PROTOCOL (each port, in the SAME commit as its promotion):
+#   1. append the verb's registrar to _PORTED_REGISTRARS (the assembler itself is
+#      a receiver too: the monolith INLINED the add_parser sequence that
+#      assemble_parser now walks);
+#   2. re-pin `floor_chars` to the host's post-move length.
+# The COMBINED floor (winner_chars, 67081) never moves, so step 2 can only ever
+# be paid for by step 1 — a parent emptied out without a named receiver still
+# fails. At task 56 the monolith is gone and the host becomes the lib's own
+# build_parser, whose absorbers are then the complete registrar set.
+_ASSEMBLER = "scripts/agentware_lib/cli.py::assemble_parser"
+_PORTED_REGISTRARS = (
+    _ASSEMBLER,   # the walk over the frozen registration tuple that CALLS them
+    "scripts/agentware_lib/features/migratecmd.py::register_migrate",   # task 37
+)
+
 ADJUDICATIONS = {
+    "build_parser": {
+        "adjudication": "decomposed",
+        "host": "scripts/agentware_legacy.py",
+        "floor_chars": 66592,
+        "absorbs": list(_PORTED_REGISTRARS),
+        "rationale": "Every port moves a verb's argparse block from the "
+                     "monolith's build_parser into its own register_<verb> in "
+                     "the lib, which assemble_parser walks. Task 37 moved "
+                     "`migrate` (489 chars). Surface unchanged — the promotion "
+                     "gate proves that against the union fixture node by node.",
+    },
     "_dream_health_gate_checks": {
         "adjudication": "decomposed",
         "host": _DREAM_HG,

@@ -17,9 +17,18 @@ import time
 import unittest
 
 try:
-    from tests._fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_cli
+    from tests._fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_lib
 except ImportError:
-    from _fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_cli
+    from _fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_lib
+
+#: Migration 001's body moved to the lib with the runner at task 37; its two plan
+#: helpers (_plan_path / _read_plan_status) are bound in the same namespace, so
+#: this module is the whole oracle for this file.
+MIGRATE_MOD = "agentware_lib.features.migratecmd"
+#: The plan primitives the assertions read are OWNED elsewhere and only reached
+#: through the migration: naming their modules keeps the ownership visible.
+PLANEDIT_MOD = "agentware_lib.ops.planauthor.planedit"
+PLANSTATE_MOD = "agentware_lib.ops.planauthor.planstate"
 
 
 def _legacy_plan(feature, done=True):
@@ -40,7 +49,9 @@ class BackfillTestCase(unittest.TestCase):
         self.kdir = tempfile.mkdtemp(prefix="agentware-backfill-")
         self.addCleanup(shutil.rmtree, self.kdir, True)
         build_synthetic_kb(self.kdir)
-        self.mod = load_cli()
+        self.mod = load_lib(MIGRATE_MOD)
+        self.planedit = load_lib(PLANEDIT_MOD)
+        self.planstate = load_lib(PLANSTATE_MOD)
 
     def run_cli(self, argv):
         try:
@@ -57,8 +68,8 @@ class BackfillTestCase(unittest.TestCase):
         return os.path.join(d, "plan.md")
 
     def status_of(self, feature):
-        with open(self.mod._plan_path(self.kdir, feature)) as f:
-            return self.mod._read_plan_status(f.read())
+        with open(self.planedit._plan_path(self.kdir, feature)) as f:
+            return self.planstate._read_plan_status(f.read())
 
     def test_backfill_derives_done_for_all_checked(self):
         self.make("260101-done", done=True)
@@ -75,7 +86,7 @@ class BackfillTestCase(unittest.TestCase):
     def test_backfill_appends_status_log_line(self):
         self.make("260101-log", done=True)
         self.mod._run_state_backfill(self.kdir, now_iso="2026-07-10T00:00:00Z")
-        with open(self.mod._plan_path(self.kdir, "260101-log")) as f:
+        with open(self.planedit._plan_path(self.kdir, "260101-log")) as f:
             text = f.read()
         self.assertIn("## Status log", text)
         self.assertIn("(none) -> done by migration-001 reason: backfilled by "

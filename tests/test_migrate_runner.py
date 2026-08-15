@@ -19,9 +19,16 @@ import unittest
 from unittest import mock
 
 try:
-    from tests._fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_cli
+    from tests._fixtures import (run_cli as _raw_run_cli, build_synthetic_kb,
+                                 load_cli, load_lib)
 except ImportError:
-    from _fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_cli
+    from _fixtures import (run_cli as _raw_run_cli, build_synthetic_kb,
+                           load_cli, load_lib)
+
+#: The module that OWNS the runner since task 37. Patch targets address it, not
+#: the facade: the runner reads its own globals, so patching a re-export would be
+#: a silent no-op (see tests/_fixtures.load_lib).
+MIGRATE_MOD = "agentware_lib.features.migratecmd"
 
 
 class MigrateTestCase(unittest.TestCase):
@@ -29,7 +36,11 @@ class MigrateTestCase(unittest.TestCase):
         self.kdir = tempfile.mkdtemp(prefix="agentware-migrate-")
         self.addCleanup(shutil.rmtree, self.kdir, True)
         build_synthetic_kb(self.kdir)
-        self.mod = load_cli()
+        self.mod = load_lib(MIGRATE_MOD)
+        # The monolith's own dispatch arm, which reaches the SAME runner through
+        # its module alias — the interlock the dispatch-trigger tests below prove
+        # by patching `self.mod` and observing the effect through `self.cli`.
+        self.cli = load_cli()
 
     def run_cli(self, argv):
         try:
@@ -140,10 +151,10 @@ class MigrateTestCase(unittest.TestCase):
             "AGENTWARE_KNOWLEDGE_DIR", prev) if prev is not None
             else os.environ.pop("AGENTWARE_KNOWLEDGE_DIR", None))
         args = mock.Mock()
-        args.func = self.mod.cmd_learn   # a KB-writer func
+        args.func = self.cli.cmd_learn   # a KB-writer func
         with mock.patch.object(self.mod, "_KB_MIGRATIONS", (mig,)), \
                 mock.patch.object(self.mod, "KB_SCHEMA_VERSION", 1):
-            rc = self.mod._kb_predispatch_gate(args)
+            rc = self.cli._kb_predispatch_gate(args)
         self.assertIsNone(rc)   # proceed
         self.assertTrue(os.path.exists(os.path.join(self.kdir, "MIG_DISPATCH")))
         with open(self.schema_path()) as f:
@@ -158,20 +169,20 @@ class MigrateTestCase(unittest.TestCase):
             "AGENTWARE_KNOWLEDGE_DIR", prev) if prev is not None
             else os.environ.pop("AGENTWARE_KNOWLEDGE_DIR", None))
         args = mock.Mock()
-        args.func = self.mod.cmd_learn
+        args.func = self.cli.cmd_learn
         with mock.patch.object(self.mod, "KB_SCHEMA_VERSION", 1):
-            rc = self.mod._kb_predispatch_gate(args)
+            rc = self.cli._kb_predispatch_gate(args)
         self.assertEqual(rc, 1)
 
     def test_migrate_dispatch_noop_for_reader(self):
         self.mark_initialized()
         self.write_schema(0)
         args = mock.Mock()
-        args.func = self.mod.cmd_recall   # a READER — not in the writer set
+        args.func = self.cli.cmd_recall   # a READER — not in the writer set
         with mock.patch.object(self.mod, "_KB_MIGRATIONS",
                                (self._additive_migration("SHOULD_NOT_RUN"),)), \
                 mock.patch.object(self.mod, "KB_SCHEMA_VERSION", 1):
-            rc = self.mod._kb_predispatch_gate(args)
+            rc = self.cli._kb_predispatch_gate(args)
         self.assertIsNone(rc)
         self.assertFalse(os.path.exists(os.path.join(self.kdir, "SHOULD_NOT_RUN")))
 

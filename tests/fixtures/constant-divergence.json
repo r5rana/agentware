@@ -7,14 +7,14 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 473,
-  "lib": 280,
+  "legacy": 467,
+  "lib": 290,
   "legacy_only": 248,
-  "shared": 225,
+  "shared": 226,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 248,
+  "unresolved_max": 241,
   "undecided_max": 8
  },
  "multi_literal": {
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   109
+   111
   ]
  },
  "legacy_only": [
@@ -466,8 +466,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 37"
+   "status": "resolved",
+   "follow_up": "task 37",
+   "lib_sites": [
+    "scripts/agentware_lib/features/migratecmd.py"
+   ]
   },
   {
    "name": "LEARN_NEAR_DUP_THRESHOLD",
@@ -1096,8 +1099,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 37"
+   "status": "resolved",
+   "follow_up": "task 37",
+   "lib_sites": [
+    "scripts/agentware_lib/core/kblayout.py"
+   ]
   },
   {
    "name": "SKILL_LOCK_SCHEMA",
@@ -1492,8 +1498,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 37"
+   "status": "resolved",
+   "follow_up": "task 37",
+   "lib_sites": [
+    "scripts/agentware_lib/features/migratecmd.py"
+   ]
   },
   {
    "name": "_KB_MIGRATION_JOURNAL_REL",
@@ -1501,8 +1510,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 37"
+   "status": "resolved",
+   "follow_up": "task 37",
+   "lib_sites": [
+    "scripts/agentware_lib/features/migratecmd.py"
+   ]
   },
   {
    "name": "_KERNEL_CONFUSABLE_TT",
@@ -1627,8 +1639,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_DEPENDS_KINDS",
@@ -1762,8 +1777,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_STATUS_LOG_HEADING",
@@ -1771,8 +1789,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_SUPERSEDED_BY_RE",

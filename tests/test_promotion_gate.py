@@ -3,9 +3,9 @@
 Four claims, deliberately separated:
 
   1. GREEN — the gate passes over the live tree, and is NOT VACUOUS while doing
-     it: with the allowlist empty it still checks all thirty-eight local verbs
-     against what `aw-pre-merge` served, so "0 violations" is a measurement
-     rather than an empty loop.
+     it: all thirty-eight local verbs are checked on one arm or the other —
+     unported against what `aw-pre-merge` served, ported against the union — so
+     "0 violations" is a measurement rather than an empty loop.
   2. IT COMPARES VALUES, NOT NAMES — the plan names three probes and each gets
      its own test: delete a `team` flag, narrow a `choices` set, move a
      `default` off its decided value. All three keep the flag SPELLED the same,
@@ -13,8 +13,11 @@ Four claims, deliberately separated:
   3. BOTH ARMS ARE LIVE — the ported arm (lib vs union) and the unported arm
      (effective CLI vs local fixture) each redden on their own. A gate with a
      decorative branch is a gate that proves nothing about the branch that
-     matters, and the ported branch is unreachable today by construction — the
-     allowlist is empty — so it is driven with a substituted allowlist.
+     matters. Since task 37 the ported arm is genuinely reachable (`migrate`),
+     and the probes still SUBSTITUTE an allowlist so each can pick the verb that
+     exercises it best — but they substitute `_live(...)`, the live allowlist
+     PLUS that verb, never a bare literal. See `_live` for why a hardcoded
+     `set()` silently stopped modelling this tree at the first port.
   4. THE DONOR-ONLY HOLE IS ACKNOWLEDGED — the six donor-only verbs are
      deliberately NOT checked here, because their local expectation is empty and
      superset-of-empty is satisfied by absence. This suite pins that fact so
@@ -48,6 +51,23 @@ UNION = su.load_json(pg.UNION_FIXTURE)
 LOCAL = su.load_json(pg.LOCAL_FIXTURE)
 
 
+def _live(*also_ported):
+    """The LIVE allowlist, optionally plus a verb this probe wants to simulate.
+
+    Every ``evaluate`` call here used to pass a hardcoded ``set()``, which was a
+    faithful model of the tree exactly while the allowlist was empty (task 29).
+    It stopped being one at the FIRST port: promoting a verb DELETES its handler
+    from the monolith, so an empty allowlist now sends a verb the legacy parser
+    no longer carries down the unported arm, and every whole-row assertion picks
+    up a violation that describes nothing but the counterfactual. Anchoring to
+    the live allowlist instead keeps each probe measuring its own mutation, and
+    keeps these tests from needing an edit — and therefore a weakening — at each
+    of tasks 38..54. The same trap, and the same fix, as the loop-outcome
+    divergence fixture (task 34) and the debt ratchet (task 35).
+    """
+    return pg.ported_verbs() | set(also_ported)
+
+
 def _lib():
     return copy.deepcopy(pg.capture_lib())
 
@@ -75,21 +95,34 @@ class GreenTests(unittest.TestCase):
     def test_promotiongate_passes_over_the_live_tree(self):
         self.assertEqual(0, pg.check())
 
-    def test_gate_is_NOT_vacuous_with_an_empty_allowlist(self):
-        """Every local verb is really compared, not skipped."""
-        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), set())
+    def test_gate_is_NOT_vacuous_every_local_verb_is_really_compared(self):
+        """Every local verb is really compared, not skipped.
+
+        Stated as ARITHMETIC over the live allowlist rather than as the day's
+        literal 38, so it keeps measuring the same thing as tasks 38..54 move
+        verbs from the unported arm to the ported one. What must never happen is
+        a verb falling off BOTH arms — counted here, not assumed.
+        """
+        live = _live()
+        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), live)
+        local_verbs = set(UNION["top_level_verbs"]) - set(UNION["donor_only_verbs"])
         unported = [v for v, arm, _ in rows if arm == pg.UNPORTED]
-        self.assertEqual(38, len(unported))
+        ported = [v for v, arm, _ in rows if arm == pg.PORTED]
+        self.assertEqual(len(local_verbs) - len(live & local_verbs),
+                         len(unported))
+        self.assertEqual(sorted(live & local_verbs), sorted(ported))
+        self.assertEqual(38, len(unported) + len(ported),
+                         "a local verb fell off both arms")
         self.assertEqual([], [v for v, _a, viol in rows if viol])
 
     def test_every_union_verb_is_assigned_an_arm(self):
-        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), set())
+        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), _live())
         self.assertEqual(sorted(UNION["top_level_verbs"]),
                          sorted(v for v, _a, _x in rows))
         self.assertEqual(44, len(rows))
 
     def test_the_six_donor_only_verbs_get_their_own_arm(self):
-        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), set())
+        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), _live())
         donor = sorted(v for v, arm, _ in rows if arm == pg.DONOR_ONLY)
         self.assertEqual(sorted(UNION["donor_only_verbs"]), donor)
 
@@ -105,7 +138,7 @@ class GreenTests(unittest.TestCase):
         lib = _lib()
         node = _node(lib, ["team", "create"])
         node["actions"] = [a for a in node["actions"] if a["dest"] != "handle"]
-        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), set())
+        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), _live())
         offenders = [(v, x) for v, _a, x in rows if x]
         self.assertEqual(["team"], [v for v, _x in offenders])
         self.assertTrue(any("--handle" in v for v in offenders[0][1]),
@@ -121,7 +154,7 @@ class GreenTests(unittest.TestCase):
         still unreachable because nothing routes to it.
         """
         lib = [n for n in _lib() if n["path"][:1] != ["team"]]
-        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), set())
+        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), _live())
         self.assertEqual(["team"], [v for v, _a, viol in rows if viol])
         # ...but a STUB satisfies every comparison this gate makes, because a
         # union node with no required action and no subcommand requires nothing.
@@ -225,7 +258,7 @@ class ValuesNotNamesTests(unittest.TestCase):
 class BothArmsLiveTests(unittest.TestCase):
 
     def test_the_PORTED_arm_is_reachable_and_green_for_a_ready_verb(self):
-        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), {"team"})
+        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), _live("team"))
         arms = {v: arm for v, arm, _ in rows}
         self.assertEqual(pg.PORTED, arms["team"])
         self.assertEqual([], dict((v, x) for v, _a, x in rows)["team"])
@@ -234,7 +267,7 @@ class BothArmsLiveTests(unittest.TestCase):
         lib = _lib()
         node = _node(lib, ["team", "create"])
         node["actions"] = [a for a in node["actions"] if a["dest"] != "name"]
-        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), {"team"})
+        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), _live("team"))
         offenders = [(v, x) for v, _a, x in rows if x]
         self.assertEqual(1, len(offenders))
         self.assertEqual("team", offenders[0][0])
@@ -253,9 +286,9 @@ class BothArmsLiveTests(unittest.TestCase):
         lib = _lib()
         _action(_node(lib, ["recall"]), "token_budget")["default"] = 10000
         ported = dict((v, x) for v, _a, x in
-                      pg.evaluate(UNION, LOCAL, lib, _cli(), {"recall"}))
+                      pg.evaluate(UNION, LOCAL, lib, _cli(), _live("recall")))
         unported = dict((v, x) for v, _a, x in
-                        pg.evaluate(UNION, LOCAL, lib, _cli(), set()))
+                        pg.evaluate(UNION, LOCAL, lib, _cli(), _live()))
         self.assertTrue(any("token_budget" in v and "1500" in v
                             for v in ported["recall"]), ported["recall"])
         self.assertEqual([], unported["recall"])
@@ -265,7 +298,7 @@ class BothArmsLiveTests(unittest.TestCase):
         node = _node(cli, ["recall"])
         keep = [a for a in node["actions"] if a["dest"] != "token_budget"]
         node["actions"] = keep
-        rows = pg.evaluate(UNION, LOCAL, _lib(), cli, set())
+        rows = pg.evaluate(UNION, LOCAL, _lib(), cli, _live())
         bad = [(v, x) for v, _a, x in rows if x]
         self.assertEqual(1, len(bad))
         self.assertEqual("recall", bad[0][0])
@@ -368,7 +401,7 @@ class SubcommandDestTests(unittest.TestCase):
     def test_a_RENAMED_subparsers_dest_reddens_the_donor_only_arm(self):
         lib = _lib()
         _node(lib, ["team"])["subcommand_dest"] = "WRONG_DEST"
-        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), set())
+        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), _live())
         offenders = [(v, x) for v, _a, x in rows if x]
         self.assertEqual(["team"], [v for v, _x in offenders])
         self.assertTrue(any("team_cmd" in v for v in offenders[0][1]),

@@ -51,6 +51,18 @@ def _load():
     return m
 
 
+def _migrate_mod():
+    """The module that OWNS the migration registry + runner (task 37).
+
+    Unlike the facade, which every loader exec's into a namespace of its own,
+    this resolves through `sys.modules` — so the object this returns is the same
+    one BOTH facade instances and the modular dispatch arm read. That is what
+    makes patching it a real interlock probe rather than a per-instance illusion.
+    """
+    _load()   # puts scripts/ on sys.path
+    return importlib.import_module("agentware_lib.features.migratecmd")
+
+
 # The GROUND TRUTH: every KB-mutating command verb. If a new writer verb is added
 # without registering it, the completeness test below fails LOUDLY. cmd_migrate /
 # cmd_attach are intentionally absent (see registry docstring).
@@ -371,15 +383,19 @@ class SchemaGuardTest(unittest.TestCase):
         # A prefer WRITE must NOT land against a schema about to be RESTRUCTURED
         # (the case the auto-apply exclusion would otherwise silently admit), while
         # an additive-only pending migration STILL captures (forward-compatible).
-        # Tested directly on the gate (the CLI run uses a separate module instance,
-        # so on-disk .schema is shared but a patched _KB_MIGRATIONS is not).
+        # Tested directly on the gate. The registry is patched on the module that
+        # OWNS it since task 37 (agentware_lib.features.migratecmd): the monolith
+        # reaches the runner through that module at call time, so patching the
+        # owner is what BOTH dispatch arms see — patching the facade re-export
+        # would rebind a name nothing consults and pass vacuously.
         def _noop(_k):
             return None
-        prev = self.m._KB_MIGRATIONS
-        self.addCleanup(setattr, self.m, "_KB_MIGRATIONS", prev)
+        mig = _migrate_mod()
+        prev = mig._KB_MIGRATIONS
+        self.addCleanup(setattr, mig, "_KB_MIGRATIONS", prev)
         # Inject a restructuring migration ABOVE the current schema; .schema = the
         # CLI's current version so version-refusal (cur > version) does NOT fire.
-        self.m._KB_MIGRATIONS = prev + (
+        mig._KB_MIGRATIONS = prev + (
             (prev[-1][0] + 1, "restructuring", "big-move", _noop),)
         self._write_schema(self.m.KB_SCHEMA_VERSION)
         with contextlib.redirect_stderr(io.StringIO()) as errbuf:
@@ -387,7 +403,7 @@ class SchemaGuardTest(unittest.TestCase):
         self.assertEqual(rc, 1, "a pending restructuring must refuse a prefer write")
         self.assertIn("restructuring migration", errbuf.getvalue())
         # An additive-only pending migration (cur=0 < schema 1) must NOT refuse.
-        self.m._KB_MIGRATIONS = prev
+        mig._KB_MIGRATIONS = prev
         os.remove(os.path.join(self.kdir, ".schema"))
         self.assertIsNone(
             self.m._prefer_write_migration_gate(self.kdir),
@@ -395,10 +411,10 @@ class SchemaGuardTest(unittest.TestCase):
 
     def test_schemaguard_prefer_capture_cli_migration_gate_e2e(self):
         # END-TO-END via main() (audit round-2 coverage gap): the migration gate is
-        # wired into the real `prefer capture` CLI path. Patch the SAME module
-        # instance run_cli uses (load_cli()), not this test's separate _load().
-        from tests._fixtures import load_cli
-        m = load_cli()
+        # wired into the real `prefer capture` CLI path. The registry has ONE home
+        # since task 37 and both facade instances reach it, so there is no longer
+        # an instance to choose between — patch the owning module.
+        m = _migrate_mod()
         prev = m._KB_MIGRATIONS
         self.addCleanup(setattr, m, "_KB_MIGRATIONS", prev)
 

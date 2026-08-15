@@ -52,7 +52,7 @@ tests reach them as CLI.<name>. None of the 14 is monkeypatched by any test
 retrieval.corpus are ALSO bound as the module aliases _metrics/_sessionparse/_corpus
 on the facade so the facade-held derive functions resolve _metrics.<fn> etc. against
 the entrypoint namespace (the global-resolve gate walks them there).
-Fan-in: 5 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 6 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 import datetime
 import os

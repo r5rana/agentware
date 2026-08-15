@@ -10,7 +10,7 @@ repo-root/CLI anchors (see agentware_lib.core.paths), or the index.json SCHEMA a
 its readers/writers (see agentware_lib.knowledge.index, which imports INDEX_REL
 from here so the filename has exactly one definition).
 Layer deps: core -> stdlib only (imports nothing else from agentware_lib).
-Fan-in: 11 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 12 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 
 These are STABLE, feature-independent primitives with high potential fan-in:
 they describe the KB's on-disk shape and are needed DOWNWARD by knowledge (index
@@ -39,6 +39,14 @@ MAIN_REL = "MAIN.md"
 INDEX_REL = "index.json"
 
 GITIGNORE_REL = ".gitignore"
+
+# The KB's own SCHEMA-VERSION sidecar: the integer generation of the on-disk KB
+# shape, stamped by the migration runner. ABSENT means 0 — a pre-versioning KB,
+# which is the bootstrap contract, so this file is never created by a READ. The
+# runner that reads, applies and stamps it is agentware_lib.features.migratecmd;
+# the NAME lives here with the rest of the layout so the runner, the older-CLI
+# refusal and any future reader share one definition.
+SCHEMA_REL = ".schema"
 
 # Same-host index mutation lock (an fcntl.flock sidecar; see
 # agentware_lib.knowledge.index.indexlock). Purely local run state — it says
@@ -179,6 +187,7 @@ _EXPORTS = [
     "INDEX_REL",
     "kb_pointable",
     "GITIGNORE_REL",
+    "SCHEMA_REL",
     "KB_INDEX_LOCK_REL",
     "KB_GITIGNORE_MARKER",
     "KB_GITIGNORE_DIR_RULES",

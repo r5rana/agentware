@@ -94,6 +94,25 @@ def load_cli():
     return _CLI_MODULE
 
 
+def load_lib(dotted):
+    """Import an `agentware_lib` module BY ITS OWN NAME and return it.
+
+    The oracle for a PORTED verb (feature 260813 tasks 37..56). `load_cli()`
+    returns the facade, whose namespace holds the monolith plus re-exports of the
+    ported names — good enough to READ a symbol, useless to PATCH one: a
+    ported function reads ITS OWN module globals, so `mock.patch.object(facade,
+    "_KB_MIGRATIONS", …)` rebinds a name nothing consults and the test passes
+    while proving nothing. So a test that patches must address the owning module,
+    and this is the one place that resolution lives.
+
+    Goes through `load_cli()` first, deliberately: the facade is what puts
+    `scripts/` on `sys.path`, so importing it is what makes `agentware_lib`
+    importable at all under a bare `python3 -m unittest` from the repo root.
+    """
+    load_cli()
+    return importlib.import_module(dotted)
+
+
 def run_cli(argv, kdir, stdin_text=None):
     """Run the CLI with AGENTWARE_KNOWLEDGE_DIR=kdir; capture (code, out, err).
 
@@ -127,7 +146,17 @@ def run_cli(argv, kdir, stdin_text=None):
             prev_stdin = _sys.stdin
             _sys.stdin = io.StringIO(stdin_text)
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = mod.main(argv)
+            # Through the STRANGLER ROUTER, not straight into legacy `main`
+            # (feature 260813 task 37). The real CLI dispatches every invocation
+            # through `agentware_lib.strangler.dispatch`, so a fixture that calls
+            # `mod.main` directly serves EVERY verb from the monolith regardless
+            # of the allowlist — the suite would then be green on an
+            # implementation production no longer runs, which is the one failure
+            # mode this migration's harness gates exist to prevent. `_strangler`
+            # is the entrypoint's own binding, so this adds no import and no
+            # sys.path assumption; while the allowlist is empty it is
+            # byte-identical to the previous call.
+            code = mod._strangler.dispatch(argv, mod.main)
     finally:
         if sys_stdin is not None:
             sys_stdin.stdin = prev_stdin

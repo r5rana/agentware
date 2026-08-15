@@ -6,8 +6,8 @@
   "generator": "python3 tests/_legacy_ratchet.py --record",
   "notes": "SHRINK-ONLY marks over scripts/agentware_legacy.py plus a GROW-ONLY floor over agentware_lib.strangler.PORTED_VERBS. legacy_lines and legacy_bytes may only fall; legacy_defs and legacy_handlers are NAME SETS that may only lose members; floor.ported_verbs may only gain them. --record enforces all of that and additionally refuses any handler departure that no newly-ported verb accounts for by name (cmd_<verb>[_<sub>]), where the crediting verb must itself be a top-level verb of tests/fixtures/surface-union.json. Seeded at task 32 from the monolith preserved byte-identical at aw-pre-merge, with the allowlist still EMPTY (task 29). An ABSENT monolith and an ABSENT strangler module are both terminal states task 56 leaves behind, not failures.",
   "high_water": {
-    "legacy_lines": 34792,
-    "legacy_bytes": 1197923,
+    "legacy_lines": 34514,
+    "legacy_bytes": 1189755,
     "legacy_handlers": [
       "cmd_attach",
       "cmd_audit",
@@ -56,7 +56,6 @@
       "cmd_learn",
       "cmd_mcp",
       "cmd_metrics",
-      "cmd_migrate",
       "cmd_plan_add_task",
       "cmd_plan_claim",
       "cmd_plan_lint",
@@ -106,7 +105,6 @@
       "_alerts_unpromoted",
       "_append_checkpoint_log",
       "_append_graph_health_metric",
-      "_append_status_log",
       "_apply_skill_pin",
       "_atomic_write",
       "_attach_migrate_structure",
@@ -369,12 +367,7 @@
       "_iteration_for_ts",
       "_kb_autoapply_funcs",
       "_kb_entry_files_changed",
-      "_kb_journal_migration",
-      "_kb_migrate_apply",
-      "_kb_pending_migrations",
       "_kb_predispatch_gate",
-      "_kb_schema_read",
-      "_kb_schema_write",
       "_kb_writer_funcs",
       "_kernel_subtokens",
       "_kernel_write_tokens",
@@ -413,7 +406,6 @@
       "_merge_plan_status",
       "_merge_tools",
       "_merge_usage",
-      "_migration_001_state_backfill",
       "_model_context_window",
       "_model_slug",
       "_mq_emit",
@@ -580,7 +572,6 @@
       "_read_entry_body",
       "_read_ledger",
       "_read_metrics_jsonl",
-      "_read_plan_status",
       "_read_rule_count_baseline",
       "_read_work_text",
       "_real_ids",
@@ -666,7 +657,6 @@
       "_run_gate",
       "_run_gold_fixture_suite",
       "_run_longmemeval_suite",
-      "_run_state_backfill",
       "_safe_skill_name",
       "_sanitize_commit_tag",
       "_sanitize_context_block",
@@ -675,7 +665,6 @@
       "_session_feature_match",
       "_session_matched_features",
       "_set_config_value",
-      "_set_header_line",
       "_short_host",
       "_skill_author",
       "_skill_cache_dir",
@@ -872,7 +861,6 @@
       "cmd_learn",
       "cmd_mcp",
       "cmd_metrics",
-      "cmd_migrate",
       "cmd_plan_add_task",
       "cmd_plan_claim",
       "cmd_plan_lint",
@@ -1102,6 +1090,8 @@
     ]
   },
   "floor": {
-    "ported_verbs": []
+    "ported_verbs": [
+      "migrate"
+    ]
   }
 }

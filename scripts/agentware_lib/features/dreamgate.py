@@ -14,7 +14,7 @@ entrypoint, arriving in later wave-6 seams at agentware_lib/features/dream.py
 (+ dreamsteps); the scheduler installer -> agentware_lib.features.dreamsched; the
 dream-health heartbeat -> agentware_lib.features.dream (see catalog/modules.json).
 Layer deps: features.dreamgate -> core (kblayout) only -- all DOWNWARD; nothing above (ops/cli) is imported.
-Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 2 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 Determinism: the lock/gate are read-mostly over KB run-state (INV-2); `now`/`load`
 are injectable so tests are wall-clock-free; the lockfile lives under the already-
 gitignored .cache/ (never staged, INV never touched). stdlib-only (INV-6).

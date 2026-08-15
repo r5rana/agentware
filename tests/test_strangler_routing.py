@@ -69,12 +69,33 @@ def _union():
 class AllowlistTest(unittest.TestCase):
     """Claim 1 — the allowlist exists, is empty, and its LIB branch is live."""
 
-    def test_the_allowlist_exists_and_is_empty(self):
-        self.assertEqual(
-            set(SR.PORTED_VERBS), set(),
-            "PORTED_VERBS must be EMPTY at task 29: a verb joins it only after "
-            "its own promotion gate proves its modular surface a superset of "
-            "the union fixture (tasks 37..54)")
+    def test_the_allowlist_holds_only_PROMOTED_verbs(self):
+        # Written as the INVARIANT, not as the day's value: this started EMPTY at
+        # task 29 and grows by one verb per port (tasks 37..54), so an
+        # `assertEqual(set(), ...)` would have had to be edited — and therefore
+        # weakened — at every single port. What must hold FOREVER is that a
+        # member is a REAL top-level verb of the union surface, so a typo
+        # (`fleet_emit` for `fleet-emit`) or a subverb (`index add`) can never
+        # silently route a whole verb to a modular handler that does not own it.
+        union_verbs = set(_union()["top_level_verbs"])
+        self.assertTrue(set(SR.PORTED_VERBS) <= union_verbs,
+                        "allowlist members outside the union surface: %s"
+                        % sorted(set(SR.PORTED_VERBS) - union_verbs))
+        # ...and each one is registered in the modular parser, or the router
+        # would hand it to a lib that cannot parse it.
+        from agentware_lib._registration import _PARSER_REGISTRATION
+        registered = {verb for verb, _mod, _attr in _PARSER_REGISTRATION}
+        self.assertTrue(set(SR.PORTED_VERBS) <= registered,
+                        "ported but unregistered in the lib parser: %s"
+                        % sorted(set(SR.PORTED_VERBS) - registered))
+
+    def test_the_first_ported_verb_routes_to_the_LIB(self):
+        # Task 37 promoted `migrate` (the KB schema interlock). This is the
+        # anti-vacuity pin for the LIVE allowlist — distinct from the
+        # substituted-allowlist test below, which proves the mechanism.
+        self.assertIn("migrate", SR.PORTED_VERBS)
+        self.assertEqual(SR.route(["migrate", "--list"]), SR.LIB)
+        self.assertEqual(SR.route(["--format", "json", "migrate"]), SR.LIB)
 
     def test_the_allowlist_is_immutable(self):
         # A mutable default would let any import-time caller append a verb and
@@ -197,13 +218,18 @@ class UnionSurfaceRoutingTest(unittest.TestCase):
             self.assertEqual(SR.verb_of(["--format", "json"] + list(path)), path[0])
         self.assertEqual(seen, UNION_NODES)
 
-    def test_the_whole_union_surface_routes_to_legacy_at_this_commit(self):
-        # Including the six DONOR-ONLY verbs: they are not ported either, so
-        # they must fall to legacy (where they do not yet parse) rather than be
-        # picked up by a half-built modular handler. Task 52 ports them.
+    def test_every_UNPORTED_union_verb_still_routes_to_legacy(self):
+        # LEGACY-DEFAULT, stated as the invariant it is: everything not written
+        # down in the allowlist falls to the monolith. Including the six
+        # DONOR-ONLY verbs while they are unported — they must reach legacy
+        # (where they do not yet parse) rather than be picked up by a half-built
+        # modular handler. Task 52 ports them.
         for verb in self.union["top_level_verbs"]:
+            if verb in SR.PORTED_VERBS:
+                continue
             self.assertEqual(SR.route([verb]), SR.LEGACY, verb)
         for verb in self.union["donor_only_verbs"]:
+            self.assertNotIn(verb, SR.PORTED_VERBS)
             self.assertEqual(SR.route(["--format", "json", verb]), SR.LEGACY, verb)
 
 

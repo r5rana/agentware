@@ -61,7 +61,8 @@
       "dependency_direction": "cli -> core, features, knowledge, ops, retrieval",
       "depends_on": [
         "agentware_lib._registration",
-        "agentware_lib.core.projectcontext"
+        "agentware_lib.core.projectcontext",
+        "agentware_lib.features.migratecmd"
       ],
       "layer": "cli",
       "name": "agentware_lib.cli",
@@ -240,6 +241,7 @@
         "agentware_lib.features.dream",
         "agentware_lib.features.dreamjournal",
         "agentware_lib.features.mcp",
+        "agentware_lib.features.migratecmd",
         "agentware_lib.features.proposals.proposalpromote",
         "agentware_lib.features.proposals.proposeauthor",
         "agentware_lib.knowledge.curation.curationingest",
@@ -390,6 +392,7 @@
         "agentware_lib.features.configcmd.cfgshow",
         "agentware_lib.features.dreamgate",
         "agentware_lib.features.dreamsteps.stephealthgate",
+        "agentware_lib.features.migratecmd",
         "agentware_lib.features.setupcmd",
         "agentware_lib.knowledge.attach",
         "agentware_lib.knowledge.index.indexlock",
@@ -857,7 +860,8 @@
         "is_session_active"
       ],
       "depended_on_by": [
-        "agentware_lib.features.dream"
+        "agentware_lib.features.dream",
+        "agentware_lib.features.migratecmd"
       ],
       "dependency_direction": "features -> core, knowledge, ops, retrieval",
       "depends_on": [
@@ -1371,6 +1375,41 @@
       "owns": "the `mcp serve` command surface -- a stdlib-only (json + sys) JSON-RPC 2.0",
       "path": "scripts/agentware_lib/features/mcp.py",
       "test_file": "tests/unit/features/test_mcp.py"
+    },
+    {
+      "anchor_symbols": [
+        "KB_SCHEMA_VERSION",
+        "_KB_MIGRATIONS",
+        "_KB_MIGRATION_JOURNAL_REL",
+        "_KB_WRITER_TARGETS",
+        "_KB_WRITER_VERBS",
+        "_kb_migrate_apply",
+        "_kb_predispatch_gate",
+        "_kb_schema_read",
+        "_kb_schema_write",
+        "_run_state_backfill",
+        "cmd_migrate",
+        "register_migrate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.cli"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.dates",
+        "agentware_lib.core.kblayout",
+        "agentware_lib.features.dreamgate",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.planstate"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.migratecmd",
+      "not_owns": "the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout,",
+      "owns": "the knowledge-base SCHEMA INTERLOCK in full — the registered migration table",
+      "path": "scripts/agentware_lib/features/migratecmd.py",
+      "test_file": "tests/test_migrate_runner.py"
     },
     {
       "anchor_symbols": [
@@ -2020,6 +2059,7 @@
         "derive_plan_size"
       ],
       "depended_on_by": [
+        "agentware_lib.features.migratecmd",
         "agentware_lib.ops.alerts",
         "agentware_lib.ops.failureladder",
         "agentware_lib.ops.loopanalytics",
@@ -2462,7 +2502,9 @@
         "cmd_plan_target_dirs",
         "register_plan"
       ],
-      "depended_on_by": [],
+      "depended_on_by": [
+        "agentware_lib.features.migratecmd"
+      ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
       "depends_on": [
         "agentware_lib.core.dates",
@@ -2475,6 +2517,27 @@
       "owns": "the GENERATION half of the plan toolkit (feature 260625-plan-authoring-toolkit) --",
       "path": "scripts/agentware_lib/ops/planauthor/planedit.py",
       "test_file": "tests/unit/ops/test_planedit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_PLAN_DEFAULT_STATE",
+        "_PLAN_STATUS_HEADER_RE",
+        "_PLAN_STATUS_LOG_HEADING",
+        "_append_status_log",
+        "_read_plan_status",
+        "_set_header_line"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.migratecmd"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.planstate",
+      "not_owns": "the state MACHINE — the six states, the legal-transition matrix, the",
+      "owns": "the three PURE plan-text primitives of the plan state machine — reading the",
+      "path": "scripts/agentware_lib/ops/planauthor/planstate.py",
+      "test_file": "tests/test_backfill_migration.py"
     },
     {
       "anchor_symbols": [

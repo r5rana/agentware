@@ -49,6 +49,7 @@ _PARSER_REGISTRATION = (
     ("decide", "agentware_lib.features.curationcmd", "register_decide"),
     ("ingest", "agentware_lib.knowledge.curation", "register_ingest"),
     ("features", "agentware_lib.knowledge.curation", "register_features"),
+    ("migrate", "agentware_lib.features.migratecmd", "register_migrate"),
     ("worklog", "agentware_lib.knowledge.worklog", "register_worklog"),
     ("work", "agentware_lib.ops.planauthor", "register_work"),
     ("audit", "agentware_lib.ops.audit", "register_audit"),

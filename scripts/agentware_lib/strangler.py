@@ -60,7 +60,13 @@ single invocation of the CLI, including the ones the loop makes in a tight fanou
 #: monolith. EMPTY at task 29 by design (see the module docstring): legacy is the default
 #: and a verb joins this set only after its promotion gate passes. Deleted with the
 #: passthrough at task 56, when the lib serves everything and there is nothing to route.
-PORTED_VERBS = frozenset()
+PORTED_VERBS = frozenset({
+    # task 37 — the FIRST port. `migrate` owns the KB schema interlock
+    # (agentware_lib.features.migratecmd): ONE schema version, ONE migration
+    # table, ONE `.schema` writer, reached by BOTH dispatch arms for as long as
+    # the monolith is still serving verbs.
+    "migrate",
+})
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
 #: option's value instead of reading it as the verb. Derived from the union surface's root

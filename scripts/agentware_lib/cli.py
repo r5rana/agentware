@@ -28,6 +28,7 @@ import os
 
 from ._registration import _PARSER_REGISTRATION
 from .core import projectcontext
+from .features import migratecmd
 
 
 def _resolve_registrar(verb, module, attr, entrypoint_registrars):
@@ -91,9 +92,21 @@ def main(argv=None):
     The single CLI entrypoint: the extensionless ``scripts/agentware`` shim calls
     this from its ``if __name__ == "__main__"`` guard (and re-exports it so
     ``load_cli().main`` and the dashboard sidecar reach it unchanged).
+
+    Between PARSE and DISPATCH sits the KB schema interlock
+    (``features.migratecmd._kb_predispatch_gate``, task 37): on a KB-writing verb
+    it refuses the write when this package is OLDER than the KB's ``.schema``,
+    and auto-applies pending ADDITIVE migrations when it is newer. It is a no-op
+    for readers and for an unconfigured KB, and it lives HERE — on the one path
+    every lib-routed verb takes — rather than in each handler, exactly as the
+    monolith's own dispatch does it, so a writer cannot be ported past the guard
+    by forgetting to call it.
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+    rc = migratecmd._kb_predispatch_gate(args)
+    if rc is not None:
+        return rc
     return args.func(args)
 
 

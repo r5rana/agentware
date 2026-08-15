@@ -42,6 +42,27 @@ import threading
 import time
 from collections import OrderedDict
 
+# --- ported surface (feature 260813 strangler window) ------------------------
+# The KB SCHEMA INTERLOCK moved to agentware_lib at task 37 and lives there ONCE:
+# one KB_SCHEMA_VERSION, one migration table, one `.schema` writer. This file
+# keeps its OWN dispatch gate (below), which keys on the identity of the handlers
+# defined HERE — but it reads the runner through the `_kbmigrate` ALIAS, at call
+# time, so the lib is the single authority for both dispatch arms. CODE IN THIS
+# FILE MUST USE THE ALIAS: the `from` bindings below are SNAPSHOTS that exist
+# only so `CLI.<name>` — the suite's oracle, and the preserved-symbol gate —
+# still resolves; reading one from a function body would give this arm a private
+# copy of the version and split the brain the interlock exists to prevent.
+import agentware_lib.features.migratecmd as _kbmigrate
+from agentware_lib.features.migratecmd import (   # noqa: F401  (re-export)
+    KB_SCHEMA_VERSION, _KB_MIGRATIONS, _KB_MIGRATION_JOURNAL_REL,
+    _kb_schema_read, _kb_schema_write, _kb_pending_migrations,
+    _kb_journal_migration, _kb_migrate_apply, _run_state_backfill,
+    _migration_001_state_backfill, cmd_migrate)
+from agentware_lib.core.kblayout import SCHEMA_REL   # noqa: F401  (re-export)
+from agentware_lib.ops.planauthor.planstate import (   # noqa: F401  (re-export)
+    _PLAN_STATUS_HEADER_RE, _PLAN_STATUS_LOG_HEADING, _read_plan_status,
+    _set_header_line, _append_status_log)
+
 # --- Repo + knowledge-dir resolution ----------------------------------------
 # Repo root = the parent of the scripts/ dir that holds this file. Computed from
 # __file__ so the toolkit works regardless of the caller's cwd.
@@ -7486,7 +7507,8 @@ def _prefer_write_migration_gate(kdir):
     if not os.path.isfile(os.path.join(kdir, SENTINEL_REL)):
         return None
     restructuring = next(
-        (m for m in _kb_pending_migrations(kdir) if m[1] != "additive"), None)
+        (m for m in _kbmigrate._kb_pending_migrations(kdir)
+         if m[1] != "additive"), None)
     if restructuring is None:
         return None
     ver, _tier, name, _fn = restructuring
@@ -19811,10 +19833,8 @@ _PLAN_PROMISE_RE = re.compile(r"<promise>[A-Z0-9_]+</promise>")
 _PLAN_STATES = ("draft", "ready", "running", "done", "superseded", "cancelled")
 _PLAN_TERMINAL_STATES = ("done", "superseded", "cancelled")
 _PLAN_DEFAULT_STATE = "draft"
-_PLAN_STATUS_HEADER_RE = re.compile(r"^>\s*Status:\s*([A-Za-z-]+)\s*$", re.M)
 _PLAN_CLAIMED_BY_RE = re.compile(r"^>\s*Claimed-by:\s*(.+?)\s*$", re.M)
 _PLAN_SUPERSEDED_BY_RE = re.compile(r"^>\s*Superseded-by:\s*(.+?)\s*$", re.M)
-_PLAN_STATUS_LOG_HEADING = "## Status log"
 
 # Re-claim staleness: a `running` plan whose `> Claimed-by:` timestamp is older
 # than this many hours may be re-claimed by ANY actor (crash recovery). Shared by
@@ -19892,7 +19912,6 @@ _KERNEL_PATH_TOKENS = (
     "render-transcript.py", "commit-msg",
 )
 WORKORDER_DRAFT_CAP = 5   # g3: max concurrent draft/ready workorders under work/auto/
-SCHEMA_REL = ".schema"    # KB schema-version sidecar (full runner in the migrate cmd)
 _WORKORDER_SLUG_RE = re.compile(r"^\d{6}-")  # YYMMDD- (lint WARN otherwise)
 
 _PLAN_MARKER_HINT = ("expected a well-formed marker like `- ⬜ **N**` "
@@ -20538,7 +20557,7 @@ def cmd_plan_lint(args):
 
     rel_path = _plan_rel_path(path)
     kdir = resolve_knowledge_dir()
-    schema_version = _kb_schema_read(kdir) if kdir else 0
+    schema_version = _kbmigrate._kb_schema_read(kdir) if kdir else 0
     errors, warnings = lint_plan(text, strict=strict, rel_path=rel_path,
                                  schema_version=schema_version, kdir=kdir)
     result = {"ok": len(errors) == 0, "errors": errors, "warnings": warnings}
@@ -21296,158 +21315,6 @@ def _load_plan_for_edit(kdir, feature):
     return text, None
 
 
-def _kb_schema_read(kdir):
-    """Read the KB schema version from <kdir>/.schema; missing/unreadable => 0
-    (a pre-versioning KB — the bootstrap contract). The full migrate runner
-    (writes, journaling, guards) lives in cmd_migrate."""
-    try:
-        with open(os.path.join(kdir, SCHEMA_REL), "r", encoding="utf-8") as f:
-            return int((f.read() or "0").strip() or "0")
-    except (OSError, ValueError):
-        return 0
-
-
-# --- KB schema versioning + migration runner (feature 260710-plan-state-machine)
-# The package carries KB_SCHEMA_VERSION (the max registered migration version);
-# the KB records its own version in <kdir>/.schema (missing => 0, pre-versioning).
-# An idempotent, non-destructive runner applies pending migrations: ADDITIVE ones
-# auto-apply + journal; a RESTRUCTURING one is REFUSED with a suggested-workorder
-# instruction (tier mapping per decide-self-correction-governance-tiers). An older
-# CLL (KB_SCHEMA_VERSION < .schema) fails loud read-only on any KB write.
-# Each migration: (version:int, tier:'additive'|'restructuring', name:str,
-#                  fn:callable(kdir)) — fn MUST be idempotent + non-destructive.
-def _run_state_backfill(kdir, now_iso=None):
-    """Stamp `> Status:` on every legacy work/*/plan.md AND work/auto/*/plan.md
-    that lacks one, deriving `done` (metrics terminal `completed` > `.loop/.done` >
-    all-tasks-✅, via derive_outcome) else `draft`. NEVER overwrites an existing
-    status; skips the live loop feature (is_session_active) and unparseable plans
-    (logged); appends a `backfilled by migration-001` status-log line per stamp.
-    Idempotent + non-destructive. Returns a summary dict."""
-    now_iso = now_iso or _now_iso()
-    work = os.path.join(kdir, "work")
-    live = is_session_active(kdir)
-    stamped, skipped_existing, skipped_live, skipped_unparseable = [], [], [], []
-    feats = []
-    try:
-        for name in sorted(os.listdir(work)):
-            fdir = os.path.join(work, name)
-            if not os.path.isdir(fdir):
-                continue
-            if name == "auto":
-                try:
-                    for sub in sorted(os.listdir(fdir)):
-                        if os.path.isdir(os.path.join(fdir, sub)):
-                            feats.append("auto/" + sub)
-                except OSError:
-                    pass
-            else:
-                feats.append(name)
-    except OSError:
-        return {"stamped": [], "skipped_existing": [], "skipped_live": [],
-                "skipped_unparseable": []}
-    for feat in feats:
-        path = _plan_path(kdir, feat)
-        if not os.path.isfile(path):
-            continue
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                text = f.read()
-        except OSError:
-            skipped_unparseable.append(feat)
-            sys.stderr.write("migration-001: skipping unreadable plan %s\n" % feat)
-            continue
-        # Plan-shaped? Needs a title or a `> Feature:`/`> Created:` header anchor,
-        # else it is one of the legacy non-plan variants -> skip (never crash).
-        if not (re.search(r"(?m)^#\s", text)
-                or re.search(r"(?m)^>\s*(Feature|Created):", text)):
-            skipped_unparseable.append(feat)
-            sys.stderr.write("migration-001: skipping unparseable plan %s\n" % feat)
-            continue
-        _state, cnt = _read_plan_status(text)
-        if cnt >= 1:
-            skipped_existing.append(feat)   # NEVER overwrite an existing status
-            continue
-        if feat == live:
-            skipped_live.append(feat)       # the loop stamps it done at run end
-            continue
-        outcome = derive_outcome(kdir, feat)
-        state = "done" if (outcome and outcome.get("outcome") == "completed") \
-            else "draft"
-        lines = text.splitlines()
-        lines = _set_header_line(lines, "Status", state)
-        lines = _append_status_log(
-            lines, "- %s (none) -> %s by migration-001 reason: backfilled by "
-                   "migration-001" % (now_iso, state))
-        out = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
-        _atomic_write(path, out)
-        stamped.append({"feature": feat, "state": state})
-    return {"stamped": stamped, "skipped_existing": skipped_existing,
-            "skipped_live": skipped_live,
-            "skipped_unparseable": skipped_unparseable}
-
-
-def _migration_001_state_backfill(kdir):
-    """Migration 001 (additive tier): dogfood the state machine by stamping a
-    derived `> Status:` on every pre-existing plan. Idempotent + non-destructive."""
-    return _run_state_backfill(kdir)
-
-
-# Registered migrations, ascending version. 001 = plan state-backfill (additive).
-_KB_MIGRATIONS = ((1, "additive", "plan-state-backfill",
-                   _migration_001_state_backfill),)
-KB_SCHEMA_VERSION = max((m[0] for m in _KB_MIGRATIONS), default=0)
-_KB_MIGRATION_JOURNAL_REL = os.path.join("logs", "migrations.jsonl")
-
-
-def _kb_schema_write(kdir, n):
-    """Stamp <kdir>/.schema atomically."""
-    _atomic_write(os.path.join(kdir, SCHEMA_REL), "%d\n" % int(n))
-
-
-def _kb_pending_migrations(kdir):
-    """Registered migrations with version > the KB's current schema, in order."""
-    cur = _kb_schema_read(kdir)
-    return [m for m in _KB_MIGRATIONS if m[0] > cur]
-
-
-def _kb_journal_migration(kdir, record):
-    """Append one JSON line to <kdir>/logs/migrations.jsonl (best-effort audit)."""
-    try:
-        path = os.path.join(kdir, _KB_MIGRATION_JOURNAL_REL)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    except OSError as exc:
-        sys.stderr.write("agentware: migration journal write failed: %s\n" % exc)
-
-
-def _kb_migrate_apply(kdir):
-    """Apply pending ADDITIVE migrations in order (journal each), then stamp
-    .schema. A RESTRUCTURING migration STOPS the run (refusal) without applying
-    it. Returns (result, error): error is set only for the older-CLI guard.
-    result = {applied:[…], schema:int, pending:int, refused:{…}|None}."""
-    cur = _kb_schema_read(kdir)
-    if cur > KB_SCHEMA_VERSION:
-        return None, ("older CLI (schema %d) on a newer KB (schema %d) — refusing "
-                      "any write; update the agentware package first"
-                      % (KB_SCHEMA_VERSION, cur))
-    pending = _kb_pending_migrations(kdir)
-    applied, reached, refused = [], cur, None
-    for (ver, tier, name, fn) in pending:
-        if tier != "additive":
-            refused = {"version": ver, "name": name, "tier": tier}
-            break
-        fn(kdir)
-        rec = {"ts": _now_iso(), "version": ver, "name": name, "tier": tier}
-        _kb_journal_migration(kdir, rec)
-        applied.append(rec)
-        reached = ver
-    target = reached if refused else KB_SCHEMA_VERSION
-    _kb_schema_write(kdir, target)
-    return {"applied": applied, "schema": target,
-            "pending": len(pending) - len(applied), "refused": refused}, None
-
-
 def _kb_writer_funcs():
     """Version-refusal SUPERSET: EVERY KB-mutating command func. On a NEWER KB
     (`.schema` > this CLI's KB_SCHEMA_VERSION) the older-CLI guard refuses ALL of
@@ -21534,7 +21401,12 @@ def _kb_predispatch_gate(args):
     + auto-apply of ADDITIVE migrations FIRST (the on-first-CLI-use trigger), for
     every writer EXCEPT the migration-runner verbs (the auto-apply subset). No-op
     for readers and for an unconfigured/uninitialized KB. Returns an exit code to
-    short-circuit, else None."""
+    short-circuit, else None.
+
+    The VERSION, the registry and the runner are read through `_kbmigrate` at CALL
+    time (task 37): this arm and the modular one must never disagree about what
+    schema the package is, and a module-qualified read is what makes the lib the
+    single authority instead of giving this file a private snapshot."""
     func = getattr(args, "func", None)
     if func not in _kb_writer_funcs():
         return None
@@ -21543,15 +21415,15 @@ def _kb_predispatch_gate(args):
         return None
     if not os.path.isfile(os.path.join(kdir, SENTINEL_REL)):
         return None   # uninitialized: init/onboarding path — never migrate
-    cur = _kb_schema_read(kdir)
-    if cur > KB_SCHEMA_VERSION:
+    cur = _kbmigrate._kb_schema_read(kdir)
+    if cur > _kbmigrate.KB_SCHEMA_VERSION:
         sys.stderr.write(
             "agentware: refusing to write — this CLI is schema %d but the KB is "
             "schema %d (older CLI on a newer KB). Update the agentware package "
-            "first.\n" % (KB_SCHEMA_VERSION, cur))
+            "first.\n" % (_kbmigrate.KB_SCHEMA_VERSION, cur))
         return 1
-    if cur < KB_SCHEMA_VERSION and func in _kb_autoapply_funcs():
-        result, err = _kb_migrate_apply(kdir)
+    if cur < _kbmigrate.KB_SCHEMA_VERSION and func in _kb_autoapply_funcs():
+        result, err = _kbmigrate._kb_migrate_apply(kdir)
         if err:
             sys.stderr.write("agentware: %s\n" % err)
             return 1
@@ -21563,76 +21435,6 @@ def _kb_predispatch_gate(args):
                 "workorder) before writing.\n" % (r["version"], r["name"]))
             return 1
     return None
-
-
-def cmd_migrate(args):
-    """`migrate --list` (read-only) / `migrate --apply` (apply + stamp .schema).
-
-    Pinned output: `--list` prints `migrate: schema <cur> -> <target>, <k> pending`
-    or `migrate: up to date (schema <N>, 0 pending)`; `--apply` with nothing
-    pending prints exactly `migrate: up to date (schema <N>, 0 pending)`.
-    """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    as_json = getattr(args, "format", "text") == "json"
-    cur = _kb_schema_read(kdir)
-    target = KB_SCHEMA_VERSION
-
-    if getattr(args, "apply", False):
-        result, err = _kb_migrate_apply(kdir)
-        if err:
-            if as_json:
-                json.dump({"ok": False, "error": err}, sys.stdout,
-                          ensure_ascii=False, indent=2)
-                sys.stdout.write("\n")
-            else:
-                sys.stderr.write("migrate: %s\n" % err)
-            return 1
-        applied = result.get("applied", [])
-        refused = result.get("refused")
-        if as_json:
-            json.dump({"ok": not refused, "applied": applied,
-                       "schema": result["schema"], "pending": result["pending"],
-                       "refused": refused}, sys.stdout, ensure_ascii=False,
-                      indent=2)
-            sys.stdout.write("\n")
-        if refused:
-            print("migrate: refusing to auto-apply RESTRUCTURING migration %d "
-                  "(%s) — create a migration workorder: `scripts/agentware plan "
-                  "new --auto <YYMMDD>-migrate-%d --generated-by migrate --trigger "
-                  "schema-%d --title 'apply migration %d'`"
-                  % (refused["version"], refused["name"], refused["version"],
-                     refused["version"], refused["version"]))
-            return 1
-        if not applied:
-            print("migrate: up to date (schema %d, 0 pending)" % result["schema"])
-        else:
-            print("migrate: applied %d migration(s) -> schema %d"
-                  % (len(applied), result["schema"]))
-        return 0
-
-    # --list (read-only; NEVER creates .schema)
-    pending = _kb_pending_migrations(kdir)
-    if as_json:
-        json.dump({"ok": True, "schema": cur, "target": target,
-                   "pending": [{"version": m[0], "tier": m[1], "name": m[2]}
-                               for m in pending]},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-        return 0
-    if cur > target:
-        # Older CLI on a newer KB: `_kb_pending_migrations` returns [] here, so the
-        # old code misreported this as "up to date". Report the mismatch honestly;
-        # still read-only (never stamps .schema).
-        print("migrate: OLDER CLI (schema %d) on a NEWER KB (schema %d) — update "
-              "the agentware package to migrate; writes are refused until then"
-              % (target, cur))
-    elif not pending:
-        print("migrate: up to date (schema %d, 0 pending)" % cur)
-    else:
-        print("migrate: schema %d -> %d, %d pending" % (cur, target, len(pending)))
-    return 0
 
 
 def _resolves_under_repo(candidate, allow_relative=False):
@@ -22258,19 +22060,6 @@ def _sanitize_target(value):
     return v
 
 
-def _read_plan_status(text):
-    """FIRST-MATCH `> Status:` from the top of the file -> (state, count).
-
-    `count` is how many status-like header lines exist (>1 => duplicate/
-    hand-edited, an error for lint/set-state). Missing => (_PLAN_DEFAULT_STATE, 0)
-    so every legacy plan reads as `draft`.
-    """
-    matches = _PLAN_STATUS_HEADER_RE.findall(text or "")
-    if not matches:
-        return (_PLAN_DEFAULT_STATE, 0)
-    return (matches[0].strip().lower(), len(matches))
-
-
 def _parse_claim(text):
     """Parse the first `> Claimed-by: <handle>@<host> <ISO>` line, or None."""
     m = _PLAN_CLAIMED_BY_RE.search(text or "")
@@ -22339,62 +22128,6 @@ def _load_plan_tolerant(kdir, feature):
             return f.read(), None
     except OSError as exc:
         return None, "cannot read plan %s: %s" % (path, exc)
-
-
-def _set_header_line(lines, field, value):
-    """Set/replace/remove a toolkit-owned `> Field: value` header line (first
-    match removed, new one inserted after its anchor). value=None removes it.
-    Returns the mutated list."""
-    field_rx = re.compile(r"^>\s*%s:\s" % re.escape(field))
-    out = [ln for ln in lines if not field_rx.match(ln)]
-    if value is None:
-        return out
-    new_line = "> %s: %s" % (field, value)
-    anchors = {
-        "Status": ("Created", "Feature"),
-        "Claimed-by": ("Status", "Created", "Feature"),
-        "Superseded-by": ("Status", "Created", "Feature"),
-    }.get(field, ())
-    insert_idx = None
-    for anchor in anchors:
-        arx = re.compile(r"^>\s*%s:\s" % re.escape(anchor))
-        for i, ln in enumerate(out):
-            if arx.match(ln):
-                insert_idx = i + 1
-                break
-        if insert_idx is not None:
-            break
-    if insert_idx is None:
-        insert_idx = 1 if out else 0
-    out.insert(insert_idx, new_line)
-    return out
-
-
-def _append_status_log(lines, entry):
-    """Append `entry` under the append-only `## Status log` section, creating the
-    section at end-of-file when absent. Returns the mutated list."""
-    idx = None
-    for i, ln in enumerate(lines):
-        if ln.strip() == _PLAN_STATUS_LOG_HEADING:
-            idx = i
-            break
-    if idx is None:
-        if lines and lines[-1].strip() != "":
-            lines.append("")
-        lines.append(_PLAN_STATUS_LOG_HEADING)
-        lines.append("")
-        lines.append(entry)
-        return lines
-    end = len(lines)
-    for j in range(idx + 1, len(lines)):
-        if lines[j].startswith("## "):
-            end = j
-            break
-    k = end - 1
-    while k > idx and lines[k].strip() == "":
-        k -= 1
-    lines.insert(k + 1, entry)
-    return lines
 
 
 def cmd_plan_set_state(args):
@@ -22578,7 +22311,7 @@ def cmd_plan_state_backfill(args):
     kdir = require_knowledge_dir()
     if not kdir:
         return 1
-    summary = _run_state_backfill(kdir)
+    summary = _kbmigrate._run_state_backfill(kdir)
     if getattr(args, "format", "text") == "json":
         out = {"ok": True}
         out.update(summary)
@@ -30558,7 +30291,8 @@ def _pkg_emit_heartbeat(kdir):
     (mirrors _dream_emit_metric)."""
     try:
         rec = {"event": "pkg_version", "ts": _now_iso(),
-               "pkg_version": _pkg_version(), "schema": _kb_schema_read(kdir),
+               "pkg_version": _pkg_version(),
+               "schema": _kbmigrate._kb_schema_read(kdir),
                "updater": resolve_updater()}
         logs = os.path.join(kdir, "logs")
         os.makedirs(logs, exist_ok=True)
@@ -33969,18 +33703,6 @@ def build_parser():
         "features", parents=[fmt_parent],
         help="regenerate FEATURES.md from the knowledge index.json")
     p_feat.set_defaults(func=cmd_features)
-
-    # migrate ----------------------------------------------------------------
-    p_mig = sub.add_parser(
-        "migrate", parents=[fmt_parent],
-        help="KB schema migration runner: --list (read-only) / --apply (idempotent)")
-    mig_grp = p_mig.add_mutually_exclusive_group()
-    mig_grp.add_argument("--list", action="store_true",
-                         help="report pending migrations, read-only (the default)")
-    mig_grp.add_argument("--apply", action="store_true",
-                         help="apply pending additive migrations and stamp .schema "
-                              "(idempotent; refuses restructuring migrations)")
-    p_mig.set_defaults(func=cmd_migrate)
 
     # worklog ----------------------------------------------------------------
     p_wl = sub.add_parser("worklog", help="worklog utilities")

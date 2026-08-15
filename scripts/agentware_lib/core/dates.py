@@ -8,7 +8,7 @@ Does NOT own: freshness / age math (entry_last_verified, date_age_days, freshnes
 live with the knowledge+ops freshness code, not here); any date FORMATTING for
 human-facing reports (that stays with its report renderer).
 Layer deps: core -> stdlib only (imports nothing from agentware_lib).
-Fan-in: 27 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 28 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 
 Small, STABLE, feature-independent primitives with high fan-in — index, curation,
 retrieval, evaluate, bench, fleet, plans and skills all stamp or validate dates —
