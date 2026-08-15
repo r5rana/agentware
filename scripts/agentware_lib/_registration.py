@@ -47,6 +47,7 @@ _PARSER_REGISTRATION = (
     ("query", "agentware_lib.knowledge.graph", "register_query"),
     ("learn", "agentware_lib.features.curationcmd", "register_learn"),
     ("decide", "agentware_lib.features.curationcmd", "register_decide"),
+    ("relate", "agentware_lib.knowledge.relatecmd", "register_relate"),
     ("ingest", "agentware_lib.knowledge.curation", "register_ingest"),
     ("features", "agentware_lib.knowledge.curation", "register_features"),
     ("migrate", "agentware_lib.features.migratecmd", "register_migrate"),

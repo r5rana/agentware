@@ -104,19 +104,21 @@ _ASSEMBLER = "scripts/agentware_lib/cli.py::assemble_parser"
 _PORTED_REGISTRARS = (
     _ASSEMBLER,   # the walk over the frozen registration tuple that CALLS them
     "scripts/agentware_lib/features/migratecmd.py::register_migrate",   # task 37
+    "scripts/agentware_lib/knowledge/relatecmd.py::register_relate",    # task 38
 )
 
 ADJUDICATIONS = {
     "build_parser": {
         "adjudication": "decomposed",
         "host": "scripts/agentware_legacy.py",
-        "floor_chars": 66592,
+        "floor_chars": 65728,
         "absorbs": list(_PORTED_REGISTRARS),
         "rationale": "Every port moves a verb's argparse block from the "
                      "monolith's build_parser into its own register_<verb> in "
                      "the lib, which assemble_parser walks. Task 37 moved "
-                     "`migrate` (489 chars). Surface unchanged — the promotion "
-                     "gate proves that against the union fixture node by node.",
+                     "`migrate` (489 chars); task 38 moved `relate` (864). "
+                     "Surface unchanged — the promotion gate proves that against "
+                     "the union fixture node by node.",
     },
     "_dream_health_gate_checks": {
         "adjudication": "decomposed",

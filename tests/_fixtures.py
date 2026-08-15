@@ -69,17 +69,50 @@ def cli_source():
     behaviour it guards. That is the silent-vacuous shape this migration keeps
     finding, so the seam is defined ONCE here rather than re-pinned per test.
 
-    Returns the entrypoint concatenated with the legacy module while the legacy
-    module exists; task 56 deletes it and this collapses back to the entrypoint.
-    The facade defines no `def`, so line-order scans that track the enclosing
-    definition are unaffected by the concatenation.
+    Returns the entrypoint, the legacy module while it exists, AND the module that
+    owns each PORTED verb (feature 260813 task 38). That third part is not an
+    embellishment: from the first port the implementation is SPLIT across two
+    trees, so a scan reading only the monolith reports a ported function as
+    "removed" rather than as "moved", and by task 56 — when the monolith is gone —
+    it would scan a facade with no `def` in it and report every guarded property as
+    satisfied. The set is resolved LIVE from `strangler.PORTED_VERBS` crossed with
+    the frozen registration tuple, so it grows with each port and needs no edit
+    here; ordering is the registration tuple's, so the concatenation is
+    deterministic. Every part starts its defs at column 0, so line-order scans that
+    track the enclosing definition are unaffected by the concatenation.
     """
     parts = []
     for path in (CLI_PATH, LEGACY_PATH):
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as fh:
                 parts.append(fh.read())
+    for path in ported_module_paths():
+        with open(path, encoding="utf-8") as fh:
+            parts.append(fh.read())
     return "\n".join(parts)
+
+
+def ported_module_paths():
+    """Absolute paths of the lib modules owning a verb in ``PORTED_VERBS``.
+
+    In registration-tuple order, de-duplicated (one module may own several verbs)
+    and filtered to files that exist. Importing the facade first is what puts
+    `scripts/` on `sys.path`, so this resolves under a bare
+    `python3 -m unittest` from the repo root exactly as `load_lib` does.
+    """
+    load_cli()
+    from agentware_lib import strangler
+    from agentware_lib._registration import _PARSER_REGISTRATION
+    seen, out = set(), []
+    for verb, module, _attr in _PARSER_REGISTRATION:
+        if verb not in strangler.PORTED_VERBS or module in seen or not module:
+            continue
+        seen.add(module)
+        path = os.path.join(REPO_ROOT, "scripts",
+                            *(module.split("."))) + ".py"
+        if os.path.isfile(path):
+            out.append(path)
+    return out
 
 
 def load_cli():

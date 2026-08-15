@@ -48,8 +48,9 @@ THE WRITER SET IS DECLARED, NOT DISCOVERED
 _KB_WRITER_TARGETS names each PORTED writer handler by (module, attr) and is resolved at
 CALL time — so this module stays import-cheap on the hot path, and so a target that
 stops resolving is a loud ImportError/AttributeError rather than a handler that quietly
-falls out of the guarded set. It is EMPTY at this commit because `migrate` is the only
-ported verb and `migrate` is deliberately not a guarded writer (see _kb_writer_funcs).
+falls out of the guarded set. It stayed EMPTY through task 37 because `migrate` is
+deliberately not a guarded writer (see _kb_writer_funcs); task 38's `relate` is the
+first ported verb that writes the KB, so it is the first row.
 Each later port appends its own row; `tests/test_kbschema_interlock.py` asserts the
 correspondence in both directions — no ported writer verb missing a row, no row that
 does not resolve — so the guard cannot be forgotten one port at a time.
@@ -259,11 +260,17 @@ _KB_WRITER_VERBS = frozenset((
     "features", "skill", "dream",
 ))
 
-# The PORTED writer handlers, as (module, attr) resolved at call time. EMPTY at
-# task 37: `migrate` is the only ported verb and it is deliberately not guarded
-# (see _kb_writer_funcs). Every later port appends its own row here in the same
-# commit that appends its verb to strangler.PORTED_VERBS.
-_KB_WRITER_TARGETS = ()
+# The PORTED writer handlers, as (module, attr) resolved at call time. Every port
+# appends its own row here in the same commit that appends its verb to
+# strangler.PORTED_VERBS; `migrate` itself is deliberately not guarded (see
+# _kb_writer_funcs), so the set stayed empty until the first ported WRITER.
+_KB_WRITER_TARGETS = (
+    # task 38 — `relate` mutates the subject `.md` AND index.json via
+    # _declare_relation -> save_index, so an older CLI must refuse it on a
+    # newer/migrated KB. Not dual-mode (no read-only path), so it stays in the
+    # auto-apply subset too — no _KB_AUTOAPPLY_EXCLUDED_TARGETS row.
+    ("agentware_lib.knowledge.relatecmd", "cmd_relate"),
+)
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the
 # auto-apply (a read that writes `.schema` is the failure this set prevents):

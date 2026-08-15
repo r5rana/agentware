@@ -63,6 +63,12 @@ def _migrate_mod():
     return importlib.import_module("agentware_lib.features.migratecmd")
 
 
+def _lib_cli():
+    """The lib's parser assembler — the arm that serves every PORTED verb."""
+    _load()   # puts scripts/ on sys.path
+    return importlib.import_module("agentware_lib.cli")
+
+
 # The GROUND TRUTH: every KB-mutating command verb. If a new writer verb is added
 # without registering it, the completeness test below fails LOUDLY. cmd_migrate /
 # cmd_attach are intentionally absent (see registry docstring).
@@ -128,7 +134,12 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "cmd_learn": "cmd_learn",
     "cmd_decide": "cmd_decide",
     "cmd_ingest": "cmd_ingest",
-    "_declare_relation": "cmd_relate",           # relate verb's index writer
+    # relate verb's index writer. PORTED at task 38 into
+    # agentware_lib/knowledge/relatecmd.py, where the monolith's single ~150-line
+    # `_declare_relation` was split at its four existing stages to satisfy the
+    # per-function ceiling; the save_index call went with the reconcile stage. The
+    # OWNING COMMAND is unchanged, which is the only thing this map governs.
+    "_relate_commit_index": "cmd_relate",
 
     "kb_git_push_once": "cmd_kb_git_commit",     # git-sync rebuild-before-commit
     "kb_git_merge_continue": "cmd_kb_git_merge_continue",
@@ -187,22 +198,55 @@ class SchemaGuardTest(unittest.TestCase):
         with open(p, encoding="utf-8") as f:
             return f.read()
 
-    def _gate(self, func):
-        """Run the real dispatch gate for `func` against this KB."""
+    def _gate(self, func, mod=None):
+        """Run the real dispatch gate for `func` against this KB.
+
+        `mod` selects the ARM (default: the monolith's). Each arm's gate keys on
+        the identity of the handlers ITS tree dispatches, so a handler must be
+        gated by its own arm — asking the monolith about a ported handler
+        correctly returns None, and reading that as "unguarded" would be the
+        wrong conclusion.
+        """
+        mod = mod or self.m
         prev = os.environ.get("AGENTWARE_KNOWLEDGE_DIR")
         os.environ["AGENTWARE_KNOWLEDGE_DIR"] = self.kdir
         try:
             with contextlib.redirect_stderr(io.StringIO()):
-                return self.m._kb_predispatch_gate(argparse.Namespace(func=func))
+                return mod._kb_predispatch_gate(argparse.Namespace(func=func))
         finally:
             if prev is None:
                 os.environ.pop("AGENTWARE_KNOWLEDGE_DIR", None)
             else:
                 os.environ["AGENTWARE_KNOWLEDGE_DIR"] = prev
 
+    def _arms(self):
+        """The dispatch arms serving verbs right now, as (module, writer_funcs).
+
+        The strangler window (feature 260813 tasks 37..56) splits dispatch across
+        the monolith and the lib, and each arm's `_kb_writer_funcs()` holds only
+        the handlers IT dispatches. The ground truth below is a property of the
+        MERGED CLI — "every KB-mutating verb is schema-guarded" — so it is
+        asserted against the UNION. Pinning it to one arm would have made the
+        first ported writer look like a deleted guard, and would go on hiding a
+        genuinely unguarded handler on the other side. At task 56 the monolith
+        goes and this collapses to a single arm with no edit here.
+        """
+        mig = _migrate_mod()
+        return ((self.m, self.m._kb_writer_funcs()),
+                (mig, mig._kb_writer_funcs()))
+
+    def _registry(self):
+        """Union of both arms' writer registries, by function name."""
+        return {f.__name__ for _mod, funcs in self._arms() for f in funcs}
+
+    def _autoapply(self):
+        """Union of both arms' auto-apply subsets, by function name."""
+        return {f.__name__ for mod, _funcs in self._arms()
+                for f in mod._kb_autoapply_funcs()}
+
     # --- completeness -------------------------------------------------------
     def test_schemaguard_registry_equals_ground_truth(self):
-        registry = {f.__name__ for f in self.m._kb_writer_funcs()}
+        registry = self._registry()
         self.assertEqual(
             registry, _GROUND_TRUTH_WRITERS,
             "registry drifted from the ground-truth writer set: "
@@ -213,7 +257,7 @@ class SchemaGuardTest(unittest.TestCase):
     def test_schemaguard_completeness_canary(self):
         # Deliberate-omission canary: proves the completeness assertion is not
         # vacuous — dropping the loop's every-iteration writer MUST be detected.
-        registry = {f.__name__ for f in self.m._kb_writer_funcs()}
+        registry = self._registry()
         self.assertIn("cmd_plan_claim", registry,
                       "cmd_plan_claim runs every loop iteration — the original hole")
         omitted = registry - {"cmd_plan_claim"}
@@ -221,15 +265,21 @@ class SchemaGuardTest(unittest.TestCase):
                             "canary: an omitted writer must break the equality")
 
     def test_schemaguard_every_registry_func_is_dispatchable(self):
-        parser_funcs = {f.__name__
-                        for f in _collect_dispatch_funcs(self.m.build_parser(), set())}
-        registry = {f.__name__ for f in self.m._kb_writer_funcs()}
+        # Both parsers, for the same reason the registry is a union: a ported
+        # handler is registered by the lib's assembler and no longer appears in
+        # the monolith's build_parser, so a one-sided comparison would report a
+        # correctly-guarded writer as unreachable.
+        parser_funcs = set()
+        for parser in (self.m.build_parser(), _lib_cli().build_parser()):
+            parser_funcs |= {f.__name__
+                             for f in _collect_dispatch_funcs(parser, set())}
+        registry = self._registry()
         self.assertTrue(registry <= parser_funcs,
                         "registry has non-dispatchable funcs: %s"
                         % sorted(registry - parser_funcs))
 
     def test_schemaguard_migrate_and_attach_excluded(self):
-        registry = {f.__name__ for f in self.m._kb_writer_funcs()}
+        registry = self._registry()
         self.assertNotIn("cmd_migrate", registry)
         self.assertNotIn("cmd_attach", registry)
 
@@ -238,9 +288,7 @@ class SchemaGuardTest(unittest.TestCase):
         # dual-mode verbs whose read-only path must never write .schema: cmd_dream
         # (--dry-run) and cmd_prefer (digest/list/scan-queue run at session-start /
         # Stop-hook time). All three still carry version-refusal via the superset.
-        superset = self.m._kb_writer_funcs()
-        autoapply = self.m._kb_autoapply_funcs()
-        self.assertEqual({f.__name__ for f in (superset - autoapply)},
+        self.assertEqual(self._registry() - self._autoapply(),
                          {"cmd_plan_state_backfill", "cmd_dream", "cmd_prefer"})
 
     def test_schemaguard_dream_registered_but_not_autoapply(self):
@@ -298,7 +346,7 @@ class SchemaGuardTest(unittest.TestCase):
                 sorted(set(_EXPECTED_INDEX_WRITER_DEFS) - discovered),
                 sorted(discovered - set(_EXPECTED_INDEX_WRITER_DEFS))))
 
-        registered = {f.__name__ for f in self.m._kb_writer_funcs()}
+        registered = self._registry()
         for wdef, command in _EXPECTED_INDEX_WRITER_DEFS.items():
             if command is None:
                 continue
@@ -310,10 +358,11 @@ class SchemaGuardTest(unittest.TestCase):
     # --- newer-.schema refusal for EVERY writer (older CLI on newer KB) ------
     def test_schemaguard_all_writers_refuse_on_newer_kb(self):
         self._write_schema(self.m.KB_SCHEMA_VERSION + 1)
-        for func in self.m._kb_writer_funcs():
-            self.assertEqual(
-                self._gate(func), 1,
-                "writer %s must REFUSE (rc 1) on a newer KB" % func.__name__)
+        for mod, funcs in self._arms():
+            for func in funcs:
+                self.assertEqual(
+                    self._gate(func, mod), 1,
+                    "writer %s must REFUSE (rc 1) on a newer KB" % func.__name__)
 
     def test_schemaguard_named_writers_refuse(self):
         # The specific verbs the plan calls out (previously unguarded).

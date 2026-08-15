@@ -314,6 +314,7 @@
         "agentware_lib.knowledge.index.indexrebuild",
         "agentware_lib.knowledge.index.indexvalidate",
         "agentware_lib.knowledge.privacy",
+        "agentware_lib.knowledge.relatecmd",
         "agentware_lib.knowledge.skillentry",
         "agentware_lib.ops.audit",
         "agentware_lib.ops.fleet.fleetreport",
@@ -1899,6 +1900,29 @@
       "owns": "the READ-ONLY skill-proposal staging surface — the append-only",
       "path": "scripts/agentware_lib/knowledge/proposals.py",
       "test_file": "tests/unit/knowledge/test_proposals.py"
+    },
+    {
+      "anchor_symbols": [
+        "_declare_relation",
+        "_relate_commit_index",
+        "_relate_confirm",
+        "_relate_read_subject",
+        "_relate_resolve_subject",
+        "_relate_write_md",
+        "cmd_relate",
+        "register_relate"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.relatecmd",
+      "not_owns": "the `relates` token vocabulary or the byte-preserving frontmatter",
+      "owns": "the declared-edge WRITE path in full — `_declare_relation` (the guarded,",
+      "path": "scripts/agentware_lib/knowledge/relatecmd.py",
+      "test_file": "tests/test_relate.py"
     },
     {
       "anchor_symbols": [

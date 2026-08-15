@@ -1,7 +1,9 @@
 """agentware_lib.core.frontmatter — restricted-YAML entry frontmatter I/O (layer: core).
 
 Owns: the deterministic, stdlib-only frontmatter EMIT + PARSE (render_frontmatter,
-split_frontmatter, strip_frontmatter and the _fm_* quote/scalar/tag/list helpers),
+split_frontmatter, strip_frontmatter and the _fm_* quote/scalar/tag/list helpers,
+including the byte-preserving `relates:` line upsert _fm_upsert_relates_line the
+`relate` verb declares its edges through),
 the legacy blockquote-header fallback parser (_parse_legacy_header + _LEGACY_*_RE),
 read_entry_frontmatter, the frontmatter field vocabulary constants (FRONTMATTER_FIELDS
 / _FM_INDEX_SCALARS / RELATION_TYPES / DEFAULT_ENTRY_SOURCE), and the entry-frontmatter
@@ -15,7 +17,7 @@ both imported here.
 Layer deps: core -> stdlib (os, re) + agentware_lib.core.orgkeys / .dates / .config
 (core->core, for _ORG_FRONTMATTER_FIELDS ordering, _today, and _entry_origin_team
 respectively). Imports nothing above core.
-Fan-in: 20 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
+Fan-in: 21 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 
 import os
@@ -217,6 +219,41 @@ def _fm_parse_relates(raw):
             continue
         out.append("%s:%s" % parsed)
     return out
+
+
+def _fm_upsert_relates_line(text, tokens):
+    """Upsert the frontmatter `relates:` line to exactly `tokens`, byte-preserving
+    every OTHER line of the file (all other frontmatter fields AND the body).
+
+    Unlike a full `render_frontmatter` round-trip — which re-emits (and so could
+    reformat, or fill with empty scalars) fields a partial-frontmatter entry may
+    not carry — this edits ONLY the `relates:` line: it REPLACES an existing one in
+    place, else INSERTS a new one as the LAST frontmatter field (matching
+    `FRONTMATTER_FIELDS`, where `relates` is last) just before the closing `---`. So
+    the subject entry changes by exactly the declared edge and nothing else (INV-2
+    for every author/source/last_verified value already on disk). The emitted line
+    uses the SAME `_fm_emit_tag` machinery as `render_frontmatter`, so a later
+    `index rebuild` reproduces it byte-for-byte. Assumes a real frontmatter block is
+    present (the caller guarantees it); returns `text` unchanged if it is not.
+    """
+    line = "relates: [%s]" % ", ".join(_fm_emit_tag(t) for t in tokens)
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return text  # no frontmatter block — caller refuses before reaching here
+    close = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            close = i
+            break
+    if close is None:
+        return text
+    for i in range(1, close):
+        key = lines[i].split(":", 1)[0].strip() if ":" in lines[i] else ""
+        if key == "relates":
+            lines[i] = line
+            return "\n".join(lines)
+    lines.insert(close, line)
+    return "\n".join(lines)
 
 
 def split_frontmatter(text):
@@ -421,6 +458,7 @@ _EXPORTS = [
     "_fm_parse_tags",
     "_fm_parse_relate_token",
     "_fm_parse_relates",
+    "_fm_upsert_relates_line",
     "split_frontmatter",
     "strip_frontmatter",
     "_LEGACY_CREATED_RE",

@@ -136,6 +136,23 @@ RAW_READ_EXEMPT = (
     ("core/frontmatter.py", "_parse_legacy_header", "tags", "writes the parsed list"),
     ("knowledge/index/indexrebuild.py", "build_index_from_frontmatter", "tags",
      "reads a row _frontmatter_row just built, never a loaded entry"),
+    # -- `relate` (task 38): the .md frontmatter is the SOURCE OF TRUTH for the
+    # edge set and the derived index row is reconciled TO it, so every read below
+    # is a parser product / a locally-built dict / a write. Each of this module's
+    # three genuine LOADED-ENTRY reads is normalized (_relate_confirm and
+    # _declare_relation both call _entry_list_field(subject, "relates"), as does
+    # _relate_commit_index before comparing) — those are deliberately NOT exempted.
+    # Safe by construction, not by inspection: split_frontmatter routes `relates`
+    # through _fm_parse_relates, which emits each element as `"%s:%s" % parsed`,
+    # so a frontmatter-sourced list is list-of-str and cannot carry a dict/scalar.
+    ("knowledge/relatecmd.py", "_relate_write_md", "relates",
+     "parser product: the post-write re-parse of the .md, not a loaded entry"),
+    ("knowledge/relatecmd.py", "_declare_relation", "relates",
+     "parser product: the .md frontmatter edge set (the index read here IS normalized)"),
+    ("knowledge/relatecmd.py", "_relate_commit_index", "relates",
+     "writes the frontmatter-derived list (the read above it IS normalized)"),
+    ("knowledge/relatecmd.py", "cmd_relate", "relates",
+     "_declare_relation's own result dict, never a loaded entry"),
     # -- not the index at all --------------------------------------------------
     ("features/skills.py", "cmd_skill_search", "tags", "the skill CATALOG, not the index"),
     ("features/skills.py", "cmd_skill_add", "tags", "the skill CATALOG, not the index"),

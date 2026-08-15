@@ -349,6 +349,78 @@ class PoisonedKBEndToEndTests(SyntheticKBTestCase):
         self.assertEqual(code, 0, (out, err))
 
 
+# --- Feature 260813 task 38: the ported `relate` WRITER on a poisoned index ---
+class RelatePoisonTests(SyntheticKBTestCase):
+    """`relate` is the first ported verb that both READS the index and WRITES it.
+
+    Its raw `relates` reads are exempted in `_indexreader_gate.RAW_READ_EXEMPT`
+    because they are frontmatter parser products, not loaded entries — and that
+    exemption is FUNCTION-scoped, so it would also cover a future un-normalized
+    entry read in the same function. This class is the other half of the residue
+    argument the gate's docstring makes: feed the poison to the real CLI and prove
+    the surface degrades rather than crashing.
+
+    The contract is stronger than "does not crash": the `.md` frontmatter is the
+    source of truth, so declaring an edge must RECONCILE the poisoned index row to
+    the frontmatter-derived list — i.e. `relate` HEALS the poison it meets.
+    """
+
+    def _entry_ids(self):
+        with open(os.path.join(self.kdir, "index.json")) as f:
+            data = json.load(f)
+        return [e["id"] for e in data["entries"]][:2]
+
+    def _poison_relates(self, entry_id, value):
+        path = os.path.join(self.kdir, "index.json")
+        with open(path) as f:
+            data = json.load(f)
+        for e in data["entries"]:
+            if e["id"] == entry_id:
+                e["relates"] = value
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _relates_of(self, entry_id):
+        with open(os.path.join(self.kdir, "index.json")) as f:
+            data = json.load(f)
+        for e in data["entries"]:
+            if e["id"] == entry_id:
+                return e.get("relates")
+        return None
+
+    def test_relate_survives_every_poison_shape_and_heals_the_row(self):
+        subject, target = self._entry_ids()
+        token = "supersedes:%s" % target
+        for poison in POISON_RELATES:
+            with self.subTest(poison=poison):
+                self._poison_relates(subject, poison)
+                code, out, err = run_cli(
+                    ["relate", subject, "--supersedes", target], self.kdir)
+                self.assertNotIn("Traceback", err)
+                self.assertEqual(code, 0, (out, err))
+                # The poisoned row is reconciled to the frontmatter edge set: the
+                # declared token is present and every element is a string again.
+                relates = self._relates_of(subject)
+                self.assertIsInstance(relates, list)
+                self.assertTrue(all(isinstance(x, str) for x in relates))
+                self.assertIn(token, relates)
+                # Reset the .md so each shape starts from a clean edge set.
+                run_cli(["index", "rebuild"], self.kdir)
+
+    def test_relate_leaves_a_validatable_index_after_healing(self):
+        subject, target = self._entry_ids()
+        self._poison_relates(subject, {"bad": "mapping"})
+        code, out, err = run_cli(
+            ["relate", subject, "--supersedes", target], self.kdir)
+        self.assertEqual(code, 0, (out, err))
+        # validate must now PASS on the field relate rewrote (the strict gate is
+        # what proves the leniency healed rather than merely masked).
+        code, out, err = run_cli(["index", "validate"], self.kdir)
+        blob = out + err
+        self.assertNotIn("relates is not a list", blob)
+        self.assertNotIn("relates has a non-string element", blob)
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

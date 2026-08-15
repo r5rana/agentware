@@ -22,11 +22,34 @@ import json
 import os
 
 try:
-    from tests._fixtures import SyntheticKBTestCase, build_synthetic_kb, load_cli
+    from tests._fixtures import (SyntheticKBTestCase, build_synthetic_kb,
+                                 load_cli, load_lib)
 except ImportError:  # allow `python3 -m unittest tests.test_relate`
-    from _fixtures import SyntheticKBTestCase, build_synthetic_kb, load_cli
+    from _fixtures import (SyntheticKBTestCase, build_synthetic_kb, load_cli,
+                           load_lib)
 
 CLI = load_cli()
+# `relate` is PORTED (feature 260813 task 38), so the oracle for its own helper is
+# the OWNING module, not the facade: a ported function reads its own module
+# globals, so patching `CLI.save_index` would rebind a name nothing consults and
+# the write-failure probe below would pass while proving nothing.
+REL = load_lib("agentware_lib.knowledge.relatecmd")
+IDX = load_lib("agentware_lib.knowledge.index")
+
+
+def _relate_node():
+    """The assembled `relate` subparser, reached the way the CLI reaches it.
+
+    Built through `assemble_parser` (the frozen-registration walk) rather than by
+    calling `register_relate` directly, so this pins the node the CLI actually
+    serves — a verb dropped from the registration tuple fails here too.
+    """
+    parser = load_lib("agentware_lib.cli").assemble_parser()
+    for action in parser._actions:
+        choices = getattr(action, "choices", None)
+        if isinstance(choices, dict) and "relate" in choices:
+            return choices["relate"]
+    raise AssertionError("`relate` is not registered on the assembled parser")
 
 # Pinned so freshness never depends on the wall clock (INV-1). All entries are
 # FRESH at this as_of, so the ONLY thing that flips trust is the declared edge.
@@ -150,10 +173,62 @@ class RelateTest(SyntheticKBTestCase):
     def test_out_of_vocab_relation_refused_at_helper(self):
         # The CLI flags are closed-vocab by construction, so exercise the helper's
         # defense-in-depth vocab guard directly.
-        result, err = CLI._declare_relation(
+        result, err = REL._declare_relation(
             self.kdir, SUBJECT, "bogus-relation", TARGET)
         self.assertIsNone(result)
         self.assertIn("unknown relation type", err)
+
+    def test_relation_group_stays_required(self):
+        # PROMOTION-GATE BLIND SPOT (feature 260813 task 38). The surface capture
+        # records per-ACTION `required` (tests/_surface_capture.ACTION_FIELDS), but
+        # argparse keeps a mutually-exclusive group's requiredness on the GROUP, not
+        # on its member actions — every member reports required=False either way. So
+        # flipping `required=True` -> `required=False` on this group is INVISIBLE to
+        # the promotion gate: mutation-proven silent at the port. Deleting a member
+        # flag or changing the positional's arity both redden it correctly; only the
+        # group's own requiredness slips through. Locked here so the ported verb
+        # cannot lose it. `query` carries the only other required group in the whole
+        # 44-verb surface and is still legacy-served; task 54 promotes it and owns
+        # closing this generically.
+        import argparse
+        node = _relate_node()
+        groups = [g for g in node._mutually_exclusive_groups if g.required]
+        self.assertEqual(
+            len(groups), 1,
+            "relate must keep exactly ONE required mutually-exclusive relation "
+            "group; the promotion gate cannot see this")
+        self.assertEqual(
+            sorted(a.dest for a in groups[0]._group_actions),
+            ["blocks", "depends_on", "relates_to", "supersedes"])
+        # ...and the closed vocab is the whole vocab: no relation flag may live
+        # OUTSIDE the required group, where it would bypass the mutex entirely.
+        self.assertIsInstance(groups[0], argparse._MutuallyExclusiveGroup)
+
+    def test_missing_relation_refused_even_if_parser_guard_is_lost(self):
+        # Defense in depth, and the reason the blind spot above is a coverage gap
+        # rather than a live defect: the HANDLER refuses a subject with no relation
+        # regardless of what the parser enforced.
+        import contextlib
+        import io
+        import types
+        args = types.SimpleNamespace(subject=SUBJECT, supersedes=None,
+                                     depends_on=None, blocks=None,
+                                     relates_to=None, format="text")
+        prev = os.environ.get("AGENTWARE_KNOWLEDGE_DIR")
+        os.environ["AGENTWARE_KNOWLEDGE_DIR"] = self.kdir
+        err = io.StringIO()
+        try:
+            before = self._index_bytes()
+            with contextlib.redirect_stderr(err):
+                code = REL.cmd_relate(args)
+        finally:
+            if prev is None:
+                os.environ.pop("AGENTWARE_KNOWLEDGE_DIR", None)
+            else:
+                os.environ["AGENTWARE_KNOWLEDGE_DIR"] = prev
+        self.assertNotEqual(code, 0)
+        self.assertEqual(self._index_bytes(), before)
+        self.assertIn("requires one of", err.getvalue())
 
     # --- hardening (adversarial-review findings) -----------------------------
     def _write_subject_md(self, frontmatter_lines):
@@ -277,8 +352,8 @@ class RelateTest(SyntheticKBTestCase):
         # re-review #5: an index-write failure AFTER the atomic .md write must be
         # returned as an error (md-ahead; self-heals on rebuild), never escape raw.
         from unittest import mock
-        with mock.patch.object(CLI, "save_index", side_effect=OSError("ENOSPC")):
-            result, err = CLI._declare_relation(
+        with mock.patch.object(IDX, "save_index", side_effect=OSError("ENOSPC")):
+            result, err = REL._declare_relation(
                 self.kdir, SUBJECT, "supersedes", TARGET)
         self.assertIsNone(result)
         self.assertIn("index rebuild", err)

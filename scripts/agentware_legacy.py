@@ -59,6 +59,16 @@ from agentware_lib.features.migratecmd import (   # noqa: F401  (re-export)
     _kb_journal_migration, _kb_migrate_apply, _run_state_backfill,
     _migration_001_state_backfill, cmd_migrate)
 from agentware_lib.core.kblayout import SCHEMA_REL   # noqa: F401  (re-export)
+# The `relate` DECLARE verb moved to agentware_lib at task 38 (the first ported KB
+# WRITER). Both names are re-exported so `CLI._declare_relation` — a member of the
+# task-9 preserved-symbol freeze — and `CLI.cmd_relate` keep resolving; the
+# byte-preserving frontmatter line upsert they write through went to core with the
+# rest of the frontmatter I/O. Nothing in THIS file calls them any more: the verb
+# is served by the lib arm and its schema guard travelled with it.
+from agentware_lib.core.frontmatter import (   # noqa: F401  (re-export)
+    _fm_upsert_relates_line)
+from agentware_lib.knowledge.relatecmd import (   # noqa: F401  (re-export)
+    _declare_relation, cmd_relate)
 from agentware_lib.ops.planauthor.planstate import (   # noqa: F401  (re-export)
     _PLAN_STATUS_HEADER_RE, _PLAN_STATUS_LOG_HEADING, _read_plan_status,
     _set_header_line, _append_status_log)
@@ -6386,41 +6396,6 @@ def _fm_parse_relates(raw):
     return out
 
 
-def _fm_upsert_relates_line(text, tokens):
-    """Upsert the frontmatter `relates:` line to exactly `tokens`, byte-preserving
-    every OTHER line of the file (all other frontmatter fields AND the body).
-
-    Unlike a full `render_frontmatter` round-trip — which re-emits (and so could
-    reformat, or fill with empty scalars) fields a partial-frontmatter entry may
-    not carry — this edits ONLY the `relates:` line: it REPLACES an existing one in
-    place, else INSERTS a new one as the LAST frontmatter field (matching
-    `FRONTMATTER_FIELDS`, where `relates` is last) just before the closing `---`. So
-    the subject entry changes by exactly the declared edge and nothing else (INV-2
-    for every author/source/last_verified value already on disk). The emitted line
-    uses the SAME `_fm_emit_tag` machinery as `render_frontmatter`, so a later
-    `index rebuild` reproduces it byte-for-byte. Assumes a real frontmatter block is
-    present (the caller guarantees it); returns `text` unchanged if it is not.
-    """
-    line = "relates: [%s]" % ", ".join(_fm_emit_tag(t) for t in tokens)
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
-        return text  # no frontmatter block — caller refuses before reaching here
-    close = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            close = i
-            break
-    if close is None:
-        return text
-    for i in range(1, close):
-        key = lines[i].split(":", 1)[0].strip() if ":" in lines[i] else ""
-        if key == "relates":
-            lines[i] = line
-            return "\n".join(lines)
-    lines.insert(close, line)
-    return "\n".join(lines)
-
-
 def split_frontmatter(text):
     """Return (fields_dict_or_None, body_text).
 
@@ -6734,242 +6709,6 @@ def _render_decision_body(summary, options, choice, rationale, reversible):
         % (summary.strip(), options.strip(), choice.strip(),
            rationale.strip(), reversible.strip())
     )
-
-
-def _declare_relation(kdir, subject_id, relation, target_id):
-    """Declare ONE closed-vocab `relates` edge (`<relation>:<target_id>`) on the
-    EXISTING entry `subject_id`, routed through the sole index writer.
-
-    OPERATOR/agent-invoked (like `learn`/`decide`) — NEVER autonomous self-mutation
-    and NEVER LLM-inferred: a human/agent ASSERTS the edge, which is exactly the
-    declared-only moat the read-time trust surface (`trust_signals`) consumes. The
-    whole load -> mutate(.md + index row) -> save runs under the re-entrant
-    `_index_lock` (B2 lost-update guard). The entry's `.md` frontmatter is the
-    source of truth (the edge is upserted there, byte-preserving every other field
-    via `_fm_upsert_relates_line`); the derived `index.json` row is reconciled in
-    the SAME critical section through `save_index` (the sanctioned atomic writer,
-    NEVER a raw hand-edit, R-KB-01), so the two can never drift and a later
-    `index rebuild` is a no-op. Mirrors `cmd_index_add`'s targeted lock+write
-    pattern, so every OTHER index row stays byte-identical (INV-2 by construction) —
-    no full rebuild, no surprise churn on rows the caller never touched.
-
-    Fail-fast with ZERO writes on: an out-of-vocab relation type; an unresolvable
-    subject or target id (a dangling `supersedes:ghost`); a self-edge; a subject
-    entry whose index `path` escapes the knowledge dir (traversal/absolute — a
-    poisoned-index guard, resolved via realpath so it is fail-CLOSED: a category
-    dir symlinked OUTSIDE the KB is also refused); non-LF (CR/CRLF) line endings; a
-    file that carries no real frontmatter block naming the subject; or frontmatter
-    that does not round-trip cleanly (ambiguous/duplicate `relates:` lines). The
-    write is PRE-FLIGHTED (the rewrite must re-parse to exactly the new edge set
-    with every other field + the body byte-preserved) BEFORE it is committed, so a
-    refusal never leaves a partial write. The index row is reconciled to the
-    frontmatter edge set (exactly what `index rebuild` derives), so an index-only
-    phantom edge from index-ahead drift is dropped identically to a rebuild.
-
-    Idempotent: when the edge is already in BOTH the frontmatter AND the index row,
-    nothing is written (`changed=False, reconciled=False`, byte-identical). When the
-    edge is in the frontmatter but the derived index row lagged it (a pre-existing
-    drift), the index is reconciled — reported as `reconciled=True`, never a silent
-    index mutation behind a "no-op". A structurally-malformed pre-existing token
-    (no colon — already inert to every reader) is normalized away by the rewrite.
-    `last_verified` is deliberately left untouched — the edge itself IS the
-    assertion. Returns `(result_dict, None)` on success or `(None, error)` on any
-    refusal.
-    """
-    if relation not in RELATION_TYPES:
-        return None, ("unknown relation type %r (closed vocab: %s)"
-                      % (relation, ", ".join(RELATION_TYPES)))
-    if subject_id == target_id:
-        return None, ("self-edge refused: %s cannot '%s' itself"
-                      % (subject_id, relation))
-    with _index_lock(kdir):  # serialize load->mutate(.md+index)->save (B2 guard)
-        data, err = load_index(kdir)
-        if err is not None:
-            return None, err
-        entries = data.get("entries") or []
-        by_id = {e.get("id"): e for e in entries if e.get("id")}
-        subject = by_id.get(subject_id)
-        if subject is None:
-            return None, ("subject id does not resolve to an index entry: %s"
-                          % subject_id)
-        if target_id not in by_id:
-            return None, ("target id does not resolve to an index entry "
-                          "(dangling %s:%s)" % (relation, target_id))
-        rel_path = subject.get("path")
-        if not rel_path:
-            return None, "subject entry has no file path: %s" % subject_id
-        # SECURITY (containment): the entry `path` comes from index.json, an
-        # explicitly-defended poisoned-input surface. A traversing (`..`) or
-        # absolute path would let `os.path.join` escape the KB and rewrite an
-        # arbitrary file — including a kernel `.claude/**` governance file that also
-        # opens with a `---` frontmatter block. Resolve symlinks and REFUSE anything
-        # that is not strictly inside the knowledge dir (zero writes).
-        kroot = os.path.realpath(kdir)
-        abs_path = os.path.realpath(os.path.join(kdir, rel_path))
-        if os.path.isabs(rel_path) or not (
-                abs_path == kroot or abs_path.startswith(kroot + os.sep)):
-            return None, ("refusing: subject entry path escapes the knowledge dir "
-                          "(%r) — relate only ever touches KB entry files" % rel_path)
-        try:
-            with open(abs_path, "rb") as f:
-                raw = f.read()
-        except OSError as exc:
-            return None, "cannot read subject entry file %s: %s" % (rel_path, exc)
-        # Read as BYTES: a text-mode read universal-newline-translates CR/CRLF to
-        # LF, so the pre-flight round-trip (which compares already-normalized text)
-        # could not detect a line-ending change and would silently LF-normalize a
-        # CRLF/bare-CR entry on write. The KB is LF-native (every toolkit writer
-        # emits '\n'); refuse a non-LF entry with ZERO writes rather than restructure
-        # it — preserving the byte-preservation invariant the pre-flight promises.
-        if b"\r" in raw:
-            return None, ("refusing: subject entry has non-LF (CR/CRLF) line "
-                          "endings — normalize it first: %s" % rel_path)
-        try:
-            text = raw.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            return None, "cannot decode subject entry file %s: %s" % (rel_path, exc)
-        fields, body = split_frontmatter(text)
-        # Require a REAL frontmatter block that actually names THIS entry. A bare
-        # `fields is not None` is insufficient: `split_frontmatter` returns an EMPTY
-        # dict for a file that merely opens with `---` and has a stray `---` rule in
-        # its body (no recognized fields) — an upsert there would land in the
-        # document BODY. Pinning `id == subject_id` also catches an index/file
-        # divergence (a row pointing at the wrong or overwritten file).
-        if not fields or fields.get("id") != subject_id:
-            return None, ("subject entry file carries no frontmatter block naming "
-                          "%s (run 'index migrate-frontmatter' first): %s"
-                          % (subject_id, rel_path))
-        # The `.md` frontmatter is the source of truth for the edge set.
-        existing = list(fields.get("relates") or [])
-        token = "%s:%s" % (relation, target_id)
-        md_has = token in existing
-        idx_has = token in _entry_list_field(subject, "relates")
-        if md_has and idx_has:
-            # Truly idempotent: the edge is already in BOTH the source-of-truth
-            # frontmatter AND the derived index row -> ZERO writes, byte-identical.
-            return ({"subject": subject_id, "relation": relation,
-                     "target": target_id, "changed": False, "reconciled": False,
-                     "relates": existing}, None)
-        wrote_md = False
-        if not md_has:
-            new_tokens = existing + [token]
-            new_text = _fm_upsert_relates_line(text, new_tokens)
-            # PRE-FLIGHT round-trip: the rewrite must re-parse to EXACTLY the new
-            # token set with every OTHER field AND the body byte-preserved. If not
-            # (e.g. duplicate/ambiguous `relates:` lines that `_fm_upsert_relates_line`
-            # and `split_frontmatter` resolve differently), REFUSE with ZERO writes
-            # rather than commit a corrupting partial write a post-hoc read-after-
-            # write would only detect AFTER the damage.
-            rt_fields, rt_body = split_frontmatter(new_text)
-            if (not rt_fields
-                    or list(rt_fields.get("relates") or []) != new_tokens
-                    or rt_body != body
-                    or {k: v for k, v in rt_fields.items() if k != "relates"}
-                    != {k: v for k, v in fields.items() if k != "relates"}):
-                return None, ("refusing: subject frontmatter does not round-trip "
-                              "cleanly (ambiguous/duplicate 'relates'?) — fix it "
-                              "with 'index migrate-frontmatter': %s" % rel_path)
-            tmp = abs_path + ".tmp"
-            try:
-                with open(tmp, "w", encoding="utf-8") as f:
-                    f.write(new_text)
-                    f.flush()
-                    os.fsync(f.fileno())
-                os.replace(tmp, abs_path)  # atomic .md write
-            except OSError as exc:
-                try:
-                    os.unlink(tmp)
-                except OSError:
-                    pass
-                return None, ("cannot write subject entry file %s: %s"
-                              % (rel_path, exc))
-            wrote_md = True
-            existing = new_tokens
-        # Reconcile the derived index row to the source-of-truth frontmatter edge
-        # set (`existing`) — exactly what `index rebuild` derives, so an index-ONLY
-        # phantom edge (index-ahead drift) is dropped identically to a rebuild; the
-        # `.md` is authoritative. `save_index` (R-KB-01 sanctioned writer) is wrapped
-        # so an index-write failure AFTER the atomic .md write is reported (md-ahead,
-        # self-heals on `index rebuild`) rather than escaping as a bare traceback.
-        # `reconciled` is True ONLY for a genuine drift-heal (the index lagged the
-        # frontmatter WITHOUT us just writing it) — a fresh declare's expected index
-        # update is `changed`, not `reconciled`.
-        index_changed = _entry_list_field(subject, "relates") != existing
-        reconciled = False
-        if index_changed:
-            subject["relates"] = existing
-            try:
-                save_index(kdir, data)
-            except OSError as exc:
-                return None, ("subject frontmatter updated but the index reconcile "
-                              "failed (%s) — run 'index rebuild': %s"
-                              % (exc, rel_path))
-            reconciled = not wrote_md
-        if wrote_md or index_changed:
-            # Read-after-write (R-VERIFY-04): re-load the derived index AND re-read
-            # the file; confirm the edge is now present in BOTH before reporting.
-            rb_data, rb_err = load_index(kdir)
-            ok_index = False
-            if rb_err is None:
-                rb = {e.get("id"): e for e in (rb_data.get("entries") or [])}
-                ok_index = token in _entry_list_field(rb.get(subject_id) or {},
-                                                      "relates")
-            try:
-                with open(abs_path, "r", encoding="utf-8") as f:
-                    confirm_fields, _ = split_frontmatter(f.read())
-                ok_file = token in list((confirm_fields or {}).get("relates") or [])
-            except OSError:
-                ok_file = False
-            if not (ok_index and ok_file):
-                return None, ("read-after-write verification failed for %s "
-                              "(index=%s file=%s)" % (token, ok_index, ok_file))
-        return ({"subject": subject_id, "relation": relation,
-                 "target": target_id, "changed": wrote_md,
-                 "reconciled": reconciled, "relates": existing}, None)
-
-
-def cmd_relate(args):
-    """`relate <subject> --supersedes <target>` (and the other closed-vocab edges):
-    declare ONE `relates` graph edge on an EXISTING entry in a single call, routed
-    through the index sole-writer.
-
-    The low-friction, human/agent-driven DECLARE step that lets a trust decision
-    migrate from the computed staleness heuristic toward declared structure — a
-    `supersedes` edge is consumed immediately by the read-time trust surface, so
-    recall reports the target `trust:superseded` and downweights it under bm25+acr
-    (plain bm25 byte-identical; no ranking code touched). NEVER auto-declares."""
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    # Exactly one closed-vocab relation flag is set (argparse: mutually-exclusive,
-    # required). Map it to (relation_type, target_id).
-    flag_map = (("supersedes", getattr(args, "supersedes", None)),
-                ("depends-on", getattr(args, "depends_on", None)),
-                ("blocks", getattr(args, "blocks", None)),
-                ("relates-to", getattr(args, "relates_to", None)))
-    relation, target = next(((r, t) for r, t in flag_map if t), (None, None))
-    if not relation:
-        sys.stderr.write("agentware: relate requires one of --supersedes / "
-                         "--depends-on / --blocks / --relates-to\n")
-        return 2
-    result, err = _declare_relation(kdir, args.subject, relation, target)
-    if err is not None:
-        sys.stderr.write("agentware: relate: %s\n" % err)
-        return 1
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, **result}, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        if result["changed"]:
-            verb = "declared"
-        elif result.get("reconciled"):
-            verb = "reconciled index (edge already in frontmatter)"
-        else:
-            verb = "already declared (no-op)"
-        print("RELATE %s: %s %s %s  relates=%s"
-              % (verb, result["subject"], result["relation"], result["target"],
-                 result["relates"]))
-    return 0
 
 
 def cmd_decide(args):
@@ -21336,11 +21075,11 @@ def _kb_writer_funcs():
         cmd_index_migrate,
         # knowledge writers
         cmd_learn, cmd_decide, cmd_ingest,
-        # declare verb (260717 follow-up B1): attaches a `relates` edge to an
-        # EXISTING entry — mutates the subject `.md` + index.json via save_index,
-        # so an older CLI must refuse it on a newer/migrated KB. Not dual-mode (no
-        # read-only path), so it stays in the auto-apply subset too.
-        cmd_relate,
+        # cmd_relate is ABSENT since task 38: the declare verb is PORTED, so its
+        # handler is no longer dispatched from this tree and its guard row lives
+        # with it, in agentware_lib.features.migratecmd._KB_WRITER_TARGETS. This
+        # set holds only the handlers THIS arm still dispatches — a row for a
+        # handler the router never reaches here would be a guard over nothing.
         # steering-capture verb: pure sugar over cmd_learn(--source user) +
         # cmd_index_remove, but the predispatch gate keys on the DISPATCHED
         # args.func, so a cmd_prefer delegating in-process is UNGUARDED unless
@@ -33495,26 +33234,9 @@ def build_parser():
                                "handle if set, else the operator handle)")
     p_decide.set_defaults(func=cmd_decide)
 
-    # relate -----------------------------------------------------------------
-    # Declare a closed-vocab graph edge on an EXISTING entry in ONE call, routed
-    # through the index sole-writer (never a hand-edit). Human/agent-asserted —
-    # NEVER auto-declared — so the declared-only trust moat holds.
-    p_relate = sub.add_parser(
-        "relate", parents=[fmt_parent],
-        help="declare a graph edge (e.g. --supersedes) on an EXISTING entry, "
-             "routed through the index writer (human/agent-asserted, never auto)")
-    p_relate.add_argument("subject", help="id of the entry that GAINS the edge")
-    rel_grp = p_relate.add_mutually_exclusive_group(required=True)
-    rel_grp.add_argument("--supersedes", metavar="TARGET_ID",
-                         help="declare SUBJECT supersedes TARGET — the high-"
-                              "precision declared trust signal recall consumes")
-    rel_grp.add_argument("--depends-on", dest="depends_on", metavar="TARGET_ID",
-                         help="declare SUBJECT depends-on TARGET")
-    rel_grp.add_argument("--blocks", metavar="TARGET_ID",
-                         help="declare SUBJECT blocks TARGET")
-    rel_grp.add_argument("--relates-to", dest="relates_to", metavar="TARGET_ID",
-                         help="declare SUBJECT relates-to TARGET")
-    p_relate.set_defaults(func=cmd_relate)
+    # relate: PORTED at task 38 — the registrar is
+    # agentware_lib.knowledge.relatecmd.register_relate, reached through the
+    # frozen registration tuple, and the strangler routes the verb there.
 
     # prefer -----------------------------------------------------------------
     # The steering-capture verb: say a durable preference ONCE. (The CLI

@@ -66,6 +66,11 @@ PORTED_VERBS = frozenset({
     # table, ONE `.schema` writer, reached by BOTH dispatch arms for as long as
     # the monolith is still serving verbs.
     "migrate",
+    # task 38 — the first ported KB WRITER. `relate` is LOCAL-ONLY (the donor has
+    # no equivalent), so the whole capability rides on this row; its handler is
+    # named in agentware_lib.features.migratecmd._KB_WRITER_TARGETS in the same
+    # commit, or it would dispatch straight past the older-CLI schema refusal.
+    "relate",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
