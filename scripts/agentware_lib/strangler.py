@@ -144,6 +144,7 @@ PORTED_VERBS = frozenset({
     "templates",    # the T1..T5 template contract
     "work",         # work stamp
     "fleet",        # impact / issues
+    "fleet-emit",   # the terminal loop event (R-ORG-06)
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
