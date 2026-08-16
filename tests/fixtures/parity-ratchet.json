@@ -28,9 +28,6 @@
     "mod:lib-decomposition",
     "mod:module-manifest-catalog",
     "mod:per-function-caps",
-    "org:corpus-scoping-and-shared-precedence",
-    "org:cross-team-write-isolation",
-    "org:curator-gate-on-shared-writes",
     "retrieval:bm25-exact-score-pin"
   ]
 }
