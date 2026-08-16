@@ -24,6 +24,14 @@ except ImportError:  # `discover -s tests` puts tests/ on sys.path
 
 M = load_cli()
 
+# Task 39: the premise evaluators moved to agentware_lib.ops.premisecheck, which
+# reads CONFIG_PATHS LATE-BOUND through the core.config AGGREGATOR — the documented
+# home of the two mutable globals the suite monkeypatches (see
+# agentware_lib/core/config/configkeys.py). Rebinding `M.CONFIG_PATHS` alone only
+# moves the LEGACY module global and can no longer reach the evaluator, so the
+# redirect below sets both. Import-only diff: the assertions are unchanged.
+import agentware_lib.core.config as _libconfig   # noqa: E402
+
 MINER_STATE_REL = "logs/steering/.transcript-miner.state.json"
 
 
@@ -85,12 +93,13 @@ class PremiseKB(unittest.TestCase):
         self._cfg = os.path.join(self.kdir, "config.env")
         with open(self._cfg, "w", encoding="utf-8") as f:
             f.write("")
-        self._orig_config_paths = M.CONFIG_PATHS
+        self._orig_config_paths = (M.CONFIG_PATHS, _libconfig.CONFIG_PATHS)
         M.CONFIG_PATHS = (self._cfg,)
+        _libconfig.CONFIG_PATHS = (self._cfg,)
         self.addCleanup(self._restore_config)
 
     def _restore_config(self):
-        M.CONFIG_PATHS = self._orig_config_paths
+        M.CONFIG_PATHS, _libconfig.CONFIG_PATHS = self._orig_config_paths
 
     def set_config(self, text):
         with open(self._cfg, "w", encoding="utf-8") as f:

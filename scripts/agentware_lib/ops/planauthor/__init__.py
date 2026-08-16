@@ -6,19 +6,26 @@ alias (`import agentware_lib.ops.planauthor as _planauthor`) and reads
 `_planauthor._atomic_write` / `_planauthor._plan_path` — keeps resolving unchanged, and
 so every existing monkeypatch target keeps working. The submodules are:
 
-  * `planedit`  — the plan.md GENERATION half: the deterministic lint-passing writers
-                  (_plan_skeleton/_plan_promise/_plan_path/_plan_renumber/
-                  _plan_marker_indices/_load_plan_for_edit/_atomic_write/
-                  _PLAN_STATUS_GLYPH), the cmd_plan_new/add_task/set_status/target_dirs
-                  handlers, and the `plan` registrar.
+  * `planedit`  — the plan.md EDITING half: the deterministic lint-passing writers
+                  (_plan_promise/_plan_path/_plan_renumber/_plan_marker_indices/
+                  _load_plan_for_edit/_atomic_write/_PLAN_STATUS_GLYPH), the
+                  cmd_plan_add_task/set_status/target_dirs handlers, and the `plan`
+                  registrar.
+  * `plannew`   — the plan.md GENERATION half: the skeleton builder (_plan_skeleton),
+                  the `plan new` handler (cmd_plan_new) and the g3 workorder
+                  lifecycle cap. Split out at task 39: creating a plan and editing one
+                  are different obligations (creation owns the skeleton grammar, the
+                  provenance headers and all three machine-plan guards), and the union
+                  would have taken planedit to ~663 of its 600 lines.
   * `workstamp` — the work-artifact team/author STAMPING family
                   (_WORK_TEAM_STAMP_RE/_is_derived_roster/_stamp_work_artifact/
                   _ensure_work_frontmatter/cmd_work_stamp) and the `work` registrar.
 
-The two halves share NO symbol and neither imports the other — the seam is a clean cut,
-so this package is the only place they meet. The union of the two submodules' `_EXPORTS`
-is exactly the pre-split module's `_EXPORTS`, in the pre-split ORDER — no name added,
-none dropped.
+`workstamp` shares NO symbol with the other two. `plannew` imports `planedit` for the
+shared writers, strictly one-way — `planedit` defers its only reference back
+(`cmd_plan_new`, needed by the registrar) to a function-local import, so no cycle
+exists. The union of the submodules' `_EXPORTS` is exactly the pre-split module's
+`_EXPORTS`, in the pre-split ORDER — no name added, none dropped.
 
 `register_plan`/`register_work` are re-imported (NOT exported) because
 `_registration.py` names this PACKAGE — `("plan", "agentware_lib.ops.planauthor",
@@ -57,12 +64,14 @@ from agentware_lib.ops.planauthor.planedit import (
     _plan_path,
     _plan_promise,
     _plan_renumber,
-    _plan_skeleton,
     cmd_plan_add_task,
-    cmd_plan_new,
     cmd_plan_set_status,
     cmd_plan_target_dirs,
     register_plan,
+)
+from agentware_lib.ops.planauthor.plannew import (
+    _plan_skeleton,
+    cmd_plan_new,
 )
 from agentware_lib.ops.planauthor.workstamp import (
     _WORK_TEAM_STAMP_RE,

@@ -338,14 +338,24 @@ def scan_templates(root):
 
 
 def scan_catalogs(root):
-    """Catalog files claimed by BASENAME. Never pin a file count: the manifest
-    generator (task 67) and the scaffold verb (task 73) both add catalog rows,
-    so a count would redden on legitimate growth while a basename cannot."""
+    """Catalog files claimed by BASENAME, and by basename ONLY.
+
+    Never pin a file count: the manifest generator (task 67) and the scaffold
+    verb (task 73) both add catalog rows, so a count would redden on legitimate
+    growth while a basename cannot. `bytes` was pinned here too, which defeated
+    exactly that intent -- every verb port (tasks 37..54) adds catalog rows, so
+    the size changes on essentially every commit of this migration and the
+    determinism check reddened on growth the gate is designed to allow. It was
+    also never load-bearing: the gate itself (_bad_catalogs_and_families) only
+    ever asserted the basename still resolves to a file, and a size is a poor
+    tamper signal in any case, since any edit that preserves the byte count
+    passes it. Removing a catalog file still reddens by basename.
+    """
     base = os.path.join(root, "catalog")
     if not os.path.isdir(base):
         return {}
-    return {name: {"bytes": os.path.getsize(os.path.join(base, name))}
-            for name in sorted(os.listdir(base)) if name.endswith(".json")}
+    return {name: {} for name in sorted(os.listdir(base))
+            if name.endswith(".json")}
 
 
 def scan_fixture_families(root):

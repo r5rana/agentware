@@ -107,7 +107,142 @@ _PORTED_REGISTRARS = (
     "scripts/agentware_lib/knowledge/relatecmd.py::register_relate",    # task 38
 )
 
+# Task 39 ported `plan lint` and could NOT do it as a verbatim move. The
+# monolith's `lint_plan` is one 270-line, 44-branch body; the ceilings are 120
+# lines and 12 branches per function and the debt fixture is shrink-only, so
+# landing it whole was a hard fail with no row available. It is therefore split
+# one receiver per RULE GROUP -- the seam the R1..R16 numbering already implies
+# -- and the parent is reduced to the ORDER the rules run in, which is itself
+# part of the contract (findings are returned as ordered lists).
+#
+# A length proxy cannot tell that split apart from sixteen deleted rules, so
+# every receiver is named. Three of them do not live in the host file: R12..R16
+# are `ops.plangovern` (the rules that need the plan's PLACE in the KB and ride
+# the WARN->ERROR schema ramps), and the finding-record constructor that absorbed
+# the monolith's nested `add` closure is `ops.planmarkers`. Naming them across
+# files is the point -- moving a rule to a new module is fine, losing one is not.
+_PLANLINT = "scripts/agentware_lib/ops/planlint.py"
+_PLANGOV = "scripts/agentware_lib/ops/plangovern.py"
+_PLANMARK = "scripts/agentware_lib/ops/planmarkers.py"
+_LINT_RECEIVERS = (
+    [_PLANLINT + "::" + n for n in (
+        "_plan_lint_read",      # R1
+        "_lint_sections",       # R2
+        "_lint_markers",        # R3, R4
+        "_plan_tasks",          # the per-task body slice R5..R9 all read
+        "_lint_task_bodies",    # R5, R6, R7
+        "_lint_promise",        # R8
+        "_lint_autonomy",       # R9
+        "_lint_authorship",     # R10
+        "_lint_targets")]       # R11
+    + [_PLANGOV + "::" + n for n in (
+        "_lint_workorder",      # R12
+        "_lint_status",         # R13
+        "_lint_premises",       # R14
+        "_plan_own_slug",       # R15's self-edge test
+        "_lint_graph")]         # R15, R16
+    + [_PLANMARK + "::_lint_add"]   # the nested `add` closure, now shared
+)
+
+# Task 39 step 6 DELETED the monolith's own copies of the plan family, and those
+# copies were what had been paying the length floor for three rows. The lib's
+# versions are shorter because the SAME per-function caps that forced the lint
+# split (120 lines / 12 branches, over a shrink-only debt fixture) also forced
+# `_plan_skeleton`, `cmd_plan_new` and `cmd_plan_lint` apart. Every receiver is
+# named below, so dropping any one of them reddens the gate on a missing absorber
+# rather than passing as a silent deletion.
+_PLANNEW = "scripts/agentware_lib/ops/planauthor/plannew.py"
+_SKELETON_RECEIVERS = [_PLANNEW + "::" + n for n in (
+    "_skeleton_provenance_block",   # the four `> Origin: auto` workorder headers
+    "_skeleton_identity_block",     # `> Team:` + `> Author:` (the org union)
+    "_skeleton_target_block",       # `## Target packages` body
+    "_skeleton_warning_block",      # the R-PKG-03 self-extension warning
+    "_skeleton_context_body",       # `## Context`, incl. the quoted UNTRUSTED seed
+    "_skeleton_tasks_block",        # the [e2e]+[kb] pair + optional seeded task
+    "_skeleton_premises_block")]    # the R14 / R-GND-01 `## Premises` stub
+_PLANNEW_RECEIVERS = [_PLANNEW + "::" + n for n in (
+    "_plannew_auto_fields",         # --auto slug + provenance resolution
+    "_plannew_auto_guards",         # g1 target/text refusals + the g3 lifecycle cap
+    "_plannew_context_seed")]       # the g1 `--context` refusal + g2 neutralization
+_LINT_CMD_RECEIVERS = [_PLANLINT + "::" + n for n in (
+    "_plan_lint_read",              # path read + R1 parse
+    "_emit_plan_lint")]             # the text/json rendering half
+
+_UPDATECMD = "scripts/agentware_lib/features/updatecmd.py"
+_UPDATE_RECEIVERS = [_UPDATECMD + "::_update_self_heal"]
+
 ADJUDICATIONS = {
+    "cmd_update": {
+        "adjudication": "decomposed",
+        "host": _UPDATECMD,
+        "floor_chars": 6229,
+        "absorbs": list(_UPDATE_RECEIVERS),
+        "rationale": "Task 41 ported the signed-tag update channel. The handler "
+                     "arrived at 166 lines against a DECLARED debt of 163 (the "
+                     "ceiling fixture had already named this module by path), so "
+                     "it was decomposed rather than having its allowance widened: "
+                     "`--self-heal` became `_update_self_heal`, which is the one "
+                     "mode that MUTATES and the one whose exit code carries a "
+                     "non-obvious rule (a migrate-error must exit non-zero even "
+                     "though it sets no needs_manual_recovery flag). The other "
+                     "four flags are read-only reports and stay inline.",
+    },
+    "_plan_skeleton": {
+        "adjudication": "decomposed",
+        "host": _PLANNEW,
+        "floor_chars": 2707,
+        "absorbs": list(_SKELETON_RECEIVERS),
+        "rationale": "Task 39 landed the UNION skeleton (this tree's workorder "
+                     "provenance, `> Status: draft`, the target/context/task "
+                     "seeds and the `## Premises` stub, PLUS the donor's org "
+                     "`> Team:` stamp). At 142 lines / 14 branches it arrived over "
+                     "the 120/12 per-function cap in a module carrying no debt "
+                     "rows, so each `## Section` body became a named "
+                     "`_skeleton_*` builder and the parent kept the template "
+                     "assembly. Output proved byte-identical to the monolith on "
+                     "both the flat and the fully-featured paths, with org mode "
+                     "differing by exactly the one `> Team:` line.",
+    },
+    "cmd_plan_new": {
+        "adjudication": "decomposed",
+        "host": _PLANNEW,
+        "floor_chars": 1917,
+        "absorbs": list(_PLANNEW_RECEIVERS),
+        "rationale": "Same cap, same module: 122 lines / 20 branches on arrival. "
+                     "The `--auto` machine-plan path (slug check, provenance "
+                     "sanitize, the g1 target and text refusals, the g2 target "
+                     "neutralization and the g3 draft/ready lifecycle cap) and the "
+                     "`--context` g1 refusal moved into named `_plannew_*` "
+                     "helpers, leaving the handler as orchestration. Each refusal "
+                     "was re-proved firing after the split.",
+    },
+    "cmd_plan_lint": {
+        "adjudication": "decomposed",
+        "host": _PLANLINT,
+        "floor_chars": 792,
+        "absorbs": list(_LINT_CMD_RECEIVERS),
+        "rationale": "The `plan lint` CLI adapter split alongside its rule set at "
+                     "checkpoint 3: the path read + R1 parse became "
+                     "`_plan_lint_read` and the text/json rendering became "
+                     "`_emit_plan_lint`, leaving the handler as argument wiring. "
+                     "The floor only bit at step 6, when the monolith's copy — "
+                     "which had been paying it — was deleted.",
+    },
+    "lint_plan": {
+        "adjudication": "decomposed",
+        "host": _PLANLINT,
+        "floor_chars": 2201,
+        "absorbs": list(_LINT_RECEIVERS),
+        "rationale": "Task 39 ported plan lint R1-R16. The monolith's body is "
+                     "270 lines / 44 branches against a 120/12 per-function cap "
+                     "and a shrink-only debt fixture, so it is split one "
+                     "receiver per rule group (R12-R16 into ops.plangovern, the "
+                     "finding record into ops.planmarkers) with lint_plan "
+                     "reduced to the rule ORDER. Behaviour unchanged - proved "
+                     "by a differential probe running both implementations over "
+                     "1017 (plan x rel_path x strict x schema) combinations "
+                     "with zero differences, including the ordering.",
+    },
     "build_parser": {
         "adjudication": "decomposed",
         "host": "scripts/agentware_legacy.py",
@@ -178,10 +313,14 @@ ADJUDICATIONS = {
                      "directory and renders.",
     },
     # Zero code difference: the ONLY divergence is one docstring sentence, where
-    # the donor cites an internal plan artifact by name ("rel_prefix (Plan B
-    # Task 3): ...") that task 20 strips from this repository. Kept as a row
-    # rather than waved through, because it is the clearest evidence that the
-    # docstring-inclusive normalisation is doing its job.
+    # the donor annotates its `rel_prefix` argument with a citation to a private
+    # internal plan artifact -- the class of reference task 20 strips from this
+    # repository. Kept as a row rather than waved through, because it is the
+    # clearest evidence that the docstring-inclusive normalisation is doing its
+    # job. The offending token is deliberately NOT reproduced here: quoting a
+    # leaked name to document its removal re-leaks it, and the artifact-reference
+    # scanner (tests/test_plan_artifact_refs.py) correctly flagged this comment
+    # for doing exactly that.
     "git_entry_ids_at_ref": {
         "adjudication": "superseded",
         "floor_chars": 1648,

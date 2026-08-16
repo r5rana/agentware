@@ -71,6 +71,44 @@ PORTED_VERBS = frozenset({
     # named in agentware_lib.features.migratecmd._KB_WRITER_TARGETS in the same
     # commit, or it would dispatch straight past the older-CLI schema refusal.
     "relate",
+    # task 39 — the LOOP-CRITICAL port, and the largest: all NINE `plan` subverbs
+    # (lint / verify-premises / new / add-task / set-status / set-state /
+    # state-backfill / claim / target-dirs) across twelve lib modules. This row is
+    # deliberately the LAST edit of the task: `agentware.sh` calls `plan
+    # verify-premises` and `plan claim` on every iteration, so routing `plan` to an
+    # incomplete lib arm would break the loop that executes this very plan. It is
+    # appended only after the registrar was proven to reproduce the union fixture's
+    # nine leaves and every flag, and after the 141 ported definitions were DELETED
+    # from the monolith (not merely shadowed) with a re-export block keeping
+    # `CLI.<name>` and the dispatch gate's handler-identity checks resolving.
+    "plan",
+    # task 40 — `trust` manages the HOME-pinned publisher signing key. NOT a KB
+    # writer (it writes ~/.agentware/allowed_signers, outside the knowledge dir),
+    # so it needs no _KB_WRITER_TARGETS row — the interlock's correspondence
+    # check keys on _KB_WRITER_VERBS, which does not list it.
+    "trust",
+    # task 41 — the SIGNED SemVer-tag update channel, replacing the donor's
+    # plain-fetch updater. `update` writes ~/.agentware state, NOT the knowledge
+    # dir, so it needs no _KB_WRITER_TARGETS row (it is absent from
+    # _KB_WRITER_VERBS) — but the apply path DOES run KB migrations, which reach
+    # the interlock through features.migratecmd exactly as the monolith did.
+    "update",
+    # task 42 — `release preflight` is READ-ONLY and hermetic (temp repo, scratch
+    # key), so it is not a KB writer and needs no _KB_WRITER_TARGETS row. Key and
+    # tag ACTIONS stay operator-gated in docs/release-signing.md rather than
+    # becoming CLI surface.
+    "release",
+    # task 43 — the shared tick. NOT a KB writer (it schedules and dispatches;
+    # the work it triggers is guarded where that work lives), so no
+    # _KB_WRITER_TARGETS row. `--install-schedule` stays an explicit operator
+    # action: nothing installs a schedule as a side effect of a CLI run.
+    "tick",
+    # task 44 — the periodic self-exam (opt-in, default OFF). It emits SUGGESTED
+    # workorders, but it does so THROUGH `cmd_plan_new`, which is already a
+    # guarded writer, and `checkup` itself is absent from _KB_WRITER_VERBS — so
+    # no _KB_WRITER_TARGETS row is required here. The guard sits at the writer,
+    # not at every caller of one.
+    "checkup",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

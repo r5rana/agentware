@@ -16,7 +16,9 @@ import io
 import importlib.util
 import os
 import shutil
+import sys
 import tempfile
+import types
 import unittest
 from importlib.machinery import SourceFileLoader
 
@@ -112,7 +114,114 @@ def ported_module_paths():
                             *(module.split("."))) + ".py"
         if os.path.isfile(path):
             out.append(path)
+    # ...plus EVERY other lib module, walked from disk in sorted order.
+    #
+    # A verb's implementation is no longer one module — `update` alone spans six
+    # (pkgstate / pkgchannel / pkgapply / pkgreconcile / pkgupdater + the CLI) —
+    # so a scan seeing only the registrar reports properties proven by the other
+    # five as ABSENT. That is the silent-vacuous shape this helper exists to
+    # prevent, and by task 56 the monolith is gone and the lib IS the whole
+    # implementation, so walking it is also the end state.
+    #
+    # Walked from DISK, deliberately NOT from `sys.modules`: that set accumulates
+    # as tests import things, so the scanned surface would depend on test ORDER —
+    # a gate that passes alone and fails in company (or worse, the reverse).
+    lib_root = os.path.join(REPO_ROOT, "scripts", "agentware_lib")
+    for base, dirs, names in os.walk(lib_root):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for name in sorted(names):
+            if not name.endswith(".py"):
+                continue
+            path = os.path.join(base, name)
+            if path not in out:
+                out.append(path)
     return out
+
+
+class _ConfigMirrorModule(types.ModuleType):
+    """CLI module type that MIRRORS config-redirect writes onto the lib.
+
+    STRANGLER-WINDOW TEST BRIDGE (feature 260813; remove with the passthrough at
+    task 56). ~180 tests isolate state by rebinding `mod.HOME_CONFIG` /
+    `mod.CONFIG_PATHS` on the CLI module. As each port moves a reader into
+    `agentware_lib`, that reader resolves the value from
+    `agentware_lib.core.config` instead, and a rebind here stops reaching it — so
+    the test silently falls back to the OPERATOR'S REAL `~/.agentware` and
+    read/writes live state. That is not a failing test, it is a dangerous passing
+    one; task 40 hit it across 117 tests in 18 files at once.
+
+    Mirroring here rather than in the shipped monolith is deliberate. The monolith
+    is `exec`'d into the facade's globals, so it cannot reach its own module
+    object (`sys.modules[__name__]` is not it) — and test-harness scaffolding does
+    not belong in shipped code regardless. This class is applied to the module
+    object THIS function creates, so it is confined to the suite.
+
+    Narrow by design: only the two documented monkeypatch globals mirror
+    (configkeys.py names them); every other attribute write is ordinary. Reads are
+    untouched — the value still lives in the module's own dict.
+    """
+
+    _MIRRORED = ("HOME_CONFIG", "CONFIG_PATHS")
+
+    #: name -> owning agentware_lib module, for every symbol the CLI RE-EXPORTS
+    #: from the lib. Built once, lazily, by asking each attribute where it was
+    #: defined. This is what makes `mock.patch.object(mod, "_git_timed")` still
+    #: reach the ported reader: the patch target moved with the implementation,
+    #: and a rebind on the CLI alone would be a patch that silently patches
+    #: nothing while the real function keeps running.
+    def _lib_bindings(self, name, previous):
+        """Every lib module binding `name` to the value being REPLACED.
+
+        Matched on NAME plus value, not on identity alone. Identity is too strict:
+        `CLI.REPO_ROOT` and `core.paths.REPO_ROOT` are computed independently, so
+        they are EQUAL but not the same object, and an identity-only sweep would
+        silently forward nothing — a patch that patches nothing while the real
+        value keeps being used.
+
+        Resolved FRESH on every write rather than cached: a cached map goes stale
+        the moment a later test imports another lib module. Keying on the PREVIOUS
+        value also makes restore work for free — after a patch those modules hold
+        the mock, so `mock.patch` undoing itself finds exactly the same bindings.
+        """
+        # Only None is excluded. Interning was the original worry — which is why
+        # numbers were skipped at first — but the match below is on NAME *and*
+        # value, and the name is discriminator enough: a lib module binding the
+        # same NAME to the same value is the same constant. Excluding ints meant
+        # every numeric THRESHOLD a test patches (checkup's corpus cap, the
+        # worktree cap, the p50 budget) silently failed to forward, so the probe
+        # graded against the shipped default while the test believed otherwise.
+        if previous is None:
+            return []
+        out = []
+        for modname, m in list(sys.modules.items()):
+            if not (isinstance(modname, str)
+                    and modname.startswith("agentware_lib") and m is not None):
+                continue
+            try:
+                if name not in vars(m):
+                    continue
+                cur = vars(m)[name]
+                if cur is previous or cur == previous:
+                    out.append(m)
+            except Exception:
+                continue
+        return out
+
+    def __setattr__(self, name, value):
+        previous = self.__dict__.get(name)
+        types.ModuleType.__setattr__(self, name, value)
+        if name in self._MIRRORED:
+            try:
+                import agentware_lib.core.config as _libconfig
+                setattr(_libconfig, name, value)
+            except Exception:
+                pass
+            return
+        for m in self._lib_bindings(name, previous):
+            try:
+                setattr(m, name, value)
+            except Exception:
+                pass
 
 
 def load_cli():
@@ -123,8 +232,44 @@ def load_cli():
         spec = importlib.util.spec_from_loader("agentware_cli", loader)
         mod = importlib.util.module_from_spec(spec)
         loader.exec_module(mod)
+        # Applied AFTER exec: the module body itself assigns HOME_CONFIG to the
+        # real home, and mirroring that would clobber a redirect an outer test had
+        # already installed on the lib.
+        mod.__class__ = _ConfigMirrorModule
         _CLI_MODULE = mod
+    _rebind_tick_registry(_CLI_MODULE)
     return _CLI_MODULE
+
+
+def _rebind_tick_registry(mod):
+    """Point the lib's tick-job registry at THIS module's callables.
+
+    STRANGLER-WINDOW TEST BRIDGE (remove with the passthrough at task 56).
+    `_TICK_JOB_REGISTRY` moved into the lib at task 43, but the jobs are still
+    registered BY the monolith, which 17 test modules `exec` into namespaces of
+    their own. The registry is imported once and cached, so its entries end up
+    closing over whichever namespace registered LAST — which is usually not the
+    cached module the tests patch. The symptom is brutal to diagnose: a patch on
+    the live namespace appears to do nothing while a job bound to a DEAD namespace
+    runs unpatched.
+
+    Production is unaffected (one exec, one registration). This re-points each
+    entry's callables at the cached module by NAME on every `load_cli()`, so the
+    module a test is about to patch is always the one the dispatcher runs.
+    """
+    try:
+        import agentware_lib.ops.tickcmd as tickcmd
+    except Exception:
+        return
+    for job in tickcmd._TICK_JOB_REGISTRY:
+        for slot in ("enabled", "due", "run"):
+            fn = job.get(slot)
+            name = getattr(fn, "__name__", None)
+            if not name or name == "<lambda>":
+                continue
+            live = getattr(mod, name, None)
+            if callable(live) and live is not fn:
+                job[slot] = live
 
 
 def load_lib(dotted):

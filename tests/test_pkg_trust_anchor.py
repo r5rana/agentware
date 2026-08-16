@@ -39,11 +39,23 @@ class TrustAnchorTestCase(unittest.TestCase):
         self.mod = load_cli()
         self.home = tempfile.mkdtemp(prefix="agentware-trust-home-")
         self.addCleanup(shutil.rmtree, self.home, True)
-        self._saved = self.mod.HOME_CONFIG
-        self.addCleanup(setattr, self.mod, "HOME_CONFIG", self._saved)
-        self.mod.HOME_CONFIG = os.path.join(self.home, ".agentware", "config.env")
+        # Task 40: the anchor moved to agentware_lib.core.pkgtrust, which resolves
+        # HOME_CONFIG late-bound through the core.config AGGREGATOR — the declared
+        # home of the two mutable globals the suite patches. Rebinding it on the
+        # legacy module alone no longer reaches the anchor, so both are redirected.
+        # Import-only diff: every assertion below is unchanged.
+        import agentware_lib.core.config as _libconfig
+        self._libconfig = _libconfig
+        self._saved = (self.mod.HOME_CONFIG, _libconfig.HOME_CONFIG)
+        self.addCleanup(self._restore_home_config)
+        cfg_path = os.path.join(self.home, ".agentware", "config.env")
+        self.mod.HOME_CONFIG = cfg_path
+        _libconfig.HOME_CONFIG = cfg_path
         self.key_a = _ed25519_blob(b"A")
         self.key_b = _ed25519_blob(b"B")
+
+    def _restore_home_config(self):
+        self.mod.HOME_CONFIG, self._libconfig.HOME_CONFIG = self._saved
 
     def signers_path(self):
         return self.mod._pkg_allowed_signers_path()
@@ -139,9 +151,17 @@ class TrustAnchorTestCase(unittest.TestCase):
         os.makedirs(os.path.join(repo, "catalog"))
         with open(os.path.join(repo, "catalog", "agentware-release.pub"), "w") as f:
             f.write("ssh-ed25519 %s release@agentware\n" % self.key_b)
-        saved = self.mod.REPO_ROOT
-        self.addCleanup(setattr, self.mod, "REPO_ROOT", saved)
+        # Task 40: `_pkg_intree_signing_key_path` moved to core.pkgtrust, which
+        # resolves REPO_ROOT late-bound through core.paths. Redirect both, same as
+        # HOME_CONFIG in setUp. Import-only diff: the assertions are unchanged.
+        import agentware_lib.core.paths as _libpaths
+        saved = (self.mod.REPO_ROOT, _libpaths.REPO_ROOT)
+
+        def _restore(_s=saved, _p=_libpaths):
+            self.mod.REPO_ROOT, _p.REPO_ROOT = _s
+        self.addCleanup(_restore)
         self.mod.REPO_ROOT = repo
+        _libpaths.REPO_ROOT = repo
         warnings = self.mod._pkg_trust_fingerprint_warnings()
         self.assertEqual(len(warnings), 1)
         self.assertIn("rotation must be operator-confirmed", warnings[0])
@@ -155,9 +175,17 @@ class TrustAnchorTestCase(unittest.TestCase):
         os.makedirs(os.path.join(repo, "catalog"))
         with open(os.path.join(repo, "catalog", "agentware-release.pub"), "w") as f:
             f.write("ssh-ed25519 %s\n" % self.key_b)
-        saved = self.mod.REPO_ROOT
-        self.addCleanup(setattr, self.mod, "REPO_ROOT", saved)
+        # Task 40: `_pkg_intree_signing_key_path` moved to core.pkgtrust, which
+        # resolves REPO_ROOT late-bound through core.paths. Redirect both, same as
+        # HOME_CONFIG in setUp. Import-only diff: the assertions are unchanged.
+        import agentware_lib.core.paths as _libpaths
+        saved = (self.mod.REPO_ROOT, _libpaths.REPO_ROOT)
+
+        def _restore(_s=saved, _p=_libpaths):
+            self.mod.REPO_ROOT, _p.REPO_ROOT = _s
+        self.addCleanup(_restore)
         self.mod.REPO_ROOT = repo
+        _libpaths.REPO_ROOT = repo
         self.assertEqual(self.mod._pkg_trust_fingerprint_warnings(), [])
 
     # --- cmd_trust via argparse dispatch -----------------------------------

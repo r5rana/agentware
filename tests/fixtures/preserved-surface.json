@@ -6205,14 +6205,12 @@
  },
  "catalogs": {
   "modules.json": {
-   "bytes": 153093,
    "sides": [
     "local",
     "donor"
    ]
   },
   "skills.json": {
-   "bytes": 4673,
    "sides": [
     "local",
     "donor"

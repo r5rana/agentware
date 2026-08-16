@@ -7,14 +7,14 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 467,
-  "lib": 290,
+  "legacy": 332,
+  "lib": 407,
   "legacy_only": 248,
-  "shared": 226,
+  "shared": 208,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 241,
+  "unresolved_max": 124,
   "undecided_max": 8
  },
  "multi_literal": {
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   112
+   140
   ]
  },
  "legacy_only": [
@@ -34,8 +34,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 40"
+   "status": "resolved",
+   "follow_up": "task 40",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkghome.py"
+   ]
   },
   {
    "name": "AUTO_DRAFT_TTL_DAYS",
@@ -43,8 +46,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupprobes.py"
+   ]
   },
   {
    "name": "CHECKUP_ACK_REL",
@@ -52,8 +58,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_CORPUS_ENTRIES_MAX",
@@ -61,8 +70,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_DEFAULT",
@@ -70,8 +82,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_DIR_REL",
@@ -79,8 +94,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_FROZEN_METRICS",
@@ -88,8 +106,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_HEARTBEAT_STALE_H",
@@ -97,8 +118,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_INTERVAL_SEC",
@@ -106,8 +130,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_KEY",
@@ -115,8 +142,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_LASTRUN_REL",
@@ -124,8 +154,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_LEARNING_FRESH_DAYS",
@@ -133,8 +166,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_LLM_DEFAULT",
@@ -142,8 +178,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_LLM_KEY",
@@ -151,8 +190,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_RECALL_P50_MS_MAX",
@@ -160,8 +202,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_REPORT_REL",
@@ -169,8 +214,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_WINDOW_DAYS",
@@ -178,8 +226,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "CHECKUP_WORKTREE_MAX",
@@ -187,8 +238,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 44"
+   "status": "resolved",
+   "follow_up": "task 44",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "DREAM_CADENCE_INTERVAL_SEC",
@@ -487,8 +541,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 61"
+   "status": "resolved",
+   "follow_up": "task 61",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgstate.py"
+   ]
   },
   {
    "name": "MINER_CMD_CHAIN_OPS",
@@ -559,8 +616,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_CUE_REQUIRED_KEY",
@@ -568,8 +628,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_MIN_LEN",
@@ -577,8 +640,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_MIN_LEN_KEY",
@@ -586,8 +652,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_N",
@@ -595,8 +664,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_RETIRED",
@@ -613,8 +685,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_STOPWORDS_KEY",
@@ -622,8 +697,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "MINER_SESSION_CAP",
@@ -694,8 +772,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupconfig.py"
+   ]
   },
   {
    "name": "OPERATOR_DRAFT_TTL_DAYS",
@@ -703,8 +784,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/checkupprobes.py"
+   ]
   },
   {
    "name": "PKG_CHANNEL_RE",
@@ -712,8 +796,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgchannel.py"
+   ]
   },
   {
    "name": "PKG_FETCH_TIMEOUT",
@@ -721,8 +808,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgchannel.py"
+   ]
   },
   {
    "name": "PKG_PUBLISHER_PRINCIPAL",
@@ -730,8 +820,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgtrust.py"
+   ]
   },
   {
    "name": "PKG_SMOKE_TIMEOUT",
@@ -739,8 +832,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/features/pkgapply.py"
+   ]
   },
   {
    "name": "PKG_STALENESS_MAX_AGE_SEC",
@@ -748,8 +844,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/features/pkgupdater.py"
+   ]
   },
   {
    "name": "PREFER_CLASSIFY_REPORT_REL",
@@ -811,8 +910,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_BLOCKING_SEVERITIES",
@@ -829,8 +931,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewoutput.py"
+   ]
   },
   {
    "name": "REVIEW_DEFAULT_EFFORT",
@@ -973,8 +1078,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_REPORT_REL",
@@ -991,8 +1099,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_SEVERITIES",
@@ -1018,8 +1129,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_SLOW_FAILURE_FRACTION",
@@ -1027,8 +1141,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_SPAWN_BACKOFF_BASE",
@@ -1036,8 +1153,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_SPAWN_RETRIES",
@@ -1045,8 +1165,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_SPAWN_TIMEOUT_RETRIES",
@@ -1054,8 +1177,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_STDERR_TAIL_BYTES",
@@ -1063,8 +1189,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewoutput.py"
+   ]
   },
   {
    "name": "REVIEW_TRANSIENT_STDERR_RE",
@@ -1072,8 +1201,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "REVIEW_VERDICTS",
@@ -1219,8 +1351,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "SUGGESTED_ID_RE",
@@ -1246,8 +1381,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 43"
+   "status": "resolved",
+   "follow_up": "task 43",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/tickcmd.py"
+   ]
   },
   {
    "name": "TICK_INTERVAL_SEC",
@@ -1255,8 +1393,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 43"
+   "status": "resolved",
+   "follow_up": "task 43",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/tickcmd.py"
+   ]
   },
   {
    "name": "TICK_LAUNCHD_LABEL",
@@ -1264,8 +1405,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 43"
+   "status": "resolved",
+   "follow_up": "task 43",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/tickcmd.py"
+   ]
   },
   {
    "name": "UPDATER_CHECK_INTERVAL_SEC",
@@ -1273,8 +1417,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/features/pkgupdater.py"
+   ]
   },
   {
    "name": "UPDATER_DEFAULT",
@@ -1282,8 +1429,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/features/pkgupdater.py"
+   ]
   },
   {
    "name": "UPDATER_KEY",
@@ -1291,8 +1441,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/features/pkgupdater.py"
+   ]
   },
   {
    "name": "UPDATER_LOCK_REL",
@@ -1300,8 +1453,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgstate.py"
+   ]
   },
   {
    "name": "UPDATE_STATE_LOCK_NAME",
@@ -1309,8 +1465,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgstate.py"
+   ]
   },
   {
    "name": "UPDATE_STATE_NAME",
@@ -1318,8 +1477,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgstate.py"
+   ]
   },
   {
    "name": "WAIVED_RE",
@@ -1336,8 +1498,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plannew.py"
+   ]
   },
   {
    "name": "WORK_CORPUS_CACHE_REL",
@@ -1363,8 +1528,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_CHECK_METACHAR_RE",
@@ -1372,8 +1540,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_CORPUS_METRICS",
@@ -1381,8 +1552,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_CORPUS_OPS",
@@ -1390,8 +1564,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_CTX_ATX_HEADER_RE",
@@ -1399,8 +1576,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plansanitize.py"
+   ]
   },
   {
    "name": "_CTX_FORGED_HEADER_RE",
@@ -1408,8 +1588,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plansanitize.py"
+   ]
   },
   {
    "name": "_CTX_LOOSE_TASK_RE",
@@ -1417,8 +1600,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plansanitize.py"
+   ]
   },
   {
    "name": "_DREAM_ACQ_GUARD",
@@ -1426,8 +1612,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 46"
+   "status": "resolved",
+   "follow_up": "task 46",
+   "lib_sites": [
+    "scripts/agentware_lib/features/dreamgate.py"
+   ]
   },
   {
    "name": "_DREAM_ACQ_LOCKS",
@@ -1435,8 +1624,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 46"
+   "status": "resolved",
+   "follow_up": "task 46",
+   "lib_sites": [
+    "scripts/agentware_lib/features/dreamgate.py"
+   ]
   },
   {
    "name": "_GRAPH_CHECKPOINT_VERDICTS",
@@ -1522,8 +1714,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 69"
+   "status": "resolved",
+   "follow_up": "task 69",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plankernelpath.py"
+   ]
   },
   {
    "name": "_KERNEL_HOME_RE",
@@ -1531,8 +1726,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 69"
+   "status": "resolved",
+   "follow_up": "task 69",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plankernelpath.py"
+   ]
   },
   {
    "name": "_KERNEL_PATH_TOKENS",
@@ -1540,8 +1738,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 69"
+   "status": "resolved",
+   "follow_up": "task 69",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_KERNEL_TOK_EDGE_RE",
@@ -1549,8 +1750,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 69"
+   "status": "resolved",
+   "follow_up": "task 69",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/plankernelpath.py"
+   ]
   },
   {
    "name": "_PATH_MODES",
@@ -1558,8 +1762,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 69"
+   "status": "resolved",
+   "follow_up": "task 69",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PKG_STATE_LOCK_GUARD",
@@ -1567,8 +1774,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgstate.py"
+   ]
   },
   {
    "name": "_PKG_STATE_LOCK_STATE",
@@ -1576,8 +1786,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 41"
+   "status": "resolved",
+   "follow_up": "task 41",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgstate.py"
+   ]
   },
   {
    "name": "_PLAN_ACCEPT_PLACEHOLDER",
@@ -1585,8 +1798,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planlint.py"
+   ]
   },
   {
    "name": "_PLAN_CHECKPOINT_LOG_HEADING",
@@ -1603,8 +1819,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_CHECK_ROW_RE",
@@ -1612,8 +1831,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PLAN_CITE_ROW_RE",
@@ -1621,21 +1843,15 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PLAN_CLAIMED_BY_RE",
    "literal": "re.compile('^>\\\\s*Claimed-by:\\\\s*(.+?)\\\\s*$', re.M)",
-   "legacy_sites": [
-    "scripts/agentware_legacy.py"
-   ],
-   "status": "pending",
-   "follow_up": "task 39"
-  },
-  {
-   "name": "_PLAN_DEFAULT_STATE",
-   "literal": "'draft'",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -1646,13 +1862,28 @@
    ]
   },
   {
+   "name": "_PLAN_DEFAULT_STATE",
+   "literal": "'draft'",
+   "legacy_sites": [
+    "scripts/agentware_legacy.py"
+   ],
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
+  },
+  {
    "name": "_PLAN_DEPENDS_KINDS",
    "literal": "('logical', 'resource')",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_DEPENDS_SECTION_RE",
@@ -1660,8 +1891,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_EDGE_MALFORMED",
@@ -1669,8 +1903,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_GRAPH_ERROR_SCHEMA",
@@ -1678,8 +1915,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangovern.py"
+   ]
   },
   {
    "name": "_PLAN_PREMISES_ERROR_SCHEMA",
@@ -1687,8 +1927,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PLAN_PREMISES_FENCE_RE",
@@ -1696,8 +1939,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PLAN_PREMISES_SECTION_RE",
@@ -1705,8 +1951,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PLAN_PREMISE_ROW_RE",
@@ -1714,8 +1963,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PLAN_READINESS_SIGNATURES",
@@ -1723,8 +1975,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planlint.py"
+   ]
   },
   {
    "name": "_PLAN_SERIALIZE_ON_RE",
@@ -1732,8 +1987,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_SLUG_RE",
@@ -1741,8 +1999,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_STATES",
@@ -1750,8 +2011,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PLAN_STATE_RANK",
@@ -1759,8 +2023,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_STATE_TRANSITIONS",
@@ -1768,8 +2035,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_STATUS_HEADER_RE",
@@ -1780,7 +2050,7 @@
    "status": "resolved",
    "follow_up": "task 39",
    "lib_sites": [
-    "scripts/agentware_lib/ops/planauthor/planstate.py"
+    "scripts/agentware_lib/ops/plangraph.py"
    ]
   },
   {
@@ -1801,8 +2071,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_TERMINAL_STATES",
@@ -1810,8 +2083,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planauthor/planstate.py"
+   ]
   },
   {
    "name": "_PLAN_WRITESET_SECTION_RE",
@@ -1819,8 +2095,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   },
   {
    "name": "_PREFER_CURSOR_CAP",
@@ -1846,8 +2125,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "_PREFER_REVIEW_DEFAULT_STATUSES",
@@ -1900,8 +2182,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_NOUN_RE",
@@ -1909,8 +2194,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_NOUN_STRONG",
@@ -1918,8 +2206,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_NOUN_WEAK",
@@ -1927,8 +2218,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_NO_NEED_RE",
@@ -1936,8 +2230,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_PERMIT_FAIL_RE",
@@ -1945,8 +2242,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_TURN_OFF_RE",
@@ -1954,8 +2254,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_GATE_WAIVED_RE",
@@ -1963,8 +2266,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_LOOSEN_GOVERNS_RE",
@@ -1972,8 +2278,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_LOOSEN_VERB_RE",
@@ -1981,8 +2290,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_MIN_TOKENS",
@@ -1999,8 +2311,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_NEG_ENFORCE_RE",
@@ -2008,8 +2323,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_NEG_LOOSE",
@@ -2017,8 +2335,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_NEG_LOOSEN_RE",
@@ -2026,8 +2347,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefergate.py"
+   ]
   },
   {
    "name": "_PREF_NOISE_PHRASES",
@@ -2062,8 +2386,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/planpremises.py"
+   ]
   },
   {
    "name": "_PROMPTS_HEADER_RE",
@@ -2071,8 +2398,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerfolds.py"
+   ]
   },
   {
    "name": "_RET_ID_RE",
@@ -2080,8 +2410,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/deriveretrieval.py"
+   ]
   },
   {
    "name": "_RET_PATH_RE",
@@ -2089,8 +2422,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/deriveretrieval.py"
+   ]
   },
   {
    "name": "_REVIEW_TIMEOUT_BREAKER",
@@ -2098,8 +2434,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/features/reviewagent.py"
+   ]
   },
   {
    "name": "_SAFE_SKILL_NAME_RE",
@@ -2206,8 +2545,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 40"
+   "status": "resolved",
+   "follow_up": "task 40",
+   "lib_sites": [
+    "scripts/agentware_lib/core/pkgtrust.py"
+   ]
   },
   {
    "name": "_SWE_HIDDEN_TEST_RUNNER",
@@ -2224,8 +2566,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 43"
+   "status": "resolved",
+   "follow_up": "task 43",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/tickcmd.py"
+   ]
   },
   {
    "name": "_TRANSCRIPT_ERR_FRAME_RE",
@@ -2260,8 +2605,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangovern.py"
+   ]
   },
   {
    "name": "_WORK_STATUS_MULT",
@@ -2278,8 +2626,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/plangraph.py"
+   ]
   }
  ],
  "divergent": [

@@ -48,6 +48,27 @@ GITIGNORE_REL = ".gitignore"
 # refusal and any future reader share one definition.
 SCHEMA_REL = ".schema"
 
+
+def _kb_schema_read(kdir):
+    """Read the KB schema version from <kdir>/.schema; missing/unreadable => 0
+    (a pre-versioning KB — the bootstrap contract). The full migrate runner
+    (writes, journaling, guards) lives in cmd_migrate.
+
+    Moved DOWN here from agentware_lib.features.migratecmd at task 39 and
+    re-exported there. TWO layers now read the sidecar: the migration runner
+    (features) and plan lint's R12/R14/R15/R16 WARN->ERROR severity ramps (ops),
+    which key on the KB's schema generation. An `ops -> features` import would be
+    upward AND a cycle (features.migratecmd -> ops.planauthor.planedit ->
+    ops.planlint), so the READER joins the NAME it reads. Only the reader moves:
+    the WRITER stays with the runner that owns stamping it.
+    """
+    try:
+        with open(os.path.join(kdir, SCHEMA_REL), "r",
+                  encoding="utf-8") as f:
+            return int((f.read() or "0").strip() or "0")
+    except (OSError, ValueError):
+        return 0
+
 # Same-host index mutation lock (an fcntl.flock sidecar; see
 # agentware_lib.knowledge.index.indexlock). Purely local run state — it says
 # nothing about the knowledge and is meaningless on another host — so it is

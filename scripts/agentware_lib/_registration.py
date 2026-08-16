@@ -72,6 +72,16 @@ _PARSER_REGISTRATION = (
     ("whereami", "agentware_lib.cli", "register_whereami"),
     ("plan", "agentware_lib.ops.planauthor", "register_plan"),
     ("fanout", "agentware_lib.features.fanoutmq", "register_fanout"),
+    # task 40 — the publisher signing-key trust anchor. The ANCHOR is core
+    # (core.pkgtrust over core.pkghome); only the CLI lives here, because core
+    # holds no handlers anywhere in this tree.
+    ("trust", "agentware_lib.features.trustcmd", "register_trust"),
+    # task 42 — the read-only go-live preflight for the signed channel.
+    ("release", "agentware_lib.ops.releasepreflight", "register_release"),
+    # task 43 — the shared 30-min tick + the loop's lock-status reverse-guard.
+    ("tick", "agentware_lib.ops.tickcmd", "register_tick"),
+    # task 44 — the periodic self-exam (opt-in, default OFF).
+    ("checkup", "agentware_lib.ops.checkupcmd", "register_checkup"),
 )
 
 __all__ = ["_PARSER_REGISTRATION"]

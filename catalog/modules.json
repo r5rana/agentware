@@ -148,7 +148,9 @@
         "resolve_retrieval_mode",
         "resolve_skill_propose_threshold"
       ],
-      "depended_on_by": [],
+      "depended_on_by": [
+        "agentware_lib.ops.planauthor.planstate"
+      ],
       "dependency_direction": "core -> (nothing above)",
       "depends_on": [
         "agentware_lib.core.config.configkeys"
@@ -255,6 +257,7 @@
         "agentware_lib.ops.metrics.metricsemit",
         "agentware_lib.ops.metricscmd",
         "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.planstate",
         "agentware_lib.ops.team",
         "agentware_lib.retrieval.acr",
         "agentware_lib.retrieval.bench.benchswe",
@@ -386,6 +389,7 @@
         "SENTINEL_REL",
         "_ensure_kb_gitignore",
         "_gitignore_rule_line",
+        "_kb_schema_read",
         "kb_pointable"
       ],
       "depended_on_by": [
@@ -399,6 +403,7 @@
         "agentware_lib.knowledge.index.indexlock",
         "agentware_lib.knowledge.index.indexread",
         "agentware_lib.knowledge.index.indexrebuild",
+        "agentware_lib.ops.planlint",
         "agentware_lib.ops.team",
         "agentware_lib.retrieval.vectorcache"
       ],
@@ -509,6 +514,120 @@
     },
     {
       "anchor_symbols": [
+        "PKG_CHANNEL_RE",
+        "_pkg_channel_tags",
+        "_pkg_resolve_verified_tag",
+        "_pkg_tag_sha",
+        "_pkg_verify_tag",
+        "_resolve_candidate",
+        "_resolve_precondition"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.pkgapply",
+        "agentware_lib.features.pkgreconcile",
+        "agentware_lib.features.pkgupdater",
+        "agentware_lib.features.updatecmd",
+        "agentware_lib.ops.releasepreflight"
+      ],
+      "dependency_direction": "core -> core",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.pkgstate",
+        "agentware_lib.core.pkgtrust",
+        "agentware_lib.core.paths",
+        "agentware_lib.core.dates",
+        "agentware_lib.core.pkghome"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.pkgchannel",
+      "not_owns": "the anchor itself (agentware_lib.core.pkgtrust); state and quarantine (agentware_lib.core.pkgstate); APPLYING a resolved tag (agentware_lib.features.pkgapply); deciding when to look (agentware_lib.features.pkgupdater);",
+      "owns": "the SIGNED release channel: what counts as a version tag, how versions order, which tags the channel offers, signature verification against the HOME-pinned anchor, tag->sha resolution, and the single entry point answering 'what is the newest tag I may move to, and is it trustworthy?'. REPLACES the donor's plain-fetch updater (superseded parity row): a plain fetch trusts whatever the remote serves, so anyone who can write the remote chooses the code that runs on the next tick. Resolution is conservative by construction -- channel-pattern only, ordered by parsed SemVer rather than string or commit date, quarantined tags skipped, and an unverifiable tag stops resolution rather than being skipped with a warning.",
+      "path": "scripts/agentware_lib/core/pkgchannel.py",
+      "test_file": "tests/test_pkg_channel.py"
+    },
+    {
+      "anchor_symbols": [
+        "ALLOWED_SIGNERS_NAME",
+        "_PkgStateError",
+        "_pkg_assert_secure_path",
+        "_pkg_home_dir",
+        "_pkg_secure_atomic_write",
+        "_pkg_secure_home"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.pkgtrust"
+      ],
+      "dependency_direction": "core -> core",
+      "depends_on": [
+        "agentware_lib.core.config"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.pkghome",
+      "not_owns": "the publisher signing-key anchor built on top of it (agentware_lib.core.pkgtrust); the `trust` CLI (agentware_lib.features.trustcmd); the update channel and release preflight that consume it (tasks 41-42);",
+      "owns": "the secure package HOME primitives -- the ~/.agentware resolver (_pkg_home_dir, late-bound through the config aggregator so the suite's HOME_CONFIG patch is seen), the fail-closed ownership/permission assertion applied before any trusted file is read (_pkg_assert_secure_path), the secured-home constructor (_pkg_secure_home), the mode-preserving atomic writer (_pkg_secure_atomic_write), the trust-anchor filename (ALLOWED_SIGNERS_NAME) and the error they raise (_PkgStateError). These are FILESYSTEM rules, not signing rules: 'owned by me, not a symlink, not group-writable' is the same question for a trust anchor, an update-channel state file or a release preflight record (tasks 40/41/42), so it is answered ONCE here.",
+      "path": "scripts/agentware_lib/core/pkghome.py",
+      "test_file": "tests/test_pkg_trust_anchor.py"
+    },
+    {
+      "anchor_symbols": [
+        "MAX_QUARANTINED_TAGS",
+        "UPDATE_STATE_NAME",
+        "_pkg_is_quarantined",
+        "_pkg_quarantine_tag",
+        "_pkg_state_lock",
+        "_pkg_state_read",
+        "_pkg_state_update",
+        "_pkg_state_write"
+      ],
+      "depended_on_by": [
+        "agentware_lib.core.pkgchannel",
+        "agentware_lib.features.pkgapply",
+        "agentware_lib.features.pkgreconcile",
+        "agentware_lib.features.pkgupdater"
+      ],
+      "dependency_direction": "core -> core",
+      "depends_on": [
+        "agentware_lib.core.pkghome",
+        "agentware_lib.core.dates"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.pkgstate",
+      "not_owns": "the filesystem primitives (agentware_lib.core.pkghome); the signing anchor (agentware_lib.core.pkgtrust); tag resolution (agentware_lib.core.pkgchannel); applying (agentware_lib.features.pkgapply); scheduling (agentware_lib.features.pkgupdater);",
+      "owns": "the updater STATE file under ~/.agentware and the reentrant cross-process lock that serialises it, plus the CAPPED quarantine list. Every read and write asserts the pkghome security rules first, so a tampered state file is refused rather than trusted -- the same fail-closed rule the trust anchor uses, applied to the file that records WHICH version is installed. Quarantine is state rather than cache: a tag that failed to apply must not be retried forever, re-breaking the tree on every tick.",
+      "path": "scripts/agentware_lib/core/pkgstate.py",
+      "test_file": "tests/test_update_state.py"
+    },
+    {
+      "anchor_symbols": [
+        "PKG_PUBLISHER_PRINCIPAL",
+        "_SSH_KEYTYPES",
+        "_pkg_allowed_signers_path",
+        "_pkg_assert_signers_secure",
+        "_pkg_intree_signing_key_path",
+        "_pkg_list_signers",
+        "_pkg_parse_signers",
+        "_pkg_pin_publisher_key",
+        "_pkg_pubkey_records",
+        "_pkg_ssh_key_fingerprint",
+        "_pkg_trust_fingerprint_warnings"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.trustcmd"
+      ],
+      "dependency_direction": "core -> core",
+      "depends_on": [
+        "agentware_lib.core.pkghome",
+        "agentware_lib.core.paths"
+      ],
+      "layer": "core",
+      "name": "agentware_lib.core.pkgtrust",
+      "not_owns": "the filesystem primitives it asserts through (agentware_lib.core.pkghome); the `trust` CLI handler and registrar (agentware_lib.features.trustcmd), because core holds NO command handlers anywhere in this tree; the update channel (task 41) and release preflight (task 42) that consume this anchor;",
+      "owns": "the HOME-pinned publisher SSH signing-key TRUST ANCHOR: the default principal (PKG_PUBLISHER_PRINCIPAL), accepted key types (_SSH_KEYTYPES), the anchor path and its fail-closed security assertion (_pkg_allowed_signers_path / _pkg_assert_signers_secure), the pure-stdlib fingerprint (_pkg_ssh_key_fingerprint), the multi-key parser/lister (_pkg_parse_signers / _pkg_list_signers), the append-with-overlap pinner (_pkg_pin_publisher_key), the in-tree key locator (_pkg_intree_signing_key_path) and the two report builders the CLI and checkup share. The anchor lives OUTSIDE the tree the updater rewrites, so a malicious push cannot rotate the key it is verified against; it is multi-key with SSH valid-after/valid-before so a rotation does not strand the fleet.",
+      "path": "scripts/agentware_lib/core/pkgtrust.py",
+      "test_file": "tests/test_pkg_trust_anchor.py"
+    },
+    {
+      "anchor_symbols": [
         "VCS_MARKERS",
         "WHEREAMI_KEY_MIRRORS",
         "_dir_is_vcs_root",
@@ -568,6 +687,7 @@
         "agentware_lib.ops.fleet.fleetguard",
         "agentware_lib.ops.fleet.fleetshard",
         "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.planstate",
         "agentware_lib.ops.planauthor.workstamp",
         "agentware_lib.ops.team",
         "agentware_lib.retrieval.hybrid",
@@ -1386,10 +1506,10 @@
         "_KB_WRITER_VERBS",
         "_kb_migrate_apply",
         "_kb_predispatch_gate",
-        "_kb_schema_read",
         "_kb_schema_write",
         "_run_state_backfill",
         "cmd_migrate",
+        "cmd_plan_state_backfill",
         "register_migrate"
       ],
       "depended_on_by": [
@@ -1407,10 +1527,93 @@
       ],
       "layer": "features",
       "name": "agentware_lib.features.migratecmd",
-      "not_owns": "the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout,",
+      "not_owns": "the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout, the schema-sidecar READER _kb_schema_read, which moved DOWN to agentware_lib.core.kblayout at task 39 (plan lint's ops-layer ramps read it too) and is re-exported from here;",
       "owns": "the knowledge-base SCHEMA INTERLOCK in full — the registered migration table",
       "path": "scripts/agentware_lib/features/migratecmd.py",
       "test_file": "tests/test_migrate_runner.py"
+    },
+    {
+      "anchor_symbols": [
+        "_apply_migrate_triage",
+        "_pkg_migrate_after_apply",
+        "_pkg_rollback",
+        "_pkg_run_update",
+        "_pkg_run_update_locked",
+        "_pkg_smoke",
+        "_rollback_refusal"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.pkgreconcile",
+        "agentware_lib.features.pkgupdater",
+        "agentware_lib.features.updatecmd"
+      ],
+      "dependency_direction": "features -> core, features -> features",
+      "depends_on": [
+        "agentware_lib.core.pkgchannel",
+        "agentware_lib.core.pkgstate",
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.config",
+        "agentware_lib.features.dreamgate"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.pkgapply",
+      "not_owns": "deciding a tag is trustworthy (agentware_lib.core.pkgchannel); crash recovery (agentware_lib.features.pkgreconcile); WHEN to run (agentware_lib.features.pkgupdater); the CLI (agentware_lib.features.updatecmd);",
+      "owns": "everything between 'we have a trustworthy tag' and 'the tree runs it, or is back exactly where it started': the syntax check, bounded subprocess runner, smoke test, git-liveness and stale-index-lock guards, ROLLBACK, the KB migration hook and the two-layer runner. Every step is bounded and reversible because this code rewrites the tree it is itself running from: a hang leaves no working CLI and a half-applied update leaves one that imports but does not work. Refuses to start on a DIRTY tree -- overwriting uncommitted operator edits is not recoverable, so it is prevented rather than rolled back.",
+      "path": "scripts/agentware_lib/features/pkgapply.py",
+      "test_file": "tests/test_pkg_apply_edges.py"
+    },
+    {
+      "anchor_symbols": [
+        "_pkg_reconcile_pending",
+        "_pkg_tag_at_head_if_newer",
+        "_reconcile_advance_missing",
+        "_reconcile_smoke_fail",
+        "_reconcile_smoke_pass"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.pkgupdater"
+      ],
+      "dependency_direction": "features -> features, features -> core",
+      "depends_on": [
+        "agentware_lib.features.pkgapply",
+        "agentware_lib.core.pkgchannel",
+        "agentware_lib.core.pkgstate",
+        "agentware_lib.core.gitio"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.pkgreconcile",
+      "not_owns": "performing an apply or rollback (agentware_lib.features.pkgapply, reached back only by a function-local import so the edge is one-way); tag resolution (agentware_lib.core.pkgchannel); scheduling (agentware_lib.features.pkgupdater);",
+      "owns": "CRASH RECOVERY for a half-applied update. The updater rewrites the tree it runs from, so it can be killed mid-fetch, mid-checkout, after checkout but before smoke, or after a rollback but before the state write. Reconciling decides from the TREE rather than from the record whether the pending move landed. Carries the BRICK-ORDERING rule: once migrate stamped a higher KB schema, rollback is FORBIDDEN (it would leave old code under a new schema), so that branch strands loudly instead.",
+      "path": "scripts/agentware_lib/features/pkgreconcile.py",
+      "test_file": "tests/test_tick_dispatch.py"
+    },
+    {
+      "anchor_symbols": [
+        "UPDATER_KEY",
+        "_pkg_emit_heartbeat",
+        "_pkg_self_heal",
+        "_pkg_staleness_prehook",
+        "_pkg_updater_due",
+        "_pkg_updater_run",
+        "resolve_updater"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.updatecmd"
+      ],
+      "dependency_direction": "features -> features, features -> core",
+      "depends_on": [
+        "agentware_lib.features.pkgapply",
+        "agentware_lib.features.pkgreconcile",
+        "agentware_lib.features.dreamgate",
+        "agentware_lib.core.config",
+        "agentware_lib.core.pkgstate"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.pkgupdater",
+      "not_owns": "applying or rolling back (agentware_lib.features.pkgapply); crash recovery (agentware_lib.features.pkgreconcile); tag verification (agentware_lib.core.pkgchannel); the CLI (agentware_lib.features.updatecmd);",
+      "owns": "WHEN to update and self-healing: the operator setting and its parser, the due-check, the tick entry point, the lock-status word, the SELF-HEAL path, the staleness pre-hook and the heartbeat emitter. Cadence is separate from apply because 'should we look now?' and 'apply this verified tag' fail in different ways and are asked from different places. Staleness is the inverse signal -- an updater that has not checked in is itself a fault, because a silent updater and a healthy one look identical from outside.",
+      "path": "scripts/agentware_lib/features/pkgupdater.py",
+      "test_file": "tests/test_pkg_updater.py"
     },
     {
       "anchor_symbols": [
@@ -1489,6 +1692,54 @@
     },
     {
       "anchor_symbols": [
+        "REVIEW_AGENT_TIMEOUT",
+        "_REVIEW_TIMEOUT_BREAKER",
+        "_review_build_invocation",
+        "_review_invoke_agent",
+        "_review_is_transient_failure",
+        "_review_spawn_once"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupemit"
+      ],
+      "dependency_direction": "features -> core, features -> features",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.dates",
+        "agentware_lib.core.paths",
+        "agentware_lib.features.reviewoutput"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.reviewagent",
+      "not_owns": "sanitising what comes back (agentware_lib.features.reviewoutput); the `review` VERB and its report/remediation flow, resident until its own port;",
+      "owns": "the subprocess seam every LLM-backed review runs through: the agent invocation with retry/backoff and a timeout breaker, the single-spawn primitive, the failure classifiers, the diagnostics and the invocation builder. An agent spawn is not a function call — it crosses a process boundary into a non-deterministic, network-backed, occasionally-hanging peer, and every consumer needs the SAME answers about retries and deadlines. The TIMEOUT BREAKER is deliberately module-level state: when a slow peer trips enough deadline-class failures, further spawns short-circuit instead of each paying the full timeout; a per-call breaker would never trip.",
+      "path": "scripts/agentware_lib/features/reviewagent.py",
+      "test_file": "tests/test_acr_gate.py"
+    },
+    {
+      "anchor_symbols": [
+        "REVIEW_CONTROL_CHARS_RE",
+        "_review_extract_json",
+        "_review_fence",
+        "_review_one_line",
+        "_review_stderr_text",
+        "_review_untrusted_inline"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.reviewagent",
+        "agentware_lib.ops.checkupemit"
+      ],
+      "dependency_direction": "features -> stdlib",
+      "depends_on": [],
+      "layer": "features",
+      "name": "agentware_lib.features.reviewoutput",
+      "not_owns": "spawning the agent, retries, the timeout breaker (agentware_lib.features.reviewagent); what a caller does with the sanitized result;",
+      "owns": "everything that happens to what a review agent RETURNS before any of it reaches a document: control-character stripping, single-line flattening, bounded stderr capture, the inline-safe wrapper, fenced quoting and JSON extraction. A SECURITY boundary: agent output is model text, i.e. UNTRUSTED external content under R-SEC-02, flowing into reports, workorders and knowledge entries. `_review_untrusted_inline` exists so a caller CANNOT accidentally interpolate raw output into a template — the safe form is the one that is easy to reach — and JSON is EXTRACTED and parsed, never eval'd.",
+      "path": "scripts/agentware_lib/features/reviewoutput.py",
+      "test_file": "tests/test_acr.py"
+    },
+    {
+      "anchor_symbols": [
         "cmd_init",
         "cmd_profile",
         "register_init",
@@ -1546,6 +1797,27 @@
       "owns": "the in-package authored skill catalog and the trusted-in-repo installer --",
       "path": "scripts/agentware_lib/features/skills.py",
       "test_file": "tests/unit/features/test_skills.py"
+    },
+    {
+      "anchor_symbols": [
+        "_trust_list",
+        "_trust_pin",
+        "_trust_verify",
+        "cmd_trust",
+        "register_trust"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> core",
+      "depends_on": [
+        "agentware_lib.core.pkgtrust",
+        "agentware_lib.core.pkghome"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.trustcmd",
+      "not_owns": "the anchor itself -- key parsing, fingerprints, the signers file and its security assertion (agentware_lib.core.pkgtrust); the filesystem primitives beneath it (agentware_lib.core.pkghome); the update channel (task 41) and release preflight (task 42);",
+      "owns": "the `trust` verb -- cmd_trust dispatching all four subverbs to the _trust_list / _trust_pin / _trust_verify helpers (decomposed at landing: the monolith body was 27 branches against a cap of 12), the _trust_resolve_key_file helper, and the register_trust registrar. `pin` and `rotate` deliberately share ONE implementation: a rotation IS a pin carrying --valid-before, and two implementations would let the overlap-window semantics drift between the path that opens the window and the path that closes it.",
+      "path": "scripts/agentware_lib/features/trustcmd.py",
+      "test_file": "tests/test_trust_surface.py"
     },
     {
       "anchor_symbols": [
@@ -2067,6 +2339,145 @@
     },
     {
       "anchor_symbols": [
+        "_checkup_aggregate",
+        "_checkup_render_report",
+        "_checkup_run",
+        "_checkup_status_line",
+        "_render_drift_section",
+        "_render_workorder_sections",
+        "cmd_checkup",
+        "register_checkup"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.checkupconfig",
+        "agentware_lib.ops.checkupprobes",
+        "agentware_lib.ops.checkuphealth",
+        "agentware_lib.ops.checkupemit"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.checkupcmd",
+      "not_owns": "any probe (agentware_lib.ops.checkupprobes, agentware_lib.ops.checkuphealth); thresholds and cadence (agentware_lib.ops.checkupconfig); emission and the LLM narrative (agentware_lib.ops.checkupemit);",
+      "owns": "the presentation half plus the entry points: the aggregator, the report renderer and its section builders, the SessionStart banner, `cmd_checkup`, the tick job body and the `checkup` registrar. `--status-line` prints ONLY when a fresh report exists and is a byte-identical no-op when checkup is OFF — it runs at SessionStart on every session, so anything it prints is a permanent context cost, and a banner that speaks when it has nothing to say trains the reader to skip the one time it matters. The exam is OFF by default, writes a report and at most SUGGESTED workorders, and never applies anything itself.",
+      "path": "scripts/agentware_lib/ops/checkupcmd.py",
+      "test_file": "tests/test_checkup_e2e.py"
+    },
+    {
+      "anchor_symbols": [
+        "CHECKUP_INTERVAL_SEC",
+        "CHECKUP_KEY",
+        "MIN_FROZEN_CYCLES",
+        "_checkup_due",
+        "_checkup_report_path",
+        "resolve_checkup",
+        "resolve_checkup_llm"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupprobes",
+        "agentware_lib.ops.checkuphealth",
+        "agentware_lib.ops.checkupemit",
+        "agentware_lib.ops.checkupcmd"
+      ],
+      "dependency_direction": "ops -> core, ops -> features",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.dates",
+        "agentware_lib.features.pkgupdater"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.checkupconfig",
+      "not_owns": "the probes themselves (agentware_lib.ops.checkupprobes, agentware_lib.ops.checkuphealth); rendering and the CLI (agentware_lib.ops.checkupcmd); emission (agentware_lib.ops.checkupemit);",
+      "owns": "everything the periodic self-exam needs BEFORE it examines anything: operator settings and parsers, every threshold the probes grade against, the report/ack/last-run paths, the report reader and content hash, and the due-check with its anchor epoch. The thresholds live together because each is the line between healthy and worth-telling-the-operator, and they are read by DIFFERENT probes that must not drift apart on what counts as stale. The anchor epoch makes cadence deterministic rather than drifting, so a machine that was asleep neither skips a cycle nor fires twice on wake.",
+      "path": "scripts/agentware_lib/ops/checkupconfig.py",
+      "test_file": "tests/test_checkup_config.py"
+    },
+    {
+      "anchor_symbols": [
+        "_checkup_candidates",
+        "_checkup_emit_workorder",
+        "_checkup_llm_narrative",
+        "_checkup_reject_reason",
+        "_checkup_sig"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupcmd"
+      ],
+      "dependency_direction": "ops -> ops, ops -> features",
+      "depends_on": [
+        "agentware_lib.ops.checkupconfig",
+        "agentware_lib.ops.prefergate",
+        "agentware_lib.features.reviewagent",
+        "agentware_lib.features.reviewoutput",
+        "agentware_lib.ops.planauthor.plannew",
+        "agentware_lib.ops.planauthor.plankernelpath"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.checkupemit",
+      "not_owns": "the probes that produce findings (agentware_lib.ops.checkupprobes, agentware_lib.ops.checkuphealth); rendering and the CLI (agentware_lib.ops.checkupcmd); the agent spawn (agentware_lib.features.reviewagent);",
+      "owns": "the half of the self-exam that can CHANGE THE WORLD: the LLM narrative input and call, candidate selection, the workorder emitter, the refusal reason and the idempotency signature. Every other checkup module is read-only; this is the only place the exam can be wrong in a way that costs the operator something, which is why it is separated. The SIGNATURE is the anti-duplicate — an exam running every cycle must not emit the same workorder every cycle. The LLM narrative is OPTIONAL and gated: findings are produced deterministically FIRST and the model only writes them up, so a model failure degrades the prose, never the findings.",
+      "path": "scripts/agentware_lib/ops/checkupemit.py",
+      "test_file": "tests/test_checkup_emit.py"
+    },
+    {
+      "anchor_symbols": [
+        "_audit_pkg_version_check",
+        "_checkup_drift",
+        "_checkup_frozen_metrics",
+        "_checkup_heartbeat_stale",
+        "_checkup_recall_p50_ms",
+        "_checkup_structure_triggers",
+        "_checkup_watch_dream"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupcmd"
+      ],
+      "dependency_direction": "ops -> core, ops -> features, ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.checkupconfig",
+        "agentware_lib.core.pkgstate",
+        "agentware_lib.core.pkgchannel",
+        "agentware_lib.features.dream",
+        "agentware_lib.features.pkgupdater",
+        "agentware_lib.ops.metrics"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.checkuphealth",
+      "not_owns": "knowledge-base probes (agentware_lib.ops.checkupprobes); thresholds (agentware_lib.ops.checkupconfig); emission (agentware_lib.ops.checkupemit);",
+      "owns": "the probes that grade the MACHINE: config drift, a stale updater heartbeat, the dream journal watch, frozen-metric detection, worktree count, retrieval latency, KB-structure migration triggers and the package-version check. Every one can be wrong while every test passes. A STALE HEARTBEAT is the sharpest and the reason the exam exists at all: a silent updater and a healthy one look identical from outside, so absence of news must be measured rather than assumed good. Frozen-metric detection is the inverse guard — a metric unchanged for MIN_FROZEN_CYCLES is suppressed so the exam does not repeat itself into being ignored.",
+      "path": "scripts/agentware_lib/ops/checkuphealth.py",
+      "test_file": "tests/test_checkup_drift.py"
+    },
+    {
+      "anchor_symbols": [
+        "_checkup_flywheel",
+        "_checkup_learning_freshness",
+        "_checkup_plan_health",
+        "_checkup_trend",
+        "_checkup_walk_plans",
+        "_fresh_learning_ids"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupcmd"
+      ],
+      "dependency_direction": "ops -> ops, ops -> knowledge",
+      "depends_on": [
+        "agentware_lib.ops.checkupconfig",
+        "agentware_lib.ops.deriveretrieval",
+        "agentware_lib.ops.metrics",
+        "agentware_lib.ops.planauthor.planstate",
+        "agentware_lib.ops.premisecheck",
+        "agentware_lib.knowledge.index"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.checkupprobes",
+      "not_owns": "runtime and package health (agentware_lib.ops.checkuphealth); thresholds (agentware_lib.ops.checkupconfig); emission (agentware_lib.ops.checkupemit);",
+      "owns": "the probes that grade the KNOWLEDGE BASE: metric trend, the flywheel (is the loop still turning learnings into durable knowledge?), learning freshness, and the plan sweep with its draft TTLs. These ask whether the knowledge is still ALIVE, not whether the code is healthy — a knowledge base fails quietly, and none of that breaks a test or is visible from one session, which is exactly why a periodic exam exists. The TTL split is deliberate: an AUTO-generated draft ages out faster than an OPERATOR-written one, because the machine can regenerate its own proposal while a human draft may be deliberate work-in-progress.",
+      "path": "scripts/agentware_lib/ops/checkupprobes.py",
+      "test_file": "tests/test_checkup_aggregate.py"
+    },
+    {
+      "anchor_symbols": [
         "_STAGE_TO_PHASE",
         "_TERMINAL_OUTCOMES",
         "_cache_read_per_turn",
@@ -2101,6 +2512,27 @@
       "owns": "the PLAN-FREE derive_* reporting family -- the deterministic report",
       "path": "scripts/agentware_lib/ops/derive.py",
       "test_file": "tests/unit/ops/test_derive.py"
+    },
+    {
+      "anchor_symbols": [
+        "_is_recall_call",
+        "_iter_live_records",
+        "_scan_session",
+        "derive_retrieval"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupprobes"
+      ],
+      "dependency_direction": "ops -> knowledge",
+      "depends_on": [
+        "agentware_lib.knowledge.index"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.deriveretrieval",
+      "not_owns": "the other derive_* reporters (agentware_lib.ops.derive); the retrieval ENGINE — ranking, recall, BM25 (agentware_lib.retrieval.*);",
+      "owns": "the RETRIEVAL slice of the derive family: what an agent actually retrieved in a session — which knowledge ids and which paths it opened — plus the tolerant live.jsonl reader. Split from ops.derive purely on the FILE ceiling (that module is 587 of its 600 lines) but the seam is real: the other derivers read PLAN and WORKLOG structure, this one reads a transcript. `_is_recall_call` excludes calls appearing only inside a `--verify` assertion, which would otherwise report retrieval the agent never performed and inflate the very metric this exists to measure honestly.",
+      "path": "scripts/agentware_lib/ops/deriveretrieval.py",
+      "test_file": "tests/test_checkup_aggregate.py"
     },
     {
       "anchor_symbols": [
@@ -2519,15 +2951,15 @@
         "_plan_path",
         "_plan_promise",
         "_plan_renumber",
-        "_plan_skeleton",
         "cmd_plan_add_task",
-        "cmd_plan_new",
         "cmd_plan_set_status",
         "cmd_plan_target_dirs",
         "register_plan"
       ],
       "depended_on_by": [
-        "agentware_lib.features.migratecmd"
+        "agentware_lib.features.migratecmd",
+        "agentware_lib.ops.planauthor.plannew",
+        "agentware_lib.ops.planauthor.planstate"
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
       "depends_on": [
@@ -2544,22 +2976,113 @@
     },
     {
       "anchor_symbols": [
-        "_PLAN_DEFAULT_STATE",
-        "_PLAN_STATUS_HEADER_RE",
+        "_KERNEL_CONFUSABLE_TT",
+        "_has_kernel_path_segment",
+        "_norm_kernel_token",
+        "_pref_hits_kernel",
+        "_target_hits_kernel",
+        "_text_hits_kernel_path"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planauthor.plannew"
+      ],
+      "dependency_direction": "ops -> core, ops -> ops",
+      "depends_on": [
+        "agentware_lib.core.paths",
+        "agentware_lib.ops.plangraph"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.plankernelpath",
+      "not_owns": "the KERNEL-PATH TOKEN LIST (_KERNEL_PATH_TOKENS), which has ONE definition site in agentware_lib.ops.plangraph and is imported here -- two copies would let a hook file added to one leave the other guard blind; the g2 EMIT-SIDE sanitizers that REWRITE a value to be safe to render (_sanitize_provenance / _sanitize_context_block / _sanitize_target), a different obligation from this module's REFUSAL (agentware_lib.ops.planauthor.plansanitize); the plan GENERATION half that calls this guard (agentware_lib.ops.planauthor.planedit); the plan STATE MACHINE (agentware_lib.ops.planauthor.planstate); the plan grammar (agentware_lib.ops.planmarkers);",
+      "owns": "the g1 KERNEL-PATH refusal family -- the guard deciding whether a value names a path inside the agentware PACKAGE, so a MACHINE-generated plan (`plan new --auto`) must be refused outright: the token list (_KERNEL_PATH_TOKENS), the de-obfuscating normalizer (_strip_kernel_invisibles / _KERNEL_CONFUSABLE_TT / _KERNEL_TOK_EDGE_RE / _KERNEL_HOME_RE / _norm_kernel_token / _kernel_subtokens), the two segment-bounded matchers (_has_kernel_path_segment / _text_hits_kernel_path), the case- and symlink-proof filesystem resolver (_resolves_under_repo) and the `--target` entry point (_target_hits_kernel). Closes the normalization-evasion shapes: zero-width/combining codepoints, NFKC compatibility forms, Cyrillic/Greek homoglyphs, markdown emphasis, possessives, list glue, symlinks, `..` traversal and APFS case-insensitivity.",
+      "path": "scripts/agentware_lib/ops/planauthor/plankernelpath.py",
+      "test_file": "tests/test_g1harden.py"
+    },
+    {
+      "anchor_symbols": [
+        "WORKORDER_DRAFT_CAP",
+        "_count_auto_open_workorders",
+        "_plan_skeleton",
+        "cmd_plan_new"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planauthor"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.routing",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.plankernelpath",
+        "agentware_lib.ops.planauthor.plansanitize",
+        "agentware_lib.ops.plangraph"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.plannew",
+      "not_owns": "EDITING an existing plan.md -- add-task/set-status/target-dirs and the shared writers (_atomic_write/_plan_path/_plan_promise/_plan_renumber), which this module imports one-way (agentware_lib.ops.planauthor.planedit); the plan STATE MACHINE (agentware_lib.ops.planauthor.planstate); the g1 kernel-path refusal family (agentware_lib.ops.planauthor.plankernelpath); the g2 emit-side sanitizers (agentware_lib.ops.planauthor.plansanitize); the ENFORCEMENT half (agentware_lib.ops.planlint); `plan state-backfill`, whose payload needs a features-layer live-session detector (agentware_lib.features.migratecmd);",
+      "owns": "the BIRTH of a plan.md -- the canonical lint-passing skeleton builder (_plan_skeleton, assembled from the _skeleton_* section helpers) and the `plan new` handler (cmd_plan_new, with the _plannew_* guard helpers), plus the g3 workorder lifecycle cap (_count_auto_open_workorders / WORKORDER_DRAFT_CAP) that only the creation path enforces. This is a UNION, not a pure move: this tree contributes the workorder provenance headers, `> Status: draft`, target/context/task seeds, the `## Premises` stub (R14 / R-GND-01) and guards g1/g2/g3; the donor contributes the ORG `> Team:` stamp (R-ORG-05, `org lint` O1) that the larger side lacked. Flat-KB output is byte-identical to the pre-union skeleton.",
+      "path": "scripts/agentware_lib/ops/planauthor/plannew.py",
+      "test_file": "tests/test_plan_authoring.py"
+    },
+    {
+      "anchor_symbols": [
+        "_CTX_ATX_HEADER_RE",
+        "_CTX_FORGED_HEADER_RE",
+        "_CTX_LOOSE_TASK_RE",
+        "_sanitize_context_block",
+        "_sanitize_provenance",
+        "_sanitize_target"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planauthor.planstate"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.planmarkers"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planauthor.plansanitize",
+      "not_owns": "the g1 KERNEL-PATH refusal family (_KERNEL_CONFUSABLE_TT / _norm_kernel_token / _has_kernel_path_segment / _text_hits_kernel_path), which REFUSES an emit rather than rewriting a value and lands with `plan new --auto`; the plan STATE MACHINE that consumes _sanitize_provenance (agentware_lib.ops.planauthor.planstate); the plan GENERATION half that consumes all three (agentware_lib.ops.planauthor.planedit); the plan grammar these match against (agentware_lib.ops.planmarkers);",
+      "owns": "the EMIT-SIDE g2 guard family -- the three sanitizers that neutralize text before it is rendered into a plan.md (_sanitize_provenance, _sanitize_context_block, _sanitize_target) and the three shapes they defend against: a forged `> Status:`/`> Claimed-by:` header, a forged ATX section header, and a phantom LOOSE open-task marker the loop's completion grep would count forever.",
+      "path": "scripts/agentware_lib/ops/planauthor/plansanitize.py",
+      "test_file": "tests/test_target_injection.py"
+    },
+    {
+      "anchor_symbols": [
+        "STALLED_CLAIM_HOURS",
+        "_PLAN_CLAIMED_BY_RE",
+        "_PLAN_STATE_RANK",
+        "_PLAN_STATE_TRANSITIONS",
         "_PLAN_STATUS_LOG_HEADING",
+        "_PLAN_SUPERSEDED_BY_RE",
+        "_PLAN_TERMINAL_STATES",
         "_append_status_log",
-        "_read_plan_status",
-        "_set_header_line"
+        "_claim_age_hours",
+        "_load_plan_tolerant",
+        "_merge_plan_status",
+        "_parse_claim",
+        "_set_header_line",
+        "_short_host",
+        "cmd_plan_claim",
+        "cmd_plan_set_state"
       ],
       "depended_on_by": [
         "agentware_lib.features.migratecmd"
       ],
-      "dependency_direction": "ops -> core, knowledge, retrieval",
-      "depends_on": [],
+      "dependency_direction": "ops -> core, ops",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.core.routing",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.plansanitize",
+        "agentware_lib.ops.plangraph",
+        "agentware_lib.ops.planlint",
+        "agentware_lib.ops.planmarkers"
+      ],
       "layer": "ops",
       "name": "agentware_lib.ops.planauthor.planstate",
-      "not_owns": "the state MACHINE — the six states, the legal-transition matrix, the",
-      "owns": "the three PURE plan-text primitives of the plan state machine — reading the",
+      "not_owns": "the `> Status:` READER (_read_plan_status / _PLAN_STATES / _PLAN_DEFAULT_STATE / _PLAN_STATUS_HEADER_RE), which moved DOWN to agentware_lib.ops.plangraph at task 39 to break a planlint->planstate cycle and is re-exported from here; the g2 text neutralization the --reason/--superseded-by values pass through (agentware_lib.ops.planauthor.plansanitize); the `recall --scope work` plan-status ranking multipliers (_WORK_STATUS_MULT / _work_status_multiplier), a RETRIEVAL concern that cannot live in ops because retrieval->ops is an upward edge (task 55); the plan GENERATION half (agentware_lib.ops.planauthor.planedit); the ENFORCEMENT half (agentware_lib.ops.planlint); the status BACKFILL migration and its `plan state-backfill` CLI adapter, whose payload needs the features-layer live-session detector (agentware_lib.features.migratecmd);",
+      "owns": "the toolkit-owned plan LIFECYCLE -- the legal-transition matrix and its constants (_PLAN_STATE_TRANSITIONS / _PLAN_STATE_RANK / _PLAN_TERMINAL_STATES / STALLED_CLAIM_HOURS / the Claimed-by + Superseded-by header regexes), the claim-stamp primitives (_short_host / _claim_age_hours / _parse_claim), the tolerant plan reader (_load_plan_tolerant), the deterministic merge resolver (_merge_plan_status), the two PURE plan-text WRITER primitives (_set_header_line / _append_status_log + _PLAN_STATUS_LOG_HEADING), and the two SOLE writers of the `> Status:` header -- cmd_plan_set_state and its loop-facing orchestrator cmd_plan_claim.",
       "path": "scripts/agentware_lib/ops/planauthor/planstate.py",
       "test_file": "tests/test_backfill_migration.py"
     },
@@ -2587,6 +3110,120 @@
     },
     {
       "anchor_symbols": [
+        "_PLAN_GRAPH_ERROR_SCHEMA",
+        "_WORKORDER_SLUG_RE",
+        "_lint_graph",
+        "_lint_premises",
+        "_lint_status",
+        "_lint_workorder",
+        "_plan_own_slug"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planlint"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.plangraph",
+        "agentware_lib.ops.planmarkers",
+        "agentware_lib.ops.planpremises"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.plangovern",
+      "not_owns": "the pure-format rules R1..R11, the orchestrator, the readiness gate and the CLI handler (agentware_lib.ops.planlint); every PARSER these rules consult (agentware_lib.ops.plangraph, agentware_lib.ops.planmarkers, agentware_lib.ops.planpremises) -- nothing here parses, it only judges;",
+      "owns": "plan lint R12..R16 -- the GOVERNANCE rules that need the plan's PLACE in the knowledge base (KB-relative path, schema generation, knowledge dir) rather than only its text, together with the two WARN->ERROR versioned-ramp thresholds they key on.",
+      "path": "scripts/agentware_lib/ops/plangovern.py",
+      "test_file": "tests/test_plan_lint.py"
+    },
+    {
+      "anchor_symbols": [
+        "_CHECKPOINT_POLICIES",
+        "_KERNEL_PATH_TOKENS",
+        "_PLAN_CHECKPOINT_RE",
+        "_PLAN_DEFAULT_STATE",
+        "_PLAN_DEPENDS_KINDS",
+        "_PLAN_DEPENDS_SECTION_RE",
+        "_PLAN_EDGE_MALFORMED",
+        "_PLAN_SERIALIZE_ON_RE",
+        "_PLAN_SLUG_RE",
+        "_PLAN_STATES",
+        "_PLAN_STATUS_HEADER_RE",
+        "_PLAN_TARGET_PATH_RE",
+        "_PLAN_TARGET_SECTION_RE",
+        "_PLAN_WRITESET_SECTION_RE",
+        "_WRITE_SET_WHOLE_REPO",
+        "_kernel_write_tokens",
+        "_read_plan_status",
+        "_write_set_repo_rel",
+        "_write_token_norm",
+        "infer_write_set",
+        "plan_checkpoint",
+        "plan_depends_on",
+        "plan_target_dirs",
+        "plan_write_set"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planauthor.plankernelpath",
+        "agentware_lib.ops.planauthor.plannew",
+        "agentware_lib.ops.planauthor.planstate",
+        "agentware_lib.ops.plangovern",
+        "agentware_lib.ops.planlint"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.planpremises"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.plangraph",
+      "not_owns": "any RULE (R11/R13/R15/R16 are agentware_lib.ops.planlint / agentware_lib.ops.plangovern, which import these); the plan STATE MACHINE and its writers (agentware_lib.ops.planauthor.planstate); the TASK-MARKER grammar (agentware_lib.ops.planmarkers); the graph MANIFEST and DAG scheduler (RESIDENT, task 48); the `## Premises` trust boundary (agentware_lib.ops.planpremises);",
+      "owns": "the plan document's DECLARATIVE BLOCK parsers -- `## Target packages` (R11), `## Depends-on:`, `## Write set` + its conservative inference, `> Checkpoint:`, and the `> Status:` lifecycle header re-exported by ops.planauthor.planstate",
+      "path": "scripts/agentware_lib/ops/plangraph.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_PLAN_ACCEPT_PLACEHOLDER",
+        "_PLAN_R7_TOKENS",
+        "_PLAN_R9_BLOCKING",
+        "_PLAN_R9_CARVEOUT",
+        "_PLAN_READINESS_SIGNATURES",
+        "_emit_plan_lint",
+        "_lint_authorship",
+        "_lint_autonomy",
+        "_lint_markers",
+        "_lint_promise",
+        "_lint_sections",
+        "_lint_targets",
+        "_lint_task_bodies",
+        "_plan_lint_read",
+        "_plan_readiness",
+        "_plan_rel_path",
+        "_plan_tasks",
+        "cmd_plan_lint",
+        "lint_plan"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.fanout",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.planstate"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.kblayout",
+        "agentware_lib.ops.plangovern",
+        "agentware_lib.ops.plangraph",
+        "agentware_lib.ops.planmarkers"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planlint",
+      "not_owns": "R12..R16, the GOVERNANCE rules that need the plan's place in the KB (agentware_lib.ops.plangovern, re-exported from here); the plan-document GRAMMAR every rule reads (agentware_lib.ops.planmarkers, re-exported); the DECLARATIVE BLOCK parsers incl. the R11 target-packages parser (agentware_lib.ops.plangraph, re-exported); plan AUTHORING -- the deterministic writers skeleton/new/add-task/set-status/;",
+      "owns": "the plan-lint ENFORCEMENT half of the plan toolkit (feature 260625-plan-lint-gate) -- the eleven PURE FORMAT rules R1..R11 one receiver per rule group, the lint_plan orchestrator that sequences all sixteen, the draft->ready readiness gate, the emitter and the CLI handler.",
+      "path": "scripts/agentware_lib/ops/planlint.py",
+      "test_file": "tests/unit/ops/test_planlint.py"
+    },
+    {
+      "anchor_symbols": [
         "PLAN_TASK_MARKER_RE",
         "_PLAN_CHECKBOX_RE",
         "_PLAN_HEADING_RE",
@@ -2594,35 +3231,115 @@
         "_PLAN_MARKER_HINT",
         "_PLAN_OPEN_MARKER_PY",
         "_PLAN_PROMISE_RE",
-        "_PLAN_R7_TOKENS",
-        "_PLAN_R9_BLOCKING",
-        "_PLAN_R9_CARVEOUT",
-        "_PLAN_TARGET_PATH_RE",
-        "_PLAN_TARGET_SECTION_RE",
         "_PLAN_TASK_LINE_RE",
         "_PLAN_VERIFY_NONEMPTY_RE",
         "_PLAN_VERIFY_RE",
         "_check_task_numbering",
-        "_emit_plan_lint",
+        "_lint_add",
         "_parse_task_number",
-        "_posix_ere_to_python",
-        "cmd_plan_lint",
-        "lint_plan",
-        "plan_target_dirs"
+        "_plan_open_marker_count",
+        "_posix_ere_to_python"
       ],
       "depended_on_by": [
-        "agentware_lib.features.fanout",
-        "agentware_lib.ops.derive",
-        "agentware_lib.ops.planauthor.planedit"
+        "agentware_lib.ops.planauthor.plansanitize",
+        "agentware_lib.ops.planauthor.planstate",
+        "agentware_lib.ops.plangovern",
+        "agentware_lib.ops.planlint"
       ],
-      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "dependency_direction": "ops -> stdlib only (leaf)",
       "depends_on": [],
       "layer": "ops",
-      "name": "agentware_lib.ops.planlint",
-      "not_owns": "plan AUTHORING -- the deterministic writers skeleton/new/add-task/set-status/",
-      "owns": "the plan-lint ENFORCEMENT half of the plan toolkit (feature 260625-plan-lint-gate).",
-      "path": "scripts/agentware_lib/ops/planlint.py",
-      "test_file": "tests/unit/ops/test_planlint.py"
+      "name": "agentware_lib.ops.planmarkers",
+      "not_owns": "any RULE (agentware_lib.ops.planlint / agentware_lib.ops.plangovern); the DECLARATIVE BLOCK parsers that describe the plan AS A NODE (agentware_lib.ops.plangraph); plan AUTHORING (agentware_lib.ops.planauthor);",
+      "owns": "the SHARED VOCABULARY of the plan-lint family -- the canonical task-marker regex whose bytes are shared with agentware.sh's grep, the POSIX-ERE translator, every derived plan regex, task-number parsing and the monotonic-numbering check, the open-marker counter, and _lint_add, the one finding-record constructor.",
+      "path": "scripts/agentware_lib/ops/planmarkers.py",
+      "test_file": "tests/test_plan_lint.py"
+    },
+    {
+      "anchor_symbols": [
+        "_CHECK_METACHAR_RE",
+        "_CORPUS_METRICS",
+        "_CORPUS_OPS",
+        "_PATH_MODES",
+        "_PLAN_CHECK_ROW_RE",
+        "_PLAN_CITE_ROW_RE",
+        "_PLAN_PREMISES_ERROR_SCHEMA",
+        "_PLAN_PREMISES_FENCE_RE",
+        "_PLAN_PREMISES_SECTION_RE",
+        "_PLAN_PREMISE_ROW_RE",
+        "_PREMISE_CHECK_KINDS",
+        "_parse_premise_check",
+        "_plan_is_load_bearing",
+        "_plan_is_self_extension",
+        "_plan_names_live_kb_id",
+        "_premise_region",
+        "cmd_plan_verify_premises",
+        "plan_premises",
+        "verify_premises"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planlint"
+      ],
+      "dependency_direction": "ops -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.knowledge.index",
+        "agentware_lib.ops.premisecheck"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.planpremises",
+      "not_owns": "the evaluators (agentware_lib.ops.premisecheck); plan authoring (agentware_lib.ops.planauthor);",
+      "owns": "the TRUST BOUNDARY of the `## Premises` surface: the closed grammar, its non-executing parser, and the R-GND-01 verify-premises verb",
+      "path": "scripts/agentware_lib/ops/planpremises.py",
+      "test_file": "tests/test_premise_gate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_PREF_GATE_NOUN_RE",
+        "_PREF_LOOSEN_VERB_RE",
+        "_PREF_NEG_LOOSEN_RE",
+        "_pref_loosens_gate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.checkupemit"
+      ],
+      "dependency_direction": "ops -> stdlib",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.prefergate",
+      "not_owns": "capturing a preference or the queue it lands in (the `prefer` verb, resident until its own port); the R-CAP-03 kernel-path refusal, a different obligation (agentware_lib.ops.planauthor.plankernelpath);",
+      "owns": "the deterministic classifier answering whether a captured preference would WEAKEN a governance gate rather than express a taste. Captured preferences inject into every future session, so 'stop running the tests first' and 'prefer tabs over spaces' are not the same kind of statement — the first would quietly disable a safety property for every later run, which R-CAP-03 refuses. The NEGATION sets are the subtle part: 'do not skip the review gate' contains both a loosen verb and a gate noun and is the OPPOSITE of a loosening request, so negation is checked BEFORE the verb/noun pair fires.",
+      "path": "scripts/agentware_lib/ops/prefergate.py",
+      "test_file": "tests/test_prefer_capture.py"
+    },
+    {
+      "anchor_symbols": [
+        "_eval_check_cite_live",
+        "_eval_check_config_eq",
+        "_eval_check_corpus_metric",
+        "_eval_check_path",
+        "_parse_iso_to_epoch",
+        "_premise_cite_resolves",
+        "_premise_corpus_metric_value",
+        "_premise_num_cmp",
+        "_premise_path_state",
+        "evaluate_premise"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planpremises"
+      ],
+      "dependency_direction": "ops -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.knowledge.index",
+        "agentware_lib.ops.sessionparse.minerfolds"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.premisecheck",
+      "not_owns": "the grammar or the parser -- what a premise may SAY is agentware_lib.ops.planpremises;",
+      "owns": "one evaluator per closed-grammar check kind, and the dispatcher over them",
+      "path": "scripts/agentware_lib/ops/premisecheck.py",
+      "test_file": "tests/test_premise_gate.py"
     },
     {
       "anchor_symbols": [
@@ -2650,6 +3367,66 @@
       "owns": "the release-gate harness (feature 260630-release-gate) that prevents",
       "path": "scripts/agentware_lib/ops/releasegate.py",
       "test_file": "tests/unit/ops/test_releasegate.py"
+    },
+    {
+      "anchor_symbols": [
+        "_pkg_preflight_selftest",
+        "_pkg_release_preflight",
+        "cmd_release",
+        "register_release"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.pkgchannel",
+        "agentware_lib.core.pkgtrust",
+        "agentware_lib.core.paths"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.releasepreflight",
+      "not_owns": "the trust anchor (agentware_lib.core.pkgtrust); the update channel that consumes a release (agentware_lib.core.pkgchannel); the package-level release GATE, a different verb (agentware_lib.ops.releasegate); key and tag ACTIONS, which stay operator-gated in docs/release-signing.md;",
+      "owns": "the read-only `release preflight` -- a hermetic verify SELF-TEST plus the publisher/client readiness report and the `release` registrar. The self-test exists because reporting configuration cannot answer the real question: a machine can have a pinned key, a reachable remote and plausible git config while gpg.ssh.allowedSignersFile points at nothing, in which case verification silently passes EVERYTHING. So it builds a throwaway repo, signs a tag with a scratch key, and proves both directions -- a valid signature verifies, a tampered one is refused -- before reporting on the real machine.",
+      "path": "scripts/agentware_lib/ops/releasepreflight.py",
+      "test_file": "tests/test_release_preflight.py"
+    },
+    {
+      "anchor_symbols": [
+        "MINER_RECURRENCE_CUE_REQUIRED",
+        "MINER_RECURRENCE_CUE_REQUIRED_KEY",
+        "MINER_RECURRENCE_MIN_LEN",
+        "MINER_RECURRENCE_MIN_LEN_KEY",
+        "MINER_RECURRENCE_N",
+        "MINER_RECURRENCE_STOPWORDS",
+        "MINER_RECURRENCE_STOPWORDS_KEY",
+        "_PREFER_QUEUE_RE",
+        "_PROMPTS_HEADER_RE",
+        "_parse_miner_min_len",
+        "_parse_miner_stopwords",
+        "_parse_prompts_records",
+        "_review_truthy_env",
+        "_transcript_is_ack",
+        "_transcript_is_err_status",
+        "_transcript_list_session_ids",
+        "_transcript_norm_key",
+        "_transcript_read_live",
+        "_transcript_recurrence_gate",
+        "_transcript_recurrence_relevant"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.planpremises",
+        "agentware_lib.ops.premisecheck"
+      ],
+      "dependency_direction": "ops -> core",
+      "depends_on": [
+        "agentware_lib.core.config"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.minerfolds",
+      "not_owns": "the `prefer` verb, the candidate ledger or any WRITER over miner state (plan task 45);",
+      "owns": "the PURE transcript folds the miner emits with and the recurrence precision gate",
+      "path": "scripts/agentware_lib/ops/sessionparse/minerfolds.py",
+      "test_file": "tests/test_transcript_miner_governance.py"
     },
     {
       "anchor_symbols": [
@@ -2853,6 +3630,33 @@
       "owns": "(1) the org team-membership registry primitives -- the registry path resolver",
       "path": "scripts/agentware_lib/ops/team.py",
       "test_file": "tests/unit/ops/test_team.py"
+    },
+    {
+      "anchor_symbols": [
+        "TICK_INTERVAL_SEC",
+        "TICK_LAUNCHD_LABEL",
+        "_crontab_filter",
+        "_tick_dispatch",
+        "_tick_install_schedule",
+        "_tick_jobs",
+        "_tick_uninstall_schedule",
+        "cmd_tick",
+        "register_tick"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> core, ops -> features",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.paths",
+        "agentware_lib.features.dreamsched",
+        "agentware_lib.features.pkgupdater"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.tickcmd",
+      "not_owns": "what the tick RUNS -- updater cadence, self-heal and heartbeat (agentware_lib.features.pkgupdater); the DREAM schedule, a separate verb with its own launchd label and cron line (agentware_lib.features.dreamsched); the apply path (agentware_lib.features.pkgapply);",
+      "owns": "the shared 30-minute TICK: the schedule identity, launchd plist and crontab line builders, the job registry, install/uninstall, the dispatcher, and `cmd_tick` with its `--lock-status` REVERSE-GUARD. The guard reports the updater lock's holder and staleness WITHOUT taking the lock, which is what lets the loop tell a live apply apart from a stale lock left by a killed one -- a guard that acquired the lock to inspect it would be the deadlock it exists to prevent. Install is always an EXPLICIT operator action: nothing installs a schedule as a side effect of a CLI run, and `_crontab_filter` removes only this package's managed line so an uninstall can never eat unrelated cron entries.",
+      "path": "scripts/agentware_lib/ops/tickcmd.py",
+      "test_file": "tests/test_tick_dispatch.py"
     },
     {
       "anchor_symbols": [

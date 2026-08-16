@@ -121,6 +121,15 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "cmd_index_remove": "cmd_index_remove",
     "cmd_index_sync": "cmd_index_sync",
     "rebuild_kb": None,                           # the primitive itself
+    # `rebuild_kb`'s body with the index lock already HELD, split out so the
+    # acquisition is one unmissable line at the single entry point. Same
+    # classification as its caller — a primitive, not a dispatch command — and
+    # inherently schema-safe for the same reason (it regenerates the DERIVED
+    # index from untouched frontmatter). Surfaced at task 41, when
+    # `_fixtures.cli_source` was widened to scan a ported verb's WHOLE
+    # implementation graph instead of just its registrar; it had been invisible
+    # to this scan, not absent from the tree.
+    "_rebuild_kb_locked": None,
     # P1.7 (write-path scale foundation): two thin helpers that wrap rebuild_kb to
     # regenerate ONLY the DERIVED index (now de-committed + gitignored) from the
     # untouched frontmatter source — inherently schema-SAFE (like rebuild_kb, and
@@ -148,6 +157,21 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "_dream_step_index_rebuild": "cmd_dream",
     "cmd_skill_add": "cmd_skill_add",
     "cmd_skill_remove": "cmd_skill_remove",
+
+    # --- surfaced at task 41 -------------------------------------------------
+    # Six index writers that live in `agentware_lib` and had been INVISIBLE to
+    # this scan, not absent from the tree: `_fixtures.cli_source` used to
+    # concatenate only the entrypoint, the monolith and each ported verb's
+    # REGISTRAR module. Task 41 widened it to the whole lib (a verb's
+    # implementation now spans many modules — `update` alone spans six), and
+    # these appeared. Each is classified by the command that actually dispatches
+    # it, which is what this map governs; none is a new capability.
+    "skill_register_entry": "cmd_skill_add",       # lock-wrapped index RMW
+    "skill_unregister_entry": "cmd_skill_remove",  # lock-wrapped index RMW
+    "cmd_skill_promote": "cmd_skill_promote",
+    "cmd_skill_propose": "cmd_skill_propose",
+    "_scaffold_team_dir": "cmd_team",              # team create|register
+    "_dream_pull_resolve_derived": "cmd_dream",    # kb-pull step's derived reconcile
 }
 # Commands that legitimately rewrite the index but are EXEMPT from the schema gate
 # for the CURRENT schema (documented DECISION in the worklog): git-sync / merge
@@ -157,6 +181,21 @@ _EXPECTED_INDEX_WRITER_DEFS = {
 _INDEX_WRITER_EXEMPT_COMMANDS = {
     "cmd_init", "cmd_attach", "cmd_kb_git_commit", "cmd_kb_git_merge_continue",
     "cmd_fanout_merge_queue",
+    # --- NOT-YET-GUARDED, surfaced at task 41 (follow-up: task 54) -----------
+    # These four write the structured index from `agentware_lib` and are guarded
+    # by NEITHER tree's writer registry. That is a PRE-EXISTING hole, not a task-41
+    # regression: the monolith does not define `cmd_skill_promote` at all and never
+    # listed `cmd_skill_propose` in `_kb_writer_funcs`, so they arrived unguarded
+    # with the donor. They were invisible until task 41 widened
+    # `_fixtures.cli_source` from "each ported verb's registrar" to the whole lib.
+    #
+    # They are exempted rather than registered because registering them means
+    # adding `_KB_WRITER_TARGETS` rows, and the interlock's correspondence check
+    # only requires those for verbs already in `strangler.PORTED_VERBS`. `skill`,
+    # `team` and `dream` are NOT ported yet — their rows land with them in the
+    # shared-verb wave (task 54), which is where this exemption must be removed.
+    # Until then an older CLI can write a newer/migrated KB through these paths.
+    "cmd_skill_promote", "cmd_skill_propose", "cmd_team", "cmd_dream",
 }
 
 

@@ -250,16 +250,6 @@
         },
         {
           "kind": "function_over_branch_cap",
-          "location": "scripts/agentware_lib/ops/planlint.py::lint_plan",
-          "value": 44
-        },
-        {
-          "kind": "function_over_line_cap",
-          "location": "scripts/agentware_lib/ops/planlint.py::lint_plan",
-          "value": 148
-        },
-        {
-          "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/ops/releasegate.py::cmd_gate_release",
           "value": 13
         },
@@ -367,6 +357,37 @@
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/retrieval/vectorcache.py::build_vector_cache",
           "value": 14
+        }
+      ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "Per-function complexity inherited from the MONOLITH, arriving VERBATIM with a verb port (tasks 37..54). Distinct in provenance from the donor-inherited group above: these functions are not new code and were not written here — they are moved byte-identically out of scripts/agentware_legacy.py so the move is a MOVE, reviewable as such, and so the body differ's floor and the port's own byte-identity proof both hold. Decomposing them DURING the move would forfeit exactly that guarantee on the R-GND-01 grounding path, which is the single most safety-critical surface the loop runs, in exchange for a split that task 67 already owns and performs against the whole tree at once. Task 67 is 'make modularity permanent ACROSS THE WHOLE TREE ... and add the per-function line and branch caps', so this is its work-list, measured and named on arrival rather than discovered later. Shrink-only still applies: a value worse than declared, or a row the tree stops producing, fails the gate.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/planpremises.py::_parse_premise_check",
+          "value": 17
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/planpremises.py::plan_premises",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/premisecheck.py::_eval_check_path",
+          "value": 16
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/premisecheck.py::_premise_cite_resolves",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/premisecheck.py::_premise_corpus_metric_value",
+          "value": 21
         }
       ]
     }

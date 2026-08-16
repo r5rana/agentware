@@ -1,37 +1,82 @@
-"""agentware_lib.ops.planlint -- feature-plan structural lint (layer: ops).
+"""agentware_lib.ops.planlint -- feature-plan structural lint, R1..R16 (layer: ops).
 
-Owns: the plan-lint ENFORCEMENT half of the plan toolkit (feature 260625-plan-lint-gate).
-The canonical open-task-marker regex PLAN_TASK_MARKER_RE -- the SINGLE SOURCE OF TRUTH
-whose bytes MUST stay byte-identical to agentware.sh:open_markers()'s grep pattern (pinned
-by the drift contract test tests/test_plan_lint.py:631) -- plus the POSIX-ERE -> Python
-translator (_posix_ere_to_python) the linter uses at load time, every derived plan regex
-(_PLAN_*_RE / _PLAN_R7_TOKENS / _PLAN_R9_* / _PLAN_MARKER_HINT), task-number parsing +
-monotonic-numbering check (_parse_task_number / _check_task_numbering), the R11
-target-packages contract (_PLAN_TARGET_*_RE / plan_target_dirs), the R1..R11 linter
-(lint_plan), its text/JSON emitter (_emit_plan_lint) and the CLI handler (cmd_plan_lint).
+Owns: the plan-lint ENFORCEMENT half of the plan toolkit (feature
+260625-plan-lint-gate) — the eleven PURE FORMAT rules R1..R11 as one receiver per
+rule group, the `lint_plan` orchestrator that runs ALL SIXTEEN in a FIXED order,
+the draft->ready readiness gate (`_PLAN_READINESS_SIGNATURES` /
+`_PLAN_ACCEPT_PLACEHOLDER` / `_plan_readiness`), the KB-relative path resolver
+R12 keys on (`_plan_rel_path`), the text/JSON emitter (`_emit_plan_lint`) and the
+CLI handler (`cmd_plan_lint`).
 
-Does NOT own: plan AUTHORING -- the deterministic writers skeleton/new/add-task/set-status/
-target-dirs + work-artifact stamping (still RESIDENT in scripts/agentware this seam; they
-move to agentware_lib.ops.planauthor, which imports THESE regexes downward as a same-layer
-ops->ops edge -- e.g. cmd_plan_new calls lint_plan, _PLAN_TASK_LINE_RE is the shared marker
-source). The plan-tainted derive_* reporting family (derive_plan_size / derive_plan_authoring
-/ derive_agents / derive_outcome / _plan_marker_status_counts) stays RESIDENT until it moves
-into agentware_lib.ops.derive, which will import _PLAN_TASK_LINE_RE / _parse_task_number from
-HERE (this seam UNBLOCKS that move by providing the regexes). The org/template lint that lives
-textually between this domain's blocks is agentware_lib.ops.fleet (org lint) / RESIDENT
-(deferred), never here.
+  R1   the file exists and is readable            _plan_lint_read
+  R2   `## Tasks` + `## Acceptance criteria`      _lint_sections
+  R3   well-formed task markers                   _lint_markers
+  R4   monotonic task numbering                   _lint_markers
+  R5   every task carries `*Verify:*`             _lint_task_bodies
+  R6   an `[e2e]` task with a non-empty Verify    _lint_task_bodies
+  R7   a task references a KB update              _lint_task_bodies
+  R8   exactly one <promise> tag                  _lint_promise
+  R9   no blocking phrasing without a carve-out   _lint_autonomy
+  R10  team-mode plans name an author             _lint_authorship
+  R11  `## Target packages` with a real path      _lint_targets
+  R12  workorder provenance headers               ops.plangovern
+  R13  `> Status:` bound to derived task reality  ops.plangovern
+  R14  a load-bearing plan cites `## Premises`    ops.plangovern
+  R15  `## Depends-on:` closed grammar            ops.plangovern
+  R16  `> Checkpoint:` in vocab, non-none if S-E  ops.plangovern
 
-Layer deps: ops.planlint -> core only (core.config.resolve_kb_mode for the R2 team-mode
-author check). Nothing above ops imports it; ops.planauthor and ops.derive import it downward.
+R1..R11 are decidable from the plan TEXT alone, so they are errors from the day
+they land and they live here. R12..R16 additionally need the plan's PLACE in the
+knowledge base — its KB-relative path, the KB's schema generation and the
+knowledge dir — which is why `lint_plan` takes five arguments rather than two and
+why each of those four rides a WARN->ERROR versioned ramp; they are
+ops.plangovern, imported downward and re-exported below.
 
-Determinism: pure text linting over plan/markdown strings, stdlib re/json/os/sys only
-(INV-2, INV-6). PLAN_TASK_MARKER_RE bytes are the single source shared with agentware.sh's
-grep so linter and loop can never drift.
+Does NOT own: R12..R16 -> ops.plangovern; the plan-document GRAMMAR every rule
+reads (the task-marker regexes, the numbering check, the open-marker counter, the
+finding record) -> ops.planmarkers; the DECLARATIVE BLOCK parsers R11/R13/R15/R16
+consult (`## Target packages`, `> Status:`, `## Depends-on:`, `> Checkpoint:`) ->
+ops.plangraph; the `## Premises` trust boundary R14 consults -> ops.planpremises.
+Every one of those is a LEAF this module imports downward, and their names are
+RE-EXPORTED below so `CLI.<name>` and the `planauthor` `_planlint` alias resolve
+the same objects they always did.
 
-_EXPORTS is imported BY NAME onto the scripts/agentware facade so the resident `plan`
-registrar (set_defaults(func=cmd_plan_lint)), the resident plan-authoring callers
-(cmd_plan_new -> lint_plan), the resident fanout open-marker counter (_PLAN_OPEN_MARKER_PY),
-and load_cli tests reach every name as CLI.<name>.
+Does NOT own: plan AUTHORING -- the deterministic writers skeleton/new/add-task/
+set-status/target-dirs + work-artifact stamping are agentware_lib.ops.planauthor,
+which imports THESE names downward as a same-layer ops->ops edge (cmd_plan_new calls
+lint_plan; _PLAN_TASK_LINE_RE is the shared marker source; cmd_plan_set_state calls
+_plan_readiness for the draft->ready gate). The plan-tainted derive_* reporting
+family stays RESIDENT until it moves into agentware_lib.ops.derive, which will import
+_PLAN_TASK_LINE_RE / _parse_task_number through this module's re-export. The org/
+template lint that lives textually between this domain's blocks is
+agentware_lib.ops.fleet (org lint) / RESIDENT (deferred), never here.
+
+WHY THE RULES ARE ONE FUNCTION EACH (feature 260813 task 39)
+------------------------------------------------------------
+The monolith's `lint_plan` is a single 270-line, 44-branch body. Porting it
+verbatim would have been the cheaper move -- it is what tasks 37/38 did, and what
+the body differ's length floor rewards -- but the modularity ceiling is 120 lines
+and 12 branches per function and the ceiling ratchet is SHRINK-ONLY, so growing
+the ported body in place is a hard fail with no debt row available. The rules are
+therefore split at the seam the rule numbering already implies: one receiver per
+rule group, each named for the rules it enforces, with the orchestrator reduced to
+the ORDER they run in. Order is load-bearing -- findings are compared as ordered
+lists by the differential probe against the monolith -- so the orchestrator reads
+as R2..R16 top to bottom and nothing else.
+
+Layer deps: ops.planlint -> ops.plangovern, ops.planmarkers, ops.plangraph
+(same-layer, all one-way) and core.config / core.kblayout (downward). Nothing above
+ops is imported: R12's schema generation comes from core.kblayout._kb_schema_read,
+which moved down from features.migratecmd for exactly this reason.
+
+Determinism: pure text linting plus two read-only KB lookups (the schema sidecar
+here, and for R14's load-bearing test the index, through ops.plangovern); stdlib
+re/json/os/sys only (INV-2, INV-6). Nothing here writes.
+
+_EXPORTS is imported BY NAME onto the scripts/agentware facade so the resident
+`plan` registrar (set_defaults(func=cmd_plan_lint)), the resident plan-authoring
+callers (cmd_plan_new -> lint_plan), the resident fanout open-marker counter
+(_PLAN_OPEN_MARKER_PY), and load_cli tests reach every name as CLI.<name>.
 Fan-in: 3 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 
@@ -41,60 +86,41 @@ import re
 import sys
 
 import agentware_lib.core.config as config
+from agentware_lib.core.config import resolve_knowledge_dir
+from agentware_lib.core.kblayout import _kb_schema_read
+from agentware_lib.ops.plangovern import (   # noqa: F401  (R12..R16, re-exported)
+    _PLAN_GRAPH_ERROR_SCHEMA,
+    _WORKORDER_SLUG_RE,
+    _lint_graph,
+    _lint_premises,
+    _lint_status,
+    _lint_workorder,
+    _plan_own_slug,
+)
+from agentware_lib.ops.plangraph import (
+    _PLAN_TARGET_PATH_RE,
+    _PLAN_TARGET_SECTION_RE,
+    plan_target_dirs,
+)
+from agentware_lib.ops.planmarkers import (
+    _check_task_numbering,
+    _lint_add,
+    _parse_task_number,
+    _plan_open_marker_count,
+    _PLAN_CHECKBOX_RE,
+    _PLAN_HEADING_RE,
+    _PLAN_LETTERED_RE,
+    _PLAN_MARKER_HINT,
+    _PLAN_OPEN_MARKER_PY,
+    _PLAN_PROMISE_RE,
+    _PLAN_TASK_LINE_RE,
+    _PLAN_VERIFY_NONEMPTY_RE,
+    _PLAN_VERIFY_RE,
+    _posix_ere_to_python,
+    PLAN_TASK_MARKER_RE,
+)
 
 
-# --- Plan lint (feature 260625-plan-lint-gate) -------------------------------
-# Canonical task-marker regex — the SINGLE SOURCE OF TRUTH for "what counts as an
-# open task marker" in a feature plan. Its bytes MUST stay byte-identical to the
-# `grep -cE '…'` pattern in agentware.sh:open_markers() (pinned by the contract
-# test in tests/test_plan_lint.py). This is the POSIX-ERE form exactly as grep
-# consumes it; Python's `re` does NOT honour POSIX `[[:class:]]` syntax, so the
-# linter derives a Python-usable pattern via _posix_ere_to_python() at load time
-# rather than feeding these bytes to re.compile directly.
-PLAN_TASK_MARKER_RE = r"^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]"
-
-
-def _posix_ere_to_python(pattern):
-    """Deterministically translate the POSIX-ERE classes we use into Python re.
-
-    grep's POSIX bracket classes (`[[:space:]]`, `[[:digit:]]`, `[[:alpha:]]`)
-    are not honoured by Python's `re`; translate the ones the canonical marker
-    regex uses so the linter and the loop derive from the same source string.
-    """
-    return (pattern
-            .replace("[[:space:]]", r"\s")
-            .replace("[[:digit:]]", r"\d")
-            .replace("[[:alpha:]]", "[A-Za-z]"))
-
-
-# Open-marker matcher (⬜/🟡), derived from the canonical constant so it can never
-# drift from the loop. Used only to assert the translation round-trips.
-_PLAN_OPEN_MARKER_PY = re.compile(_posix_ere_to_python(PLAN_TASK_MARKER_RE))
-
-# Well-formed task marker of ANY status. Extends the open-marker form with the
-# done glyph ✅, since a complete plan's tasks are legitimately well-formed and
-# must still lint clean (all-✅ plans). Captures the task number, which may be a
-# FLAT `**N**` or a PHASED `**N.M**` marker (the documented phased form in
-# docs/loop.md, e.g. `**1.1**`, `**1.2**`, `**2.1**`). The loop's grep counter
-# (`PLAN_TASK_MARKER_RE`, `\*\*[0-9]`) already matches both, so this re-aligns the
-# linter with the loop and with the documented task format.
-_PLAN_TASK_LINE_RE = re.compile(r"^\s*-\s*(⬜|🟡|✅)\s*\*\*(\d+(?:\.\d+)?)\*\*")
-# Malformed task-like lines we flag with a specific fix hint (R3).
-_PLAN_CHECKBOX_RE = re.compile(r"^\s*-\s*\[[ xX]?\]")        # GitHub `- [ ]`
-# A lettered TASK ID someone wrote instead of the canonical marker — `- **T1**`,
-# `- **T12**`, `- **A3**`: a compact identifier (letters then digits) inside the
-# bold, mirroring the `- **N**` shape but with a letter prefix. The trailing
-# `\d+` requirement is deliberate: it flags real task-id mistakes WITHOUT
-# false-flagging ordinary prose bullets like `- **Note:** …` or
-# `- **Foundation first:** …` (a word/phrase, no compact `<letters><digits>**`).
-_PLAN_LETTERED_RE = re.compile(r"^\s*-\s*\*\*[A-Za-z]+\d+\*\*")  # `- **T1**`
-_PLAN_HEADING_RE = re.compile(r"^##\s+(.*\S)\s*$")
-_PLAN_VERIFY_RE = re.compile(r"\*Verify:\*")
-_PLAN_VERIFY_NONEMPTY_RE = re.compile(r"\*Verify:\*\s*\S")
-_PLAN_PROMISE_RE = re.compile(r"<promise>[A-Z0-9_]+</promise>")
-
-_PLAN_MARKER_HINT = ("expected a well-formed marker like `- ⬜ **N**` "
-                     "(emoji ⬜/🟡/✅ + bold digit)")
 _PLAN_R7_TOKENS = ("R-KB", "index validate", "learn", "features")
 _PLAN_R9_BLOCKING = ("stop and ask", "operator decision required",
                      "await confirmation", "ask the user", "ask the operator")
@@ -102,105 +128,40 @@ _PLAN_R9_CARVEOUT = ("r-pkg-03", "r-exec-06", "pre-decided",
                      "proceed deterministically", "deterministic resolution",
                      "carve-out", "carveout")
 
-
-def _parse_task_number(s):
-    """'1' -> (1,); '1.2' -> (1, 2). Tuple form drives the R4 ordering check."""
-    return tuple(int(p) for p in s.split("."))
-
-
-def _check_task_numbering(number_strings):
-    """Validate task-number ordering for FLAT or PHASED markers (R4).
-
-    Returns an error message string, or None when the numbering is well-formed.
-
-    - Flat plans (`**1**`, `**2**`, …): numbers must be 1..N, no gaps/dups.
-    - Phased plans (`**1.1**`, `**1.2**`, `**2.1**`, …): the MAJOR groups must
-      appear contiguously as 1..K, and within each major the MINORS must run
-      1..m (so `set-status` / the burndown stay unambiguous). A flat marker is
-      not mixed into a phased plan.
-    """
-    parsed = [_parse_task_number(s) for s in number_strings]
-    phased = any(len(p) > 1 for p in parsed)
-    if not phased:
-        nums = [p[0] for p in parsed]
-        expected = list(range(1, len(nums) + 1))
-        if nums != expected:
-            return ("task numbers must increase monotonically from 1 with no "
-                    "gaps or duplicates; found %s, expected %s"
-                    % (nums, expected))
-        return None
-    # Phased: walk the markers, grouping contiguous runs by major number.
-    majors_in_order = []
-    minors = {}
-    for p in parsed:
-        if len(p) != 2:
-            return ("phased plans must use `**N.M**` markers throughout; found "
-                    "a flat marker %r mixed in" % ".".join(map(str, p)))
-        major, minor = p
-        if not majors_in_order or majors_in_order[-1] != major:
-            if major in majors_in_order:
-                return ("phased major groups must be contiguous; major %d "
-                        "reappears out of order" % major)
-            majors_in_order.append(major)
-        minors.setdefault(major, []).append(minor)
-    if majors_in_order != list(range(1, len(majors_in_order) + 1)):
-        return ("phased major numbers must increase from 1 with no gaps; "
-                "found %s" % majors_in_order)
-    for major in majors_in_order:
-        ms = minors[major]
-        if ms != list(range(1, len(ms) + 1)):
-            return ("phased minors under major %d must run 1..%d with no gaps "
-                    "or duplicates; found %s" % (major, len(ms), ms))
-    return None
+# The EXACT emitter placeholder signatures `_plan_skeleton` writes for an unfilled
+# Context / Target / Verify / Acceptance. `plan lint --readiness` fails while ANY
+# of these SIGNATURES remain (signature match, NOT any mention of "TODO"); the
+# em-dash and punctuation are load-bearing — keep byte-identical to _plan_skeleton.
+_PLAN_READINESS_SIGNATURES = (
+    "_TODO: problem, goal, design, constraints, environment, pitfalls._",
+    "TODO: replace with the absolute or ~-rooted directory path(s) this "
+    "plan targets",
+    "*Verify:* TODO — exercise the feature end-to-end and capture the outcome.",
+    "- [ ] TODO: define the verifiable acceptance criteria.",
+)
+_PLAN_ACCEPT_PLACEHOLDER = "TODO: define the verifiable acceptance criteria"
 
 
 # --- R11: Target packages contract -----------------------------------------
-_PLAN_TARGET_SECTION_RE = re.compile(r"^##\s+Target\s+packages\s*$", re.IGNORECASE | re.MULTILINE)
-_PLAN_TARGET_PATH_RE = re.compile(r"^\s*-\s+(~[/\\]|/)\S")
+# DEFINED in ops.plangraph, re-exported here. R11 is a RULE and lives in this
+# module; the `## Target packages` PARSER is a declarative block parser and sits
+# with its four siblings (`## Depends-on`, `## Write set`, `> Checkpoint:`,
+# `> Status:`) one edge below. That direction is forced, not chosen: R13/R15/R16
+# make this module import plangraph, and plangraph's `infer_write_set` needs
+# `plan_target_dirs`, so defining it here would close a real import cycle. The
+# names stay in _EXPORTS so `CLI.plan_target_dirs` and planauthor's `_planlint`
+# alias resolve the SAME object they always did.
 
 
-def plan_target_dirs(text):
-    """Extract declared target-package directory paths from a plan.
+# --- R2: required sections + the Tasks-section line range --------------------
 
-    Parses the `## Target packages` section and returns a list of expanded
-    directory paths. Expands `~` to $HOME and environment variables. Returns
-    an empty list when the section is missing or has no path rows.
+def _lint_sections(lines, errors):
+    """R2 — locate `## Tasks` / `## Acceptance criteria` and bound the task scan.
+
+    Returns (tasks_start, tasks_end, scan_range). `tasks_start` is None when the
+    section is absent, in which case the scan degrades to the whole file so R3's
+    malformed-marker hints still fire on a plan that lost its heading.
     """
-    lines = text.splitlines()
-    in_section = False
-    dirs = []
-    for ln in lines:
-        if _PLAN_TARGET_SECTION_RE.match(ln):
-            in_section = True
-            continue
-        if in_section:
-            # End of section on next heading
-            if re.match(r"^##\s+", ln):
-                break
-            if _PLAN_TARGET_PATH_RE.match(ln):
-                # Extract the path (strip leading `- `)
-                path = ln.strip().lstrip("-").strip()
-                # Expand ~ and env vars
-                path = os.path.expanduser(os.path.expandvars(path))
-                dirs.append(path)
-    return dirs
-
-
-def lint_plan(text, strict=False):
-    """Apply the structural plan-format rules R1–R11 to `text`.
-
-    Returns (errors, warnings); each is a list of {rule, line, message}. R1 (file
-    existence) is handled by the caller before this runs. Read-only (INV-2): never
-    mutates anything. R9 is a warning by default and an error under `strict`.
-    """
-    errors, warnings = [], []
-
-    def add(bucket, rule, line, message):
-        bucket.append({"rule": rule, "line": int(line), "message": message})
-
-    lines = text.splitlines()
-
-    # Locate the required sections (R2) and the Tasks-section line range.
     tasks_start = accept_start = None
     headings = []
     for i, ln in enumerate(lines):
@@ -215,9 +176,10 @@ def lint_plan(text, strict=False):
             accept_start = i
 
     if tasks_start is None:
-        add(errors, "R2", 0, "missing required section '## Tasks'")
+        _lint_add(errors, "R2", 0, "missing required section '## Tasks'")
     if accept_start is None:
-        add(errors, "R2", 0, "missing required section '## Acceptance criteria'")
+        _lint_add(errors, "R2", 0,
+                  "missing required section '## Acceptance criteria'")
 
     # Tasks section spans from just after '## Tasks' to the next '##' heading.
     if tasks_start is not None:
@@ -230,9 +192,18 @@ def lint_plan(text, strict=False):
     else:
         tasks_end = len(lines)
         scan_range = range(len(lines))
+    return tasks_start, tasks_end, scan_range
 
-    # Find well-formed markers and malformed task-like lines within Tasks only
-    # (so legit `- [ ]` checkboxes under '## Acceptance criteria' are NOT flagged).
+
+# --- R3/R4: task markers and their numbering --------------------------------
+
+def _lint_markers(lines, scan_range, tasks_start, errors):
+    """R3/R4 — well-formed markers within `## Tasks`, and monotonic numbering.
+
+    Returns the marker list as (line-index, number-string) pairs, which the task
+    bodies are then sliced from. Malformed task-like lines are flagged INSIDE the
+    scan so a `- [ ]` checkbox under `## Acceptance criteria` is never flagged.
+    """
     markers = []   # (idx, number-string)  — number is flat "N" or phased "N.M"
     for i in scan_range:
         ln = lines[i]
@@ -240,22 +211,26 @@ def lint_plan(text, strict=False):
         if m:
             markers.append((i, m.group(2)))
         elif _PLAN_CHECKBOX_RE.match(ln) or _PLAN_LETTERED_RE.match(ln):
-            add(errors, "R3", i + 1,
-                "malformed task marker: %r — %s" % (ln.strip(), _PLAN_MARKER_HINT))
+            _lint_add(errors, "R3", i + 1,
+                      "malformed task marker: %r — %s"
+                      % (ln.strip(), _PLAN_MARKER_HINT))
 
     # R3 — at least one well-formed marker.
     if not markers:
-        add(errors, "R3", (tasks_start or 0) + 1,
-            "no well-formed task markers found in '## Tasks' — %s"
-            % _PLAN_MARKER_HINT)
+        _lint_add(errors, "R3", (tasks_start or 0) + 1,
+                  "no well-formed task markers found in '## Tasks' — %s"
+                  % _PLAN_MARKER_HINT)
 
     # R4 — task numbers monotonic from 1, no gaps/dups (flat OR phased N.M).
     if markers:
         msg = _check_task_numbering([n for (_, n) in markers])
         if msg:
-            add(errors, "R4", markers[0][0] + 1, msg)
+            _lint_add(errors, "R4", markers[0][0] + 1, msg)
+    return markers
 
-    # Build per-task bodies (marker line .. next marker / section end).
+
+def _plan_tasks(lines, markers, tasks_end):
+    """Per-task bodies: each marker line up to the next marker / section end."""
     tasks = []
     for k, (idx, num) in enumerate(markers):
         body_end = markers[k + 1][0] if k + 1 < len(markers) else tasks_end
@@ -263,64 +238,82 @@ def lint_plan(text, strict=False):
             "line": idx + 1, "num": num,
             "body": "\n".join(lines[idx:body_end]),
         })
+    return tasks
 
-    # R5 — every task has a `*Verify:*` line.
+
+# --- R5/R6/R7: what every task, and the task set, must contain --------------
+
+def _lint_task_bodies(lines, tasks, tasks_start, tasks_end, errors):
+    """R5 (per-task `*Verify:*`), R6 (an `[e2e]` task), R7 (a KB update)."""
     for t in tasks:
         if not _PLAN_VERIFY_RE.search(t["body"]):
-            add(errors, "R5", t["line"],
-                "task %s (line %d) has no `*Verify:*` line (every task must be "
-                "independently verifiable — R-VERIFY-01)" % (t["num"], t["line"]))
+            _lint_add(errors, "R5", t["line"],
+                      "task %s (line %d) has no `*Verify:*` line (every task "
+                      "must be independently verifiable — R-VERIFY-01)"
+                      % (t["num"], t["line"]))
 
-    # R6 — at least one `[e2e]` task with a non-empty Verify line.
     if tasks and not any("[e2e]" in t["body"]
                          and _PLAN_VERIFY_NONEMPTY_RE.search(t["body"])
                          for t in tasks):
-        add(errors, "R6", (tasks_start or 0) + 1,
-            "no task carries an `[e2e]` token with a non-empty `*Verify:*` line "
-            "(the plan must verify end-to-end before completion)")
+        _lint_add(errors, "R6", (tasks_start or 0) + 1,
+                  "no task carries an `[e2e]` token with a non-empty "
+                  "`*Verify:*` line (the plan must verify end-to-end before "
+                  "completion)")
 
-    # R7 — at least one task references a knowledge-base update.
     tasks_text = "\n".join(lines[(tasks_start or 0):tasks_end])
     if tasks and not any(tok in tasks_text for tok in _PLAN_R7_TOKENS):
-        add(errors, "R7", (tasks_start or 0) + 1,
-            "no task references a knowledge-base update (expected one of: "
-            "R-KB, `index validate`, `learn`, `features` — R-KB-*/R-SI-02)")
+        _lint_add(errors, "R7", (tasks_start or 0) + 1,
+                  "no task references a knowledge-base update (expected one of: "
+                  "R-KB, `index validate`, `learn`, `features` — R-KB-*/R-SI-02)")
 
-    # R8 — exactly one <promise>CONTENT</promise> tag.
+
+def _lint_promise(text, errors):
+    """R8 — exactly one <promise>CONTENT</promise> tag."""
     promises = _PLAN_PROMISE_RE.findall(text)
     if len(promises) != 1:
-        add(errors, "R8", 0,
-            "expected exactly one <promise>CONTENT</promise> tag, found %d"
-            % len(promises))
+        _lint_add(errors, "R8", 0,
+                  "expected exactly one <promise>CONTENT</promise> tag, found %d"
+                  % len(promises))
 
-    # R9 — blocking/interactive phrasing without a deterministic resolution.
+
+def _lint_autonomy(tasks, strict, errors, warnings):
+    """R9 — blocking/interactive phrasing without a deterministic resolution."""
     for t in tasks:
         low = t["body"].lower()
         if any(p in low for p in _PLAN_R9_BLOCKING) and \
                 not any(c in low for c in _PLAN_R9_CARVEOUT):
             bucket = errors if strict else warnings
-            add(bucket, "R9", t["line"],
-                "task %s (line %d) uses blocking/interactive phrasing without a "
-                "deterministic resolution or a cited R-PKG-03/R-EXEC-06 carve-out "
-                "(plans must execute autonomously)" % (t["num"], t["line"]))
+            _lint_add(bucket, "R9", t["line"],
+                      "task %s (line %d) uses blocking/interactive phrasing "
+                      "without a deterministic resolution or a cited "
+                      "R-PKG-03/R-EXEC-06 carve-out (plans must execute "
+                      "autonomously)" % (t["num"], t["line"]))
 
-    # R10 — in team mode, plans should carry an author for provenance (warn-only).
-    # Detect via `> Author: <handle>` line in the header area (before ## Tasks).
-    header_text = "\n".join(lines[:(tasks_start or len(lines))])
+
+def _lint_authorship(header_text, strict, errors, warnings):
+    """R10 — in team mode, plans should carry an author for provenance.
+
+    Warn-only outside `--strict`; a no-op entirely when the KB is flat, so a
+    single-operator install never sees it. Detected via a `> Author: <handle>`
+    line in the header area (before `## Tasks`).
+    """
     has_author = bool(re.search(r">\s*Author:\s*\S", header_text))
     if not has_author and config.resolve_kb_mode() == "team":
         bucket = errors if strict else warnings
-        add(bucket, "R10", 1,
-            "team-mode plan has no `> Author: <handle>` line — provenance is "
-            "unclear (add via `plan new --author <handle>` or manually)")
+        _lint_add(bucket, "R10", 1,
+                  "team-mode plan has no `> Author: <handle>` line — provenance "
+                  "is unclear (add via `plan new --author <handle>` or manually)")
 
-    # R11 — mandatory `## Target packages` section with at least one path row.
+
+def _lint_targets(text, lines, errors):
+    """R11 — mandatory `## Target packages` section with a real path row."""
     target_dirs = plan_target_dirs(text)
     has_target_section = bool(_PLAN_TARGET_SECTION_RE.search(text))
     if not has_target_section:
-        add(errors, "R11", 0,
-            "missing required section '## Target packages' — every plan must "
-            "declare the directory path(s) it targets (absolute or ~-rooted)")
+        _lint_add(errors, "R11", 0,
+                  "missing required section '## Target packages' — every plan "
+                  "must declare the directory path(s) it targets (absolute or "
+                  "~-rooted)")
     elif not target_dirs:
         # Section exists but has no valid path rows (e.g. only a TODO stub)
         # Find the section line for better error reporting
@@ -329,10 +322,52 @@ def lint_plan(text, strict=False):
             if _PLAN_TARGET_SECTION_RE.match(ln):
                 sec_line = i + 1
                 break
-        add(errors, "R11", sec_line,
-            "'## Target packages' section has no valid directory paths — add "
-            "at least one absolute or ~-rooted path (e.g. `- ~/workspace/pkg`)")
+        _lint_add(errors, "R11", sec_line,
+                  "'## Target packages' section has no valid directory paths — "
+                  "add at least one absolute or ~-rooted path (e.g. "
+                  "`- ~/workspace/pkg`)")
 
+
+def lint_plan(text, strict=False, rel_path=None, schema_version=0, kdir=None):
+    """Apply the structural plan-format rules R1–R16 to `text`.
+
+    Returns (errors, warnings); each is a list of {rule, line, message}. R1 (file
+    existence) is handled by the caller before this runs. Read-only (INV-2): never
+    mutates anything. R9 is a warning by default and an error under `strict`.
+
+    `rel_path` (the plan's KB-relative POSIX path, e.g. `work/auto/<slug>/plan.md`)
+    drives R12 (workorder provenance headers required under work/auto/), whose
+    severity flips WARN->error once `schema_version >= 1` (the deterministic,
+    versioned flip — no config flag), and gives R15 the plan's own slug so it can
+    recognise a self-edge. R13 binds the declared `> Status:` header to derived
+    task reality. R14 (feature 260717) requires a LOAD-BEARING plan (self-extension
+    OR names a live KB id — needs `kdir` for the id scan) to carry a well-formed
+    cited `## Premises` block, on the SAME WARN->ERROR versioned ramp keyed on
+    `schema_version >= _PLAN_PREMISES_ERROR_SCHEMA`. R15/R16 (feature 260722) check
+    the plan-graph blocks on their own ramp.
+
+    THE ORDER BELOW IS THE CONTRACT. Findings are returned as ordered lists and
+    compared as such (the task-39 differential probe diffs this function's output
+    against the monolith's element by element), so a rule receiver may be renamed
+    or re-implemented but never re-sequenced.
+    """
+    errors, warnings = [], []
+    lines = text.splitlines()
+
+    tasks_start, tasks_end, scan_range = _lint_sections(lines, errors)
+    markers = _lint_markers(lines, scan_range, tasks_start, errors)
+    tasks = _plan_tasks(lines, markers, tasks_end)
+    header_text = "\n".join(lines[:(tasks_start or len(lines))])
+
+    _lint_task_bodies(lines, tasks, tasks_start, tasks_end, errors)
+    _lint_promise(text, errors)
+    _lint_autonomy(tasks, strict, errors, warnings)
+    _lint_authorship(header_text, strict, errors, warnings)
+    _lint_targets(text, lines, errors)
+    _lint_workorder(rel_path, header_text, schema_version, errors, warnings)
+    _lint_status(text, strict, errors, warnings)
+    _lint_premises(text, strict, schema_version, kdir, errors, warnings)
+    _lint_graph(text, rel_path, strict, schema_version, errors, warnings)
     return errors, warnings
 
 
@@ -349,29 +384,92 @@ def _emit_plan_lint(result, as_json):
     return 0 if result["ok"] else 1
 
 
-def cmd_plan_lint(args):
-    path = args.path
-    strict = bool(getattr(args, "strict", False))
-    as_json = getattr(args, "format", "text") == "json"
+def _plan_readiness(text):
+    """draft->ready gate: (ok, reasons). Fails while ANY emitter placeholder
+    SIGNATURE remains, or there is no real acceptance-criteria checkbox. Prose that
+    merely mentions a placeholder token still passes (signature match)."""
+    reasons = []
+    for sig in _PLAN_READINESS_SIGNATURES:
+        if sig in (text or ""):
+            reasons.append("unfilled skeleton placeholder still present: %r"
+                           % (sig[:60] + ("…" if len(sig) > 60 else "")))
+    real_accept = 0
+    in_accept = False
+    for ln in (text or "").splitlines():
+        hm = _PLAN_HEADING_RE.match(ln)
+        if hm:
+            in_accept = "acceptance" in hm.group(1).lower()
+            continue
+        if in_accept and _PLAN_CHECKBOX_RE.match(ln):
+            if _PLAN_ACCEPT_PLACEHOLDER in ln:
+                continue
+            real_accept += 1
+    if real_accept < 1:
+        reasons.append("no real acceptance-criteria checkbox "
+                       "(only the skeleton placeholder)")
+    return (not reasons, reasons)
 
-    # R1 — the file exists and is readable.
+
+def _plan_rel_path(path):
+    """The plan's knowledge-dir-relative POSIX path (e.g. work/auto/<slug>/
+    plan.md), or None when unresolved or outside the KB (so R12 degrades to a
+    no-op for an arbitrary --path)."""
+    kdir = resolve_knowledge_dir()
+    if not kdir:
+        return None
+    try:
+        rel = os.path.relpath(os.path.abspath(path), os.path.abspath(kdir))
+    except (ValueError, OSError):
+        return None
+    rel = rel.replace(os.sep, "/")
+    if rel.startswith("../") or rel == "..":
+        return None
+    return rel
+
+
+def _plan_lint_read(path, as_json):
+    """R1 — read the plan, or emit the R1 finding. Returns (text, rc): exactly one
+    of the two is None, so the caller branches once."""
     if not os.path.isfile(path):
-        return _emit_plan_lint(
+        return None, _emit_plan_lint(
             {"ok": False, "warnings": [],
              "errors": [{"rule": "R1", "line": 0,
                          "message": "plan file not found or not readable: %s"
                                     % path}]}, as_json)
     try:
         with open(path, "r", encoding="utf-8") as f:
-            text = f.read()
+            return f.read(), None
     except OSError as exc:
-        return _emit_plan_lint(
+        return None, _emit_plan_lint(
             {"ok": False, "warnings": [],
              "errors": [{"rule": "R1", "line": 0,
                          "message": "cannot read plan file %s: %s" % (path, exc)}]},
             as_json)
 
-    errors, warnings = lint_plan(text, strict=strict)
+
+def cmd_plan_lint(args):
+    path = args.path
+    strict = bool(getattr(args, "strict", False))
+    readiness = bool(getattr(args, "readiness", False))
+    as_json = getattr(args, "format", "text") == "json"
+
+    text, rc = _plan_lint_read(path, as_json)
+    if text is None:
+        return rc
+
+    # --readiness — the mechanical draft->ready gate (placeholder SIGNATURES gone
+    # + >=1 real acceptance checkbox). Distinct from structural lint.
+    if readiness:
+        ok, reasons = _plan_readiness(text)
+        errs = [{"rule": "readiness", "line": 0, "message": r} for r in reasons]
+        return _emit_plan_lint(
+            {"ok": ok, "errors": errs, "warnings": []}, as_json)
+
+    rel_path = _plan_rel_path(path)
+    kdir = resolve_knowledge_dir()
+    schema_version = _kb_schema_read(kdir) if kdir else 0
+    errors, warnings = lint_plan(text, strict=strict, rel_path=rel_path,
+                                 schema_version=schema_version, kdir=kdir)
     result = {"ok": len(errors) == 0, "errors": errors, "warnings": warnings}
     return _emit_plan_lint(result, as_json)
 
@@ -383,7 +481,12 @@ _EXPORTS = [
     "_PLAN_PROMISE_RE", "_PLAN_MARKER_HINT", "_PLAN_R7_TOKENS",
     "_PLAN_R9_BLOCKING", "_PLAN_R9_CARVEOUT", "_parse_task_number",
     "_check_task_numbering", "_PLAN_TARGET_SECTION_RE", "_PLAN_TARGET_PATH_RE",
-    "plan_target_dirs", "lint_plan", "_emit_plan_lint",
-    "cmd_plan_lint",
+    "plan_target_dirs", "_lint_add", "_lint_sections", "_lint_markers",
+    "_plan_tasks", "_lint_task_bodies", "_lint_promise", "_lint_autonomy",
+    "_lint_authorship", "_lint_targets", "_WORKORDER_SLUG_RE", "_lint_workorder",
+    "_plan_open_marker_count", "_lint_status", "_lint_premises",
+    "_PLAN_GRAPH_ERROR_SCHEMA", "_plan_own_slug", "_lint_graph", "lint_plan",
+    "_emit_plan_lint", "_PLAN_READINESS_SIGNATURES", "_PLAN_ACCEPT_PLACEHOLDER",
+    "_plan_readiness", "_plan_rel_path", "_plan_lint_read", "cmd_plan_lint",
 ]
 __all__ = list(_EXPORTS)

@@ -2,7 +2,8 @@
 
 Owns: the knowledge-base SCHEMA INTERLOCK in full — the registered migration table
 (_KB_MIGRATIONS) and the package's schema version (KB_SCHEMA_VERSION = the max
-registered version), the sidecar reader/writer (_kb_schema_read/_kb_schema_write), the
+registered version), the sidecar writer (_kb_schema_write; the READER
+_kb_schema_read moved to core.kblayout at task 39 and is re-exported here), the
 pending-set (_kb_pending_migrations), the audit journal (_KB_MIGRATION_JOURNAL_REL /
 _kb_journal_migration), the idempotent runner (_kb_migrate_apply), the dispatch-time
 guard (_kb_writer_funcs / _kb_autoapply_funcs / _kb_predispatch_gate), migration 001's
@@ -69,18 +70,14 @@ import agentware_lib.features.dreamgate as dreamgate
 import agentware_lib.ops.derive as derive
 import agentware_lib.ops.planauthor.planedit as planedit
 import agentware_lib.ops.planauthor.planstate as planstate
-
-
-def _kb_schema_read(kdir):
-    """Read the KB schema version from <kdir>/.schema; missing/unreadable => 0
-    (a pre-versioning KB — the bootstrap contract). The full migrate runner
-    (writes, journaling, guards) lives in cmd_migrate."""
-    try:
-        with open(os.path.join(kdir, kblayout.SCHEMA_REL), "r",
-                  encoding="utf-8") as f:
-            return int((f.read() or "0").strip() or "0")
-    except (OSError, ValueError):
-        return 0
+# The schema-sidecar READER moved DOWN to core.kblayout at task 39, beside the
+# SCHEMA_REL name it reads, and is re-exported here so `CLI._kb_schema_read` and
+# every call site in this module resolve the SAME object. It moved because plan
+# lint's R12/R14/R15/R16 severity ramps key on the KB schema generation, and
+# `ops.planlint -> features.migratecmd` would be both an upward layer edge and a
+# real cycle (this module imports ops.planauthor.planedit, which imports
+# ops.planlint). The WRITER (_kb_schema_write) stays here with the runner.
+from agentware_lib.core.kblayout import _kb_schema_read   # noqa: F401  (re-export)
 
 
 # --- KB schema versioning + migration runner (feature 260710-plan-state-machine)
@@ -270,6 +267,21 @@ _KB_WRITER_TARGETS = (
     # newer/migrated KB. Not dual-mode (no read-only path), so it stays in the
     # auto-apply subset too — no _KB_AUTOAPPLY_EXCLUDED_TARGETS row.
     ("agentware_lib.knowledge.relatecmd", "cmd_relate"),
+    # task 39 — the SIX `plan` writers, mirroring the monolith's own set exactly
+    # ("plan-state writers (previously OMITTED — the schema-guard hole)"). Each
+    # writes a plan.md into the configured KB, so an older CLI must refuse it on a
+    # newer/migrated KB. The three READ-ONLY plan leaves (lint, verify-premises,
+    # target-dirs) are deliberately absent: a guard over a reader would refuse work
+    # that mutates nothing. `plan` is in _KB_WRITER_VERBS, so the interlock's
+    # registry/allowlist correspondence check REQUIRES these rows in the same
+    # commit that appends `plan` to strangler.PORTED_VERBS — without them the
+    # handlers dispatch straight past the schema guard.
+    ("agentware_lib.ops.planauthor.plannew", "cmd_plan_new"),
+    ("agentware_lib.ops.planauthor.planedit", "cmd_plan_add_task"),
+    ("agentware_lib.ops.planauthor.planedit", "cmd_plan_set_status"),
+    ("agentware_lib.ops.planauthor.planstate", "cmd_plan_set_state"),
+    ("agentware_lib.ops.planauthor.planstate", "cmd_plan_claim"),
+    ("agentware_lib.features.migratecmd", "cmd_plan_state_backfill"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the
@@ -277,7 +289,14 @@ _KB_WRITER_TARGETS = (
 # the monolith excludes cmd_plan_state_backfill (it IS migration 001's body),
 # cmd_dream (`--dry-run`) and cmd_prefer (digest/list/scan-queue run at
 # session-start). Rows arrive with those ports.
-_KB_AUTOAPPLY_EXCLUDED_TARGETS = ()
+_KB_AUTOAPPLY_EXCLUDED_TARGETS = (
+    # task 39 — `plan state-backfill` IS migration 001's body. If the gate
+    # auto-applied migrations before dispatching it, the migration would run
+    # itself: the runner would apply 001 and then hand control to the handler that
+    # performs 001's work on an already-migrated KB. Version-REFUSAL still applies
+    # (it stays in _KB_WRITER_TARGETS above); only the auto-apply is withheld.
+    ("agentware_lib.features.migratecmd", "cmd_plan_state_backfill"),
+)
 
 
 def _resolve_targets(targets):
@@ -447,6 +466,25 @@ def register_migrate(sub, fmt_parent):
     p_mig.set_defaults(func=cmd_migrate)
 
 
+def cmd_plan_state_backfill(args):
+    """`plan state-backfill` — migration 001's logic, also runnable directly."""
+    kdir = config.require_knowledge_dir()
+    if not kdir:
+        return 1
+    summary = _run_state_backfill(kdir)
+    if getattr(args, "format", "text") == "json":
+        out = {"ok": True}
+        out.update(summary)
+        json.dump(out, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("PLAN state-backfill: stamped %d, skipped %d existing + %d live + "
+              "%d unparseable"
+              % (len(summary["stamped"]), len(summary["skipped_existing"]),
+                 len(summary["skipped_live"]), len(summary["skipped_unparseable"])))
+    return 0
+
+
 # Explicit facade export list (public AND underscore-private): the entrypoint binds
 # exactly these names, so the monolith's own dispatch gate and every
 # SourceFileLoader-based test reach ONE runner — the interlock's whole point.
@@ -461,6 +499,7 @@ _EXPORTS = [
     "_kb_migrate_apply",
     "_run_state_backfill",
     "_migration_001_state_backfill",
+    "cmd_plan_state_backfill",
     "cmd_migrate",
 ]
 
