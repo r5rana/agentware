@@ -22,7 +22,6 @@
   "pending_verification": [
     "docs:readme-union-anchors",
     "docs:roadmap-preserved",
-    "docs:template-frontmatter-corpus",
     "dream:step-registry-package",
     "eval:help-golden-corpus",
     "mod:lib-decomposition",

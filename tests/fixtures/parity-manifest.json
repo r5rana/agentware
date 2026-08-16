@@ -464,7 +464,8 @@
       "dimension": "assets",
       "capability": "template decision-template.md",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"

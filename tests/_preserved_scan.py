@@ -51,12 +51,24 @@ FIXTURE_FAMILIES = (
 #: SEMANTIC contract (field names, status vocabulary, the portability note) and
 #: never the markdown preamble, because task 51 adds a frontmatter block to the
 #: local templates and a preamble anchor would redden that reconciliation.
+#:
+#: They now say what that comment always meant. The entry anchors were seeded as
+#: the BLOCKQUOTE preamble (`**Created**: YYYY-MM-DD`, `**Tags**:`) — presentation,
+#: not contract — and task 51 replaced exactly that preamble with a real
+#: frontmatter block, so the gate reddened on a change that LOST NOTHING: `created`
+#: and `tags` did not disappear, they became machine-readable fields that
+#: `index validate` can require and `recall` can rank over.
+#:
+#: Pinning the FIELD NAMES keeps the guarantee the anchors exist for (a template
+#: must still declare when it was created, what it is tagged, and — for a project
+#: — its status) while being indifferent to how the template presents them. The
+#: colon is part of each anchor so a passing mention in prose cannot satisfy it.
 TEMPLATE_ANCHORS = {
-    "learning-template.md": ("**Created**: YYYY-MM-DD", "**Tags**:"),
-    "project-template.md": ("**Created**: YYYY-MM-DD", "**Tags**:", "**Status**:"),
+    "learning-template.md": ("created:", "tags:", "summary:"),
+    "project-template.md": ("created:", "tags:", "summary:", "status:"),
     "skill-template.md": ("name: <skill-folder-name>", "agentskills.io",
                           "HARNESS-AGNOSTIC"),
-    "decision-template.md": ("**Created**: YYYY-MM-DD", "**Tags**:"),
+    "decision-template.md": ("created:", "tags:", "summary:"),
 }
 
 

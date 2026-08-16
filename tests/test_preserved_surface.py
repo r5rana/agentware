@@ -155,13 +155,17 @@ class FixtureShapeTest(unittest.TestCase):
         "RATCHET: pending asset now satisfied, drop it"), never left parked. Task
         25 landed `scripts/agentware_lib/` and its generated module manifest
         `catalog/modules.json` together — the lib README links to it, so the two
-        cannot land apart without a dangling link. Two donor assets remain: the
-        help goldens (task 60, regenerated once the verb surface is final) and
-        the decision template (task 51, which reconciles the template corpus).
+        cannot land apart without a dangling link. Task 51 then landed
+        `template:decision-template.md` with the rest of the reconciled template
+        corpus, and the ratchet shrank accordingly — which is the gate working:
+        the asset stopped being donor-only, so parking it as pending would have
+        been a claim this tree no longer has it.
+
+        ONE donor asset remains: the help goldens (task 60, regenerated once the
+        verb surface is final).
         """
         pending = self.fx["assets"]["pending_in_destination"]
-        self.assertEqual(set(pending), {"fixture_family:help_golden",
-                                        "template:decision-template.md"})
+        self.assertEqual(set(pending), {"fixture_family:help_golden"})
 
     def test_fixture_carries_no_operator_home_path(self):
         with open(FIXTURE, encoding="utf-8") as fh:
