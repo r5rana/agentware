@@ -1,7 +1,7 @@
 """agentware_lib.features.dreamsteps -- the dream cycle's maintenance STEP family + step registry (layer: features).
 
 AGGREGATOR ONLY. This package holds NO logic: it re-imports the public names of
-its eleven domain submodules so every pre-split call site — which reaches the
+its fifteen domain submodules so every pre-split call site — which reaches the
 module under an alias (`import agentware_lib.features.dreamsteps as dreamsteps`)
 and reads `dreamsteps.DREAM_STEP_FUNCS` — keeps resolving unchanged, and so every
 existing monkeypatch target (`<consumer>.dreamsteps.<name>`) keeps working.
@@ -25,12 +25,24 @@ own submodule:
   * `stepevalrecord`    — step "d", the retrieval eval record.
   * `stepdetectreport`  — step "e", the detect-report render + write.
   * `stepkbgit`         — step "f", the kb-git commit (+ optional push).
+  * `stepstalepropose`  — step "s", the staleness review proposal.
+  * `stepskillpropose`  — step "k", the skill-candidate proposal.
+  * `steptranscriptmine`— step "m", the offline transcript miner ADAPTER (the
+                          miner itself is `ops.sessionparse.minerscan`).
+  * `steppreferclassify`— step "g", the prefer-queue drain ADAPTER (the drain
+                          itself is `ops.preferclassify`).
   * `registry`          — `DREAM_STEP_FUNCS` + the `--steps` subset parser.
+
+Steps s/k/m/g were absent from the donor's package and are restored here (task
+46). Two of them are three-line ADAPTERS over machinery that lives in `ops`: the
+handler belongs to the dream cycle, the capability does not, and splitting them
+that way is what keeps `registry` importing siblings only and keeps `ops`
+ignorant of the cycle that schedules it.
 
 Layer deps: none of its own — it only re-exports its submodules, whose layer
 deps are declared in their own docstrings. The package's internal graph is
 acyclic: `dreamcapture` is the deepest leaf, every step imports downward or
-sideways into it, and `registry` sits at the top importing the eight handlers.
+sideways into it, and `registry` sits at the top importing the twelve handlers.
 """
 
 from agentware_lib.features.dreamsteps.dreamcapture import (
@@ -88,6 +100,18 @@ from agentware_lib.features.dreamsteps.stepdetectreport import (
     _dream_write_detect_report,
 )
 from agentware_lib.features.dreamsteps.stepkbgit import _dream_step_kb_git
+from agentware_lib.features.dreamsteps.stepstalepropose import (
+    _dream_step_stale_propose,
+)
+from agentware_lib.features.dreamsteps.stepskillpropose import (
+    _dream_step_skill_propose,
+)
+from agentware_lib.features.dreamsteps.steptranscriptmine import (
+    _dream_step_transcript_mine,
+)
+from agentware_lib.features.dreamsteps.steppreferclassify import (
+    _dream_step_prefer_classify,
+)
 from agentware_lib.features.dreamsteps.registry import (
     DREAM_STEP_FUNCS,
     _dream_parse_steps,

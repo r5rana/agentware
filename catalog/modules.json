@@ -1314,6 +1314,82 @@
     },
     {
       "anchor_symbols": [
+        "_dream_step_prefer_classify"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> ops",
+      "depends_on": [
+        "agentware_lib.ops.preferclassify"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.steppreferclassify",
+      "not_owns": "the drain and the tier classifier (agentware_lib.ops.preferclassify); the queue (agentware_lib.ops.preferqueue); approval and rejection (agentware_lib.ops.preferdispose); the step ORDER (agentware_lib.features.dreamsteps.registry);",
+      "owns": "dream step \"g\" -- a three-line ADAPTER over the prefer-queue drain, split from its machinery for the same reason as step m. The drain sorts queued candidates by governance tier, and tier-3 (kernel-path or gate-loosening) is REJECTED outright: an unattended job must never be the thing that weakens a governance gate. Idempotent (only `status=queued` is processed) and defer-not-drop when the g3 cap is full -- the candidate stays queued rather than vanishing, because a dropped proposal is one the operator never learns existed. Ordered BEFORE f so this cycle's queue transitions and emitted workorders are backed up in the cycle that produced them.",
+      "path": "scripts/agentware_lib/features/dreamsteps/steppreferclassify.py",
+      "test_file": "tests/test_prefer_classify.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_skill_propose"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> features, features -> core, features -> knowledge",
+      "depends_on": [
+        "agentware_lib.features.skillpropose",
+        "agentware_lib.core.config",
+        "agentware_lib.knowledge.index"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepskillpropose",
+      "not_owns": "the emit seam it drives (agentware_lib.features.skillpropose); cluster detection (agentware_lib.ops.skillcluster); the mode setting (agentware_lib.core.config); the step ORDER (agentware_lib.features.dreamsteps.registry);",
+      "owns": "dream step \"k\" -- one handler, nothing else. DETECTION + PROPOSAL ONLY: it never authors a skill stub, never runs `index add`, never installs. A nightly job that could promote its own procedures unattended would be rewriting the agent's behaviour while nobody is watching. Not change-gated (recurrence accrues with wall-clock, like step s) and ordered AFTER s and BEFORE f, so kb-git-commit still backs up anything emitted the same night -- an emit that is not committed the same night is an emit the operator can lose. A missing or unloadable index reports `skipped` with its reason rather than clean, mirroring step s: no clusters from a broken corpus is indistinguishable from no clusters from a healthy one, and only one of those is good news.",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepskillpropose.py",
+      "test_file": "tests/test_dream_skill_propose.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_stale_propose"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> features, features -> ops",
+      "depends_on": [
+        "agentware_lib.features.staleproposal",
+        "agentware_lib.ops.audit",
+        "agentware_lib.features.dreamsteps.dreamcapture"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.stepstalepropose",
+      "not_owns": "the emitter it drives (agentware_lib.features.staleproposal); the freshness detectors (agentware_lib.ops.freshness); the step ORDER (agentware_lib.features.dreamsteps.registry);",
+      "owns": "dream step \"s\" -- one handler, nothing else, per the package's one-file-per-step contract. NOT change-gated, unlike steps c and d: staleness ages against the WALL CLOCK, so the knowledge base nobody touched for four months is exactly the one with the most stale entries and exactly the one a change-gate would skip forever. It shells the SHIPPED `audit --stale --propose` rather than emitting directly, so what the nightly cycle produces is byte-for-byte what a human gets running the command by hand. It refuses to collapse its outcomes: DEFERRED is transient (drain work/auto/), BLOCKED is permanent (a g1 kernel refusal -- draining is futile), and SKIPPED means the propose path could not RUN, which is the one that matters, since a broken index otherwise looks exactly like a healthy corpus with nothing stale.",
+      "path": "scripts/agentware_lib/features/dreamsteps/stepstalepropose.py",
+      "test_file": "tests/test_dream_stale_propose.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_transcript_mine"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.registry"
+      ],
+      "dependency_direction": "features -> ops",
+      "depends_on": [
+        "agentware_lib.ops.sessionparse.minerscan"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.dreamsteps.steptranscriptmine",
+      "not_owns": "the miner itself and its cursor, extractors and error signatures (agentware_lib.ops.sessionparse.minerscan and siblings); the queue (agentware_lib.ops.preferqueue); the step ORDER (agentware_lib.features.dreamsteps.registry);",
+      "owns": "dream step \"m\" -- a three-line ADAPTER over the miner. The handler lives here and the machinery lives in ops on purpose: being a nightly step is something that HAPPENS to the miner, not what it is, and homing the handler in `ops.sessionparse` would make an ops module know about the dream cycle and break the registry's sibling-only import contract. Ordered immediately BEFORE step g because m ENQUEUES and g DRAINS -- that way a candidate mined tonight is triaged tonight and committed tonight, in one cycle instead of three. Everything mined is QUARANTINED: a candidate is a proposal, and nothing on this path can make mined text act as a source=user preference.",
+      "path": "scripts/agentware_lib/features/dreamsteps/steptranscriptmine.py",
+      "test_file": "tests/test_transcript_miner_e2e.py"
+    },
+    {
+      "anchor_symbols": [
         "FANOUT_FEATURE_RE",
         "FANOUT_GITATTR_BEGIN",
         "FANOUT_GITATTR_END",
@@ -1760,6 +1836,33 @@
     },
     {
       "anchor_symbols": [
+        "_SAFE_SKILL_NAME_RE",
+        "_emit_skill_candidate_workorder",
+        "_existing_skill_coverage",
+        "_match_existing_skill",
+        "_skill_candidate_fingerprint",
+        "_skill_candidate_text",
+        "_skill_promote_run"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.dreamsteps.stepskillpropose"
+      ],
+      "dependency_direction": "features -> ops, features -> features, features -> core",
+      "depends_on": [
+        "agentware_lib.ops.skillcluster",
+        "agentware_lib.ops.planauthor.plannew",
+        "agentware_lib.features.skills",
+        "agentware_lib.features.dreamsteps.dreamcapture"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.skillpropose",
+      "not_owns": "cluster DETECTION and its thresholds (agentware_lib.ops.skillcluster); the dream step that runs this nightly (agentware_lib.features.dreamsteps.stepskillpropose); the skill lifecycle it proposes INTO (agentware_lib.features.skills, agentware_lib.features.proposals);",
+      "owns": "the EMISSION half of auto skill-promotion: the safe-name guard, the existing-skill coverage index and matcher, the cluster identity key, the untrusted Context renderer, the emitter, and `_skill_promote_run` -- the SINGLE seam shared by the nightly dream step and the on-demand verb. Nothing here authors, indexes, or installs a skill: the only write is a `Status: draft` workorder, and three separate human gates stand between a detected cluster and an executable skill. The two caps are different caps -- the per-run cap is a cold-start guard that increments `skipped_cap` and keeps going, while the global g3 draft cap returns `deferred:` and BREAKS, since every remaining candidate would defer too.",
+      "path": "scripts/agentware_lib/features/skillpropose.py",
+      "test_file": "tests/test_skill_promote.py"
+    },
+    {
+      "anchor_symbols": [
         "SKILLS_CATALOG_PATH",
         "_SKILL_PROSE_DANGER",
         "_SKILL_SCRIPT_DANGER",
@@ -1797,6 +1900,31 @@
       "owns": "the in-package authored skill catalog and the trusted-in-repo installer --",
       "path": "scripts/agentware_lib/features/skills.py",
       "test_file": "tests/unit/features/test_skills.py"
+    },
+    {
+      "anchor_symbols": [
+        "STALE_MAX_AGE_DAYS",
+        "_emit_stale_review_workorder",
+        "_stale_finding_text",
+        "_stale_report_fingerprint",
+        "_stale_report_is_empty"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.audit",
+        "agentware_lib.features.dreamsteps.stepstalepropose"
+      ],
+      "dependency_direction": "features -> ops, features -> features",
+      "depends_on": [
+        "agentware_lib.ops.planauthor.plannew",
+        "agentware_lib.ops.freshness",
+        "agentware_lib.features.dreamsteps.dreamcapture"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.staleproposal",
+      "not_owns": "the freshness DETECTORS and the report they assemble (agentware_lib.ops.freshness); the `audit` command that calls this (agentware_lib.ops.audit); the dream step that runs it nightly (agentware_lib.features.dreamsteps.stepstalepropose);",
+      "owns": "the PROPOSE half of `audit --stale --propose`: the clean-report test, the structured finding renderer, the wall-clock-free idempotency key and the emitter. Separate from `ops.freshness` because freshness is READ-ONLY by contract and this module WRITES a workorder draft -- folding them together would make the module that only reports into one that also writes, with no way for the next reader to tell which half they were calling. The fingerprint keys on the finding IDENTITY and deliberately excludes `age_days`, which increments daily: fingerprinting the rendered text instead would mint a new slug for the same unresolved state every calendar day until the drafts exhausted the shared g3 cap.",
+      "path": "scripts/agentware_lib/features/staleproposal.py",
+      "test_file": "tests/test_staleness_propose.py"
     },
     {
       "anchor_symbols": [
@@ -3637,7 +3765,6 @@
     },
     {
       "anchor_symbols": [
-        "_dream_step_transcript_mine",
         "_transcript_mine",
         "_transcript_mine_error_recovery",
         "_transcript_mine_read",
@@ -3765,6 +3892,31 @@
       "owns": "the deterministic aggregation of ONE raw JSONL transcript file into a metric",
       "path": "scripts/agentware_lib/ops/sessionparse/sessionusage.py",
       "test_file": "tests/unit/ops/test_sessionusage.py"
+    },
+    {
+      "anchor_symbols": [
+        "_SKILL_CLUSTER_DENSITY_MIN",
+        "_SKILL_CLUSTER_EDGE_MIN",
+        "_skill_cluster_scores",
+        "_skill_edge_weight",
+        "cluster_learnings",
+        "resolve_skill_promote_thresholds"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.skillpropose"
+      ],
+      "dependency_direction": "ops -> core, ops -> retrieval",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.retrieval.corpus"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.skillcluster",
+      "not_owns": "the workorder EMITTER and the run that drives it (agentware_lib.features.skillpropose); the mode and cap settings (agentware_lib.core.config); the dream step (agentware_lib.features.dreamsteps.stepskillpropose);",
+      "owns": "skill-candidate DETECTION over the learnings corpus: the six algorithm thresholds, the pairwise edge weight, the per-cluster scores, the density-gated quasi-clique grower and the operator-tunable threshold resolution. Detection-only and READ-ONLY (INV-2) -- which is the whole reason it is a separate module from emission. The thresholds are deliberately unlike the duplicate detector's: two entries SAYING THE SAME THING share vocabulary, but a real multi-step procedure shares a tag spine and little else, so the edge bar is LOWER (0.30) and what separates a genuine clique from a single-linkage A~B~C chain is DENSITY enforced DURING growth (2/3 = 0.67 fails, a true triangle 3/3 = 1.0 survives). Size is clamped to [3,6] so a duplicate PAIR can never surface as a skill.",
+      "path": "scripts/agentware_lib/ops/skillcluster.py",
+      "test_file": "tests/test_skill_promote.py"
     },
     {
       "anchor_symbols": [

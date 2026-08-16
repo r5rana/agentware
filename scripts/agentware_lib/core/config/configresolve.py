@@ -41,6 +41,10 @@ from .configkeys import (
     PUSH_KEY,
     RETRIEVAL_MODE_DEFAULT,
     RETRIEVAL_MODE_KEY,
+    SKILL_PROMOTE_CAP_DEFAULT,
+    SKILL_PROMOTE_CAP_KEY,
+    SKILL_PROMOTE_DEFAULT,
+    SKILL_PROMOTE_KEY,
     SKILL_PROPOSE_THRESHOLD_DEFAULT,
     SKILL_PROPOSE_THRESHOLD_KEY,
 )
@@ -243,6 +247,58 @@ def resolve_skill_propose_threshold():
     return val if val > 0 else default
 
 
+
+# --- Skill-promotion settings (feature 260722-auto-skill-promotion) ----------
+# NOTE ON THE ONE DELIBERATE DIVERGENCE FROM THE PRE-MOVE BODIES: the monolith
+# called `_parse_*` and `_read_config_key` by BARE NAME, because every symbol
+# shared one module namespace there. Here they are reached through the `config`
+# aggregator alias, exactly as every resolver already in this module does. That
+# is load-bearing, not cosmetic — the suite monkeypatches these on
+# `agentware_lib.core.config.<name>`, and a bare name would bind the local
+# definition at call time and silently ignore the patch.
+def resolve_skill_promote():
+    """Resolve the effective skill-promotion mode ('propose'|'off').
+
+    Precedence: AGENTWARE_SKILL_PROMOTE env -> config.env -> default 'propose'.
+    Read per-run (no daemon); the dream step + the `skill propose` verb consult it.
+    """
+    env = config._parse_skill_promote(os.environ.get(SKILL_PROMOTE_KEY))
+    if env is not None:
+        return env
+    cfg = config._parse_skill_promote(config._read_config_key(SKILL_PROMOTE_KEY))
+    if cfg is not None:
+        return cfg
+    return SKILL_PROMOTE_DEFAULT
+
+
+def resolve_skill_promote_cap():
+    """Resolve the per-run skill-candidate emission cap (>=0; 0 = report-only).
+
+    Precedence: AGENTWARE_SKILL_PROMOTE_CAP env -> config.env -> default. Read
+    per-run; a hand-edited typo degrades to the default rather than 0/unbounded.
+    """
+    env = config._parse_skill_promote_cap(os.environ.get(SKILL_PROMOTE_CAP_KEY))
+    if env is not None:
+        return env
+    cfg = config._parse_skill_promote_cap(
+        config._read_config_key(SKILL_PROMOTE_CAP_KEY))
+    if cfg is not None:
+        return cfg
+    return SKILL_PROMOTE_CAP_DEFAULT
+
+
+def _resolve_unit_threshold(key, default):
+    """env -> config.env -> default resolution for a [0,1] float SETTINGS_AW key."""
+    env = config._parse_unit_threshold(os.environ.get(key))
+    if env is not None:
+        return env
+    cfg = config._parse_unit_threshold(config._read_config_key(key))
+    if cfg is not None:
+        return cfg
+    return default
+
+
+
 # Explicit facade export list (public AND underscore-private) — the entrypoint
 # re-export loop binds exactly these onto the CLI facade so SourceFileLoader-based
 # tests still reach them as CLI.<name>. See the M3/_EXPORTS convention in the plan.
@@ -257,4 +313,7 @@ _EXPORTS = [
     "resolve_cli",
     "require_knowledge_dir",
     "resolve_skill_propose_threshold",
+    "resolve_skill_promote",
+    "resolve_skill_promote_cap",
+    "_resolve_unit_threshold",
 ]

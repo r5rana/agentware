@@ -498,19 +498,6 @@ def _transcript_mine(kdir, backfill=False, session_cap=None):
         lf.close()
 
 
-def _dream_step_transcript_mine(kdir, dry_run):
-    """Step m — OFFLINE transcript miner (260713, Task 5): a SECOND prefer-queue
-    producer ordered BEFORE step g so a mine-then-drain completes in ONE cycle (m
-    enqueues quarantined candidates, g classifies them). Incremental mode.
-    Best-effort: the _run_cycle per-step try/except (`:20972`) is the outer belt;
-    any fault leaves the queue + watermark untouched and NEVER aborts the cycle."""
-    if dry_run:
-        return {"status": "planned",
-                "would": "mine prompts.log/sessions/metrics -> recurrence + "
-                         "error-recovery candidates (quarantined; never auto-active)"}
-    return {"status": "ok", "candidates": _transcript_mine(kdir, backfill=False)}
-
-
 _EXPORTS = [
     "_transcript_read_session",
     "_transcript_mine_read",
@@ -519,7 +506,6 @@ _EXPORTS = [
     "_transcript_mine_error_recovery",
     "_transcript_queue_fps",
     "_transcript_mine",
-    "_dream_step_transcript_mine",
 ]
 
 __all__ = list(_EXPORTS)

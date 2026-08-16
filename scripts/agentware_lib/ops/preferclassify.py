@@ -392,22 +392,6 @@ def _prefer_classify_drain(kdir):
         lf.close()
 
 
-def _dream_step_prefer_classify(kdir, dry_run):
-    """Step g — OFFLINE layer-3 consumer (Task 7): drain the prefer-queue by
-    governance tier. tier-3 (kernel-path / gate-loosening) REJECTED; tier-2 emits
-    a suggested workorder via the EXISTING `plan new --auto` emitter (candidate
-    fenced in Context); tier-0/1 journaled. Idempotent (only status=queued
-    processed), g3 draft-cap defer-not-drop, and NEVER auto-activates mined text
-    as a source=user preference (that stays an explicit operator `prefer approve`
-    -> run). Runs BEFORE kb-git-commit so its queue/workorder changes are backed
-    up in the same cycle."""
-    if dry_run:
-        return {"status": "planned",
-                "would": "classify prefer-queue candidates -> reject/journal/"
-                         "suggested-workorder (proposed; never auto-active)"}
-    return _prefer_classify_drain(kdir)
-
-
 _EXPORTS = [
     "PREFER_CLASSIFY_REPORT_REL",
     "_prefer_classify_tier",
@@ -415,7 +399,6 @@ _EXPORTS = [
     "_render_prefer_classify_report",
     "_prefer_rotate_split",
     "_prefer_classify_drain",
-    "_dream_step_prefer_classify",
 ]
 
 __all__ = list(_EXPORTS)

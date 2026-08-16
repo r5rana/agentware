@@ -200,6 +200,32 @@ _DREAM_MAX_RUNTIME_OFF_TOKENS = ("0", "off", "none", "disable", "disabled",
 SKILL_PROPOSE_THRESHOLD_KEY = "AGENTWARE_SKILL_PROPOSE_THRESHOLD"
 SKILL_PROPOSE_THRESHOLD_DEFAULT = 5
 
+# Auto skill-PROMOTION (feature 260722-auto-skill-promotion). DETECTION +
+# PROPOSAL only: the cycle never authors or installs a skill (the human-approved
+# operator approves + runs the workorder, which authors via `skill add`, and
+# `skill sync --approve` makes it invocable). Resolution mirrors the other
+# SETTINGS_AW flags: env -> config.env -> default. Default 'propose' (the dream
+# step `k` + the `skill propose` verb emit); 'off' disables emission entirely.
+# A typo degrades to the default (lenient parse) rather than silently disabling.
+SKILL_PROMOTE_KEY = "AGENTWARE_SKILL_PROMOTE"
+SKILL_PROMOTE_DEFAULT = "propose"
+_SKILL_PROMOTE_OFF_TOKENS = ("off", "0", "no", "false", "disable", "disabled")
+_SKILL_PROMOTE_ON_TOKENS = ("propose", "on", "1", "yes", "true", "enable",
+                            "enabled")
+# Per-run emission cap: at most N skill-candidate workorders emitted per `skill
+# propose` / dream-step run (a cold-start over-emit guard over the growing
+# learning corpus — DISTINCT from the global WORKORDER_DRAFT_CAP g3 concurrent-
+# draft cap, which still bounds the total across runs). 0 = detect/report only.
+SKILL_PROMOTE_CAP_KEY = "AGENTWARE_SKILL_PROMOTE_CAP"
+SKILL_PROMOTE_CAP_DEFAULT = 2
+# Tunable detection thresholds (env -> config.env -> the algorithm defaults in
+# cluster_learnings). Wired as the edge/density/separation kwargs WITHOUT altering
+# the algorithm; each is a float in [0.0, 1.0] (a hand-edited typo degrades to the
+# default). The tag-spine / size gates are intentionally NOT operator-tunable.
+SKILL_PROMOTE_EDGE_MIN_KEY = "AGENTWARE_SKILL_PROMOTE_EDGE_MIN"
+SKILL_PROMOTE_DENSITY_MIN_KEY = "AGENTWARE_SKILL_PROMOTE_DENSITY_MIN"
+SKILL_PROMOTE_SEPARATION_MIN_KEY = "AGENTWARE_SKILL_PROMOTE_SEPARATION_MIN"
+
 
 # Explicit facade export list (public AND underscore-private) — the entrypoint
 # re-export loop binds exactly these onto the CLI facade so SourceFileLoader-based
@@ -251,4 +277,13 @@ _EXPORTS = [
     "_DREAM_MAX_RUNTIME_OFF_TOKENS",
     "SKILL_PROPOSE_THRESHOLD_KEY",
     "SKILL_PROPOSE_THRESHOLD_DEFAULT",
+    "SKILL_PROMOTE_KEY",
+    "SKILL_PROMOTE_DEFAULT",
+    "_SKILL_PROMOTE_OFF_TOKENS",
+    "_SKILL_PROMOTE_ON_TOKENS",
+    "SKILL_PROMOTE_CAP_KEY",
+    "SKILL_PROMOTE_CAP_DEFAULT",
+    "SKILL_PROMOTE_EDGE_MIN_KEY",
+    "SKILL_PROMOTE_DENSITY_MIN_KEY",
+    "SKILL_PROMOTE_SEPARATION_MIN_KEY",
 ]

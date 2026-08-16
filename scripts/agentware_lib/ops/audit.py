@@ -339,6 +339,67 @@ def _append_graph_health_metric(kdir, data, ts=None):
     except OSError:
         pass
 
+def _audit_stale_section(kdir, data, args, err):
+    """Build the OPTIONAL `--stale` half of the audit: `(stale_report, proposal)`,
+    each None when its flag is off.
+
+    Both are None when the index failed to load — a staleness report over a
+    corpus that could not be read would be a report about nothing, and emitting a
+    review workorder from it would propose reviewing entries nobody can see.
+    """
+    if not (getattr(args, "stale", False) and err is None):
+        return None, None
+    stale_report = _freshness.build_stale_report(
+        kdir, data, getattr(args, "max_age_days", 120))
+    if not getattr(args, "propose", False):
+        return stale_report, None
+    return stale_report, _audit_stale_proposal(kdir, stale_report)
+
+
+def _print_stale_section(stale_report, proposal):
+    """Text-mode render of the `--stale` half. No-op when the flags were off."""
+    if stale_report is not None:
+        _freshness._print_stale_report(stale_report)
+    if proposal is None:
+        return
+    if proposal.get("proposed"):
+        print("  proposed tier-2 review workorder (DRAFT, not auto-started): %s"
+              % proposal["feature"])
+    else:
+        print("  proposed nothing (%s)" % proposal.get("reason"))
+
+
+def _audit_stale_proposal(kdir, stale_report):
+    """`--stale --propose`: emit ONE tier-2 PROPOSED review workorder when the
+    report has anything to review. Returns the `proposal` payload dict.
+
+    Read-only w.r.t. the KB/index — the only write is a new draft
+    `work/auto/<slug>/plan.md` (Q5: PROPOSE, never mutate). A clean report
+    proposes nothing. The outcome is INFORMATIONAL: it never changes the audit's
+    pass/fail exit code, because "there is stale knowledge" is not the same claim
+    as "this knowledge base is inconsistent".
+
+    FUNCTION-LOCAL import, deliberately: the emitter is a FEATURES module (it
+    drives `cmd_plan_new` through the dream capture harness), so an import-time
+    edge from here would be ops -> features, upward. This is the SAME escape hatch
+    `cmd_audit` already uses for `_audit_dream_health_check` (the audit<->dream
+    cycle) — one named local edge is honest, an import-time cycle is not.
+
+    Split out of `cmd_audit` rather than inlined: `cmd_audit` sits against the
+    per-function branch cap with a declared debt row, and folding four more
+    branches into it would have widened that row instead of paying it.
+    """
+    from agentware_lib.features.staleproposal import (
+        _emit_stale_review_workorder,
+        _stale_report_is_empty,
+    )
+    if _stale_report_is_empty(stale_report):
+        return {"proposed": False, "reason": "clean report"}
+    feature, perr = _emit_stale_review_workorder(kdir, stale_report)
+    return ({"proposed": True, "feature": feature} if feature
+            else {"proposed": False, "reason": perr})
+
+
 def cmd_audit(args):
     kdir = config.require_knowledge_dir()
     if not kdir:
@@ -375,15 +436,14 @@ def cmd_audit(args):
         checks.append(_audit_tests_check())
         if err is None:
             checks.append(_audit_gate_check(kdir))
-    stale_report = None
-    if getattr(args, "stale", False) and err is None:
-        stale_report = _freshness.build_stale_report(
-            kdir, data, getattr(args, "max_age_days", 120))
+    stale_report, proposal = _audit_stale_section(kdir, data, args, err)
     ok = all(c["ok"] for c in checks)
     if as_json:
         payload = {"ok": ok, "checks": checks}
         if stale_report is not None:
             payload["stale_report"] = stale_report
+        if proposal is not None:
+            payload["proposal"] = proposal
         json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
@@ -393,8 +453,7 @@ def cmd_audit(args):
             if not c["ok"]:
                 for d in c["details"]:
                     print("      - %s" % d)
-        if stale_report is not None:
-            _freshness._print_stale_report(stale_report)
+        _print_stale_section(stale_report, proposal)
     return 0 if ok else 1
 
 
@@ -411,6 +470,12 @@ def register_audit(sub, fmt_parent):
     p_audit.add_argument(
         "--max-age-days", type=int, default=120, dest="max_age_days",
         help="staleness window in days for --stale (default: 120)")
+    p_audit.add_argument(
+        "--propose", action="store_true",
+        help="with --stale: emit ONE tier-2 PROPOSED review workorder (a draft "
+             "work/auto/<slug>/plan.md) for the stale/superseded/conflict findings "
+             "— never mutates the KB/index, never auto-marks or decrements trust; "
+             "a clean report proposes nothing")
     p_audit.set_defaults(func=cmd_audit)
 
 

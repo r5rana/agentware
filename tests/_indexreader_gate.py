@@ -121,6 +121,11 @@ RAW_READ_EXEMPT = (
      "the strict list-field gate: normalizing here would MASK the poison"),
     ("knowledge/index/indexvalidate.py", "_entry_optional_errors", "relates",
      "the strict list-field gate: normalizing here would MASK the poison"),
+    # -- the SKILL CATALOG, a different document with a different schema -------
+    ("features/skillpropose.py", "_existing_skill_coverage", "tags",
+     "catalog/skills.json rows, not index.json entries — a different document "
+     "with its own schema; the SAME function reads real index entries three "
+     "lines below and routes those through _entry_list_field"),
     # -- a frontmatter FIELDS dict, always parser-normalized to a list ---------
     ("core/frontmatter.py", "render_frontmatter", "tags", "parser product, not an index entry"),
     ("core/frontmatter.py", "render_frontmatter", "relates", "parser product, not an index entry"),

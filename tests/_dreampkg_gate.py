@@ -97,10 +97,13 @@ LOCAL_RETIRED_STEPS = (
     ("f", "kb-git-commit"),
 )
 
-#: The four steps the donor dropped, restored as four files by plan task 46.
-#: Until then the merged registry is EXPECTED to be missing exactly these; any
-#: other absence is a loss, and any of these still missing after task 46 is too.
-PENDING_RESTORE_STEPS = ("s", "k", "m", "g")
+#: The four steps the donor dropped ("s"/"k"/"m"/"g"), RESTORED as four step
+#: files by plan task 46. This tuple is now EMPTY, and that emptiness is the
+#: assertion: the registry must carry this repo's full ordered set with nothing
+#: missing. It stays here rather than being deleted because an empty expectation
+#: is a live check, while a deleted one is no check at all -- the donor dropped
+#: four steps once and nothing failed, which is exactly how they went unnoticed.
+PENDING_RESTORE_STEPS = ()
 
 #: The package root as the lib names it, and the git verbs that would advance it.
 REPO_ROOT_NAMES = ("REPO_ROOT",)
@@ -264,7 +267,8 @@ def check_registry(tree):
     missing = tuple(sid for sid in local_ids if sid not in set(ids))
     if missing != tuple(PENDING_RESTORE_STEPS):
         problems.append("the registry is missing %s; exactly %s is expected "
-                        "pending plan task 46"
+                        "(plan task 46 restored s/k/m/g, so the expected set is "
+                        "now EMPTY -- any absence here is a dropped step)"
                         % (list(missing), list(PENDING_RESTORE_STEPS)))
     return problems
 

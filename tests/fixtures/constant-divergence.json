@@ -7,15 +7,15 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 297,
-  "lib": 442,
+  "legacy": 280,
+  "lib": 459,
   "legacy_only": 248,
   "shared": 208,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 89,
-  "undecided_max": 6
+  "unresolved_max": 72,
+  "undecided_max": 5
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   151
+   158
   ]
  },
  "legacy_only": [
@@ -1315,8 +1315,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_CAP_KEY",
@@ -1324,8 +1327,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_DEFAULT",
@@ -1333,8 +1339,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_DENSITY_MIN_KEY",
@@ -1342,8 +1351,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_EDGE_MIN_KEY",
@@ -1351,8 +1363,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_KEY",
@@ -1360,8 +1375,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_SEPARATION_MIN_KEY",
@@ -1369,8 +1387,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "SLUG_RE",
@@ -1405,8 +1426,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/features/staleproposal.py"
+   ]
   },
   {
    "name": "STALLED_CLAIM_HOURS",
@@ -2542,8 +2566,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/features/skillpropose.py"
+   ]
   },
   {
    "name": "_SKILL_CLUSTER_DENSITY_MIN",
@@ -2551,8 +2578,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/skillcluster.py"
+   ]
   },
   {
    "name": "_SKILL_CLUSTER_EDGE_MIN",
@@ -2560,8 +2590,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/skillcluster.py"
+   ]
   },
   {
    "name": "_SKILL_CLUSTER_MAX_SIZE",
@@ -2569,8 +2602,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/skillcluster.py"
+   ]
   },
   {
    "name": "_SKILL_CLUSTER_MIN_SIZE",
@@ -2578,8 +2614,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/skillcluster.py"
+   ]
   },
   {
    "name": "_SKILL_CLUSTER_SEPARATION_MIN",
@@ -2587,8 +2626,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/skillcluster.py"
+   ]
   },
   {
    "name": "_SKILL_CLUSTER_TAGSPINE_MIN",
@@ -2596,8 +2638,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/skillcluster.py"
+   ]
   },
   {
    "name": "_SKILL_DISPLAY_RE",
@@ -2623,8 +2668,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "_SKILL_PROMOTE_ON_TOKENS",
@@ -2632,8 +2680,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/core/config/configkeys.py"
+   ]
   },
   {
    "name": "_SSH_KEYTYPES",
@@ -2785,7 +2836,7 @@
   {
    "name": "DREAM_STEP_FUNCS",
    "legacy_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('s', 'stale-propose', _dream_step_stale_propose), ('k', 'skill-propose', _dream_step_skill_propose), ('m', 'transcript-mine', _dream_step_transcript_mine), ('g', 'prefer-classify', _dream_step_prefer_classify), ('f', 'kb-git-commit', _dream_step_kb_git))",
-   "lib_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('f', 'kb-git-commit', _dream_step_kb_git))",
+   "lib_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('s', 'stale-propose', _dream_step_stale_propose), ('k', 'skill-propose', _dream_step_skill_propose), ('m', 'transcript-mine', _dream_step_transcript_mine), ('g', 'prefer-classify', _dream_step_prefer_classify), ('f', 'kb-git-commit', _dream_step_kb_git))",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -2796,8 +2847,7 @@
    "rationale": "the donor registry holds 8 steps; this tree has 12. The four missing ones (stale-propose, skill-propose, transcript-mine, prefer-classify) are exactly the dropped nightly steps task 46 restores as four new step files.",
    "decision": "legacy",
    "decided_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('s', 'stale-propose', _dream_step_stale_propose), ('k', 'skill-propose', _dream_step_skill_propose), ('m', 'transcript-mine', _dream_step_transcript_mine), ('g', 'prefer-classify', _dream_step_prefer_classify), ('f', 'kb-git-commit', _dream_step_kb_git))",
-   "landed": false,
-   "pending_literal": "(('1', 'kb-pull', _dream_step_kb_pull), ('2', 'health-gate', _dream_step_health_gate), ('a', 'index-rebuild', _dream_step_index_rebuild), ('b', 'bench-redact', _dream_step_bench_redact), ('c', 'audit', _dream_step_audit), ('d', 'eval-record', _dream_step_eval_record), ('e', 'detect-report', _dream_step_detect_report), ('f', 'kb-git-commit', _dream_step_kb_git))"
+   "landed": true
   },
   {
    "name": "FANOUT_MERGE_UNION_PATHS",

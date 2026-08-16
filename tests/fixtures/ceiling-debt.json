@@ -486,6 +486,32 @@
           "value": 20
         }
       ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "The skill-promotion family, restored by task 46 as a PURE MOVE out of the monolith (dream steps s/k). Every function below was ALREADY over the branch cap inside agentware_legacy.py — the move added no branch, and the byte-identical bodies are what let that claim be checked by AST comparison rather than argued from a diff. Decomposing them in the SAME commit as the move would destroy exactly that property, which is the concentrated risk the ratchet exists to prevent. Two of the four are irreducible by nature rather than by neglect: `cluster_learnings` (23) is a density-gated quasi-clique grower whose branches ARE the admission rules — edge bar, density-during-growth, size clamp, separation margin, tag spine — and splitting them into helpers would scatter one decision across five call sites while the gate order (which is load-bearing: density is enforced DURING growth, not after) stopped being readable in one place. `_skill_promote_run` (16) is the single emit seam whose branches are the outcome taxonomy itself (proposed / extended / existing / deferred / blocked / skipped_cap), and collapsing any pair of them is precisely the bug the taxonomy exists to prevent. `_skill_cluster_scores` (14) and `_existing_skill_coverage` (13) sit one and two branches over and are the cheapest to pay down first. Owned by task 67 with the rest of the residual.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillpropose.py::_existing_skill_coverage",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillpropose.py::_skill_promote_run",
+          "value": 16
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/skillcluster.py::_skill_cluster_scores",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/skillcluster.py::cluster_learnings",
+          "value": 23
+        }
+      ]
     }
   ]
 }

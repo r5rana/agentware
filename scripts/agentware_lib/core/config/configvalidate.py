@@ -20,6 +20,8 @@ surrounding whitespace and one layer of quotes so a value pasted into config.env
 as KEY="value" parses identically to KEY=value.
 """
 
+import re
+
 from .configkeys import (
     _AUTOCOMMIT_OFF_TOKENS,
     _AUTOCOMMIT_ON_TOKENS,
@@ -29,6 +31,8 @@ from .configkeys import (
     _KB_MODE_TEAM_TOKENS,
     _RETRIEVAL_MODE_DETERMINISTIC_TOKENS,
     _RETRIEVAL_MODE_SEMANTIC_TOKENS,
+    _SKILL_PROMOTE_OFF_TOKENS,
+    _SKILL_PROMOTE_ON_TOKENS,
     CLI_CLAUDE,
     CLI_CODEX,
     KB_MODE_POWER,
@@ -202,6 +206,64 @@ def _parse_skill_propose_threshold(raw):
     return val if val > 0 else None
 
 
+
+# --- Skill-promotion settings (feature 260722-auto-skill-promotion) -----------
+def _parse_skill_promote(raw):
+    """Lenient parse of the skill-promotion mode -> 'propose'/'off', or None if
+    empty/unrecognized (the caller falls through to the safe DEFAULT — a typo
+    never silently disables promotion)."""
+    if raw is None:
+        return None
+    v = str(raw).strip().strip('"').strip("'").lower()
+    if not v:
+        return None
+    if v in _SKILL_PROMOTE_OFF_TOKENS:
+        return "off"
+    if v in _SKILL_PROMOTE_ON_TOKENS:
+        return "propose"
+    return None
+
+
+def _parse_skill_promote_strict(raw):
+    """Strict parse for `config --set-skill-promote`: only recognized tokens."""
+    v = (raw or "").strip().strip('"').strip("'").lower()
+    if v in _SKILL_PROMOTE_OFF_TOKENS:
+        return "off"
+    if v in _SKILL_PROMOTE_ON_TOKENS:
+        return "propose"
+    return None
+
+
+def _parse_skill_promote_cap(raw):
+    """Parse the per-run emission cap -> non-negative int, or None for an
+    empty/invalid value. 0 disables emission (detect/report only)."""
+    if raw is None:
+        return None
+    v = str(raw).strip().strip('"').strip("'").lower()
+    if not v or not re.match(r"^\d+$", v):
+        return None
+    return int(v)
+
+
+def _parse_unit_threshold(raw):
+    """Parse a float threshold in [0.0, 1.0], or None (empty/invalid/out-of-range)."""
+    if raw is None:
+        return None
+    v = str(raw).strip().strip('"').strip("'")
+    if not v:
+        return None
+    try:
+        f = float(v)
+    except ValueError:
+        return None
+    # Reject out-of-range AND non-finite: `float("nan")` parses but every NaN
+    # comparison is False, so `f < 0.0 or f > 1.0` would let NaN through as a
+    # live threshold (adversarial-review). A chained `0.0 <= f <= 1.0` is False
+    # for NaN and inf alike, so `not (...)` rejects both.
+    if not (0.0 <= f <= 1.0):
+        return None
+    return f
+
 # Explicit facade export list (public AND underscore-private) — the entrypoint
 # re-export loop binds exactly these onto the CLI facade so SourceFileLoader-based
 # tests still reach them as CLI.<name>. See the M3/_EXPORTS convention in the plan.
@@ -217,4 +279,8 @@ _EXPORTS = [
     "_parse_cli",
     "_parse_cli_strict",
     "_parse_skill_propose_threshold",
+    "_parse_skill_promote",
+    "_parse_skill_promote_strict",
+    "_parse_skill_promote_cap",
+    "_parse_unit_threshold",
 ]

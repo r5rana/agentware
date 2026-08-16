@@ -11,9 +11,13 @@ dreamsteps.dreamgit; the cycle DRIVER that iterates this registry (cmd_dream) ->
 features.dream. Step "0", the PACKAGE-repository pull, is RETIRED and is
 deliberately absent: package updates are delegated to the dedicated verified
 updater, and dream never mutates the repository root. See catalog/modules.json.
-Layer deps: NONE outside its own package -- it imports only the eight step
+Layer deps: NONE outside its own package -- it imports only the twelve step
 handlers from dreamsteps SIBLINGS, so it sits at the TOP of the package's
 internal graph (every sibling it imports is acyclic w.r.t. it, none imports back).
+That sibling-only rule is why steps m and g have their own handler files here even
+though the machinery they drive lives in `ops`: the three-line adapter keeps the
+registry's import surface inside the package and keeps `ops` ignorant of the dream
+cycle it happens to be scheduled by.
 Fan-in: 0 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 Determinism: pure data + a pure function. The registry is a module-level tuple
 evaluated once at import; _dream_parse_steps performs NO I/O and returns the
@@ -29,6 +33,10 @@ from .stephealthgate import _dream_step_health_gate
 from .stepindexrebuild import _dream_step_index_rebuild
 from .stepkbgit import _dream_step_kb_git
 from .stepkbpull import _dream_step_kb_pull
+from .steppreferclassify import _dream_step_prefer_classify
+from .stepskillpropose import _dream_step_skill_propose
+from .stepstalepropose import _dream_step_stale_propose
+from .steptranscriptmine import _dream_step_transcript_mine
 
 
 DREAM_STEP_FUNCS = (
@@ -42,6 +50,26 @@ DREAM_STEP_FUNCS = (
     ("c", "audit", _dream_step_audit),
     ("d", "eval-record", _dream_step_eval_record),
     ("e", "detect-report", _dream_step_detect_report),
+    # Staleness/supersede/conflict propose (260717 follow-up B1): run the SHIPPED
+    # `audit --stale --propose` emitter on the routine cadence so stale/superseded/
+    # conflict candidates surface as tier-2 PROPOSED review workorders on their own
+    # (not only when a human runs `audit`). Ordered AFTER e (detect-report) and
+    # BEFORE m/g/f, so f (kb-git-commit) still backs up any emitted workorder. NOT
+    # change-gated — staleness is wall-clock, not tree-based.
+    ("s", "stale-propose", _dream_step_stale_propose),
+    # Auto skill-promotion (260722, Task 4): detect cohesive recurring learning
+    # clusters and surface each as a tier-2 PROPOSED skill-candidate workorder on
+    # the routine cadence (detection + proposal only — never authors/installs).
+    # Ordered AFTER s and BEFORE f so f (kb-git-commit) still backs up any emit.
+    # Gated by AGENTWARE_SKILL_PROMOTE (off|propose). `k` is the free step char.
+    ("k", "skill-propose", _dream_step_skill_propose),
+    # P2c transcript miner (260713, Task 5): mine the corpus into the prefer-queue
+    # BEFORE step g drains it, so a mine-then-drain completes in ONE cycle. Ordered
+    # ...e, m, g, f. _dream_parse_steps auto-validates 'm' from this tuple.
+    ("m", "transcript-mine", _dream_step_transcript_mine),
+    # Layer-3 steering-capture consumer (260712, Task 7): drain BEFORE the nightly
+    # kb-git-commit so proposed workorders + queue transitions land in the backup.
+    ("g", "prefer-classify", _dream_step_prefer_classify),
     ("f", "kb-git-commit", _dream_step_kb_git),
 )
 
