@@ -29,6 +29,7 @@ import agentware_lib.ops.staging as staging
 from agentware_lib.core.gitio import _git, _git_noninteractive_env
 
 from .dreamgit import DREAM_PULL_TIMEOUT, _dream_pull_post_check, _git_timed
+import agentware_lib.ops.staging as _staging
 
 
 # RETIRED — dream step "0", the PACKAGE-repository pull, and the two helpers that
@@ -120,8 +121,8 @@ def _dream_pull_resolve_derived(kdir, sha0, env):
         _git(kdir, "rebase", "--abort", env=env)
         return {"status": "fail",
                 "reason": "rebuild during pull-merge failed: %s" % "; ".join(errors)}
-    add = _git(kdir, "add", "-A")
-    if add.returncode != 0:
+    rc_add, _n, _rej = _staging.kb_git_stage_scoped(kdir)
+    if rc_add != 0:
         _git(kdir, "rebase", "--abort", env=env)
         return {"status": "fail",
                 "reason": "git add failed: %s" % add.stderr.strip()}

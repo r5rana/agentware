@@ -57,6 +57,30 @@ def _freshness_fields(entry, kdir, as_of):
     }
 
 
+def _scoped_corpus(kdir, data, scoped_entries):
+    """Apply the R-SEC-02 refusal and return `(data_view, entries, suppressed)`.
+
+    Split out of `build_recall_payload` rather than inlined: that function sits
+    against its declared branch ceiling, and folding the refusal in would have
+    widened a debt row to cover branches this change introduced — which is the
+    one thing the ratchet exists to prevent.
+
+    The refusal runs BEFORE ranking so a poisoned entry can never be injected.
+    `org lint` already REPORTS these, but reporting happens when a human runs the
+    lint and injection happens now. SHARED entries only: that is where the trust
+    boundary is (another team wrote them), and scanning the caller's own corpus
+    would suppress every learning that legitimately quotes an injection string,
+    including the ones ABOUT prompt injection.
+    """
+    from agentware_lib.knowledge import readguard as _readguard
+    kept, suppressed = _readguard.filter_for_injection(kdir, scoped_entries)
+    view = data
+    if len(kept) != len(data.get("entries") or []):
+        view = dict(data)
+        view["entries"] = kept
+    return view, kept, suppressed
+
+
 def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
                          category=None, strategy=None, as_of=None,
                          team=None, all_teams=False, include_shared=False,
@@ -88,10 +112,14 @@ def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
     scoped_entries = _skillpin.scope_entries_for_team(
         data.get("entries") or [], caller_team, team=team, all_teams=all_teams,
         include_shared=include_shared, scope=team_scope)
-    scoped_data = data
-    if len(scoped_entries) != len(data.get("entries") or []):
-        scoped_data = dict(data)
-        scoped_data["entries"] = scoped_entries
+    # R-SEC-02 refusal, applied BEFORE ranking so a poisoned entry can never be
+    # injected. `org lint` already REPORTS these — but reporting happens when a
+    # human runs the lint, and injection happens now. Shared entries only: that is
+    # where the trust boundary is (another team wrote them), and scanning the
+    # caller's own corpus would suppress every learning that legitimately quotes
+    # an injection string, including the ones ABOUT prompt injection.
+    scoped_data, scoped_entries, suppressed = _scoped_corpus(
+        kdir, data, scoped_entries)
     ranked = _skillpin.recall_ranked(kdir, scoped_data, query, top_k=top_k,
                            category=category, strategy=resolved, as_of=as_of)
     # Trust surface (feature 260713-p3-trust-staleness): computed ONCE per
@@ -141,6 +169,12 @@ def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
         "as_of": as_of,
         "top_k": top_k,
         "token_budget": token_budget,
+        # Reported, never silent: "3 results, 1 suppressed" is a different
+        # statement from "3 results", and the case where an operator most
+        # needs to know their corpus was tampered with is exactly the case
+        # a silent filter hides. Absent when nothing was suppressed, so a
+        # clean payload stays byte-identical to today.
+        **({"suppressed": suppressed} if suppressed else {}),
         "category": category,
         "context_tokens": used,
         "count": len(results),

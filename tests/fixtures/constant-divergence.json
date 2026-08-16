@@ -22,9 +22,17 @@
    2,
    1
   ],
+  "INJECTION_MARKERS": [
+   0,
+   2
+  ],
+  "ORG_CONFLICT_MARKER_RE": [
+   0,
+   2
+  ],
   "_EXPORTS": [
    0,
-   178
+   180
   ]
  },
  "legacy_only": [

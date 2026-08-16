@@ -173,10 +173,13 @@ def kb_git_push_once(target, on_prose_conflict="abort"):
         _git(target, "rebase", "--abort", env=env)
         return 1, "rebuild during merge failed: %s" % "; ".join(errors)
 
-    add = _git(target, "add", "-A")
-    if add.returncode != 0:
+    # SCOPED, never `git add -A`: in org mode a blanket add stages another
+    # team's files as part of this team's merge — a cross-team write that looks
+    # like an ordinary commit in the log.
+    rc, _n, _rej = staging.kb_git_stage_scoped(target)
+    if rc != 0:
         _git(target, "rebase", "--abort", env=env)
-        return 1, "git add failed during merge: %s" % add.stderr.strip()
+        return 1, "git add failed during merge (scoped allowlist)"
 
     # Nothing-lost gate (C-2): the resolved (mid-rebase) work tree must rebuild to
     # a valid index whose entry-ID set is a superset of BOTH parents. Fail loud +
@@ -327,9 +330,14 @@ def kb_git_merge_continue(target):
     if errors:
         return 1, "rebuild after prose merge failed: %s" % "; ".join(errors)
 
-    add2 = _git(target, "add", "-A")
-    if add2.returncode != 0:
-        return 1, "git add (derived) failed: %s" % add2.stderr.strip()
+    # The ONE caller that legitimately stages DERIVED files: this step just
+    # REGENERATED them from the merged entry union, so they are the output of the
+    # merge rather than a stale artifact, and leaving them unstaged leaves the
+    # tree dirty for the next lane. Still scoped — cross-team paths and oversized
+    # blobs are refused exactly as everywhere else.
+    rc2, _n2, _rej2 = staging.kb_git_stage_scoped(target, allow_derived=True)
+    if rc2 != 0:
+        return 1, "git add (derived) failed (scoped allowlist)"
 
     # Nothing-lost gate (C-2): the reconciled (mid-rebase) work tree must rebuild
     # to a valid index whose entry-ID set is a superset of BOTH parents. On

@@ -44,120 +44,25 @@ import sys
 import agentware_lib.core.config as config
 import agentware_lib.core.frontmatter as frontmatter
 import agentware_lib.core.orgkeys as orgkeys
+# The staging ALLOWLIST moved to its own module when this file crossed the 600-line
+# cap (a hard cap: no debt rows). Re-exported BY NAME so `cmd_kb_git_commit`, the
+# entrypoint facade and every existing caller resolve exactly as before.
+from agentware_lib.ops.kbstage import (   # noqa: F401  (re-export)
+    KB_BLOB_MAX_BYTES,
+    _KB_STAGE_REJECT_EXTS,
+    _is_derived_rel,
+    _is_derived_rel_scoped,
+    _strip_rel_prefix,
+    kb_git_stage_allowlist,
+    kb_git_stage_scoped,
+    kb_rel_prefix,
+)
 import agentware_lib.knowledge.index as index
 from agentware_lib.core.gitio import _git, _git_noninteractive_env
 from agentware_lib.core.paths import REPO_ROOT
 from agentware_lib.ops.kbgit import (
     _sanitize_commit_tag, git_changed_paths, git_has_upstream, git_is_clean,
     git_is_work_tree, git_toplevel)
-
-
-# When the KB is a SUBDIR of a bigger git repo (org mode: kdir == <repo>/teams/<t>),
-# git emits repo-relative paths. rel_prefix = relpath(kdir, git_toplevel) is stripped
-# so the flat-layout classifiers (_is_derived_rel, entry-id scan) keep working, and
-# is prepended when we need a repo-relative path to stage. When kdir IS the repo root
-# (flat single-team KB), rel_prefix == "" and everything is byte-identical to today.
-KB_BLOB_MAX_BYTES = 262144  # 256 KiB — reject an oversized blob from the KB commit
-# Artifact extensions never staged by the KB auto-commit (heavy/binary/derived).
-# NOTE: fleet *.jsonl + benchmarks history-*.jsonl + assets *.png are text/committed
-# sink data and are ALLOWED explicitly below — this set is for stray heavy blobs.
-_KB_STAGE_REJECT_EXTS = (".har", ".zip", ".tar", ".gz", ".mp4", ".mov", ".pdf",
-                         ".trace", ".webm")
-
-
-def kb_rel_prefix(target):
-    """The kdir's path RELATIVE to its git work-tree root ('' when kdir IS the root).
-
-    Org mode: kdir == <repo>/teams/<team> → 'teams/<team>'. Flat mode: '' (INV-1).
-    Returns '' on any resolution failure (degrade to today's behavior).
-    """
-    top = git_toplevel(target)
-    if not top:
-        return ""
-    try:
-        rel = os.path.relpath(os.path.realpath(target), top).replace(os.sep, "/")
-    except ValueError:
-        return ""
-    return "" if rel == "." else rel
-
-
-def _strip_rel_prefix(rel, rel_prefix):
-    """Drop a leading 'rel_prefix/' from a repo-relative path (kdir-relative out).
-
-    Returns None if `rel` is OUTSIDE rel_prefix (a different team / shared root /
-    repo-root file) — the caller treats None as 'not this KB's business'.
-    """
-    rel = rel.strip().strip('"')
-    if not rel_prefix:
-        return rel
-    pfx = rel_prefix.rstrip("/") + "/"
-    if rel.startswith(pfx):
-        return rel[len(pfx):]
-    if rel == rel_prefix:
-        return ""
-    return None
-
-
-def _is_derived_rel_scoped(rel, rel_prefix=""):
-    """rel_prefix-aware _is_derived_rel: classify a REPO-relative path.
-
-    Strips rel_prefix, then applies the flat-layout derived-file rule. A path
-    outside rel_prefix is NOT this KB's derived file → False.
-    """
-    inner = _strip_rel_prefix(rel, rel_prefix)
-    if inner is None:
-        return False
-    return _is_derived_rel(inner)
-
-
-def kb_git_stage_allowlist(target, rel_prefix=None):
-    """Repo-relative paths this KB commit SHOULD stage — team-scoped + guarded.
-
-    Replaces a blanket `git add -A`. Rules, applied to each pending
-    path from `git_changed_paths`:
-      - MUST be inside rel_prefix (the caller's team folder / KB root). A path in a
-        DIFFERENT team folder or the shared root is REFUSED here (cross-team write
-        isolation) — those are staged only via their own team's loop / the curator
-        --to-shared path.
-      - DROP derived files (index.json / FEATURES.md / <sub>/index.md rosters):
-        they are gitignored + rebuilt, never committed.
-      - DROP an artifact-ext blob or any blob > KB_BLOB_MAX_BYTES (except the
-        committed sink files: teams/*/fleet/*.jsonl, benchmarks/history-*.jsonl,
-        configurations/assets/*.png — those are allowed text/data).
-    Returns (allow, rejected) where `rejected` is [(path, reason)] for observability.
-    Deterministic, read-only. When rel_prefix == '' (flat KB) it still enforces the
-    derived/artifact drops but never rejects for team scope.
-    """
-    if rel_prefix is None:
-        rel_prefix = kb_rel_prefix(target)
-    allow, rejected = [], []
-    for rel in git_changed_paths(target):
-        inner = _strip_rel_prefix(rel, rel_prefix)
-        if inner is None:
-            rejected.append((rel, "outside caller team folder (cross-team write refused)"))
-            continue
-        if _is_derived_rel(inner):
-            continue  # derived → silently skip (regenerable)
-        base = inner.rsplit("/", 1)[-1]
-        # Allowed committed sink/data files (explicit allow before ext-reject).
-        is_sink = (("/" + orgkeys.ORG_FLEET_DIR + "/") in ("/" + inner) and inner.endswith(".jsonl")) \
-            or (base.startswith("history-") and inner.endswith(".jsonl")) \
-            or ("/configurations/assets/" in ("/" + inner) and base.lower().endswith((".png", ".jpg", ".jpeg", ".svg", ".gif")))
-        ext = os.path.splitext(base)[1].lower()
-        if not is_sink and ext in _KB_STAGE_REJECT_EXTS:
-            rejected.append((rel, "artifact extension %s not staged" % ext))
-            continue
-        # Blob-size guard (skip sink files; a HAR-size .md is still rejected).
-        if not is_sink:
-            try:
-                sz = os.path.getsize(os.path.join(target, inner))
-                if sz > KB_BLOB_MAX_BYTES:
-                    rejected.append((rel, "blob %d bytes > %d cap" % (sz, KB_BLOB_MAX_BYTES)))
-                    continue
-            except OSError:
-                pass
-        allow.append(rel)
-    return allow, rejected
 
 
 # Conventional-commit subject the auto-commit must satisfy: feat|chore(scope): msg
@@ -401,22 +306,6 @@ def cmd_kb_git_pull(args):
     return 0
 
 
-def _is_derived_rel(rel):
-    """True iff a KB-relative path is a DERIVED file regenerated by `index rebuild`.
-
-    The derived set is exactly `index.json`, `FEATURES.md`, and each
-    `<sub>/index.md` roster (sub in KNOWLEDGE_SUBDIRS). These are NEVER merged by
-    hand or by an agent (C-1) — conflicts in them are resolved deterministically
-    by rebuilding from the union of entry frontmatter.
-    """
-    rel = rel.strip().strip('"')
-    if rel in ("index.json", "FEATURES.md"):
-        return True
-    parts = rel.split("/")
-    return (len(parts) == 2 and parts[1] == "index.md"
-            and parts[0] in index.KNOWLEDGE_SUBDIRS)
-
-
 def git_unmerged_paths(target):
     """Repo-relative paths currently in a conflicted (unmerged) state, sorted."""
     cp = _git(target, "diff", "--name-only", "--diff-filter=U")
@@ -571,7 +460,8 @@ def _kb_push_backoff_delay(attempt):
 
 _EXPORTS = [
     "KB_BLOB_MAX_BYTES", "_KB_STAGE_REJECT_EXTS", "kb_rel_prefix", "_strip_rel_prefix",
-    "_is_derived_rel_scoped", "kb_git_stage_allowlist", "COMMIT_MSG_RE",
+    "_is_derived_rel_scoped", "kb_git_stage_allowlist", "kb_git_stage_scoped",
+    "COMMIT_MSG_RE",
     "COMMIT_SUBJECT_MAX", "COMMIT_TOPICS_LIMIT", "kb_changed_knowledge_topics",
     "_format_topics_label", "_truncate_subject", "cmd_kb_git_commit", "git_pull_ff",
     "git_fetch", "cmd_kb_git_pull", "_is_derived_rel", "git_unmerged_paths",

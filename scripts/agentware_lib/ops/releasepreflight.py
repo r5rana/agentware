@@ -92,6 +92,15 @@ def _pkg_preflight_selftest():
         g("config", "user.signingkey", key + ".pub")
         with open(os.path.join(repo, "f"), "w") as f:
             f.write("x")
+        # DELIBERATELY a blanket add, and the only one left in the lib. `repo` is
+        # a throwaway git repo this function just created in a tempdir, holding
+        # one file named "f", purely to find out whether this git can sign a tag.
+        # It is not a knowledge base: there is no team to scope to, no derived set
+        # to drop and no entry the allowlist could recognise, so
+        # `kb_git_stage_scoped` would correctly stage NOTHING and the probe would
+        # report "signing unsupported" on every machine. The allowlist guards KB
+        # writes; this is a capability probe over a synthetic repo that is deleted
+        # a few lines later.
         g("add", "-A")
         g("commit", "-qm", "c")
         tagr = g("tag", "-s", "-m", "preflight v2.0.0", "v2.0.0")

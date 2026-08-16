@@ -2636,6 +2636,28 @@
     },
     {
       "anchor_symbols": [
+        "entry_text_is_poisoned",
+        "filter_for_injection",
+        "poison_reason",
+        "suppressed_entry_ids"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.recallcmd"
+      ],
+      "dependency_direction": "knowledge -> core",
+      "depends_on": [
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.core.config"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.readguard",
+      "not_owns": "the marker TABLES (agentware_lib.core.orgkeys); the org LINT that reports poisoned entries to an operator (agentware_lib.ops.orglint); the write-side governance deciding who may put an entry in shared/ (agentware_lib.ops.fleet.fleetguard); the ranking that consumes the survivors (agentware_lib.retrieval);",
+      "owns": "the read-time REFUSAL of untrusted knowledge: the content scan, the per-corpus suppression pass, and the shared-id denylist join. `org lint` already flags an entry carrying an injection or conflict marker — but a lint REPORTS, and reporting happens when a human runs it, which is not when the entry gets injected. Between those moments the entry is read by recall, ranked, and pasted into a session context, which is the only moment that matters. R-SEC-02 says never trust external content, and knowledge becomes external the instant more than one person can write it: shared/ is authored by OTHER TEAMS, so a knowledge base that injects whatever it holds is prompt injection with a delivery mechanism and a persistence layer. SHARED entries are scanned and the caller's OWN are not — that is where the trust boundary actually is, and scanning your own corpus would suppress every learning that legitimately QUOTES an injection string, including the ones ABOUT prompt injection. Suppression is REPORTED, never silent: a silent filter is indistinguishable from a corpus that had nothing to say, and the one case an operator most needs to see is exactly the one it would hide.",
+      "path": "scripts/agentware_lib/knowledge/readguard.py",
+      "test_file": "tests/test_adopted_capabilities.py"
+    },
+    {
+      "anchor_symbols": [
         "_declare_relation",
         "_relate_commit_index",
         "_relate_confirm",
@@ -3177,6 +3199,35 @@
       "owns": "the read-only git work-tree STATE queries the conflict-safe KB sync is built on",
       "path": "scripts/agentware_lib/ops/kbgit.py",
       "test_file": "tests/unit/ops/test_kbgit.py"
+    },
+    {
+      "anchor_symbols": [
+        "KB_BLOB_MAX_BYTES",
+        "_is_derived_rel",
+        "kb_git_stage_allowlist",
+        "kb_git_stage_scoped",
+        "kb_rel_prefix"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.staging",
+        "agentware_lib.ops.kbsync",
+        "agentware_lib.features.fanoutmq.mqintegrate",
+        "agentware_lib.features.graphdag.graphlane",
+        "agentware_lib.features.dreamsteps.stepkbpull"
+      ],
+      "dependency_direction": "ops -> core, ops -> ops, ops -> knowledge",
+      "depends_on": [
+        "agentware_lib.core.gitio",
+        "agentware_lib.core.orgkeys",
+        "agentware_lib.ops.kbgit",
+        "agentware_lib.knowledge.index"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.kbstage",
+      "not_owns": "the `kb-git` COMMANDS that call it — commit / pull / push (agentware_lib.ops.staging); the org constants it scopes against (agentware_lib.core.orgkeys); the git runner (agentware_lib.core.gitio);",
+      "owns": "WHAT MAY BE STAGED into a knowledge-base commit: the team-scope prefix, the derived-file predicates, the allowlist, and the ONE staging seam every KB write goes through. A blanket `git add -A` stages whatever happens to be in the tree — in org mode that is ANOTHER TEAM'S FILES committed as part of this team's merge, a cross-team write that looks completely ordinary in the log, which is the worst property a write can have. It also stages the derived set (gitignored and rebuilt, so committing it guarantees a conflict on the next sync) and whatever artifact someone dropped in the directory. `allow_derived=True` re-admits the derived files for the ONE caller that needs it — the post-merge reconciliation, which just REGENERATED them from the merged entry union — and is a parameter rather than a second function so every call site that does NOT pass it is visibly not asking for it. Split from ops.staging when that file crossed the 600-line cap, along the honest seam the cap forced: this module answers 'what may be staged', ops.staging answers 'what do the kb-git commands do', and those track different things — the org layout and gitignore contract versus the CLI surface.",
+      "path": "scripts/agentware_lib/ops/kbstage.py",
+      "test_file": "tests/test_adopted_capabilities.py"
     },
     {
       "anchor_symbols": [

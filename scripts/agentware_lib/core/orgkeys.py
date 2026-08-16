@@ -26,6 +26,8 @@ Precedence in resolve_knowledge_dir: AGENTWARE_KNOWLEDGE_DIR (env->config) WINS
 -> ELSE None. The bash twin scripts/aw-knowledge-dir mirrors this precedence.
 """
 
+import re
+
 ORG_ROOT_KEY = "AGENTWARE_ORG_ROOT"
 ORG_TEAM_KEY = "AGENTWARE_TEAM"
 # OPTIONAL org-project identity anchor (source-of-truth hardening). When set, it
@@ -58,6 +60,29 @@ ORG_DENYLIST_REL = "shared/DENYLIST"
 _ORG_FRONTMATTER_FIELDS = ("origin", "team", "project", "status", "supersedes")
 
 # Explicit facade export list (public AND underscore-private) — the entrypoint
+
+# --- Read-time content guards (R-SEC-02) -------------------------------------
+# Knowledge is UNTRUSTED CONTENT the moment more than one person can write it. A
+# shared org corpus is authored by other teams, so an entry that reaches a session
+# context carries whatever its author put there — and prompt injection with a
+# delivery mechanism is exactly what a shared knowledge base is, if nothing reads
+# the content before injecting it.
+#
+# These live in core rather than beside the org lint that first consumed them
+# because the RECALL path has to consult them too, and recall sits below ops. A
+# marker table only the linter can reach is a table that REPORTS a poisoned entry
+# while the entry is injected anyway.
+INJECTION_MARKERS = (
+    "ignore previous instructions", "ignore all previous instructions",
+    "disregard the above", "you are now", "system prompt:",
+    "<|im_start|>", "assistant:", "### instruction",
+)
+
+# A leftover merge conflict marker in committed knowledge: the file is not what
+# either side wrote, so its content cannot be trusted to mean anything.
+ORG_CONFLICT_MARKER_RE = re.compile(r"^(<{7}|={7}|>{7})(\s|$)")
+
+
 # re-export loop binds exactly these onto the CLI facade so SourceFileLoader-based
 # tests still reach them as CLI.<name>. See the M3/_EXPORTS convention in the plan.
 _EXPORTS = [
@@ -71,4 +96,6 @@ _EXPORTS = [
     "ORG_FLEET_DIR",
     "ORG_DENYLIST_REL",
     "_ORG_FRONTMATTER_FIELDS",
+    "INJECTION_MARKERS",
+    "ORG_CONFLICT_MARKER_RE",
 ]

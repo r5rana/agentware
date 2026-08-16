@@ -154,7 +154,7 @@ def _mq_integrate_kb(kb_repo, integration, kb_branch):
     if not ok:
         _git(kb_repo, "merge", "--abort")
         return "error", note
-    _git(kb_repo, "add", "-A")
+    staging.kb_git_stage_scoped(kb_repo, allow_derived=True)
     cm = _git(kb_repo, "commit", "--no-edit",
               "-m", "fanout: integrate %s" % kb_branch, env=env)
     if cm.returncode != 0:
@@ -317,7 +317,7 @@ def cmd_fanout_merge_queue(args):
         # the next merge (which the silent-drop guard turns into a halt) and the
         # final lane's rows would never be committed.
         if have_kb and kbgit.git_is_work_tree(kb_repo) and not kbgit.git_is_clean(kb_repo):
-            _git(kb_repo, "add", "-A")
+            staging.kb_git_stage_scoped(kb_repo, allow_derived=True)
             _git(kb_repo, "commit", "--no-edit",
                  "-m", "fanout: gate artifacts for %s" % feature,
                  env=_git_noninteractive_env())

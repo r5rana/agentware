@@ -270,7 +270,7 @@
         },
         {
           "kind": "function_over_branch_cap",
-          "location": "scripts/agentware_lib/ops/staging.py::kb_git_stage_allowlist",
+          "location": "scripts/agentware_lib/ops/kbstage.py::kb_git_stage_allowlist",
           "value": 14
         },
         {

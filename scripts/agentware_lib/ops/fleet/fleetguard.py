@@ -71,14 +71,12 @@ def guard_shared_write(kdir, to_shared=False):
     return True, None
 
 
-INJECTION_MARKERS = (
-    "ignore previous instructions", "ignore all previous instructions",
-    "disregard the above", "you are now", "system prompt:",
-    "<|im_start|>", "assistant:", "### instruction",
-)
-
-
-ORG_CONFLICT_MARKER_RE = re.compile(r"^(<{7}|={7}|>{7})(\s|$)")
+# The two READ-time content guards now live in `core.orgkeys` and are re-exported
+# here so this module's documented surface is unchanged. They moved DOWN because
+# the recall path must consult them and recall sits below ops — a marker table
+# only the linter can reach REPORTS a poisoned entry while it is injected anyway.
+INJECTION_MARKERS = orgkeys.INJECTION_MARKERS
+ORG_CONFLICT_MARKER_RE = orgkeys.ORG_CONFLICT_MARKER_RE
 
 
 def _org_read_denylist(org_root):

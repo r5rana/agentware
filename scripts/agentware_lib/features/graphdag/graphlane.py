@@ -81,6 +81,7 @@ from agentware_lib.features.fanoutmq.mqintegrate import (
 from agentware_lib.features.fanoutmq.mqteardown import _remove_worktree
 from agentware_lib.features.graphdag.graphstate import _graph_node_is_load_bearing
 from agentware_lib.features.graphdag.graphtopo import _graph_write_set_touches_kernel
+import agentware_lib.ops.staging as _staging
 
 
 def _graph_orchestrator_env_blockers(environ=None):
@@ -235,7 +236,7 @@ def _graph_merge_lane(reg, feature, repo, kb_repo, integration, gates=None):
     # A gate (e.g. `eval --record`) may have dirtied the integration KB — commit
     # those artifacts so the NEXT lane merges onto a clean tree.
     if have_kb and git_is_work_tree(kb_repo) and not git_is_clean(kb_repo):
-        _git(kb_repo, "add", "-A")
+        _staging.kb_git_stage_scoped(kb_repo, allow_derived=True)
         _git(kb_repo, "commit", "--no-edit",
              "-m", "graph: gate artifacts for %s" % feature,
              env=_git_noninteractive_env())

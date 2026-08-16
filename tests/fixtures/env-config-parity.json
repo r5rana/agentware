@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "5d79e188bfc3"
+      "git_head": "8dbcb00b8cd3"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -1820,7 +1820,7 @@
           },
           {
             "file": "scripts/agentware_lib/features/graphdag/graphlane.py",
-            "line": 107,
+            "line": 108,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4519,7 +4519,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/features/graphdag/graphlane.py",
-            "line": 109,
+            "line": 110,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4861,7 +4861,7 @@
           },
           {
             "file": "scripts/agentware_lib/features/graphdag/graphlane.py",
-            "line": 108,
+            "line": 109,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4869,7 +4869,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/staging.py",
-            "line": 335,
+            "line": 240,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4877,7 +4877,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/staging.py",
-            "line": 349,
+            "line": 254,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -5179,7 +5179,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/features/graphdag/graphlane.py",
-            "line": 110,
+            "line": 111,
             "lang": "python",
             "form": "environ[]",
             "default": null,
