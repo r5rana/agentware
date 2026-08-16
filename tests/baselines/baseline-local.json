@@ -94,11 +94,11 @@
           "name": "personal_data",
           "ok": false,
           "details": [
-            "ROADMAP.md:16 leaks operator identity 'rahul'",
-            "ROADMAP.md:21 leaks operator identity 'rahul'",
-            "ROADMAP.md:25 leaks operator identity 'rahul'",
-            "tests/test_skill_lockfile.py:81 leaks operator identity 'rahul'",
-            "tests/test_skill_trust.py:129 leaks operator identity 'rahul'"
+            "ROADMAP.md:16 leaks operator identity '<redacted-handle>'",
+            "ROADMAP.md:21 leaks operator identity '<redacted-handle>'",
+            "ROADMAP.md:25 leaks operator identity '<redacted-handle>'",
+            "tests/test_skill_lockfile.py:81 leaks operator identity '<redacted-handle>'",
+            "tests/test_skill_trust.py:129 leaks operator identity '<redacted-handle>'"
           ]
         },
         {

@@ -126,7 +126,7 @@ class SkillVerdictTest(unittest.TestCase):
         # A skill authored by an attacker identity STILL resolves purely on content.
         kdir = os.path.join(self.tmp, "kb2")
         os.makedirs(kdir)
-        self._git_init_skill(kdir, "authored", "rahul <rahul@op>")
+        self._git_init_skill(kdir, "authored", "testauthor <testauthor@op>")
         v, _ = self.cli._skill_verdict(os.path.join(kdir, "skills", "authored"))
         self.assertEqual(v, "PASS")  # verdict is content-only; author irrelevant
 

@@ -88,8 +88,52 @@ def run(cmd, cwd, timeout, env=None):
     return proc.returncode, proc.stdout, proc.stderr
 
 
+def _identity_needles():
+    """The LIVE operator-identity needles, resolved once per process.
+
+    Resolved lazily and tolerantly: a capture must still run on a machine with no
+    knowledge dir configured (a fresh clone, CI), where there is simply nothing to
+    redact. Any failure degrades to "no needles" rather than aborting the capture.
+    """
+    global _NEEDLES
+    if _NEEDLES is None:
+        try:
+            sys.path.insert(0, os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+            import agentware_lib.core.config as _cfg
+            import agentware_lib.knowledge.privacy as _priv
+            _NEEDLES = tuple(_priv.operator_identity_strings(
+                _cfg.resolve_knowledge_dir()))
+        except Exception:
+            _NEEDLES = ()
+    return _NEEDLES
+
+
+_NEEDLES = None
+
+
+def redact(text):
+    """Strip operator identity from any text this capture is about to COMMIT.
+
+    Recorded subprocess output is not neutral data: a failing test's traceback
+    carries absolute paths, and an assertion message carries whatever value the
+    test compared — which is how an operator handle ends up committed inside a
+    fixture nobody thinks of as personal data. The scan in
+    `agentware_lib.knowledge.privacy` grades the tree AFTER the fact; this is the
+    write-side counterpart, sharing that module's needle set so the two cannot
+    disagree about what identity means.
+    """
+    try:
+        sys.path.insert(0, os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+        import agentware_lib.knowledge.privacy as _priv
+        return _priv.redact_operator_identity(text, _identity_needles())
+    except Exception:
+        return text
+
+
 def tail(text, limit=2000):
-    text = (text or "").strip()
+    text = redact((text or "").strip())
     if len(text) <= limit:
         return text
     return "..." + text[-limit:]
@@ -312,7 +356,7 @@ def capture(root, label, module_timeout, gate_timeout):
     return {
         "schema_version": SCHEMA_VERSION,
         "label": label,
-        "tree_root": root,
+        "tree_root": redact(root),
         "captured_at": datetime.datetime.now(datetime.timezone.utc)
                                .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "python": sys.version.split()[0],

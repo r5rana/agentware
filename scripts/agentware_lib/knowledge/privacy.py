@@ -64,14 +64,31 @@ def operator_identity_strings(kdir):
     presence in the package tree would be a personal-data leak (R-LOC-03).
 
     Resolved entirely at runtime — hardcodes nothing — so the package still ships
-    zero personal data. Sources: the handle (MAIN.md/config), the email (MAIN.md,
-    if present), and the operator HOME path. Generic/fallback handles are dropped
-    (they would match framework prose), as are tokens shorter than 3 chars.
+    zero personal data. Sources: the OPERATOR handle (MAIN.md/config), the PER-USER
+    handle (`user_handle` in config), the email (MAIN.md, if present), and the
+    operator HOME path. Generic/fallback handles are dropped (they would match
+    framework prose), as are tokens shorter than 3 chars.
+
+    The per-user handle is a SECOND, INDEPENDENT identity and must be scanned in
+    its own right: `routing.resolve_user_handle` reads `user_handle` from config
+    while `frontmatter._operator_handle` reads MAIN.md, and the two routinely
+    differ. Org/team mode stamps the PER-USER handle onto every entry and every
+    committed work artifact (R-ORG-05), so a guard that only knew the operator
+    handle would report a tree clean while the other identity sat committed in it —
+    which is exactly how one reached `tests/baselines/baseline-local.json` and
+    survived a redaction pass driven by this function.
     """
     strings = set()
     handle = frontmatter._operator_handle(kdir)
     if handle and handle.lower() not in _GENERIC_HANDLES:
         strings.add(handle)
+    try:
+        import agentware_lib.core.routing as routing
+        user_handle = routing.resolve_user_handle()
+    except Exception:
+        user_handle = None
+    if user_handle and user_handle.lower() not in _GENERIC_HANDLES:
+        strings.add(user_handle)
     email = _operator_email(kdir)
     if email:
         strings.add(email)
@@ -141,12 +158,49 @@ def scan_personal_data(root, needles):
     return hits
 
 
+#: Placeholders substituted for each identity class. Deliberately BRACKETED so a
+#: redacted artifact reads as obviously-synthetic rather than as some other
+#: operator's real handle, and so a reviewer grepping for `<redacted-` finds every
+#: site at once.
+REDACTION_PLACEHOLDERS = (
+    ("/", "<redacted-home>"),      # any needle containing a path separator
+    ("", "<redacted-handle>"),     # everything else (handle, email, hostname)
+)
+
+
+def redact_operator_identity(text, needles):
+    """Return `text` with every operator-identity needle replaced by a placeholder.
+
+    The WRITE-SIDE counterpart to `scan_personal_data`: that function finds a leak
+    once it is committed, this one stops a generator from committing it. Both read
+    the SAME needle set from `operator_identity_strings`, so a redactor can never
+    drift from the scanner that grades it — the failure mode where a generated
+    artifact is "cleaned" against a narrower notion of identity than the gate uses.
+
+    Needles are applied LONGEST-FIRST so a HOME path (`/Users/alice`) is redacted
+    before the handle it contains (`alice`), which would otherwise leave a mangled
+    `/Users/<redacted-handle>` behind and defeat the point.
+
+    Pure text in, text out — no I/O, no filesystem access (INV-2). A falsy `text`
+    or empty needle set returns the input unchanged.
+    """
+    if not text or not needles:
+        return text
+    for needle in sorted((n for n in needles if n), key=len, reverse=True):
+        placeholder = next(ph for token, ph in REDACTION_PLACEHOLDERS
+                           if token == "" or token in needle)
+        text = text.replace(needle, placeholder)
+    return text
+
+
 _EXPORTS = [
     "PERSONAL_SCAN_EXCLUDE_DIRS",
     "_GENERIC_HANDLES",
     "_EMAIL_RE",
+    "REDACTION_PLACEHOLDERS",
     "_operator_email",
     "operator_identity_strings",
+    "redact_operator_identity",
     "_package_files",
     "scan_personal_data",
 ]

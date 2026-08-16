@@ -47,6 +47,7 @@ from _baseline_capture import (  # noqa: E402
     DEFAULT_MODULE_TIMEOUT, NESTED_GUARD_ENV, discover_modules, git_head,
     run_module)
 from _preserved_scan import collect_node_ids, module_of, tail_of  # noqa: E402
+from _baseline_capture import redact  # noqa: E402
 
 SCHEMA_VERSION = 1
 CAPTURE_KIND = "suite-delta-capture"
@@ -99,7 +100,7 @@ def capture(root, label, module_timeout=DEFAULT_MODULE_TIMEOUT):
         "schema_version": SCHEMA_VERSION,
         "kind": CAPTURE_KIND,
         "label": label,
-        "tree_root": root,
+        "tree_root": redact(root),
         "git_head": git_head(root),
         "captured_at": datetime.datetime.now(datetime.timezone.utc)
                                .strftime("%Y-%m-%dT%H:%M:%SZ"),

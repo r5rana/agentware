@@ -78,7 +78,7 @@ class SkillLockfileTest(unittest.TestCase):
     def test_save_load_roundtrip_atomic(self):
         p = os.path.join(self.tmp, "lock.json")
         data = {"schema": 1, "skills": {"foo": {"tree_sha256": "abc",
-                "status": "installed", "authored_by": "rahul", "verdict": "PASS"}}}
+                "status": "installed", "authored_by": "testauthor", "verdict": "PASS"}}}
         self.cli.save_skill_lock(data, p)
         self.assertTrue(os.path.isfile(p))
         back = self.cli.load_skill_lock(p)
