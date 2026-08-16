@@ -1513,6 +1513,307 @@
     },
     {
       "anchor_symbols": [
+        "_graph_canonical"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.graphdag.graphrender",
+        "agentware_lib.features.graphdag.graphedit"
+      ],
+      "dependency_direction": "no outbound edges",
+      "depends_on": [],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphcanon",
+      "not_owns": "the manifest's paths, reads, writes or validation (agentware_lib.features.graphdag.graphmanifest); the renderings (agentware_lib.features.graphdag.graphrender);",
+      "owns": "`_graph_canonical` — the ONE normalization of a manifest into a stable ordered structure, and nothing else. Extracted because two modules need it and neither can own it: graphmanifest hashes and saves it, graphrender renders from it, and `_graph_save` calls the renderer — so homing it in either closes an import cycle. Duplicating it instead would be worse: two canonicalizations that drift produce a manifest whose saved hash does not match the rendered graph, and the checkpoint guarantee ('the graph I approved is the graph that ran') is exactly a comparison of those two things.",
+      "path": "scripts/agentware_lib/features/graphdag/graphcanon.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "register_graph"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "features -> features, features -> ops",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphedit",
+        "agentware_lib.features.graphdag.graphrun",
+        "agentware_lib.ops.plangraph"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphcmd",
+      "not_owns": "any handler — the seven authoring subverbs (agentware_lib.features.graphdag.graphedit) and the six execution ones (agentware_lib.features.graphdag.graphrun);",
+      "owns": "the `graph` registrar wiring all thirteen subverbs, split into an authoring registrar and an execution registrar along the same seam the handlers use. It is its own module because it must import BOTH handler halves, and homing it in either would give that half an import edge to the other purely for registration — the property worth protecting is that the authoring half can never reach the executor. The checkpoint policy names come from the PLAN's vocabulary, so `graph add-node --checkpoint` and the plan that declares it cannot offer different sets.",
+      "path": "scripts/agentware_lib/features/graphdag/graphcmd.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "GRAPH_KILL_SWITCH_VARS",
+        "GRAPH_MAX_NODES",
+        "GRAPH_NODE_DONE",
+        "GRAPH_TICK_CEILING",
+        "_GRAPH_DISPATCHABLE",
+        "_GRAPH_DISPOSITION_TABLE"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.graphdag.graphtopo",
+        "agentware_lib.features.graphdag.graphstate",
+        "agentware_lib.features.graphdag.graphlane",
+        "agentware_lib.features.graphdag.graphledger",
+        "agentware_lib.features.graphdag.graphexec",
+        "agentware_lib.features.graphdag.graphedit",
+        "agentware_lib.features.graphdag.graphrun",
+        "agentware_lib.features.graphdag.graphcmd",
+        "agentware_lib.features.graphdag.graphrender"
+      ],
+      "dependency_direction": "no outbound edges",
+      "depends_on": [],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphconst",
+      "not_owns": "any behaviour at all — nothing here reads a file, spawns a process or decides anything;",
+      "owns": "every constant the DAG scheduler agrees on: the manifest schema tag, the size and concurrency bounds, the edge kinds, the six node STATES and the two derived sets, the four checkpoint dispositions and the verdict table, the detail codes, the timeouts and tick ceiling, the kill-switch variable names, the lane env allowlist and the kernel serialize token. Pure data and nothing else. A scheduler is a state machine with a lot of surface, and nine other modules ask it 'is this node dispatchable', 'is this outcome terminal', 'does this verdict halt the subtree' — two modules keeping their own copy of 'which states are done' is how a scheduler dispatches a node twice or hangs on one it finished. The bounds are REFUSALS: this thing spawns real agent processes against a real repository, and an orchestrator without a tick ceiling does not fail loudly, it burns quota in a loop nobody is watching.",
+      "path": "scripts/agentware_lib/features/graphdag/graphconst.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_graph_add_edge",
+        "cmd_graph_add_node",
+        "cmd_graph_new",
+        "cmd_graph_rm_edge",
+        "cmd_graph_rm_node",
+        "cmd_graph_show",
+        "cmd_graph_validate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphcmd"
+      ],
+      "dependency_direction": "features -> features, features -> ops, features -> core",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.graphdag.graphrender",
+        "agentware_lib.ops.plangraph"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphedit",
+      "not_owns": "the six EXECUTION subverbs (agentware_lib.features.graphdag.graphrun); the tick loop (agentware_lib.features.graphdag.graphexec); the registrar (agentware_lib.features.graphdag.graphcmd);",
+      "owns": "the seven AUTHORING subverbs — new, add-node, rm-node, add-edge, rm-edge, show and validate. Nothing here spawns a process, touches a worktree or merges anything, and that is the point of the split: the subverbs an operator uses to SHAPE a graph must be safe to run at any time without wondering whether they will start work. `graph validate` in particular has to be consequence-free to be useful — a validator you hesitate to run is one that gets run after the mistake instead of before it. A node's write set and checkpoint policy come from the PLAN that describes the work, never from a second declaration that could disagree.",
+      "path": "scripts/agentware_lib/features/graphdag/graphedit.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_graph_execute",
+        "_graph_finish"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphrun"
+      ],
+      "dependency_direction": "features -> features, features -> core, features -> ops",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphlane",
+        "agentware_lib.features.graphdag.graphledger",
+        "agentware_lib.features.graphdag.graphstate",
+        "agentware_lib.features.graphdag.graphtopo"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphexec",
+      "not_owns": "the manifest (agentware_lib.features.graphdag.graphmanifest); lane spawn and merge (agentware_lib.features.graphdag.graphlane); the ledger (agentware_lib.features.graphdag.graphledger); the verbs (agentware_lib.features.graphdag.graphrun);",
+      "owns": "the tick loop that actually runs the DAG, plus the terminal bookkeeping. Each tick recomputes every node's state from on-disk evidence, recomputes the ready frontier, dispatches what fits under the concurrency bound and reconciles what finished. NOTHING is carried in memory between ticks that could not be rebuilt from disk, which is precisely why `graph resume` after a crash is the same code path as a normal tick rather than a special one. Every loop has a bound — tick ceiling, wall-clock deadline, per-node timeout, concurrency window — because an unbounded orchestrator does not fail loudly, it burns quota overnight while reporting progress. A load-bearing failure halts its SUBTREE, not the world: blocking everything on any failure makes a twenty-node graph as fragile as a shell script with `set -e`, and containing nothing lets dependents build on a broken foundation.",
+      "path": "scripts/agentware_lib/features/graphdag/graphexec.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_graph_lane_env",
+        "_graph_merge_gates",
+        "_graph_merge_lane",
+        "_graph_orchestrator_env_blockers",
+        "_graph_prepare_lane",
+        "_graph_select_dispatch",
+        "_graph_spawn"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphexec"
+      ],
+      "dependency_direction": "features -> features, features -> core",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphstate",
+        "agentware_lib.features.graphdag.graphtopo",
+        "agentware_lib.features.fanout",
+        "agentware_lib.features.fanoutmq"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphlane",
+      "not_owns": "the ready set and conflict edges (agentware_lib.features.graphdag.graphtopo); node state (agentware_lib.features.graphdag.graphstate); the tick loop (agentware_lib.features.graphdag.graphexec);",
+      "owns": "the lane lifecycle: the orchestrator's own kill-switch check, the sanitized child environment, the spawn, the per-lane driver, dispatch selection, the reprovision test, preparation, and the merge path with its gates. The env is an ALLOWLIST and that is the security boundary — a denylist grows every time anything in the system gains a setting, and the one nobody remembers to add is the one that leaks. The kill switch is checked BEFORE anything spawns, because an off switch honoured after the first spawn is not an off switch. Merging is GATED: a lane reports its own outcome, and the merge re-checks the conditions that matter before integrating, on the same principle as the review gate's regression chain — the actor being verified does not get to be the verifier.",
+      "path": "scripts/agentware_lib/features/graphdag/graphlane.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_append_checkpoint_log",
+        "_graph_emit_metric",
+        "_graph_last_approval",
+        "_graph_ledger_append",
+        "_graph_ledger_read",
+        "_graph_report",
+        "_graph_status_payload"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphexec",
+        "agentware_lib.features.graphdag.graphrun"
+      ],
+      "dependency_direction": "features -> features, features -> ops",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.graphdag.graphstate",
+        "agentware_lib.ops.metrics"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphledger",
+      "not_owns": "the manifest (agentware_lib.features.graphdag.graphmanifest); state derivation (agentware_lib.features.graphdag.graphstate); the tick loop (agentware_lib.features.graphdag.graphexec);",
+      "owns": "the append-only run ledger, the approval lookup, the metric emitter, the checkpoint log, the machine-readable status payload and the human report. The manifest holds the graph's CURRENT shape and cannot answer 'what happened' — after a crash and resume that is the only question worth asking, and the scheduler's own resume logic is one of the ledger's readers, so it is append-only. `_graph_last_approval` plus the manifest hash is what lets a resume know not just that a checkpoint was approved but that it was approved for THIS graph. Status and report are two renderings of ONE derived state rather than two computations: renderers can drift in presentation, but independent computations drift in FACT, and then the operator and the automation disagree about whether a run is finished.",
+      "path": "scripts/agentware_lib/features/graphdag/graphledger.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_graph_build",
+        "_graph_dir",
+        "_graph_load_manifest",
+        "_graph_manifest_sha256",
+        "_graph_save",
+        "graph_manifest_errors"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphtopo",
+        "agentware_lib.features.graphdag.graphstate",
+        "agentware_lib.features.graphdag.graphledger",
+        "agentware_lib.features.graphdag.graphexec",
+        "agentware_lib.features.graphdag.graphedit",
+        "agentware_lib.features.graphdag.graphrun"
+      ],
+      "dependency_direction": "features -> features, features -> ops, features -> knowledge, features -> core",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphcanon",
+        "agentware_lib.features.graphdag.graphrender",
+        "agentware_lib.knowledge.graph",
+        "agentware_lib.ops.plangraph"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphmanifest",
+      "not_owns": "topological order and the ready set (agentware_lib.features.graphdag.graphtopo); execution (agentware_lib.features.graphdag.graphexec); the verbs (agentware_lib.features.graphdag.graphedit);",
+      "owns": "the on-disk locations, the reader and constructor, the builder, the self-extension flag, the full validator, the durable write, the commit helper and the content hash. The manifest is the ONLY durable truth — the ready set, the topological order, the rendered graph and the status payload are all derived, and the manifest is what survives a crash and what `graph resume` reads. `graph_manifest_errors` returns EVERY problem rather than the first, because a scheduler that reports one error per run makes the operator play twenty questions with a DAG they cannot execute — and the cheapest place to reject a malformed graph is before any process spawns.",
+      "path": "scripts/agentware_lib/features/graphdag/graphmanifest.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_render_graph_dot",
+        "_render_graph_md",
+        "_render_graph_mermaid"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.graphdag.graphedit"
+      ],
+      "dependency_direction": "features -> features",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphcanon",
+        "agentware_lib.features.graphdag.graphconst"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphrender",
+      "not_owns": "the manifest itself (agentware_lib.features.graphdag.graphmanifest); node state (agentware_lib.features.graphdag.graphstate);",
+      "owns": "the DAG's three human renderings — the markdown view written beside the manifest, the Graphviz DOT export and the Mermaid export. A JSON DAG with twenty nodes and forty edges is not something a human can hold in their head well enough to approve, and this scheduler asks for approval BEFORE it spawns anything. The markdown view is written on every save specifically so the reviewable artifact is never staler than the thing it describes. Pure: every renderer is a function from a manifest to a string, so the caller owns the write and a render can be diffed and tested without touching disk.",
+      "path": "scripts/agentware_lib/features/graphdag/graphrender.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_graph_cancel",
+        "cmd_graph_checkpoint",
+        "cmd_graph_resume",
+        "cmd_graph_run",
+        "cmd_graph_status",
+        "cmd_graph_teardown"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphcmd"
+      ],
+      "dependency_direction": "features -> features, features -> ops, features -> core",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphexec",
+        "agentware_lib.features.graphdag.graphledger",
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.fanoutmq"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphrun",
+      "not_owns": "the seven AUTHORING subverbs (agentware_lib.features.graphdag.graphedit); the tick loop (agentware_lib.features.graphdag.graphexec); the ledger (agentware_lib.features.graphdag.graphledger);",
+      "owns": "the six EXECUTION subverbs — run, resume, status, checkpoint, cancel and teardown. `resume` is NOT recovery code: because state is derived from on-disk evidence rather than remembered, resuming is just running a graph that already has progress, through the same tick loop. A separate recovery path would be code that runs only after something already went wrong, which is the code least likely to be correct when it finally runs. `checkpoint` records approval against the manifest's canonical HASH, so an approval means 'I approved THIS graph' — edit the DAG afterwards and the stale approval no longer applies. `cancel` and `teardown` are separate so an operator can stop a runaway graph immediately without destroying the lanes they still want to inspect, which is usually the point of stopping.",
+      "path": "scripts/agentware_lib/features/graphdag/graphrun.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_graph_disposition",
+        "_graph_finalize_unfinalized",
+        "_graph_node_is_load_bearing",
+        "_graph_node_status",
+        "_graph_raw_terminal_outcome"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphlane",
+        "agentware_lib.features.graphdag.graphledger",
+        "agentware_lib.features.graphdag.graphexec"
+      ],
+      "dependency_direction": "features -> features, features -> ops",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphconst",
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.features.fanout",
+        "agentware_lib.ops.planauthor.planstate"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphstate",
+      "not_owns": "the state VOCABULARY (agentware_lib.features.graphdag.graphconst); the ready set (agentware_lib.features.graphdag.graphtopo); the driver (agentware_lib.features.graphdag.graphexec);",
+      "owns": "what a node's state IS, derived from the lane's evidence rather than read from a status field somebody remembered to write. That is the whole design: a process killed between finishing work and recording it leaves a stored status of 'running' forever, and the scheduler then either hangs on it or dispatches it a second time. Deriving means a crash costs nothing — `graph resume` re-reads the same evidence and reaches the same conclusion. The detail codes exist because the four ways a node can LOOK done without being done are genuinely different situations and collapsing them loses the operator's next action; `_graph_finalize_unfinalized` reconciles finished-but-unrecorded work instead of re-running it, because re-running finished work is how a scheduler destroys it.",
+      "path": "scripts/agentware_lib/features/graphdag/graphstate.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
+        "_graph_derive_resource_edges",
+        "_graph_ready_set",
+        "_graph_transitive_successors",
+        "_graph_write_set_touches_kernel",
+        "_write_sets_overlap",
+        "topo_order"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.graphdag.graphlane",
+        "agentware_lib.features.graphdag.graphexec",
+        "agentware_lib.features.graphdag.graphrun"
+      ],
+      "dependency_direction": "features -> features, features -> ops, features -> knowledge",
+      "depends_on": [
+        "agentware_lib.features.graphdag.graphconst",
+        "agentware_lib.features.graphdag.graphmanifest",
+        "agentware_lib.ops.plangraph"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.graphdag.graphtopo",
+      "not_owns": "node STATE (agentware_lib.features.graphdag.graphstate); lane lifecycle (agentware_lib.features.graphdag.graphlane); the tick loop (agentware_lib.features.graphdag.graphexec);",
+      "owns": "topological order, the dispatch frontier, the blast-radius walk, and the WRITE-SET machinery that turns declared file writes into implicit ordering edges. This is the module that keeps concurrency honest: a DAG's declared edges say what depends on what, NOT what conflicts with what, and two nodes with no dependency but overlapping write sets will race — last writer wins, silently, with the losing node's work gone and its lane reporting success. Derived serialization edges close that, token-matched rather than string-equal because `scripts/foo.py` and `scripts/` are the same conflict. The ready set is RECOMPUTED every tick rather than kept as a queue, because a queue would have to stay consistent with a manifest a crash, a resume or a human cancel can change underneath it.",
+      "path": "scripts/agentware_lib/features/graphdag/graphtopo.py",
+      "test_file": "tests/test_plan_graph.py"
+    },
+    {
+      "anchor_symbols": [
         "cmd_index_add",
         "cmd_index_migrate",
         "cmd_index_rebuild",

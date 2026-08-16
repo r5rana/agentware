@@ -7,14 +7,14 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 262,
-  "lib": 477,
+  "legacy": 229,
+  "lib": 510,
   "legacy_only": 248,
   "shared": 208,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 54,
+  "unresolved_max": 21,
   "undecided_max": 5
  },
  "multi_literal": {
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   165
+   176
   ]
  },
  "legacy_only": [
@@ -277,8 +277,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_CONCURRENCY_MAX",
@@ -286,8 +289,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_CONCURRENCY_MIN",
@@ -295,8 +301,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_CONTINUE",
@@ -304,8 +313,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DEADLINE_HOURS",
@@ -313,8 +325,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DEFAULT_CONCURRENCY",
@@ -322,8 +337,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DETAIL_AWAITING_MERGE",
@@ -331,8 +349,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DETAIL_DEGENERATE",
@@ -340,8 +361,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DETAIL_DONE_UNFINALIZED",
@@ -349,8 +373,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DETAIL_FAILED_WATCHDOG",
@@ -358,8 +385,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_DETAIL_PLAN_MISSING",
@@ -367,8 +397,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_HALT",
@@ -376,8 +409,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_KERNEL_SERIALIZE_TOKEN",
@@ -385,8 +421,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_KILL_SWITCH_VARS",
@@ -394,8 +433,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_LANE_ENV_ALLOW",
@@ -403,8 +445,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_MANIFEST_SCHEMA",
@@ -412,8 +457,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_MAX_NODES",
@@ -421,8 +469,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_BLOCKED",
@@ -430,8 +481,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_DONE",
@@ -439,8 +493,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_FAILED",
@@ -448,8 +505,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_HALT",
@@ -457,8 +517,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_PENDING",
@@ -466,8 +529,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_RUNNING",
@@ -475,8 +541,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_NODE_TIMEOUT_HOURS",
@@ -484,8 +553,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_PAUSE",
@@ -493,8 +565,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "GRAPH_TICK_CEILING",
@@ -502,8 +577,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "KB_DERIVED_GITIGNORE_RELS",
@@ -1777,8 +1855,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_GRAPH_CONTAINED_FAIL_OUTCOMES",
@@ -1786,8 +1867,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_GRAPH_DEP_SATISFIED",
@@ -1795,8 +1879,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_GRAPH_DISPATCHABLE",
@@ -1804,8 +1891,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_GRAPH_DISPOSITION_TABLE",
@@ -1813,8 +1903,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_GRAPH_EDGE_KINDS",
@@ -1822,8 +1915,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 48"
+   "status": "resolved",
+   "follow_up": "task 48",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_KB_MIGRATIONS",
@@ -1951,8 +2047,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/features/graphdag/graphconst.py"
+   ]
   },
   {
    "name": "_PLAN_CHECKPOINT_RE",

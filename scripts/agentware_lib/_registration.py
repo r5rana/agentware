@@ -94,6 +94,13 @@ _PARSER_REGISTRATION = (
     ("review", "agentware_lib.ops.reviewaudit", "register_review"),
     ("remediate", "agentware_lib.ops.reviewremediate", "register_remediate"),
     ("review-report", "agentware_lib.ops.reviewreport", "register_review_report"),
+    # task 48 — the DAG scheduler and its THIRTEEN subverbs, split into the
+    # graphdag package. The registrar is its own module because it must import
+    # BOTH handler halves, and the authoring half (new/add-node/rm-node/add-edge/
+    # rm-edge/show/validate) deliberately cannot reach the executor half
+    # (run/resume/status/checkpoint/cancel/teardown): an operator shaping a graph
+    # should never wonder whether the command they typed will start work.
+    ("graph", "agentware_lib.features.graphdag.graphcmd", "register_graph"),
 )
 
 __all__ = ["_PARSER_REGISTRATION"]

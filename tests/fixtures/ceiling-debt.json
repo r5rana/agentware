@@ -543,6 +543,62 @@
           "value": 20
         }
       ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "The DAG scheduler, ported by task 48 into the graphdag package. Every count below was MEASURED against the pre-port monolith and is IDENTICAL there (execute 62/243, node_status 23/146, manifest_errors 32/124, resource_edges 18, checkpoint 22, cancel 15, merge_lane 13) — the move added not one branch, and the byte-identical bodies make that checkable rather than assertable. The port DID pay down what it could without touching a body: the monolith declared all thirteen subverbs in ONE 158-line inline registrar block, and that is now split into an authoring registrar and an execution registrar along the same seam the handlers use, so no registrar row appears here at all. What remains are four functions whose branches are load-bearing structure rather than accumulated mess. `_graph_execute` (62) is the tick loop: derive -> dispatch -> wait -> reconcile, plus every bound (tick ceiling, deadline, node timeout, concurrency) and every halt/block-subtree path. Splitting the loop that spawns real agent processes against a real repository, in the same commit that moves it, is the concentrated risk the ratchet exists to prevent. `_graph_node_status` (23/146) DERIVES a node's state from on-disk evidence, and its branches ARE the four ways a node can look done without being done — collapsing any of them is the bug. `graph_manifest_errors` (32/124) deliberately reports EVERY problem rather than the first, so its branch count is exactly its check count. `_graph_derive_resource_edges` (18) turns declared write sets into serialization edges, which is what stops two concurrent lanes racing on one file. Owned by task 67 with the rest of the residual.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphexec.py::_graph_execute",
+          "value": 62
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphexec.py::_graph_execute",
+          "value": 243
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphlane.py::_graph_merge_lane",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphmanifest.py::graph_manifest_errors",
+          "value": 32
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphmanifest.py::graph_manifest_errors",
+          "value": 124
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphrun.py::cmd_graph_cancel",
+          "value": 15
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphrun.py::cmd_graph_checkpoint",
+          "value": 22
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphstate.py::_graph_node_status",
+          "value": 23
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphstate.py::_graph_node_status",
+          "value": 146
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphtopo.py::_graph_derive_resource_edges",
+          "value": 18
+        }
+      ]
     }
   ]
 }

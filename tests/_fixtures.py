@@ -12,6 +12,7 @@ the synthetic index.json directly instead.
 """
 
 import contextlib
+import inspect
 import io
 import importlib.util
 import os
@@ -138,6 +139,35 @@ def ported_module_paths():
     return out
 
 
+def _same_symbol_two_copies(name, cur, previous):
+    """True when `cur` and `previous` are the SAME symbol living in two places.
+
+    This exists only for the strangler window, and it disappears with the shim.
+    While a verb is unported, the preserved monolith and the lib each define a
+    copy of the shared helpers (`_run_gate`, `save_lanes`, `_mq_integrate_*`, …).
+    They are equal in behaviour but are DISTINCT function objects, so the
+    name-plus-value match above forwards nothing — and a test that patches the
+    facade then stubs the copy the code under test never calls. That failure is
+    silent in the worst way: the stub is installed, the assertion runs, and the
+    REAL collaborator did the work.
+
+    The match is deliberately narrow — both sides must be plain functions
+    carrying the SAME `__name__` and the SAME parameter list. Two unrelated
+    functions that agree on both of those, under a name the facade also exports,
+    is not a case this codebase has; a same-named helper with a different
+    signature (the realistic collision) is excluded by the signature check.
+    """
+    if not (inspect.isfunction(cur) and inspect.isfunction(previous)):
+        return False
+    if cur.__name__ != previous.__name__ or cur.__name__ != name:
+        return False
+    try:
+        return (inspect.signature(cur).parameters.keys()
+                == inspect.signature(previous).parameters.keys())
+    except (TypeError, ValueError):
+        return False
+
+
 class _ConfigMirrorModule(types.ModuleType):
     """CLI module type that MIRRORS config-redirect writes onto the lib.
 
@@ -202,6 +232,8 @@ class _ConfigMirrorModule(types.ModuleType):
                     continue
                 cur = vars(m)[name]
                 if cur is previous or cur == previous:
+                    out.append(m)
+                elif _same_symbol_two_copies(name, cur, previous):
                     out.append(m)
             except Exception:
                 continue

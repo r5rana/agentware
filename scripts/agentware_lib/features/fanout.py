@@ -340,7 +340,9 @@ def _lane_outcome(rec):
     # Finished — enforce the zero-knowledge-loss view if a worklog exists.
     worklog = os.path.join(work_dir, "worklog.md")
     if os.path.isfile(worklog):
-        data, err = index.load_index(kb_path)
+        # READ-ONLY contract (INV-2): use the NON-rebuilding load so a missing/corrupt
+        # lane index is never auto-repaired here (no write side-effect on inference).
+        data, err = index.load_index(kb_path, _allow_rebuild=False)
         if err is None:
             try:
                 unpromoted, _total = _worklog.scan_worklog(worklog, kb_path, data)

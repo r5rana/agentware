@@ -127,6 +127,11 @@ PORTED_VERBS = frozenset({
     "review",
     "remediate",
     "review-report",
+    # task 48 — the DAG scheduler, all thirteen subverbs. Promoted only after the
+    # lib registrar was proven to reproduce the monolith's subverb set AND every
+    # per-subverb flag exactly; a scheduler that spawns real agents against a real
+    # repository is the last verb whose surface should be taken on trust.
+    "graph",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
