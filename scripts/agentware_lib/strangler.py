@@ -141,6 +141,7 @@ PORTED_VERBS = frozenset({
     # flag, at every level — before its row was written.
     "org",          # org lint O1..O13 (a true no-op on a flat install)
     "team",         # create / list / register
+    "templates",    # the T1..T5 template contract
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
