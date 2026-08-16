@@ -3295,6 +3295,141 @@
     },
     {
       "anchor_symbols": [
+        "_PREF_CUE_RE",
+        "_pref_entry_is_user_source",
+        "_pref_is_capturable",
+        "_pref_operator_text"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.prefercapture",
+        "agentware_lib.ops.preferqueue",
+        "agentware_lib.ops.preferdigest"
+      ],
+      "dependency_direction": "ops -> core",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.preferadmit",
+      "not_owns": "writing a capture (agentware_lib.ops.prefercapture); the durable queue (agentware_lib.ops.preferqueue); gate-loosening refusal (agentware_lib.ops.prefergate);",
+      "owns": "the ADMISSION BAR: the cue/noise vocabulary, the operator-text extractor, the capturable test and the entry-provenance test. A captured preference injects into EVERY future session, so each one is a permanent context cost paid forever -- the bar is deliberately strict, and the standard is 'would a future session behave differently knowing this?'. A capture system with a low bar does not become more helpful, it becomes a slow leak that degrades every session after it. Its own module because both the capture path and the queue scanner ask these questions and cannot import each other without a cycle.",
+      "path": "scripts/agentware_lib/ops/preferadmit.py",
+      "test_file": "tests/test_prefer_precision.py"
+    },
+    {
+      "anchor_symbols": [
+        "_prefer_capture",
+        "_prefer_delete_entry",
+        "_prefer_forget",
+        "_prefer_list",
+        "_prefer_workorder_candidate"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.preferclassify",
+        "agentware_lib.ops.preferdispose",
+        "agentware_lib.ops.prefercmd"
+      ],
+      "dependency_direction": "ops -> ops, ops -> knowledge",
+      "depends_on": [
+        "agentware_lib.ops.preferadmit",
+        "agentware_lib.ops.preferqueue",
+        "agentware_lib.ops.prefergate"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.prefercapture",
+      "not_owns": "the admission bar (agentware_lib.ops.preferadmit); the queue (agentware_lib.ops.preferqueue); tier classification (agentware_lib.ops.preferclassify);",
+      "owns": "the capture WRITE and the entry lifecycle around it. Capture SUPERSEDES by key rather than appending: two captures that disagree would both inject into the same context window and the model has no way to know which the operator meant, so the conflict is resolved once at capture time instead of being deferred to every future session. Every capture is refused if it names a kernel path (R-CAP-03) or reads as weakening a governance gate.",
+      "path": "scripts/agentware_lib/ops/prefercapture.py",
+      "test_file": "tests/test_prefer_capture.py"
+    },
+    {
+      "anchor_symbols": [
+        "_prefer_classify_drain",
+        "_prefer_classify_tier",
+        "_prefer_emit_workorder",
+        "_render_prefer_classify_report"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.prefercmd"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.preferqueue",
+        "agentware_lib.ops.prefercapture",
+        "agentware_lib.ops.prefergate"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.preferclassify",
+      "not_owns": "approval and rejection, the human DISPOSITION half (agentware_lib.ops.preferdispose); the admission bar (agentware_lib.ops.preferadmit);",
+      "owns": "TRIAGE: the tier classifier, the drain that walks the queue, the workorder emitter and the classify report with its rotation. TIERING is what keeps this safe to automate -- tier-1 is a preference the operator approves directly, tier-2 becomes a SUGGESTED workorder that still needs approval before anything runs. Nothing here promotes to durable knowledge on its own. The report is ROTATED rather than appended forever, because an unbounded report is one nobody opens.",
+      "path": "scripts/agentware_lib/ops/preferclassify.py",
+      "test_file": "tests/test_prefer_classify.py"
+    },
+    {
+      "anchor_symbols": [
+        "cmd_prefer",
+        "cmd_prefer_mine",
+        "cmd_prefer_review",
+        "register_prefer"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.preferdigest",
+        "agentware_lib.ops.preferclassify",
+        "agentware_lib.ops.preferdispose",
+        "agentware_lib.ops.sessionparse.minerscan"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.prefercmd",
+      "not_owns": "the digest (agentware_lib.ops.preferdigest); classification (agentware_lib.ops.preferclassify); approval and rejection (agentware_lib.ops.preferdispose); the miner (agentware_lib.ops.sessionparse.minerscan);",
+      "owns": "the `prefer` verb surface: the dispatcher, the `mine` and `review` handlers and the registrar (split into three sub-registrars to hold the per-function cap). `prefer review` is deliberately read-only across EVERY candidate state including queued and journaled ones -- a review surface showing only actionable items would hide the queue's backlog, which is precisely the number an operator needs to decide whether the miner is worth keeping on.",
+      "path": "scripts/agentware_lib/ops/prefercmd.py",
+      "test_file": "tests/test_prefer_review.py"
+    },
+    {
+      "anchor_symbols": [
+        "_PREF_DIGEST_CHAR_BUDGET",
+        "_pref_digest_entries",
+        "_prefer_digest",
+        "_render_pref_digest"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.prefercmd"
+      ],
+      "dependency_direction": "ops -> ops, ops -> knowledge",
+      "depends_on": [
+        "agentware_lib.ops.preferadmit",
+        "agentware_lib.knowledge.index"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.preferdigest",
+      "not_owns": "the `prefer` verb and its subcommands (agentware_lib.ops.prefercmd); the admission bar (agentware_lib.ops.preferadmit);",
+      "owns": "the SESSION-START digest and the two budgets that bound it. This text is injected into EVERY session, so it is a permanent context cost paid forever and growing -- the budgets stop an accumulating preference set from silently eating the window it exists to improve. The budget TRUNCATES the digest rather than refusing a capture, so the capture path stays honest about what the operator asked for while the injection stays bounded. The only part of the prefer family whose cost is paid by sessions that never touch `prefer` at all.",
+      "path": "scripts/agentware_lib/ops/preferdigest.py",
+      "test_file": "tests/test_prefer_injection.py"
+    },
+    {
+      "anchor_symbols": [
+        "_prefer_cancel_workorder",
+        "cmd_prefer_approve",
+        "cmd_prefer_reject"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.prefercmd"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.preferqueue",
+        "agentware_lib.ops.prefercapture"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.preferdispose",
+      "not_owns": "the classify pass and workorder emission (agentware_lib.ops.preferclassify); the queue and its archive (agentware_lib.ops.preferqueue);",
+      "owns": "the HUMAN disposition of a queued candidate: approve, reject, and cancelling any workorder a rejected candidate produced. Rejecting is not 'do nothing' -- a rejected candidate is recorded and its fingerprint ARCHIVED so the miner does not propose it again tomorrow. Without that the operator faces the same suggestion nightly, stops reading the queue, and the review mechanism dies quietly; the failure mode is not a wrong suggestion, it is a queue nobody opens. Approval is the ONLY path from a candidate to durable knowledge, and it is explicitly a human action.",
+      "path": "scripts/agentware_lib/ops/preferdispose.py",
+      "test_file": "tests/test_prefer_approve.py"
+    },
+    {
+      "anchor_symbols": [
         "_PREF_GATE_NOUN_RE",
         "_PREF_LOOSEN_VERB_RE",
         "_PREF_NEG_LOOSEN_RE",
@@ -3311,6 +3446,33 @@
       "owns": "the deterministic classifier answering whether a captured preference would WEAKEN a governance gate rather than express a taste. Captured preferences inject into every future session, so 'stop running the tests first' and 'prefer tabs over spaces' are not the same kind of statement — the first would quietly disable a safety property for every later run, which R-CAP-03 refuses. The NEGATION sets are the subtle part: 'do not skip the review gate' contains both a loosen verb and a gate noun and is the OPPOSITE of a loosening request, so negation is checked BEFORE the verb/noun pair fires.",
       "path": "scripts/agentware_lib/ops/prefergate.py",
       "test_file": "tests/test_prefer_capture.py"
+    },
+    {
+      "anchor_symbols": [
+        "PREFER_QUEUE_REL",
+        "_prefer_cand_fp",
+        "_prefer_queue_scan",
+        "_prefer_seed_cursor",
+        "_queue_read_since_cursor",
+        "_queue_seen_fingerprints"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.prefercapture",
+        "agentware_lib.ops.preferclassify",
+        "agentware_lib.ops.preferdispose",
+        "agentware_lib.ops.sessionparse.minerscan"
+      ],
+      "dependency_direction": "ops -> ops, ops -> core",
+      "depends_on": [
+        "agentware_lib.ops.preferadmit",
+        "agentware_lib.core.config"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.preferqueue",
+      "not_owns": "the admission bar (agentware_lib.ops.preferadmit); the capture write (agentware_lib.ops.prefercapture); approval and rejection (agentware_lib.ops.preferdispose);",
+      "owns": "the durable candidate QUEUE and its per-session byte-offset cursor, plus the archive readers and the fingerprint. Nothing the miner or the capture path produces is knowledge yet -- it is a PROPOSAL, and the queue is the seam that keeps it that way. The FINGERPRINT is checked against the ARCHIVE as well as the live queue, so a candidate the operator already rejected does not reappear tomorrow: rejection is remembered, not merely actioned, and a queue that resurfaces disposed items is one the operator stops reading.",
+      "path": "scripts/agentware_lib/ops/preferqueue.py",
+      "test_file": "tests/test_prefer_queue.py"
     },
     {
       "anchor_symbols": [
@@ -3392,6 +3554,51 @@
     },
     {
       "anchor_symbols": [
+        "_transcript_err_signature",
+        "_transcript_errrec_key",
+        "_transcript_mask_volatile",
+        "_transcript_reconcile_errors"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.sessionparse.minerscan"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.sessionparse.minerextract",
+        "agentware_lib.ops.sessionparse.minerstate"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.minererrors",
+      "not_owns": "the mining passes that call this (agentware_lib.ops.sessionparse.minerscan); the recurrence precision gate (agentware_lib.ops.sessionparse.minerfolds);",
+      "owns": "how a failure seen in a transcript becomes a STABLE, comparable signature: the recognisers, the signature builder, the volatile-detail mask, the target classifiers, the dedup key and gate, and the reconciler pairing an error with the fix that followed. Masking is the whole problem -- raw error text never repeats identically because it carries timestamps, pids, tmp paths, ports and addresses. Mask too little and every occurrence looks novel so nothing ever recurs; mask too much and unrelated failures collapse and the miner reports a phantom pattern. An error alone is noise; an error FOLLOWED BY a recovery is a learning.",
+      "path": "scripts/agentware_lib/ops/sessionparse/minererrors.py",
+      "test_file": "tests/test_transcript_miner_errors.py"
+    },
+    {
+      "anchor_symbols": [
+        "_transcript_extract_json_field",
+        "_transcript_redact_secrets",
+        "_transcript_salvage_target",
+        "_transcript_tool_target"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.sessionparse.minererrors",
+        "agentware_lib.ops.sessionparse.minerscan"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.sessionparse.minerstate",
+        "agentware_lib.ops.sessionparse.minerfolds"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.minerextract",
+      "not_owns": "the cursor and the caps (agentware_lib.ops.sessionparse.minerstate); error signatures (agentware_lib.ops.sessionparse.minererrors);",
+      "owns": "the readers that turn one raw transcript record into structured facts: SECRET REDACTION, tolerant JSON field extraction and the tool-target resolvers. Redaction runs HERE, at the boundary where a record is first read, rather than at each place output is written -- a session transcript is the highest-risk text in the system, holding whatever the operator typed and whatever their tools printed, and redacting at the sinks means every new sink is a fresh chance to forget. The extractors are deliberately tolerant because a transcript can be truncated mid-record, and a strict parse would discard exactly the sessions most worth mining.",
+      "path": "scripts/agentware_lib/ops/sessionparse/minerextract.py",
+      "test_file": "tests/test_transcript_miner.py"
+    },
+    {
+      "anchor_symbols": [
         "MINER_RECURRENCE_CUE_REQUIRED",
         "MINER_RECURRENCE_CUE_REQUIRED_KEY",
         "MINER_RECURRENCE_MIN_LEN",
@@ -3427,6 +3634,54 @@
       "owns": "the PURE transcript folds the miner emits with and the recurrence precision gate",
       "path": "scripts/agentware_lib/ops/sessionparse/minerfolds.py",
       "test_file": "tests/test_transcript_miner_governance.py"
+    },
+    {
+      "anchor_symbols": [
+        "_dream_step_transcript_mine",
+        "_transcript_mine",
+        "_transcript_mine_error_recovery",
+        "_transcript_mine_read",
+        "_transcript_mine_recurrence"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.prefercmd"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.sessionparse.minererrors",
+        "agentware_lib.ops.sessionparse.minerextract",
+        "agentware_lib.ops.preferqueue"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.minerscan",
+      "not_owns": "the cursor and the caps (agentware_lib.ops.sessionparse.minerstate); record extraction and redaction (agentware_lib.ops.sessionparse.minerextract); the queue (agentware_lib.ops.preferqueue);",
+      "owns": "the passes that walk settled sessions and produce candidates, plus the orchestrator and its dream-step adapter. TWO passes because they answer different questions with different evidence bars: RECURRENCE asks whether the operator asked repeatedly across DISTINCT sessions and is gated hard, since a repeated phrasing is weak evidence on its own; ERROR-RECOVERY asks whether something failed and then got fixed, which is strong evidence from a single occurrence. Collapsing them would force one precision bar onto two kinds of signal. Dedup runs against the queue's fingerprints as well as the miner's own emitted set, so a rejected candidate does not return every night.",
+      "path": "scripts/agentware_lib/ops/sessionparse/minerscan.py",
+      "test_file": "tests/test_transcript_miner_e2e.py"
+    },
+    {
+      "anchor_symbols": [
+        "MINER_SESSION_CAP",
+        "MINER_STATE_REL",
+        "_transcript_load_state",
+        "_transcript_prune_tally",
+        "_transcript_session_settled"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.sessionparse.minerscan",
+        "agentware_lib.ops.sessionparse.minerextract"
+      ],
+      "dependency_direction": "ops -> core, ops -> ops",
+      "depends_on": [
+        "agentware_lib.core.config",
+        "agentware_lib.ops.sessionparse.minerfolds"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.minerstate",
+      "not_owns": "the pure folds and the recurrence gate (agentware_lib.ops.sessionparse.minerfolds); the mining passes (agentware_lib.ops.sessionparse.minerscan);",
+      "owns": "the miner's durable CURSOR and every bound it runs under: the state file, transcript root resolution, per-session settle detection, truncation helpers and the caps with their pruners. The miner is offline and incremental and must never re-mine what it already emitted, or the prefer queue fills with duplicates -- the cursor is that memory. `_transcript_session_settled` stops it mining a session still being written, where a half-written transcript would yield a truncated candidate that looks final. Every cap here is a REFUSAL to grow without bound.",
+      "path": "scripts/agentware_lib/ops/sessionparse/minerstate.py",
+      "test_file": "tests/test_transcript_miner.py"
     },
     {
       "anchor_symbols": [

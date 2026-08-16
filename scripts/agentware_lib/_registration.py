@@ -82,6 +82,8 @@ _PARSER_REGISTRATION = (
     ("tick", "agentware_lib.ops.tickcmd", "register_tick"),
     # task 44 — the periodic self-exam (opt-in, default OFF).
     ("checkup", "agentware_lib.ops.checkupcmd", "register_checkup"),
+    # task 45 — the steering-capture family + its offline transcript miner.
+    ("prefer", "agentware_lib.ops.prefercmd", "register_prefer"),
 )
 
 __all__ = ["_PARSER_REGISTRATION"]

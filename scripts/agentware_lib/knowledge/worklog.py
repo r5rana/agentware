@@ -36,8 +36,14 @@ import agentware_lib.knowledge.index as index
 from agentware_lib.knowledge.proposals import existing_proposal_slugs
 
 
-LEARNED_RE = re.compile(r"^\s*>?\s*LEARNED:\s*(.*?)\s*$")
-DECISION_RE = re.compile(r"^\s*>?\s*DECISION:\s*(.*?)\s*$")
+# The optional `[-*+]` LIST BULLET is load-bearing, not cosmetic (task 45). A
+# marker written as a list item — `- > LEARNED: ...`, which is how they are often
+# written inside a worklog's bulleted section — must still be SEEN by the
+# completion gate. Without it the scanner reports zero unpromoted markers and the
+# promise goes through: the gate FAILS OPEN, and an unpromoted learning is
+# silently lost rather than blocking. Restored to the monolith's form.
+LEARNED_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*LEARNED:\s*(.*?)\s*$")
+DECISION_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*DECISION:\s*(.*?)\s*$")
 
 # Explicit, deterministic promotion reference on a marker line. The canonical
 # form is `(Promoted: <id>)`; the bracketed `[promoted -> <id>]` form is the

@@ -282,6 +282,15 @@ _KB_WRITER_TARGETS = (
     ("agentware_lib.ops.planauthor.planstate", "cmd_plan_set_state"),
     ("agentware_lib.ops.planauthor.planstate", "cmd_plan_claim"),
     ("agentware_lib.features.migratecmd", "cmd_plan_state_backfill"),
+    # task 45 — the `prefer` writers. `prefer` is in _KB_WRITER_VERBS, so the
+    # interlock's correspondence check requires a row per DISPATCHED handler.
+    # cmd_prefer is registered even though it is largely sugar over cmd_learn:
+    # the predispatch gate keys on the DISPATCHED func, so a cmd_prefer that
+    # delegates in-process would otherwise be UNGUARDED on a newer/migrated KB.
+    ("agentware_lib.ops.prefercmd", "cmd_prefer"),
+    ("agentware_lib.ops.prefercmd", "cmd_prefer_mine"),
+    ("agentware_lib.ops.preferdispose", "cmd_prefer_approve"),
+    ("agentware_lib.ops.preferdispose", "cmd_prefer_reject"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the
@@ -296,6 +305,12 @@ _KB_AUTOAPPLY_EXCLUDED_TARGETS = (
     # performs 001's work on an already-migrated KB. Version-REFUSAL still applies
     # (it stays in _KB_WRITER_TARGETS above); only the auto-apply is withheld.
     ("agentware_lib.features.migratecmd", "cmd_plan_state_backfill"),
+    # task 45 — `cmd_prefer` is DUAL-MODE: digest / list / scan-queue are
+    # read-only and run at SESSION START, so auto-applying migrations from them
+    # would let a read silently advance the KB `.schema` on every session.
+    # Version-REFUSAL still applies (it stays in _KB_WRITER_TARGETS above);
+    # only the auto-apply is withheld.
+    ("agentware_lib.ops.prefercmd", "cmd_prefer"),
 )
 
 

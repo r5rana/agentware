@@ -7,15 +7,15 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 332,
-  "lib": 407,
+  "legacy": 297,
+  "lib": 442,
   "legacy_only": 248,
   "shared": 208,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 124,
-  "undecided_max": 8
+  "unresolved_max": 89,
+  "undecided_max": 6
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   140
+   151
   ]
  },
  "legacy_only": [
@@ -553,8 +553,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "MINER_CMD_TOOLS",
@@ -562,8 +565,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "MINER_CMD_WRAPPERS",
@@ -571,8 +577,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "MINER_EMITTED_CAP",
@@ -580,8 +589,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_ERRREC_DEDUP",
@@ -589,8 +601,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "MINER_ERRREC_DEDUP_KEY",
@@ -598,8 +613,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "MINER_PATH_TOOLS",
@@ -607,8 +625,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_CUE_REQUIRED",
@@ -676,8 +697,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_RECURRENCE_STOPWORDS",
@@ -709,8 +733,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_SOURCE_SESSIONS_CAP",
@@ -718,8 +745,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_STATE_REL",
@@ -727,8 +757,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_TALLY_CAP",
@@ -736,8 +769,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_TRANSCRIPT_MAXLEN",
@@ -745,8 +781,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_TRANSCRIPT_ROOT_REL",
@@ -754,8 +793,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MINER_TRANSCRIPT_TRUNC_MARKER",
@@ -763,8 +805,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "MIN_FROZEN_CYCLES",
@@ -856,8 +901,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferclassify.py"
+   ]
   },
   {
    "name": "PREFER_QUEUE_ARCHIVE_REL",
@@ -865,8 +913,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferqueue.py"
+   ]
   },
   {
    "name": "PREFER_QUEUE_CURSOR_REL",
@@ -874,8 +925,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferqueue.py"
+   ]
   },
   {
    "name": "PREFER_QUEUE_MINER_PRODUCER",
@@ -883,8 +937,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerstate.py"
+   ]
   },
   {
    "name": "PREFER_QUEUE_PRODUCER",
@@ -892,8 +949,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferqueue.py"
+   ]
   },
   {
    "name": "PREFER_QUEUE_REL",
@@ -901,8 +961,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferqueue.py"
+   ]
   },
   {
    "name": "REVIEW_AGENT_TIMEOUT",
@@ -2107,8 +2170,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferqueue.py"
+   ]
   },
   {
    "name": "_PREFER_QUEUE_CAP",
@@ -2116,8 +2182,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferqueue.py"
+   ]
   },
   {
    "name": "_PREFER_QUEUE_RE",
@@ -2137,8 +2206,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefercmd.py"
+   ]
   },
   {
    "name": "_PREFER_REVIEW_TEXT_PREVIEW",
@@ -2146,8 +2218,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/prefercmd.py"
+   ]
   },
   {
    "name": "_PREF_CUE_RE",
@@ -2155,8 +2230,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferadmit.py"
+   ]
   },
   {
    "name": "_PREF_DIGEST_CHAR_BUDGET",
@@ -2164,8 +2242,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferdigest.py"
+   ]
   },
   {
    "name": "_PREF_DIGEST_MAX",
@@ -2173,8 +2254,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferdigest.py"
+   ]
   },
   {
    "name": "_PREF_GATE_MADE_OPTIONAL_RE",
@@ -2302,8 +2386,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferadmit.py"
+   ]
   },
   {
    "name": "_PREF_NEG",
@@ -2359,8 +2446,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferadmit.py"
+   ]
   },
   {
    "name": "_PREF_STATEMENT_QUESTION_RE",
@@ -2368,8 +2458,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferadmit.py"
+   ]
   },
   {
    "name": "_PREF_STRONG_CUE_RE",
@@ -2377,8 +2470,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/preferadmit.py"
+   ]
   },
   {
    "name": "_PREMISE_CHECK_KINDS",
@@ -2578,8 +2674,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "_TRANSCRIPT_ERR_MSG_RE",
@@ -2587,8 +2686,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minererrors.py"
+   ]
   },
   {
    "name": "_TRANSCRIPT_JSON_OBJ_RE",
@@ -2596,8 +2698,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/sessionparse/minerextract.py"
+   ]
   },
   {
    "name": "_WORKORDER_SLUG_RE",
@@ -2664,7 +2769,7 @@
   {
    "name": "DECISION_RE",
    "legacy_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
-   "lib_literal": "re.compile('^\\\\s*>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
+   "lib_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -2675,8 +2780,7 @@
    "rationale": "same list-bullet prefix as LEARNED_RE, on the R-AUTO-05 side: a bulleted `> DECISION:` would stop blocking.",
    "decision": "legacy",
    "decided_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')",
-   "landed": false,
-   "pending_literal": "re.compile('^\\\\s*>?\\\\s*DECISION:\\\\s*(.*?)\\\\s*$')"
+   "landed": true
   },
   {
    "name": "DREAM_STEP_FUNCS",
@@ -2760,7 +2864,7 @@
   {
    "name": "LEARNED_RE",
    "legacy_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
-   "lib_literal": "re.compile('^\\\\s*>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
+   "lib_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -2771,8 +2875,7 @@
    "rationale": "the donor regex drops the `(?:[-*+]\\s+)?` list-bullet prefix, so a marker written as a markdown bullet stops matching -- the R-SI-03 direction that fails OPEN, letting an unpromoted learning through the completion promise.",
    "decision": "legacy",
    "decided_literal": "re.compile('^\\\\s*(?:[-*+]\\\\s+)?>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')",
-   "landed": false,
-   "pending_literal": "re.compile('^\\\\s*>?\\\\s*LEARNED:\\\\s*(.*?)\\\\s*$')"
+   "landed": true
   },
   {
    "name": "PROMOTED_RE",

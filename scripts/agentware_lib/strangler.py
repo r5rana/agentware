@@ -109,6 +109,14 @@ PORTED_VERBS = frozenset({
     # no _KB_WRITER_TARGETS row is required here. The guard sits at the writer,
     # not at every caller of one.
     "checkup",
+    # task 45 — the steering-capture family and its offline transcript miner.
+    # `prefer` IS a KB writer (capture writes an entry and mutates index.json),
+    # and it is already listed in _KB_WRITER_VERBS, so its handlers need
+    # _KB_WRITER_TARGETS rows in this same commit or they dispatch past the
+    # older-CLI schema refusal. cmd_prefer is registered because the predispatch
+    # gate keys on the DISPATCHED func — a cmd_prefer that delegates in-process
+    # to cmd_learn would otherwise be UNGUARDED.
+    "prefer",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

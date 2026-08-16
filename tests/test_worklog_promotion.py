@@ -343,5 +343,48 @@ class Task2MarkerFormsTestCase(_PromotionKB):
         self.assertEqual(mod.promoted_ids("y [kb: decide-baz]"), ["decide-baz"])
 
 
+class MarkerBulletFormTestCase(_PromotionKB):
+    """A LIST-BULLETED marker must still BLOCK the completion gate.
+
+    Regression guard for task 45. The lib's regexes had dropped the monolith's
+    optional `[-*+]` bullet prefix, so a marker written as a list item — the
+    natural form inside a worklog's bulleted section — did not match. The scanner
+    then reported zero unpromoted markers and the promise went through: the gate
+    FAILED OPEN and an unpromoted learning was silently lost.
+
+    Asserted through the real `worklog scan` verb rather than against the regex,
+    so it guards the BEHAVIOUR (does an unpromoted marker block?) and not an
+    implementation detail that could be satisfied while the gate still passes.
+    """
+
+    def test_bulleted_unpromoted_marker_blocks_the_gate(self):
+        for line in ("- > LEARNED: a dash-bulleted discovery",
+                     "* > DECISION: a star-bulleted choice",
+                     "+ LEARNED: a plus bullet with no quote",
+                     "  - > DECISION: an indented bullet"):
+            code, payload = self._scan("# wl\n\n%s\n" % line)
+            self.assertNotEqual(
+                code, 0,
+                "marker form did not block the gate (FAILS OPEN): %r" % line)
+            self.assertTrue(
+                self._unpromoted_texts(payload),
+                "marker form was not even counted: %r" % line)
+
+    def test_bulleted_marker_clears_once_promoted(self):
+        code, payload = self._scan(
+            "# wl\n\n- > LEARNED: warm the cache "
+            "(Promoted: learn-ci-cache-warming)\n")
+        self.assertEqual(code, 0, payload)
+        self.assertFalse(self._unpromoted_texts(payload))
+
+    def test_prose_mentioning_the_word_is_not_a_marker(self):
+        code, payload = self._scan(
+            "# wl\n\nI LEARNED: something in passing\n"
+            "the DECISION: was taken elsewhere\n")
+        self.assertEqual(
+            code, 0,
+            "prose matched as a marker -> the gate would FAIL CLOSED: %s" % payload)
+
+
 if __name__ == "__main__":
     unittest.main()

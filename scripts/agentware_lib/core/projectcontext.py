@@ -48,6 +48,7 @@ can run forever (the walk terminates at the filesystem root, which
 `os.path.dirname` reaches in a bounded number of steps), and nothing here writes.
 """
 
+from agentware_lib.knowledge.curation import _slugify
 import os
 
 from . import orgidentity
@@ -150,3 +151,61 @@ _EXPORTS = [
     "_resolve_context",
     "whereami_payload",
 ]
+
+# --- project KEY canonicalisation (feature 260813 task 45) -------------------
+# The capture path scopes every preference to a project, so it needs ONE answer
+# to 'which project is this?' and ONE canonical spelling of that answer. Both
+# live here beside the marker-driven resolver rather than inside the prefer
+# family: a second notion of the project key would silently split a project's
+# captured preferences into two buckets that never see each other.
+
+def _canonical_project_key(kdir, project_name):
+    """Map a checkout signal to the canonical KB project slug, or None.
+
+    Input is the `whereami` project_name / directory basename (repo_root is
+    intentionally NOT used: index.json carries no structured checkout-path field,
+    so a repo_root lookup is not deterministically implementable). The KB project
+    lives at `projects/<slug>/` with entry id `project-<slug>`; the canonical key
+    is that `<slug>`.
+
+    Predicate is EXACT equality: `_slugify(project_name)` must equal an existing
+    `projects/<slug>/` directory name (case-sensitive, iterated so a
+    case-insensitive filesystem cannot widen the match). There is deliberately NO
+    prefix / substring / fuzzy fallback — a sibling-prefix checkout (`foo` vs slug
+    `foo-bar`) does NOT match. When there is no project signal, no projects dir,
+    or no exact match, return None meaning GLOBAL / unscoped, so a capture is
+    never silently mis-scoped (e.g. never defaulted to `agentware`).
+
+    Pure read-only lookup over the KB projects registry: no writes, no
+    schema-guard impact. This is the single canonical key shared by the capture
+    verb and the session-start preference filter.
+    """
+    if not kdir or not project_name or not str(project_name).strip():
+        return None
+    slug = _slugify(project_name)
+    if not slug:
+        return None
+    projects_dir = os.path.join(kdir, "projects")
+    if not os.path.isdir(projects_dir):
+        return None
+    for name in sorted(os.listdir(projects_dir)):
+        if name == slug and os.path.isdir(os.path.join(projects_dir, name)):
+            return slug
+    return None
+
+
+def _current_project_signal():
+    """The checkout's project_name for the Task-1 normalizer, or None.
+
+    SYMMETRY with injection (Task 5, audit LOW / Q4): resolve ONLY from
+    AGENTWARE_INVOKED_FROM. When it is UNSET, return None (GLOBAL) — the SAME as
+    the session-start injection resolver, which passes an empty `--project` (global)
+    when the var is unset. The old `os.getcwd()` fallback project-scoped a
+    plain-session capture while injection treated that same session as global, so
+    the pref was captured yet NEVER surfaced (silent mis-scope). Unset now means
+    GLOBAL on BOTH sides."""
+    start = os.environ.get("AGENTWARE_INVOKED_FROM")
+    if not start:
+        return None
+    return _resolve_context(start).get("project_name") or None
+

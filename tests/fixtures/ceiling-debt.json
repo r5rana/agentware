@@ -390,6 +390,102 @@
           "value": 21
         }
       ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "Pre-existing per-function complexity inherited with the PREFER steering-capture family and its offline transcript miner, moved into the lib at task 45 as a PURE MOVE (107 bodies byte-identical). None of these functions got worse: every one was already over the per-function caps in the monolith, where the caps are not enforced, and porting them is what made the existing complexity visible to the gate. Splitting eighteen dense, behaviour-critical functions — the queue scanner, the error reconciler, the two mining passes, the capture write — in the SAME commit that moves them would put a large behavioural risk into one change, which is exactly what this ratchet exists to prevent: a pure move can be verified byte-for-byte, a simultaneous move-and-split cannot. Plan task 67 'makes modularity permanent ACROSS THE WHOLE TREE ... and adds the per-function line and branch caps', so this residual joins its work-list, measured and named rather than discovered later. The two worst offenders WERE split here where the seam was clean (_prefer_queue_scan 40 -> 27 branches, register_prefer 156 -> 3 registrars), so the declared values are already better than what arrived.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/prefercapture.py::_prefer_capture",
+          "value": 31
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/ops/prefercapture.py::_prefer_capture",
+          "value": 128
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/prefercapture.py::_prefer_delete_entry",
+          "value": 18
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/prefercapture.py::_prefer_workorder_candidate",
+          "value": 17
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/preferclassify.py::_prefer_classify_drain",
+          "value": 24
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/ops/preferclassify.py::_prefer_classify_drain",
+          "value": 125
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/preferclassify.py::_render_prefer_classify_report",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/prefercmd.py::cmd_prefer_review",
+          "value": 24
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/preferdispose.py::cmd_prefer_approve",
+          "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/preferdispose.py::cmd_prefer_reject",
+          "value": 20
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/preferqueue.py::_prefer_queue_scan",
+          "value": 27
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/preferqueue.py::_prefer_seed_cursor",
+          "value": 13
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minererrors.py::_transcript_err_target_class",
+          "value": 19
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minererrors.py::_transcript_reconcile_errors",
+          "value": 32
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minerscan.py::_transcript_mine",
+          "value": 16
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minerscan.py::_transcript_mine_error_recovery",
+          "value": 17
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minerscan.py::_transcript_mine_read",
+          "value": 30
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minerscan.py::_transcript_mine_recurrence",
+          "value": 20
+        }
+      ]
     }
   ]
 }
