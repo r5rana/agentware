@@ -132,6 +132,14 @@ PORTED_VERBS = frozenset({
     # per-subverb flag exactly; a scheduler that spawns real agents against a real
     # repository is the last verb whose surface should be taken on trust.
     "graph",
+    # task 52 — the DONOR-ONLY verb wave. These six exist ONLY in the modular
+    # core: the preserved monolith has no handler for any of them, so under
+    # LEGACY-DEFAULT routing every one of them was DEAD — `agentware fleet --help`
+    # exited nonzero, because the router sent it to a tree that has never heard of
+    # the verb. Adding a row here is not a promotion, it IS the capability. Each
+    # was proven to reproduce its COMPLETE union node — every subverb and every
+    # flag, at every level — before its row was written.
+    "org",          # org lint O1..O13 (a true no-op on a flat install)
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
