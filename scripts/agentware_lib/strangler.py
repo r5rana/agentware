@@ -117,6 +117,16 @@ PORTED_VERBS = frozenset({
     # gate keys on the DISPATCHED func — a cmd_prefer that delegates in-process
     # to cmd_learn would otherwise be UNGUARDED.
     "prefer",
+    # task 47 — the adversarial review gate: THREE verbs promoted together
+    # (`review` / `remediate` / `review-report`). They are one subsystem sharing
+    # one vocabulary, and promoting them apart would put the finding schema on
+    # both sides of the router at once — a gate whose two halves disagree about
+    # which severities BLOCK fails by PASSING, which is the one failure mode a
+    # review gate may not have. Each registrar was proven to reproduce the
+    # monolith's flag set exactly before this row was written.
+    "review",
+    "remediate",
+    "review-report",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

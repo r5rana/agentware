@@ -512,6 +512,37 @@
           "value": 23
         }
       ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "The adversarial review gate, ported by task 47. Every branch count below was MEASURED against the pre-port monolith and is IDENTICAL there (normalize 20, run_audit 26/139, run_remediation 20, render_report 31) — the move added not one branch, and the byte-identical bodies let that be checked mechanically rather than asserted. These four are also the four functions where a decomposition is most likely to introduce the one bug this subsystem may not have. `_review_run_audit` (26) sequences review -> verify -> criticize and its branches ARE the degradation paths — every one of them turns a reviewer that crashed into a REPORTED failure rather than a silent zero, and the whole danger of a review gate is reporting clean when it did not review. `_review_normalize_finding` (20) is the trust boundary over language-model output: each branch coerces one untrusted field into a closed set, and a helper-per-field would scatter that boundary across a file. `_review_render_report` (31) is a renderer whose branches are presentation cases, and the botched decomposition of the checkup renderer under task 44 is the recorded precedent for what splitting one of these blind costs. `_review_run_remediation` (20) is the fixer loop whose branches are the accept/reject outcomes of the gate chain. Owned by task 67 with the rest.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/reviewaudit.py::_review_run_audit",
+          "value": 26
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/ops/reviewaudit.py::_review_run_audit",
+          "value": 139
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/reviewremediate.py::_review_run_remediation",
+          "value": 20
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/reviewreport.py::_review_render_report",
+          "value": 31
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/reviewschema.py::_review_normalize_finding",
+          "value": 20
+        }
+      ]
     }
   ]
 }

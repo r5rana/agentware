@@ -84,6 +84,16 @@ _PARSER_REGISTRATION = (
     ("checkup", "agentware_lib.ops.checkupcmd", "register_checkup"),
     # task 45 — the steering-capture family + its offline transcript miner.
     ("prefer", "agentware_lib.ops.prefercmd", "register_prefer"),
+    # task 47 — the adversarial review gate. THREE verbs, one subsystem, split by
+    # what each does with a finding: `review` PRODUCES findings (fan-out, verify,
+    # criticize), `remediate` ACTS on the confirmed ones behind a regression gate
+    # chain, and `review-report` CONSOLIDATES rounds into the artifact a human
+    # reads. They register from three modules because they are three verbs; they
+    # share one vocabulary (ops.reviewschema) because a gate whose halves disagree
+    # about "blocking" fails by passing.
+    ("review", "agentware_lib.ops.reviewaudit", "register_review"),
+    ("remediate", "agentware_lib.ops.reviewremediate", "register_remediate"),
+    ("review-report", "agentware_lib.ops.reviewreport", "register_review_report"),
 )
 
 __all__ = ["_PARSER_REGISTRATION"]

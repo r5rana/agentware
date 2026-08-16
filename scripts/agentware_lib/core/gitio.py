@@ -74,12 +74,22 @@ def _git(target, *args, **kwargs):
     Captures stdout/stderr as text. If the `git` binary is absent the
     FileNotFoundError is surfaced as a synthetic returncode 127 so callers can
     degrade to local-only (C-4) without crashing.
+
+    TOLERANT decode (errors='replace'): git emits raw file bytes verbatim —
+    `git diff` over a file with a single non-UTF-8 byte (latin-1 0xE9/0xFF;
+    no NUL, so git still diffs it as text) yields non-UTF-8 output, and
+    text-mode's STRICT default decode raises UnicodeDecodeError inside
+    communicate(). For the adversarial-review gate that crash fired on the
+    gate's PRIMARY untrusted input (`_review_resolve_diff` on the diff under
+    audit) BEFORE the audit started — exit 1 with a traceback, which the bash
+    gate misread as 'confirmed blocking findings'. Undecodable bytes now
+    degrade to U+FFFD instead, for every `_git` caller.
     """
     cmd = ["git", "-C", target] + [str(a) for a in args]
     try:
         return subprocess.run(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, check=False, **kwargs)
+            text=True, errors="replace", check=False, **kwargs)
     except FileNotFoundError:
         return subprocess.CompletedProcess(cmd, 127, "", "git: command not found")
 

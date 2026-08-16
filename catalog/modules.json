@@ -3682,6 +3682,189 @@
     },
     {
       "anchor_symbols": [
+        "_review_print_text",
+        "_review_resolve_diff",
+        "_review_run_audit",
+        "cmd_review",
+        "register_review"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.reviewremediate"
+      ],
+      "dependency_direction": "ops -> ops, ops -> features, ops -> core",
+      "depends_on": [
+        "agentware_lib.ops.reviewschema",
+        "agentware_lib.ops.reviewconfig",
+        "agentware_lib.ops.reviewprompts",
+        "agentware_lib.ops.reviewdiag",
+        "agentware_lib.features.reviewagent",
+        "agentware_lib.core.gitio"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewaudit",
+      "not_owns": "the vocabulary (agentware_lib.ops.reviewschema); the config axes and skip ledger (agentware_lib.ops.reviewconfig); the prompts (agentware_lib.ops.reviewprompts); the degradation diagnostics (agentware_lib.ops.reviewdiag); the remediation loop (agentware_lib.ops.reviewremediate); the report (agentware_lib.ops.reviewreport);",
+      "owns": "the round driver that fans reviewers out across dimensions, verifies each finding and runs the coverage critic, plus the diff resolver, the text renderer and the `review` handler and registrar. Three stages, separate on purpose: FAN OUT one reviewer per dimension (narrow scopes, since a reviewer told to find everything reports the first obvious thing); VERIFY each finding with an agent whose job is to REFUTE it, the stage that earns the gate its name, because without it the output is a list of plausible claims and a plausible-but-wrong finding is worse than silence; CRITICIZE the coverage, since the reviewers' blind spots are correlated and completeness needs its own pass. Collapsing any two produces a gate that agrees with itself. `_review_resolve_diff` returns None (not '') when git FAILS, because a swallowed git failure once let the audit run over an empty diff and stamp an un-audited self-extension green.",
+      "path": "scripts/agentware_lib/ops/reviewaudit.py",
+      "test_file": "tests/test_review_orchestrator.py"
+    },
+    {
+      "anchor_symbols": [
+        "REVIEW_DEFAULT_EFFORT",
+        "REVIEW_DEFAULT_MODEL",
+        "REVIEW_EFFORT_RANK",
+        "REVIEW_MODEL_RANK",
+        "REVIEW_SKIP_ENV",
+        "_review_axis_downgraded",
+        "_review_record_skip",
+        "_review_resolve_config"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.reviewprompts",
+        "agentware_lib.ops.reviewaudit",
+        "agentware_lib.ops.reviewremediate",
+        "agentware_lib.ops.reviewreport"
+      ],
+      "dependency_direction": "ops -> ops",
+      "depends_on": [
+        "agentware_lib.ops.reviewschema",
+        "agentware_lib.ops.sessionparse.minerfolds"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewconfig",
+      "not_owns": "the finding vocabulary (agentware_lib.ops.reviewschema); prompt text (agentware_lib.ops.reviewprompts); the fan-out (agentware_lib.ops.reviewaudit); spawn timeouts (agentware_lib.features.reviewagent);",
+      "owns": "the three tunable axes and their defaults, the env resolution, the axis RANKINGS with the downgrade detector and its warnings, and the skip escape hatch with its audit trail. A downgrade is WARNED about rather than refused: an adversarial review run by a weaker reviewer is not a cheaper review, it is one that finds less and reports the same 'clean' -- but refusing outright would push people to skip the gate entirely, which is strictly worse than a downgraded run they can see in the log. That is why the ranks are ordered data rather than a boolean: the question is not 'different from the default' but 'WEAKER than it'. Skipping is likewise recorded INTO THE WORKLOG with its reason, because an escape hatch that leaves no trace is indistinguishable from a gate that never ran.",
+      "path": "scripts/agentware_lib/ops/reviewconfig.py",
+      "test_file": "tests/test_review_config.py"
+    },
+    {
+      "anchor_symbols": [
+        "_review_emit_malformed_items_diagnostic",
+        "_review_emit_soft_fail_diagnostic",
+        "_review_malformed_items_diagnostic",
+        "_review_soft_fail_diagnostic",
+        "_review_stderr_tail"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.reviewaudit",
+        "agentware_lib.ops.reviewremediate"
+      ],
+      "dependency_direction": "ops -> features",
+      "depends_on": [
+        "agentware_lib.features.reviewoutput"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewdiag",
+      "not_owns": "the normalization that DECIDES an item is malformed (agentware_lib.ops.reviewschema); spawn-failure classification (agentware_lib.features.reviewagent); the fan-out that calls these (agentware_lib.ops.reviewaudit);",
+      "owns": "the two diagnostics that make a DEGRADED review round visible: the soft-fail report for a reviewer whose output was unusable, and the dropped-item report for one whose output was partly unusable. A review gate has exactly one dangerous failure mode -- reporting 'no findings' when it failed to review -- and every path here converts a silent zero into a loud one. A crashed reviewer contributes zero findings, identical at the call site to one that found nothing wrong; the diagnostic names the role, the exit class and a bounded stderr tail so the round reads as degraded. The gate SOFT-fails rather than aborting so one broken reviewer does not discard the others' findings, and that trade is only safe because the degradation is reported.",
+      "path": "scripts/agentware_lib/ops/reviewdiag.py",
+      "test_file": "tests/test_review_orchestrator.py"
+    },
+    {
+      "anchor_symbols": [
+        "_review_build_critic_prompt",
+        "_review_build_fixer_prompt",
+        "_review_build_reviewer_prompt",
+        "_review_build_verify_prompt",
+        "_review_effort_preamble"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.reviewaudit",
+        "agentware_lib.ops.reviewremediate"
+      ],
+      "dependency_direction": "ops -> ops, ops -> features",
+      "depends_on": [
+        "agentware_lib.ops.reviewschema",
+        "agentware_lib.ops.reviewconfig",
+        "agentware_lib.features.reviewoutput"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewprompts",
+      "not_owns": "the dimensions and severities the prompts quote (agentware_lib.ops.reviewschema); the model and effort axes (agentware_lib.ops.reviewconfig); the spawning itself (agentware_lib.features.reviewagent); the fan-out (agentware_lib.ops.reviewaudit);",
+      "owns": "the effort preamble and the four prompts the gate spawns agents with. They are four separate builders rather than one parameterized template because they ask for OPPOSITE things, and blurring them is what produces an agreeable review: the REVIEWER finds problems along one narrow dimension (asked to find everything, it finds the obvious thing and stops); the VERIFIER tries to REFUTE a specific finding, and must default to skepticism, since a verifier that merely re-reads will confirm, and a confirmed wrong finding gets acted on; the CRITIC says what is MISSING, the only prompt that can grow the audit, because the reviewers' blind spots are correlated; the FIXER repairs findings that already survived verification. The diff and the criteria are fenced before interpolation -- a diff is attacker-influenced text, and a prompt that pastes it raw can be told to report no findings.",
+      "path": "scripts/agentware_lib/ops/reviewprompts.py",
+      "test_file": "tests/test_review_orchestrator.py"
+    },
+    {
+      "anchor_symbols": [
+        "_review_load_findings",
+        "_review_run_gate_chain",
+        "_review_run_remediation",
+        "_review_subprocess_rc",
+        "_review_test_module",
+        "cmd_remediate",
+        "register_remediate"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> ops, ops -> features, ops -> core",
+      "depends_on": [
+        "agentware_lib.ops.reviewschema",
+        "agentware_lib.ops.reviewconfig",
+        "agentware_lib.ops.reviewprompts",
+        "agentware_lib.ops.reviewaudit",
+        "agentware_lib.features.reviewagent"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewremediate",
+      "not_owns": "the fix status vocabulary (agentware_lib.ops.reviewschema); the fixer prompt (agentware_lib.ops.reviewprompts); the audit that PRODUCED the findings (agentware_lib.ops.reviewaudit); the report (agentware_lib.ops.reviewreport);",
+      "owns": "the fixer loop, the regression GATE CHAIN and the `remediate` verb. The gate chain is the point: an agent that edits code to satisfy a finding will report success, and that report is worth nothing on its own -- the model has every incentive to believe it fixed the thing and no way to check. The chain re-runs the project's own tests in a SUBPROCESS, and the chain's exit code, not the agent's claim, decides whether a fix is accepted. It runs under a timeout, so a fix that hangs the suite fails the gate instead of hanging the remediation. Findings arrive VERIFIED, never raw: fixing a plausible-but-refuted finding means editing working code to satisfy a claim already shown to be wrong.",
+      "path": "scripts/agentware_lib/ops/reviewremediate.py",
+      "test_file": "tests/test_remediate.py"
+    },
+    {
+      "anchor_symbols": [
+        "REVIEW_REPORT_REL",
+        "_review_append_worklog_callout",
+        "_review_collect_findings",
+        "_review_emit_low_workorder",
+        "_review_low_findings",
+        "_review_material_findings",
+        "_review_render_report",
+        "cmd_review_report",
+        "register_review_report"
+      ],
+      "depended_on_by": [],
+      "dependency_direction": "ops -> ops, ops -> core, ops -> knowledge, ops -> features",
+      "depends_on": [
+        "agentware_lib.ops.reviewschema",
+        "agentware_lib.ops.reviewconfig",
+        "agentware_lib.ops.planauthor.plannew",
+        "agentware_lib.knowledge.curation"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewreport",
+      "not_owns": "the vocabulary (agentware_lib.ops.reviewschema); the audit that produces rounds (agentware_lib.ops.reviewaudit); remediation (agentware_lib.ops.reviewremediate); the workorder emitter it calls (agentware_lib.ops.planauthor.plannew);",
+      "owns": "the review REPORT, the worklog callout, the low-severity workorder emitter and the `review-report` verb. Material and low findings are split deliberately: material findings GATE, low findings become a tier-2 PROPOSED workorder a human triages later. Collapsing the two would force a choice between a gate that cries wolf and one that silently drops real findings, and both end the same way -- with the gate turned off. Dedup is across ROUNDS and keys on the finding's identity rather than its prose, so the same defect surfaced by two dimensions counts once; without that a multi-round audit inflates its own count every round. The report records the model and effort each round ran at, because a clean report from a downgraded reviewer and one from a pinned reviewer are not the same evidence, and the report is all that survives.",
+      "path": "scripts/agentware_lib/ops/reviewreport.py",
+      "test_file": "tests/test_review_report.py"
+    },
+    {
+      "anchor_symbols": [
+        "REVIEW_BLOCKING_SEVERITIES",
+        "REVIEW_DIMENSIONS",
+        "REVIEW_SEVERITIES",
+        "REVIEW_VERDICTS",
+        "_review_is_blocking",
+        "_review_normalize_finding",
+        "_review_normalize_fix"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.reviewconfig",
+        "agentware_lib.ops.reviewprompts",
+        "agentware_lib.ops.reviewaudit",
+        "agentware_lib.ops.reviewremediate",
+        "agentware_lib.ops.reviewreport"
+      ],
+      "dependency_direction": "ops -> stdlib only",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.reviewschema",
+      "not_owns": "the config axes (agentware_lib.ops.reviewconfig); the prompts (agentware_lib.ops.reviewprompts); the fan-out (agentware_lib.ops.reviewaudit); agent spawning (agentware_lib.features.reviewagent);",
+      "owns": "every closed set the review subsystem agrees on -- the severity ladder and which rungs BLOCK, the verifier verdicts, the audit dimensions and their lookup, the finding field contract, the fix statuses -- plus the two normalizers that force untrusted agent output into those sets. It is its own module because everything downstream has to agree on what 'blocking' means, and a gate whose two halves disagree about that fails in the worst possible direction: it PASSES. Normalization here is a trust boundary, not a convenience: an unrecognized severity, dimension or verdict is coerced or the item is dropped AND COUNTED, so a reviewer returning garbage surfaces as dropped items in a diagnostic rather than as a silently empty audit.",
+      "path": "scripts/agentware_lib/ops/reviewschema.py",
+      "test_file": "tests/test_review_config.py"
+    },
+    {
+      "anchor_symbols": [
         "_transcript_err_signature",
         "_transcript_errrec_key",
         "_transcript_mask_volatile",

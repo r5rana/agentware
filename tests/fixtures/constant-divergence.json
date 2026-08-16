@@ -7,14 +7,14 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 280,
-  "lib": 459,
+  "legacy": 262,
+  "lib": 477,
   "legacy_only": 248,
   "shared": 208,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 72,
+  "unresolved_max": 54,
   "undecided_max": 5
  },
  "multi_literal": {
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   158
+   165
   ]
  },
  "legacy_only": [
@@ -985,8 +985,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_CONTROL_CHARS_RE",
@@ -1006,8 +1009,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_DEFAULT_MAX_ROUNDS",
@@ -1015,8 +1021,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_DEFAULT_MODEL",
@@ -1024,8 +1033,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_DIMENSIONS",
@@ -1033,8 +1045,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_DIMENSIONS_BY_KEY",
@@ -1042,8 +1057,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_DIMENSION_KEYS",
@@ -1051,8 +1069,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_EFFORT_RANK",
@@ -1060,8 +1081,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_FINDING_FIELDS",
@@ -1078,8 +1102,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_FINDING_REQUIRED_FIELDS",
@@ -1087,8 +1114,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_FINDING_SCHEMA",
@@ -1105,8 +1135,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_FIX_STATUSES",
@@ -1114,8 +1147,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_GATE_STEP_NAMES",
@@ -1132,8 +1168,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_PROMPT_ARGV_MAX",
@@ -1153,8 +1192,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewreport.py"
+   ]
   },
   {
    "name": "REVIEW_REVIEWER_PERSONA",
@@ -1174,8 +1216,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_SKIP_ENV",
@@ -1183,8 +1228,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewconfig.py"
+   ]
   },
   {
    "name": "REVIEW_SLEEP",
@@ -1276,8 +1324,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_WORKORDER_GENERATED_BY",
@@ -1285,8 +1336,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewreport.py"
+   ]
   },
   {
    "name": "SCHEMA_REL",
