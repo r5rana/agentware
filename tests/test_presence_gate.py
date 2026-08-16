@@ -179,17 +179,26 @@ class RoutingTests(unittest.TestCase):
     """Present in the parser is not the same as reachable from the CLI.
 
     A donor-only verb also has to be in `strangler.PORTED_VERBS` for the router
-    to send it to the lib. None of the six is yet (task 52), so all six are
-    registered and unreachable today — `agentware team --help` still answers
-    `invalid choice: 'team'`. That is expected, but a gate printing an
-    unqualified OK over it would print the same OK after task 52 if the
-    allowlist append were forgotten or misspelled.
+    to send it to the lib. Before task 52 none of the six was, so all six were
+    registered and unreachable — `agentware team --help` answered `invalid
+    choice: 'team'`. This assertion named that pending state rather than printing
+    an unqualified OK over it, precisely so it could not print the same OK after
+    task 52 if the allowlist append were forgotten or misspelled.
+
+    Task 52 landed all six, so the assertion INVERTS: every donor-only verb must
+    now be allowlisted. It stays a bidirectional claim — a verb dropped from the
+    allowlist reddens here, and so does a donor-only verb added to the union
+    fixture without a routing row, which is the case that would otherwise ship
+    another dead verb.
     """
 
-    def test_the_pending_state_is_NAMED_not_silent(self):
-        self.assertEqual(sorted(DONOR_ONLY),
-                         sorted(v for v in DONOR_ONLY
-                                if v not in pg.ported_verbs()))
+    def test_every_donor_only_verb_is_ROUTED_not_merely_registered(self):
+        missing = sorted(v for v in DONOR_ONLY if v not in pg.ported_verbs())
+        self.assertEqual(missing, [],
+                         "donor-only verb(s) registered but NOT in "
+                         "strangler.PORTED_VERBS: the monolith has no handler "
+                         "for them, so each is DEAD — `--help` exits nonzero: %r"
+                         % (missing,))
 
     def test_an_allowlisted_verb_that_routes_correctly_is_green(self):
         self.assertEqual([], prg.routing_violations("team", {"team"}))

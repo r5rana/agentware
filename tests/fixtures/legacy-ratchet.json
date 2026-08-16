@@ -641,8 +641,11 @@
   "floor": {
     "ported_verbs": [
       "checkup",
+      "fleet",
+      "fleet-emit",
       "graph",
       "migrate",
+      "org",
       "plan",
       "prefer",
       "relate",
@@ -650,9 +653,12 @@
       "remediate",
       "review",
       "review-report",
+      "team",
+      "templates",
       "tick",
       "trust",
-      "update"
+      "update",
+      "work"
     ]
   }
 }

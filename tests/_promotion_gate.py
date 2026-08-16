@@ -227,11 +227,28 @@ def promotion_violations(verb, candidate_nodes, expected_nodes):
 
 
 def arm_for(verb, ported, local_verbs):
+    """Which arm evaluates `verb`.
+
+    DONOR_ONLY is decided FIRST, from whether the monolith serves the verb at
+    all — not from allowlist membership. The two questions look interchangeable
+    while the six donor-only verbs are unrouted, and stop being interchangeable
+    the moment task 52 allowlists them: keyed on `ported` they would silently
+    migrate into the PORTED arm, emptying the donor-only arm and making
+    `test_the_six_donor_only_verbs_get_their_own_arm` a claim about nothing.
+
+    The arms answer different questions. UNPORTED asks "does the CLI still serve
+    what the monolith served?"; PORTED asks "does the lib serve at least what the
+    monolith served, now that the router points at it?"; DONOR_ONLY asks "does
+    the lib serve the full union node?" — and that last question is the SAME
+    before and after routing, because there is no monolith side to compare
+    against. Nothing about the check changes when the row lands; only whether a
+    user can reach it does.
+    """
+    if verb not in local_verbs:
+        return DONOR_ONLY
     if verb in ported:
         return PORTED
-    if verb in local_verbs:
-        return UNPORTED
-    return DONOR_ONLY
+    return UNPORTED
 
 
 def local_verbs_of(local):

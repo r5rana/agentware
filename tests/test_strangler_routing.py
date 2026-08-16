@@ -220,17 +220,30 @@ class UnionSurfaceRoutingTest(unittest.TestCase):
 
     def test_every_UNPORTED_union_verb_still_routes_to_legacy(self):
         # LEGACY-DEFAULT, stated as the invariant it is: everything not written
-        # down in the allowlist falls to the monolith. Including the six
-        # DONOR-ONLY verbs while they are unported — they must reach legacy
-        # (where they do not yet parse) rather than be picked up by a half-built
-        # modular handler. Task 52 ports them.
+        # down in the allowlist falls to the monolith.
         for verb in self.union["top_level_verbs"]:
             if verb in SR.PORTED_VERBS:
                 continue
             self.assertEqual(SR.route([verb]), SR.LEGACY, verb)
+
+    def test_every_DONOR_ONLY_verb_routes_to_the_LIB(self):
+        """Task 52. While these six were unported they routed to legacy — a tree
+        with no handler for any of them — so each was DEAD: `agentware team
+        --help` answered `invalid choice: 'team'`.
+
+        That is why the donor-only set gets its own assertion rather than being
+        folded into the loop above. For a SHARED verb the allowlist row picks
+        between two working implementations, and a missing row merely leaves the
+        old one serving. For these six there is nothing on the other side, so a
+        missing row is not a slower path — it is no path, and the failure is a
+        nonzero exit on `--help` rather than a subtle behavioural difference.
+        """
         for verb in self.union["donor_only_verbs"]:
-            self.assertNotIn(verb, SR.PORTED_VERBS)
-            self.assertEqual(SR.route(["--format", "json", verb]), SR.LEGACY, verb)
+            self.assertIn(verb, SR.PORTED_VERBS,
+                          "%r is donor-only and NOT allowlisted: the monolith "
+                          "has no handler for it, so it is dead" % verb)
+            self.assertEqual(SR.route([verb]), SR.LIB, verb)
+            self.assertEqual(SR.route(["--format", "json", verb]), SR.LIB, verb)
 
 
 class GlobalOptionTableTest(unittest.TestCase):

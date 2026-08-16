@@ -256,21 +256,29 @@ class ValuesNotNamesTests(unittest.TestCase):
 
 
 class BothArmsLiveTests(unittest.TestCase):
+    """The PORTED arm, exercised with a verb the MONOLITH also serves.
+
+    The exemplar is `trust` (local-only, ported at task 40), NOT `team`. `team`
+    is DONOR-ONLY: the monolith has no handler for it, so it belongs to the
+    donor-only arm whether or not it is allowlisted — and using it here would
+    leave the PORTED arm untested while the assertions still passed, since the
+    two arms share a comparator.
+    """
 
     def test_the_PORTED_arm_is_reachable_and_green_for_a_ready_verb(self):
-        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), _live("team"))
+        rows = pg.evaluate(UNION, LOCAL, _lib(), _cli(), _live("trust"))
         arms = {v: arm for v, arm, _ in rows}
-        self.assertEqual(pg.PORTED, arms["team"])
-        self.assertEqual([], dict((v, x) for v, _a, x in rows)["team"])
+        self.assertEqual(pg.PORTED, arms["trust"])
+        self.assertEqual([], dict((v, x) for v, _a, x in rows)["trust"])
 
     def test_the_PORTED_arm_reddens_on_a_lib_regression(self):
         lib = _lib()
-        node = _node(lib, ["team", "create"])
-        node["actions"] = [a for a in node["actions"] if a["dest"] != "name"]
-        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), _live("team"))
+        node = _node(lib, ["trust", "pin"])
+        node["actions"] = [a for a in node["actions"] if a["dest"] != "principal"]
+        rows = pg.evaluate(UNION, LOCAL, lib, _cli(), _live("trust"))
         offenders = [(v, x) for v, _a, x in rows if x]
         self.assertEqual(1, len(offenders))
-        self.assertEqual("team", offenders[0][0])
+        self.assertEqual("trust", offenders[0][0])
 
     def test_the_ported_arm_uses_the_UNION_not_the_local_fixture(self):
         """The union expectation is STRICTER, proven without leaning on a bug.
