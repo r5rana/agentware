@@ -599,6 +599,17 @@
           "value": 18
         }
       ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "The R-RET-03 stage-1 skill pin, restored by task 49 into `retrieval.pinpolicy` so all THREE call sites share one implementation. Measured against the monolith: 22 branches there, 22 here — the move added none. The branch count IS the learnings-eviction guarantee: the naive pin is a two-line pop-and-insert, and everything above that count is the machinery that stops the insert pushing a LEARNING out of the surfaced window to make room for a procedure. R-RET-03 guarantees learnings are always included precisely because they carry prior problems and errors, so silently dropping one at a small top-k is the failure this code exists to prevent — and it is a failure with no visible symptom, since the caller just sees a shorter list it never counted. Decomposing it would spread one guarantee across helpers whose individual correctness says nothing about whether the guarantee holds. Owned by task 67 with the rest of the residual.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/pinpolicy.py::_apply_skill_pin",
+          "value": 22
+        }
+      ]
     }
   ]
 }

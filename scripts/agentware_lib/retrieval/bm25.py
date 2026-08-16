@@ -29,6 +29,11 @@ cache; the SOLE writer is index rebuild. Missing/corrupt/stale cache => graceful
 fallback to the live scan, so correctness never depends on the cache being present.
 """
 
+from agentware_lib.retrieval.pinpolicy import (
+    SKILL_PIN_FLOOR,
+    _apply_skill_pin,
+)
+
 import hashlib
 import json
 import math
@@ -443,6 +448,9 @@ def retrieve_bm25(kdir, data, query, top_k=None):
     scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc
     scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)    # created desc
     scored.sort(key=lambda es: es[1], reverse=True)                         # score desc
+    # Skill pin in the SHARED core so the eval/gate path (evaluate -> retrieve ->
+    # retrieve_bm25) exercises it too (feature 260713-p4). Applied pre-trim.
+    scored = _apply_skill_pin(scored, SKILL_PIN_FLOOR, top_k)
     ids = [e.get("id") for (e, _s) in scored]
     return ids if top_k is None else ids[:top_k]
 

@@ -43,8 +43,9 @@ Read-only w.r.t. the KB and index except the SINGLE emitted
 IDENTITY, not on wall-clock age, so re-running over an unchanged finding set is a
 stable no-op rather than a fresh draft per calendar day.
 
-Layer deps: features -> features (`staleproposal.STALE_MAX_AGE_DAYS`,
-`dreamcapture._dream_capture`), features -> ops (`ops.audit.cmd_audit`).
+Layer deps: features -> features (`dreamcapture._dream_capture`), features ->
+knowledge (`freshsignals.STALE_MAX_AGE_DAYS`, the single stale-window
+definition), features -> ops (`ops.audit.cmd_audit`).
 Faults: never aborts the cycle -- the outer `_run_cycle` per-step try/except is
 the belt.
 """
@@ -53,7 +54,13 @@ import argparse
 import json
 
 from agentware_lib.features.dreamsteps.dreamcapture import _dream_capture
-from agentware_lib.features.staleproposal import STALE_MAX_AGE_DAYS
+# The stale WINDOW comes from its single definition in knowledge, NOT from
+# `features.staleproposal`. Reaching it through the emitter would close a cycle
+# (staleproposal -> dreamsteps.dreamcapture -> the dreamsteps package -> this
+# step -> staleproposal) and, more importantly, would make the step's window a
+# re-export of a re-export instead of the one value `audit`, the trust fields and
+# the ranking downweight all share.
+from agentware_lib.knowledge.freshsignals import STALE_MAX_AGE_DAYS
 from agentware_lib.ops.audit import cmd_audit
 
 

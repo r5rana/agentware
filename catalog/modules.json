@@ -2363,6 +2363,38 @@
     },
     {
       "anchor_symbols": [
+        "STALENESS_STALE_MULT",
+        "STALE_MAX_AGE_DAYS",
+        "SUPERSEDES_RELATION",
+        "VOLATILE_CATEGORIES",
+        "stale_entries",
+        "staleness_factor",
+        "superseded_ids",
+        "trust_signals"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.freshness",
+        "agentware_lib.features.staleproposal",
+        "agentware_lib.retrieval.skillpin",
+        "agentware_lib.retrieval.recallcmd",
+        "agentware_lib.features.dreamsteps.stepstalepropose"
+      ],
+      "dependency_direction": "knowledge -> core, knowledge -> knowledge, knowledge -> retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.knowledge.index",
+        "agentware_lib.knowledge.graph",
+        "agentware_lib.retrieval.acr"
+      ],
+      "layer": "knowledge",
+      "name": "agentware_lib.knowledge.freshsignals",
+      "not_owns": "the duplicate/conflict detector and the advisory report built around these (agentware_lib.ops.freshness); the staleness review PROPOSAL (agentware_lib.features.staleproposal); the ACR prior these ride alongside (agentware_lib.retrieval.acr); the ranking core that applies the downweight (agentware_lib.retrieval.skillpin);",
+      "owns": "the ONE definition of the stale window and everything derived from it: the volatile categories and the stale scan, the declared-supersede edge and its reverse lookup, the read-time trust record, and the RANKING downweight. It sits in knowledge because THREE consumers must agree on the window — `audit --stale` (through ops.freshness), the trust fields on every recall record, and the ranking downweight — and they live in three different layers. A second constant is the failure outright: an entry reported stale by audit but ranked as current by recall is a system whose halves disagree about one fact, and the operator has no way to tell which to believe. The downweight is deliberately separate from the ACR prior, which is GENTLE by design (freshness floored so a still-true OLD fact is never buried) — the right default for a fact that merely aged and the wrong one for a fact that is genuinely stale or superseded. Everything is computed at read time and writes NOTHING (INV-2): no stored stale/trust field, no silent trust rewrite; a proven-wrong learning is demoted by a DECLARED supersede edge plus a flag for review, never an auto-delete.",
+      "path": "scripts/agentware_lib/knowledge/freshsignals.py",
+      "test_file": "tests/test_staleness_downweight.py"
+    },
+    {
+      "anchor_symbols": [
         "_canonical_cycle",
         "build_adjacency",
         "cmd_query",
@@ -4953,6 +4985,24 @@
       "owns": "the exact, hand-computable ranking metrics (recall_at_k / precision_at_k /",
       "path": "scripts/agentware_lib/retrieval/metrics_rank.py",
       "test_file": "tests/unit/retrieval/test_metrics_rank.py"
+    },
+    {
+      "anchor_symbols": [
+        "SKILL_PIN_FLOOR",
+        "_apply_skill_pin"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.skillpin",
+        "agentware_lib.retrieval.bm25"
+      ],
+      "dependency_direction": "no outbound edges",
+      "depends_on": [],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.pinpolicy",
+      "not_owns": "the ranking core that calls it (agentware_lib.retrieval.skillpin); the plain BM25 retriever that also calls it on the eval path (agentware_lib.retrieval.bm25); the ACR prior and the staleness downweight it composes with (agentware_lib.retrieval.acr, agentware_lib.knowledge.freshsignals);",
+      "owns": "the R-RET-03 stage-1 skill pin: the 0.85 threshold and the pin itself, including the learnings-eviction guarantee. Its own module because the pin must run at THREE call sites and two of them cannot import each other — `skillpin.recall_ranked` (plain and bm25+embed branches) and `bm25.retrieve_bm25` (the eval/gate path) — and `skillpin` already imports `bm25`, so homing the pin in either closes a cycle. Extracting it is what lets all three share ONE implementation, which is the point: a pin the interactive path applies and the evaluation path does not is a pin the release gate cannot measure, and an unmeasured ranking change regresses silently. The pin promotes a skill scoring within the floor of the top overall score to position 0 and only then — R-RET-03 says a matched SKILL is a PROCEDURE to follow, and BM25 alone cannot tell a procedure from a fact. Learnings are never evicted: the naive pop-and-insert pushes whatever sat at rank top_k-1 out of the window, and if that is a LEARNING the pin has just hidden the prior problem-and-error context to make room for a procedure — the wrong trade in exactly the situation needing both.",
+      "path": "scripts/agentware_lib/retrieval/pinpolicy.py",
+      "test_file": "tests/test_skill_pin_floor.py"
     },
     {
       "anchor_symbols": [

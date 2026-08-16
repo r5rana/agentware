@@ -51,6 +51,7 @@ import json
 import os
 
 from agentware_lib.features.dreamsteps.dreamcapture import _dream_capture
+from agentware_lib.knowledge.freshsignals import STALE_MAX_AGE_DAYS
 from agentware_lib.ops.freshness import _CONFLICT_JACCARD
 from agentware_lib.ops.planauthor.plannew import (
     WORKORDER_DRAFT_CAP,
@@ -58,11 +59,6 @@ from agentware_lib.ops.planauthor.plannew import (
     cmd_plan_new,
 )
 
-# The default `last_verified` age window, in days, past which a VOLATILE entry is
-# reported stale. Lives here beside its only non-test consumer pair (this module's
-# emitter and the `audit --stale` default) rather than in the read-only detector,
-# which takes the window as a PARAMETER precisely so it never owns a policy value.
-STALE_MAX_AGE_DAYS = 120         # `last_verified` older than this == stale
 
 
 def _stale_report_is_empty(report):

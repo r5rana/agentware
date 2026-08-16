@@ -27,16 +27,37 @@ oracles reach both as CLI.<name>); register_recall is intentionally excluded (im
 Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 import json
+import os
 import sys
 
 import agentware_lib.core.config as config
 import agentware_lib.core.dates as dates
+import agentware_lib.knowledge.freshsignals as _fresh
+from agentware_lib.knowledge.index import entry_last_verified
+from agentware_lib.retrieval.acr import date_age_days
 from agentware_lib.retrieval import bm25 as _bm25
 from agentware_lib.retrieval import corpus as _corpus
 from agentware_lib.retrieval import ledger as _ledger
 from agentware_lib.retrieval import skillpin as _skillpin
 
-def build_recall_payload(kdir, data, query, top_k=5, token_budget=10000,
+def _freshness_fields(entry, kdir, as_of):
+    """The 4 self-defending point-in-time fields (R-FAIL-08) for a recall/query
+    result: abs_path (the entry's relative path anchored to the LIVE knowledge
+    dir), created, last_verified (back-compat: == created when absent, via
+    entry_last_verified), and age_days (whole days from last_verified to as_of;
+    None when the date is unknown/invalid). Pure + read-only — computes, never
+    mutates."""
+    rel = entry.get("path") or ""
+    lv = entry_last_verified(entry)
+    return {
+        "abs_path": os.path.join(kdir, rel) if rel else None,
+        "created": entry.get("created"),
+        "last_verified": lv,
+        "age_days": date_age_days(lv, as_of),
+    }
+
+
+def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
                          category=None, strategy=None, as_of=None,
                          team=None, all_teams=False, include_shared=False,
                          team_scope=None):
@@ -73,6 +94,12 @@ def build_recall_payload(kdir, data, query, top_k=5, token_budget=10000,
         scoped_data["entries"] = scoped_entries
     ranked = _skillpin.recall_ranked(kdir, scoped_data, query, top_k=top_k,
                            category=category, strategy=resolved, as_of=as_of)
+    # Trust surface (feature 260713-p3-trust-staleness): computed ONCE per
+    # payload — `_freshness_fields` has no index access, and the supersede
+    # reverse-map + stale window are whole-index facts, so re-deriving them per
+    # result would re-walk every edge N times. Additive only: merged into each
+    # result record AFTER ranking, so it can never reorder anything.
+    signals = _fresh.trust_signals(data, as_of)
     results = []
     overflow = []
     used = 0
@@ -96,6 +123,10 @@ def build_recall_payload(kdir, data, query, top_k=5, token_budget=10000,
             "summary": entry.get("summary") or "",
             "estimated_tokens": cost,
         }
+        rec.update(_freshness_fields(entry, kdir, as_of))
+        # Results only — `overflow` stays pointers-only by contract (id/path/
+        # category/score/estimated_tokens; never a body, never a judgment).
+        rec.update(_fresh._trust_record(signals, entry.get("id")))
         # Org provenance (additive keys only — recall payload schema stays a
         # superset; INV recall-payload-stability). Emitted only when present so a
         # flat-KB payload is byte-identical to today.
@@ -268,9 +299,15 @@ def register_recall(sub, fmt_parent):
     p_recall.add_argument("query", help="free-text query to rank KB entries against")
     p_recall.add_argument("--top-k", type=int, default=5, dest="top_k",
                           help="max entries to return before budgeting (default: 5)")
-    p_recall.add_argument("--token-budget", type=int, default=10000,
+    # 1500, NOT the donor's 10000 (surface-union adjudication, winner: local).
+    # The retrieval ladder is TWO stages: R-RET-03 runs stage 1 at top-5 /
+    # budget-1500, and R-RET-04 WIDENS to top-10 / budget-3000 when stage 1 is
+    # insufficient. A 10000 default collapses that — stage 1 already returns more
+    # than the widened stage would, so the escalation stops meaning anything and
+    # every recall pays the widened context cost whether it needed it or not.
+    p_recall.add_argument("--token-budget", type=int, default=1500,
                           dest="token_budget",
-                          help="trim so cumulative est. tokens <= budget (default: 10000)")
+                          help="trim so cumulative est. tokens <= budget (default: 1500)")
     p_recall.add_argument("--category", default=None,
                           help="restrict ranking to a single category")
     p_recall.add_argument("--strategy", choices=("bm25", "bm25+acr"),

@@ -38,47 +38,19 @@ Fan-in: 4 (modules that import this; see catalog/modules.json depended_on_by; re
 import agentware_lib.core.dates as dates
 import agentware_lib.knowledge.index as index
 import agentware_lib.retrieval.corpus as _corpus
-
-
-# --- Freshness & conflict detection (Phase 2.2) ------------------------------
-# "Volatile" categories whose facts decay (R-FAIL-08): treat a point-in-time
-# value as suspect once its last_verified is older than the staleness window.
-VOLATILE_CATEGORIES = ("learnings", "configurations")
+# The stale WINDOW and its scan live one layer down, in knowledge, because three
+# consumers must agree on them: `audit --stale` (here), the read-time trust
+# fields on every recall record, and the ranking downweight. A second constant is
+# the failure outright — an entry reported stale by audit but ranked as current
+# by recall is a system whose halves disagree about one fact.
+from agentware_lib.knowledge.freshsignals import (   # noqa: F401  (re-export)
+    STALE_MAX_AGE_DAYS,
+    VOLATILE_CATEGORIES,
+    stale_entries,
+)
 # Token-set Jaccard at/above this threshold flags a same-category pair as a
 # possible duplicate/conflict. Reporting only; never auto-mutates the KB (INV-2).
 _CONFLICT_JACCARD = 0.6
-
-
-def stale_entries(data, max_age_days, today=None):
-    """Return [(entry, age_days), ...] for volatile-category entries whose
-    effective last_verified is older than max_age_days.
-
-    Deterministic given `today` (defaults to the system date — reporting only,
-    so wall-clock here is fine; INV-1 forbids wall-clock in RANKING, not in this
-    advisory freshness report). Entries with no valid date are skipped. Ordering:
-    oldest first, then id asc. Read-only (INV-2).
-    """
-    import datetime
-    today = today or dates._today()
-    try:
-        today_d = datetime.date.fromisoformat(today)
-    except ValueError:
-        return []
-    out = []
-    for e in data.get("entries") or []:
-        if not isinstance(e, dict):
-            continue
-        if (e.get("category") or "") not in VOLATILE_CATEGORIES:
-            continue
-        lv = index.entry_last_verified(e)
-        if not dates._is_valid_date(lv):
-            continue
-        age = (today_d - datetime.date.fromisoformat(lv)).days
-        if age > max_age_days:
-            out.append((e, age))
-    out.sort(key=lambda ea: ea[0].get("id") or "")          # id asc
-    out.sort(key=lambda ea: ea[1], reverse=True)            # oldest first
-    return out
 
 
 def conflict_pairs(kdir, data, threshold=_CONFLICT_JACCARD):
@@ -157,7 +129,8 @@ def _print_stale_report(report):
 
 
 _EXPORTS = [
-    "VOLATILE_CATEGORIES", "_CONFLICT_JACCARD", "stale_entries", "conflict_pairs",
+    "VOLATILE_CATEGORIES", "STALE_MAX_AGE_DAYS", "_CONFLICT_JACCARD",
+    "stale_entries", "conflict_pairs",
     "build_stale_report", "_print_stale_report",
 ]
 __all__ = list(_EXPORTS)

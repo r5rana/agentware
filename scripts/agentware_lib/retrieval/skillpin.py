@@ -41,38 +41,15 @@ from agentware_lib.retrieval import corpus as _corpus
 from agentware_lib.retrieval import bm25 as _bm25
 from agentware_lib.retrieval import acr as _acr
 from agentware_lib.retrieval import hybrid as _hybrid
-
-
-SKILL_PIN_FLOOR = None  # e.g. 0.85 when enabled
-
-
-def _apply_skill_pin(scored, pin_floor):
-    """Apply threshold-gated skill pin to a scored list.
-
-    `scored` is [(entry, score), ...] already sorted by BM25+tie-break.
-    If `pin_floor` is None (disabled), returns scored unchanged.
-    Otherwise: find the top skill; if skill_score >= pin_floor * top_overall_score
-    AND > 0, move it to position 0 (pinned). Learnings are never evicted.
-    Deterministic; read-only.
-    """
-    if pin_floor is None or not scored:
-        return scored
-    top_score = scored[0][1] if scored else 0.0
-    if top_score <= 0:
-        return scored
-    threshold = pin_floor * top_score
-    # Find the highest-scoring skill entry
-    best_skill_idx = None
-    for i, (entry, score) in enumerate(scored):
-        if entry.get("category") == "skills" and score >= threshold and score > 0:
-            best_skill_idx = i
-            break  # Already sorted by score desc, first skill above threshold wins
-    if best_skill_idx is None or best_skill_idx == 0:
-        return scored  # No qualifying skill, or already at top
-    # Pin: move the skill to position 0
-    skill_item = scored.pop(best_skill_idx)
-    scored.insert(0, skill_item)
-    return scored
+import agentware_lib.knowledge.freshsignals as _fresh
+# The pin lives one module down so the eval/gate path (`bm25.retrieve_bm25`) can
+# apply the SAME implementation — `skillpin` imports `bm25`, so homing the pin
+# here would close a cycle and force a second copy. Re-exported by name to keep
+# this module's documented surface unchanged.
+from agentware_lib.retrieval.pinpolicy import (   # noqa: F401  (re-export)
+    SKILL_PIN_FLOOR,
+    _apply_skill_pin,
+)
 
 
 def _entry_is_shared(e):
@@ -146,8 +123,14 @@ def recall_ranked(kdir, data, query, top_k=None, category=None,
             sub = dict(data)
             sub["entries"] = [e for e in (data.get("entries") or [])
                               if e.get("category") == category]
-        scored = _hybrid.retrieve_bm25_embed_scored(kdir, sub, query, top_k=top_k,
+        # Fetch UNTRIMMED (top_k=None) so the pin runs pre-trim and can pull a
+        # matched skill INTO the surfaced window (feature 260713-p4 R2-7); then
+        # apply the pin and trim — mirroring the plain branch's pin-then-trim.
+        scored = _hybrid.retrieve_bm25_embed_scored(kdir, sub, query, top_k=None,
                                             as_of=as_of)
+        scored = _apply_skill_pin(scored, SKILL_PIN_FLOOR, top_k)
+        if top_k is not None:
+            scored = scored[:top_k]
         text_by_id = {e.get("id"): t for (e, t) in _corpus.build_corpus(kdir, sub)}
         return [(e, s, text_by_id.get(e.get("id"), "")) for (e, s) in scored]
     # Cache-backed (O(query-terms)) when fresh + uncategorized, else the live scan;
@@ -156,14 +139,22 @@ def recall_ranked(kdir, data, query, top_k=None, category=None,
     if strategy == "bm25+acr":
         if as_of is None:
             as_of = dates._today()
-        scored = [(e, s * _acr.acr(e, as_of)) for (e, s) in scored]
+        # Staleness/supersede downweight rides ALONGSIDE acr (feature
+        # 260713-p3-trust-staleness, Task 3): superseded_ids computed ONCE, then a
+        # bounded (0,1] factor per entry. Fresh/non-superseded -> 1.0 -> acr score
+        # byte-identical. This branch is bm25+acr ONLY; plain bm25 never reaches it.
+        superseded = _fresh.superseded_ids(data)
+        scored = [(e, s * _acr.acr(e, as_of)
+                   * _fresh.staleness_factor(e, superseded, as_of))
+                  for (e, s) in scored]
     # Stable multi-pass sort: lowest priority first, highest priority last.
     scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc
     scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)    # created desc
     scored.sort(key=lambda es: es[1], reverse=True)                         # score desc
     # Skill pin (shared ranking core — both recall_ranked and the eval/gate
-    # retrieve_bm25 path exercise this). Applied AFTER sort, BEFORE top_k trim.
-    scored = _apply_skill_pin(scored, SKILL_PIN_FLOOR)
+    # retrieve_bm25 path exercise this). Applied AFTER sort, BEFORE top_k trim;
+    # top_k is passed so learnings are never evicted from the window (R4-3).
+    scored = _apply_skill_pin(scored, SKILL_PIN_FLOOR, top_k)
     if top_k is not None:
         scored = scored[:top_k]
     # Reconstruct doc_text for the SURFACED entries only (token estimation), via

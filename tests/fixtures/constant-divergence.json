@@ -8,14 +8,14 @@
  },
  "counts": {
   "legacy": 229,
-  "lib": 510,
+  "lib": 513,
   "legacy_only": 248,
-  "shared": 208,
+  "shared": 211,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 21,
-  "undecided_max": 5
+  "unresolved_max": 18,
+  "undecided_max": 4
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -24,7 +24,7 @@
   ],
   "_EXPORTS": [
    0,
-   176
+   178
   ]
  },
  "legacy_only": [
@@ -1540,8 +1540,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/freshsignals.py"
+   ]
   },
   {
    "name": "STALENESS_SUPERSEDED_MULT",
@@ -1549,8 +1552,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/freshsignals.py"
+   ]
   },
   {
    "name": "STALE_MAX_AGE_DAYS",
@@ -1561,7 +1567,7 @@
    "status": "resolved",
    "follow_up": "task 49",
    "lib_sites": [
-    "scripts/agentware_lib/features/staleproposal.py"
+    "scripts/agentware_lib/knowledge/freshsignals.py"
    ]
   },
   {
@@ -1591,8 +1597,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 38"
+   "status": "resolved",
+   "follow_up": "task 38",
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/freshsignals.py"
+   ]
   },
   {
    "name": "TICK_CRON_REL",
@@ -3152,19 +3161,18 @@
   {
    "name": "SKILL_PIN_FLOOR",
    "legacy_literal": "0.85",
-   "lib_literal": "None",
+   "lib_literal": "0.85",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
    "lib_sites": [
-    "scripts/agentware_lib/retrieval/skillpin.py"
+    "scripts/agentware_lib/retrieval/pinpolicy.py"
    ],
    "follow_up": "task 49",
    "rationale": "the stage-1 skill pin is OFF in the donor (`None`), which disables R-RET-03 stage-1 precedence with NO failing test, because the donor's tests were written against the disabled state. 0.85 is the committed floor; task 49 ports it with its three-argument signature and all three call sites including the evaluation path.",
    "decision": "legacy",
    "decided_literal": "0.85",
-   "landed": false,
-   "pending_literal": "None"
+   "landed": true
   },
   {
    "name": "_DREAM_METRIC_STEP_FIELDS",
