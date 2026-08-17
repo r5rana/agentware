@@ -475,6 +475,12 @@ from agentware_lib.knowledge.curation.curationingest import (   # noqa: F401  (r
     cmd_ingest)
 from agentware_lib.features.dream import (   # noqa: F401  (re-export)
     cmd_dream)
+from agentware_lib.ops.kbgit import (   # noqa: F401  (re-export)
+    cmd_kb_git_status)
+from agentware_lib.ops.kbsync import (   # noqa: F401  (re-export)
+    cmd_kb_git_merge_continue, cmd_kb_git_push)
+from agentware_lib.ops.staging import (   # noqa: F401  (re-export)
+    cmd_kb_git_commit, cmd_kb_git_pull)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -12391,30 +12397,6 @@ def git_status(target):
     }
 
 
-def cmd_kb_git_status(args):
-    """Print the KB git-state booleans (is_work_tree / has_upstream / is_clean).
-
-    Targets the resolved knowledge dir by default; `--path` overrides it so the
-    loop (and tests) can point at a throwaway repo. NEVER mutates anything.
-    """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = require_knowledge_dir()
-        if not target:
-            return 1
-    st = git_status(target)
-    if getattr(args, "format", "text") == "json":
-        json.dump(st, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("is_work_tree: %s" % ("yes" if st["is_work_tree"] else "no"))
-        print("has_upstream: %s" % ("yes" if st["has_upstream"] else "no"))
-        print("is_clean:     %s" % ("yes" if st["is_clean"] else "no"))
-    return 0
-
-
 def git_toplevel(target):
     """Absolute path of `target`'s git work-tree root, or None if not a repo."""
     cp = _git(target, "rev-parse", "--show-toplevel")
@@ -12521,112 +12503,6 @@ def _truncate_subject(subject, limit=COMMIT_SUBJECT_MAX):
     return subject
 
 
-def cmd_kb_git_commit(args):
-    """Stage + commit ONLY the knowledge-base repo as one conventional commit.
-
-    Deterministic, opt-in commit discipline (feature 260625-kb-git-sync, Task
-    2.1). Scope is the KB repo ONLY (C-3): the helper operates with `git -C
-    <target>` against a SEPARATE git repo and refuses if the target's work-tree
-    root resolves to the agentware package repo, so the project/package can
-    never be staged. No-ops (rc 0) on a non-tracked KB (C-4) or a clean tree.
-
-    Message format is ENFORCED: `feat|chore(<tag>): <summary>`. The tag is
-    derived deterministically (caller-supplied --tag, sanitized); when --message
-    is omitted a deterministic summary of the changed top-level dirs is built.
-    """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = require_knowledge_dir()
-        if not target:
-            return 1
-
-    # C-4: degrade to local-only (no failure) when the KB is not a git repo.
-    if not git_is_work_tree(target):
-        print("kb-git commit: %s is not a git work tree — skipping commit "
-              "(local-only)." % target)
-        return 0
-
-    # C-3 scope guard: NEVER commit the agentware package repo. The KB is a
-    # separate repo; if the target somehow resolves to this package's work-tree
-    # root, refuse loudly rather than stage package/project files.
-    top = git_toplevel(target)
-    pkg_top = git_toplevel(REPO_ROOT)
-    if top and pkg_top and top == pkg_top:
-        sys.stderr.write(
-            "kb-git commit: refusing — target resolves to the agentware "
-            "package repo (%s); commits are scoped to the KB repo only "
-            "(C-3).\n" % top)
-        return 1
-
-    # De-commit derived artifacts (index.json / FEATURES.md / `<sub>/index.md`
-    # rosters): they are regenerable + now gitignored, so untrack any that a
-    # pre-de-commit history still tracks. `git rm --cached` stages the removal but
-    # PRESERVES the local file (--cached); once untracked, `git add -A` will never
-    # re-stage them (gitignored). --ignore-unmatch makes this a no-op when they are
-    # already untracked/absent. A fresh clone recovers the file via the
-    # load_index/pull auto-rebuild, so removing it from history never bricks.
-    tracked_derived = git_tracked_paths(target, KB_DERIVED_GITIGNORE_RELS)
-    if tracked_derived:
-        # Ensure the derived rules ARE in .gitignore before untracking, so the
-        # subsequent `git add -A` cannot re-stage them. Only touched in this
-        # transitional (still-tracked) case, so an already-migrated clean tree
-        # stays a no-op (test_clean_tree_is_noop).
-        _ensure_kb_gitignore(target)
-        _git(target, "rm", "--cached", "--quiet", "--ignore-unmatch",
-             *tracked_derived)
-
-    changed = git_changed_paths(target)
-    if not changed:
-        print("kb-git commit: nothing to commit — work tree clean.")
-        return 0
-
-    tag = _sanitize_commit_tag(getattr(args, "tag", None))
-    ctype = getattr(args, "type", None) or "chore"
-    message = getattr(args, "message", None)
-    # Name WHAT knowledge changed (deterministic, from the staged diff). Used as
-    # the default summary, or appended as a compact suffix to a caller --message.
-    topics = kb_changed_knowledge_topics(changed)
-    if not message:
-        if topics:
-            # Default summary describes the changed knowledge entries...
-            message = _format_topics_label(topics)
-        else:
-            # ...else fall back to the changed top-level dir list (C-2, never empty).
-            tops = sorted({p.split("/", 1)[0] for p in changed})
-            n = len(changed)
-            message = "sync %s (%d file%s)" % (
-                ", ".join(tops), n, "" if n == 1 else "s")
-    elif topics:
-        # A caller-supplied title (e.g. the plan title from agentware.sh) gets a
-        # compact knowledge suffix so the subject names BOTH feature + knowledge.
-        message = "%s — %s" % (message, _format_topics_label(topics))
-
-    subject = _truncate_subject("%s(%s): %s" % (ctype, tag, message))
-    if not COMMIT_MSG_RE.match(subject):
-        sys.stderr.write(
-            "kb-git commit: refusing — message '%s' does not match "
-            "feat|chore(<tag>): <summary>.\n" % subject)
-        return 1
-
-    # Stage ONLY this repo (git -C <target> scopes the add to <target>'s repo).
-    add = _git(target, "add", "-A")
-    if add.returncode != 0:
-        sys.stderr.write("kb-git commit: git add failed: %s\n" % add.stderr.strip())
-        return 1
-
-    commit = _git(target, "commit", "-m", subject)
-    if commit.returncode != 0:
-        sys.stderr.write("kb-git commit: git commit failed: %s\n"
-                         % (commit.stderr.strip() or commit.stdout.strip()))
-        return 1
-
-    head = _git(target, "rev-parse", "HEAD").stdout.strip()
-    print("kb-git commit: %s — %s" % (head[:9], subject))
-    return 0
-
-
 def git_pull_ff(target):
     """Fast-forward-only `git pull`; non-interactive (never prompts for input).
 
@@ -12639,68 +12515,6 @@ def git_pull_ff(target):
     env = dict(os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
     return _git(target, "pull", "--ff-only", env=env)
-
-
-def cmd_kb_git_pull(args):
-    """Fast-forward the KB repo from its upstream at a safe point.
-
-    Pull cadence (feature 260625-kb-git-sync, Task 3.1): run at agent start and
-    again right before a push. Preconditions — the target is a git work tree
-    (C-4), has a configured upstream, and the tree is CLEAN (prior writes must be
-    committed first; we NEVER pull onto uncommitted edits). Any unmet
-    precondition, an offline fetch, or a non-fast-forward divergence is a
-    graceful SKIP (rc 0 + a clear notice) — pulling NEVER blocks work. Beyond the
-    fast-forward this mutates nothing.
-    """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = require_knowledge_dir()
-        if not target:
-            return 1
-
-    # C-4: degrade to local-only (never block) when the KB is not a git repo.
-    if not git_is_work_tree(target):
-        print("kb-git pull: %s is not a git work tree — skipping pull "
-              "(local-only)." % target)
-        return 0
-
-    if not git_has_upstream(target):
-        print("kb-git pull: no upstream tracking branch — skipping pull "
-              "(local-only).")
-        return 0
-
-    # Precondition: a clean tree. Prior writes must be committed first so a
-    # fast-forward can never clobber or conflict with uncommitted edits.
-    if not git_is_clean(target):
-        print("kb-git pull: work tree has uncommitted changes — skipping pull "
-              "(commit first; never pulling onto uncommitted writes).")
-        return 0
-
-    before = _git_head(target)
-    cp = git_pull_ff(target)
-    if cp.returncode != 0:
-        detail = [l for l in (cp.stderr or "").strip().splitlines() if l.strip()]
-        first = detail[0] if detail else "fetch failed"
-        print("kb-git pull: skipped — %s (offline or diverged; not blocking "
-              "work)." % first)
-        return 0
-
-    out_lines = [l for l in (cp.stdout or "").strip().splitlines() if l.strip()]
-    summary = out_lines[0] if out_lines else "up to date"
-    # Trigger (ii): a fast-forward that ADVANCED HEAD and changed tracked entry
-    # `.md` files makes the DERIVED index stale — teammates' pulled entries would
-    # be silently dropped by recall (they are not in our old index.json) until the
-    # next rebuild. Reconcile now so a pull leaves the KB immediately recallable.
-    if _rebuild_kb_after_pull(target, before, _git_head(target)):
-        summary += " (index rebuilt from pulled frontmatter)"
-    # Trigger (feature 260713-p4): a QUARANTINE-ONLY skills reconcile so a freshly
-    # pulled skill reaches the pending-approval roster. NEVER installs, NEVER
-    # raises, NEVER blocks the pull (best-effort; mirrors _rebuild_kb_after_pull).
-    _skill_reconcile_after_pull(target)
-    print("kb-git pull: %s" % summary)
-    return 0
 
 
 def _is_derived_rel(rel):
@@ -13096,68 +12910,6 @@ def kb_git_push_synced(target, on_prose_conflict="abort", max_retries=3):
                "moving — try again)" % (attempts, last_note))
 
 
-def cmd_kb_git_push(args):
-    """Push KB commits to upstream, auto-resolving derived-file conflicts.
-
-    Git-sync push (feature 260625-kb-git-sync, Task 4.1). Preconditions: the
-    target is a git work tree (C-4) with a configured upstream, and is NOT the
-    agentware package repo (C-3). A push rejected by a moved upstream is resolved
-    by rebasing and regenerating the DERIVED files (`index.json`, rosters,
-    `FEATURES.md`) from the entry union via `index rebuild` — never by an agent
-    (C-1). Offline / no-upstream / non-repo are graceful rc-0 skips (never block).
-    """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = require_knowledge_dir()
-        if not target:
-            return 1
-
-    # C-4: degrade to local-only (never block) when the KB is not a git repo.
-    if not git_is_work_tree(target):
-        print("kb-git push: %s is not a git work tree — skipping push "
-              "(local-only)." % target)
-        return 0
-
-    # C-3 scope guard: NEVER push the agentware package repo.
-    top = git_toplevel(target)
-    pkg_top = git_toplevel(REPO_ROOT)
-    if top and pkg_top and top == pkg_top:
-        sys.stderr.write(
-            "kb-git push: refusing — target resolves to the agentware package "
-            "repo (%s); sync is scoped to the KB repo only (C-3).\n" % top)
-        return 1
-
-    if not git_has_upstream(target):
-        print("kb-git push: no upstream tracking branch — skipping push "
-              "(local-only).")
-        return 0
-
-    mode = getattr(args, "on_prose_conflict", "abort")
-    retries = getattr(args, "max_retries", 3) or 3
-    rc, note = kb_git_push_synced(target, on_prose_conflict=mode,
-                                  max_retries=retries)
-
-    if rc == 3 and note.startswith("PROSE_CONFLICT"):
-        # Paused on a same-entry prose conflict (Phase 5). Emit the conflicted
-        # entry paths on stdout (one per line) so the loop can feed them to the
-        # MERGE_PROMPT; the human note goes to stderr. The rebase is LEFT IN
-        # PROGRESS — the loop reconciles, then runs `kb-git merge-continue`.
-        files = [l for l in note.splitlines()[1:] if l.strip()]
-        for f in files:
-            print(f)
-        sys.stderr.write(
-            "kb-git push: prose conflict in %d entry file(s) — rebase left in "
-            "progress; reconcile via the MERGE_PROMPT, then run "
-            "`kb-git merge-continue`.\n" % len(files))
-        return 3
-
-    stream = sys.stdout if rc == 0 else sys.stderr
-    stream.write("kb-git push: %s\n" % note)
-    return rc
-
-
 def kb_git_merge_continue(target):
     """Finish a prose-merge rebase after the agent reconciled the entry files.
 
@@ -13223,43 +12975,6 @@ def kb_git_merge_continue(target):
     if push.returncode == 0:
         return 0, "pushed (prose conflict reconciled; derived files rebuilt)"
     return 1, "push rejected after prose merge (re-push race)"
-
-
-def cmd_kb_git_merge_continue(args):
-    """Continue a paused prose-merge rebase, then push (feature 260625-kb-git-sync).
-
-    Runs after the curated MERGE_PROMPT reconciled the conflicted entry markdown.
-    Same scope guards as push: a non-repo target is a graceful no-op (C-4), and
-    the agentware package repo is refused (C-3). The derived files are always
-    rebuilt from frontmatter, never hand-merged (C-1).
-    """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = require_knowledge_dir()
-        if not target:
-            return 1
-
-    # C-4: degrade to local-only (never block) when the KB is not a git repo.
-    if not git_is_work_tree(target):
-        print("kb-git merge-continue: %s is not a git work tree — nothing to "
-              "continue (local-only)." % target)
-        return 0
-
-    # C-3 scope guard: NEVER operate on the agentware package repo.
-    top = git_toplevel(target)
-    pkg_top = git_toplevel(REPO_ROOT)
-    if top and pkg_top and top == pkg_top:
-        sys.stderr.write(
-            "kb-git merge-continue: refusing — target resolves to the agentware "
-            "package repo (%s); sync is scoped to the KB repo only (C-3).\n" % top)
-        return 1
-
-    rc, note = kb_git_merge_continue(target)
-    stream = sys.stdout if rc == 0 else sys.stderr
-    stream.write("kb-git merge-continue: %s\n" % note)
-    return rc
 
 
 # --- fanout: parallel-lane orchestration -------------------------------------

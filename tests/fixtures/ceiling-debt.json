@@ -272,7 +272,7 @@
         {
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/ops/staging.py::cmd_kb_git_commit",
-          "value": 19
+          "value": 20
         },
         {
           "kind": "function_over_branch_cap",
@@ -358,6 +358,11 @@
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/retrieval/vectorcache.py::build_vector_cache",
           "value": 14
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/kbpull.py::cmd_kb_git_pull",
+          "value": 13
         }
       ]
     },

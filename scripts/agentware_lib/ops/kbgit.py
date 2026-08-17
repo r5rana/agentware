@@ -155,3 +155,18 @@ _EXPORTS = [
 ]
 
 __all__ = list(_EXPORTS)
+
+
+def git_tracked_paths(target, rels):
+    """Subset of `rels` (repo-relative) that git currently TRACKS in `target`.
+
+    Used by the commit path to detect DERIVED artifacts a pre-de-commit history
+    still tracks, so they can be untracked (`git rm --cached`) exactly once.
+    Empty on any git error. NUL-delimited so unusual paths are safe.
+    """
+    if not rels:
+        return []
+    cp = _git(target, "ls-files", "-z", "--", *rels)
+    if cp.returncode != 0:
+        return []
+    return [p for p in cp.stdout.split("\0") if p]

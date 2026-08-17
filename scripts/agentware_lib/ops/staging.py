@@ -58,8 +58,31 @@ from agentware_lib.ops.kbstage import (   # noqa: F401  (re-export)
     kb_rel_prefix,
 )
 import agentware_lib.knowledge.index as index
-from agentware_lib.core.gitio import _git, _git_noninteractive_env
+from agentware_lib.core.gitio import _git, _git_head, _git_noninteractive_env
+from agentware_lib.core.kblayout import (
+    KB_DERIVED_GITIGNORE_RELS, _ensure_kb_gitignore)
+from agentware_lib.ops.kbgit import git_tracked_paths
+# Bound BY NAME because the ported pull path is the preserved monolith's body
+# verbatim and calls these bare. The two POST-PULL RECONCILIATIONS it restores
+# are the reason this port matters: without them a fast-forward that brought in
+# a teammate's entries left the DERIVED index untouched, so `recall` silently
+# dropped every pulled entry until someone happened to rebuild, and a pulled
+# SKILL never reached the pending-approval roster at all. Both are best-effort
+# and neither may ever break a pull.
+from agentware_lib.core.config import require_knowledge_dir
+from agentware_lib.knowledge.index import (
+    KNOWLEDGE_SUBDIRS, build_index_from_frontmatter, rebuild_kb,
+    _is_sync_candidate)
+from agentware_lib.features.skilllock import (
+    _skill_cache_dir, load_skill_lock, save_skill_lock)
 from agentware_lib.core.paths import REPO_ROOT
+# The PULL path moved to ops.kbpull when restoring its post-pull reconciliations
+# pushed this file past the hard 600-line cap. Re-exported BY NAME so every
+# pre-split caller and monkeypatch target (`staging.cmd_kb_git_pull`) resolves
+# unchanged.
+from agentware_lib.ops.kbpull import (   # noqa: F401  (re-export)
+    cmd_kb_git_pull, git_fetch, git_pull_ff, _kb_entry_files_changed,
+    _rebuild_kb_after_pull, _skill_reconcile_after_pull)
 from agentware_lib.ops.kbgit import (
     _sanitize_commit_tag, git_changed_paths, git_has_upstream, git_is_clean,
     git_is_work_tree, git_toplevel)
@@ -118,6 +141,32 @@ def _truncate_subject(subject, limit=COMMIT_SUBJECT_MAX):
     return subject
 
 
+def _decommit_derived(target):
+    """Untrack derived artifacts a pre-de-commit history still tracks.
+
+    `git rm --cached` stages the removal but PRESERVES the local file, and the
+    derived rules are ensured in .gitignore FIRST so the staging that follows
+    cannot re-add them. Returns the paths untracked (empty when already clean, so
+    an already-migrated tree is a no-op). A fresh clone recovers the files via the
+    load_index/pull auto-rebuild, so removing them from history never bricks.
+
+    UNION NOTE (task 54): this half comes from the preserved monolith and the
+    SCOPED-ALLOWLIST staging in the caller comes from the donor — neither tree had
+    both. They are complementary, not alternative: the allowlist stops a NEW
+    derived file from being staged, this stops an OLD one history already tracks
+    from staying tracked forever. It must run BEFORE the caller's clean-tree early
+    return, because the derived files are typically TRACKED BUT UNCHANGED — so
+    `git_changed_paths` reports nothing and returns on exactly the tree this
+    exists to migrate.
+    """
+    tracked_derived = git_tracked_paths(target, KB_DERIVED_GITIGNORE_RELS)
+    if tracked_derived:
+        _ensure_kb_gitignore(target)
+        _git(target, "rm", "--cached", "--quiet", "--ignore-unmatch",
+             *tracked_derived)
+    return tracked_derived
+
+
 def cmd_kb_git_commit(args):
     """Stage + commit ONLY the knowledge-base repo as one conventional commit.
 
@@ -157,6 +206,8 @@ def cmd_kb_git_commit(args):
             "(C-3).\n" % top)
         return 1
 
+    tracked_derived = _decommit_derived(target)
+
     changed = git_changed_paths(target)
     if not changed:
         print("kb-git commit: nothing to commit — work tree clean.")
@@ -190,6 +241,7 @@ def cmd_kb_git_commit(args):
             "feat|chore(<tag>): <summary>.\n" % subject)
         return 1
 
+
     # Stage via the SCOPED ALLOWLIST — never a blanket `git add -A`.
     # Team-scoped (refuses cross-team paths), drops derived/artifact/oversized blobs,
     # allows the committed sink/data files. rel_prefix='' (flat KB) => stages the
@@ -198,10 +250,16 @@ def cmd_kb_git_commit(args):
     allow, rejected = kb_git_stage_allowlist(target, rel_prefix)
     for path, reason in rejected:
         sys.stderr.write("kb-git commit: skipping %s — %s\n" % (path, reason))
-    if not allow:
+    if not allow and not tracked_derived:
         print("kb-git commit: nothing to stage after the scoped allowlist "
               "(only derived/artifact/out-of-scope changes).")
         return 0
+    # `tracked_derived` guards the early return because the de-commit above has
+    # ALREADY staged `git rm --cached` for those paths. Returning here on an empty
+    # allowlist would abandon that staged removal — the untracking would be redone
+    # and re-abandoned on every subsequent commit, so the derived artifacts would
+    # stay tracked forever while each run reported "nothing to stage". The two
+    # halves are unioned from different trees, and this is the seam between them.
     # Stage exactly the allowlisted paths. `allow` holds REPO-ROOT-relative paths
     # (from `git status --porcelain`), but `git -C <target> add` resolves pathspecs
     # relative to <target> (the team subdir in org mode) — so we MUST convert to
@@ -227,83 +285,16 @@ def cmd_kb_git_commit(args):
     return 0
 
 
-def git_pull_ff(target):
-    """Fast-forward-only `git pull`; non-interactive (never prompts for input).
-
-    Returns the CompletedProcess. `GIT_TERMINAL_PROMPT=0` makes an offline /
-    auth-required fetch fail fast instead of hanging for credentials
-    (R-SHELL-01), and `--ff-only` refuses to create a merge commit — a divergent
-    upstream is reported as a non-zero exit the caller treats as a graceful skip
-    (the push/rebase path, Phase 4, owns real divergence).
-    """
-    env = dict(os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    return _git(target, "pull", "--ff-only", env=env)
 
 
-def git_fetch(target):
-    """Read-only `git fetch` of the configured upstream; non-interactive.
-
-    Returns the CompletedProcess. `GIT_TERMINAL_PROMPT=0` makes an offline /
-    auth-required fetch fail fast instead of hanging for credentials
-    (R-SHELL-01). A fetch updates only the remote-tracking refs — it NEVER
-    touches the work tree, so it is safe to run for a read-only `update --check`
-    (and as a SessionStart updates-available nudge).
-    """
-    env = dict(os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    return _git(target, "fetch", "--quiet", env=env)
 
 
-def cmd_kb_git_pull(args):
-    """Fast-forward the KB repo from its upstream at a safe point.
 
-    Pull cadence (feature 260625-kb-git-sync, Task 3.1): run at agent start and
-    again right before a push. Preconditions — the target is a git work tree
-    (C-4), has a configured upstream, and the tree is CLEAN (prior writes must be
-    committed first; we NEVER pull onto uncommitted edits). Any unmet
-    precondition, an offline fetch, or a non-fast-forward divergence is a
-    graceful SKIP (rc 0 + a clear notice) — pulling NEVER blocks work. Beyond the
-    fast-forward this mutates nothing.
-    """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = config.require_knowledge_dir()
-        if not target:
-            return 1
 
-    # C-4: degrade to local-only (never block) when the KB is not a git repo.
-    if not git_is_work_tree(target):
-        print("kb-git pull: %s is not a git work tree — skipping pull "
-              "(local-only)." % target)
-        return 0
 
-    if not git_has_upstream(target):
-        print("kb-git pull: no upstream tracking branch — skipping pull "
-              "(local-only).")
-        return 0
 
-    # Precondition: a clean tree. Prior writes must be committed first so a
-    # fast-forward can never clobber or conflict with uncommitted edits.
-    if not git_is_clean(target):
-        print("kb-git pull: work tree has uncommitted changes — skipping pull "
-              "(commit first; never pulling onto uncommitted writes).")
-        return 0
 
-    cp = git_pull_ff(target)
-    if cp.returncode != 0:
-        detail = [l for l in (cp.stderr or "").strip().splitlines() if l.strip()]
-        first = detail[0] if detail else "fetch failed"
-        print("kb-git pull: skipped — %s (offline or diverged; not blocking "
-              "work)." % first)
-        return 0
 
-    out_lines = [l for l in (cp.stdout or "").strip().splitlines() if l.strip()]
-    summary = out_lines[0] if out_lines else "up to date"
-    print("kb-git pull: %s" % summary)
-    return 0
 
 
 def git_unmerged_paths(target):

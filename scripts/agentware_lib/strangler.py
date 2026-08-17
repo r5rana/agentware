@@ -172,6 +172,7 @@ PORTED_VERBS = frozenset({
     "worklog",
     "ingest",
     "dream",
+    "kb-git",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

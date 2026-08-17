@@ -8,14 +8,14 @@
  },
  "counts": {
   "legacy": 227,
-  "lib": 525,
+  "lib": 526,
   "legacy_only": 248,
-  "shared": 221,
+  "shared": 222,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 6,
-  "undecided_max": 3
+  "unresolved_max": 5,
+  "undecided_max": 2
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -32,7 +32,7 @@
   ],
   "_EXPORTS": [
    0,
-   186
+   187
   ]
  },
  "legacy_only": [
@@ -603,8 +603,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 57"
+   "status": "resolved",
+   "follow_up": "task 57",
+   "lib_sites": [
+    "scripts/agentware_lib/core/kblayout.py"
+   ]
   },
   {
    "name": "KB_SCHEMA_VERSION",
@@ -3086,7 +3089,7 @@
   {
    "name": "KB_GITIGNORE_CONTENT",
    "legacy_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, BM25 postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth.\\n.cache/\\n\\n# Derived, regenerable knowledge index + rosters — reconstructed from entry\\n# frontmatter by `index rebuild`; NEVER source of truth, so NEVER committed\\n# (a merge conflict on every push + git bloat at scale). Anchored per category\\n# — never a **/index.md glob (that would untrack per-project content).\\n' + ''.join((rel + '\\n' for rel in KB_DERIVED_GITIGNORE_RELS)) + '\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
-   "lib_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, future postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth — like index.json.\\n.cache/\\n\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
+   "lib_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, BM25 postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth.\\n.cache/\\n\\n# Derived, regenerable knowledge index + rosters — reconstructed from entry\\n# frontmatter by `index rebuild`; NEVER source of truth, so NEVER committed\\n# (a merge conflict on every push + git bloat at scale). Anchored per category\\n# — never a **/index.md glob (that would untrack per-project content).\\n' + ''.join((rel + '\\n' for rel in KB_DERIVED_GITIGNORE_RELS)) + '\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -3098,12 +3101,12 @@
    "decision": "legacy",
    "decided_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, BM25 postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth.\\n.cache/\\n\\n# Derived, regenerable knowledge index + rosters — reconstructed from entry\\n# frontmatter by `index rebuild`; NEVER source of truth, so NEVER committed\\n# (a merge conflict on every push + git bloat at scale). Anchored per category\\n# — never a **/index.md glob (that would untrack per-project content).\\n' + ''.join((rel + '\\n' for rel in KB_DERIVED_GITIGNORE_RELS)) + '\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'",
    "landed": false,
-   "pending_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, future postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth — like index.json.\\n.cache/\\n\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'"
+   "pending_literal": "'# agentware knowledge base — ignored paths (scaffolded by `agentware init`)\\n# Session transcripts/logs are local-only: NEVER committed or pushed. KB\\n# autocommit only ever versions knowledge (learnings, index, scorecard, MAIN).\\nlogs/\\n\\n# Ephemeral per-feature loop state (iteration counters, .done, live-stream.log).\\n# Local-only run state — never committed/pushed, like logs/.\\n.loop/\\n\\n# Derived, regenerable caches (Mode-B vector cache, BM25 postings cache).\\n# Rebuilt only by `index rebuild`; never source of truth.\\n.cache/\\n\\n# Derived, regenerable knowledge index + rosters — reconstructed from entry\\n# frontmatter by `index rebuild`; NEVER source of truth, so NEVER committed\\n# (a merge conflict on every push + git bloat at scale). Anchored per category\\n# — never a **/index.md glob (that would untrack per-project content).\\n' + ''.join((rel + '\\n' for rel in KB_DERIVED_GITIGNORE_RELS)) + '\\n# Same-host index mutation lock (fcntl.flock sidecar) — local-only.\\n' + KB_INDEX_LOCK_REL + '\\n\\n# OS / editor / tooling noise\\n.DS_Store\\n__pycache__/\\n'"
   },
   {
    "name": "KB_GITIGNORE_REQUIRED",
    "legacy_literal": "KB_GITIGNORE_DIR_RULES + KB_DERIVED_GITIGNORE_RELS + (KB_INDEX_LOCK_REL,)",
-   "lib_literal": "KB_GITIGNORE_DIR_RULES + (KB_INDEX_LOCK_REL,)",
+   "lib_literal": "KB_GITIGNORE_DIR_RULES + KB_DERIVED_GITIGNORE_RELS + (KB_INDEX_LOCK_REL,)",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -3114,8 +3117,7 @@
    "rationale": "the enforcement half of the same decision -- the donor's required set omits KB_DERIVED_GITIGNORE_RELS, so a fresh init would PASS its own ignore check while tracking them.",
    "decision": "legacy",
    "decided_literal": "KB_GITIGNORE_DIR_RULES + KB_DERIVED_GITIGNORE_RELS + (KB_INDEX_LOCK_REL,)",
-   "landed": false,
-   "pending_literal": "KB_GITIGNORE_DIR_RULES + (KB_INDEX_LOCK_REL,)"
+   "landed": true
   },
   {
    "name": "LEARNED_RE",

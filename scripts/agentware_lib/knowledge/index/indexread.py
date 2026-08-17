@@ -46,8 +46,11 @@ DECISIONS_REL = "decisions"
 FEATURES_REL = "FEATURES.md"
 
 # Indexed knowledge categories scaffolded by `init` inside the knowledge dir.
-KNOWLEDGE_SUBDIRS = ("learnings", "decisions", "projects", "configurations",
-                     "prompts", "references", "skills")
+# Defined in core.kblayout (a layout fact the derived-artifact gitignore list is
+# built from, and core cannot import upward) and re-exported here BY NAME so
+# every `index.KNOWLEDGE_SUBDIRS` caller keeps resolving unchanged.
+from agentware_lib.core.kblayout import (   # noqa: F401  (re-export)
+    KNOWLEDGE_SUBDIRS)
 
 # Staging tier for agent-PROPOSED skills (feature 260722, Part 2). Co-located
 # here because ENTRY_SCAN_SUBDIRS is built from it; the skills-proposal code
