@@ -137,6 +137,28 @@ def _render_proposal_skill_md(slug, kdir, body, author, created):
     return "\n".join(lines) + "\n" + header + (body.rstrip("\n") + "\n" if body.strip() else "")
 
 
+def _report_dry_run(args, kdir, slug, ref, author, exists, fmt):
+    """Print what this proposal WOULD record and return 0 — or None if not a dry run.
+
+    Owns the `--dry-run` TEST as well as the report, so the caller spends one
+    branch instead of two: `cmd_skill_propose` sits against a declared ceiling
+    row, and the ratchet forbids widening a row to cover a change of mine.
+    """
+    if not getattr(args, "dry_run", False):
+        return None
+    would = "increment" if exists else "create"
+    if fmt == "json":
+        json.dump({"ok": True, "dry_run": True, "slug": slug, "ref": ref,
+                   "would": would, "author": author,
+                   "proposal_dir": _kp.proposal_dir(kdir, slug)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("skill propose (dry run): would %s proposal '%s' from ref '%s' "
+              "— nothing written." % (would, slug, ref))
+    return 0
+
+
 def cmd_skill_propose(args):
     """Create-or-increment an agent-PROPOSED skill under `skills-proposed/<slug>`.
 
@@ -204,6 +226,19 @@ def cmd_skill_propose(args):
 
     author = routing.resolve_user_handle() or frontmatter._operator_handle(kdir)
     created = dates._today()
+
+    # --dry-run: report the EFFECT and write nothing. Reached AFTER the validity
+    # and near-duplicate checks so a dry run exercises the same refusals a real
+    # one would — a dry run that skipped the guards would report success for a
+    # proposal the real command rejects, which is worse than no preview at all.
+    # `_report_dry_run` returns None when this is NOT a dry run, so the preview
+    # costs the caller one branch rather than two (this function sits against a
+    # declared ceiling row, and the ratchet forbids widening it to cover a
+    # change of mine).
+    preview = _report_dry_run(args, kdir, slug, ref, author, exists, fmt)
+    if preview is not None:
+        return preview
+
     if not exists:
         os.makedirs(pdir, exist_ok=True)
         with open(skill_md, "w", encoding="utf-8") as f:

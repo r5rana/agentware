@@ -60,7 +60,7 @@ import sys
 import agentware_lib.core.config as config
 from agentware_lib.core.config import require_knowledge_dir
 from agentware_lib.core.paths import REPO_ROOT
-from agentware_lib.features.dreamsteps.dreamcapture import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 from agentware_lib.features.reviewoutput import _review_one_line
 from agentware_lib.knowledge.curation.curationrender import _slugify
 from agentware_lib.ops.planauthor.planedit import _atomic_write

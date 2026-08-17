@@ -20,6 +20,12 @@ hash. The detect-report artifact (DREAM_REPORT_REL) is report-only (INV-2), fixe
 name, byte-stable for unchanged inputs (INV-1), gitignored via logs/.
 """
 
+# Moved DOWN to core: three unrelated subsystems need this 8-line harness, and
+# reaching it through this package's submodule executed the whole dreamsteps
+# __init__, which closed a latent import cycle. Re-exported so this module's
+# surface and every existing monkeypatch target are unchanged.
+from agentware_lib.core.capture import _dream_capture   # noqa: F401  (re-export)
+
 import os
 import time
 
@@ -43,16 +49,6 @@ def _dream_file_fp(path):
             return hashlib.sha256(f.read()).hexdigest()
     except OSError:
         return None
-
-
-def _dream_capture(fn, *a, **k):
-    """Call `fn` with stdout/stderr captured; return (rc, stdout_text)."""
-    import io          # stdlib, lazy
-    import contextlib  # stdlib, lazy
-    buf, errbuf = io.StringIO(), io.StringIO()
-    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(errbuf):
-        rc = fn(*a, **k)
-    return rc, buf.getvalue()
 
 
 _EXPORTS = [

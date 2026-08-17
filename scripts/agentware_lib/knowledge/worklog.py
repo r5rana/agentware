@@ -244,6 +244,15 @@ def register_worklog(sub, fmt_parent):
         "scan", parents=[fmt_parent],
         help="find unpromoted '> LEARNED:' markers in a worklog")
     p_scan.add_argument("--path", required=True, help="path to a worklog.md")
+    p_scan.add_argument("--also-assessment", action="store_true",
+                        dest="also_assessment",
+                        help="ADVISORY sidecar: also flag Extracted-Knowledge "
+                             "'Suggested ID' entries in the sibling "
+                             "assessment.md that never reached the live index "
+                             "(the POST-phase knowledge leak). Report-only — it "
+                             "NEVER changes the exit code, so every gate that "
+                             "calls `worklog scan` WITHOUT the flag is "
+                             "byte-for-byte unaffected.")
     p_scan.set_defaults(func=cmd_worklog_scan)
 
 

@@ -8,13 +8,13 @@
  },
  "counts": {
   "legacy": 229,
-  "lib": 513,
+  "lib": 516,
   "legacy_only": 248,
-  "shared": 211,
+  "shared": 214,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 18,
+  "unresolved_max": 15,
   "undecided_max": 4
  },
  "multi_literal": {
@@ -32,7 +32,7 @@
   ],
   "_EXPORTS": [
    0,
-   180
+   185
   ]
  },
  "legacy_only": [
@@ -1446,8 +1446,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/features/skilllock.py"
+   ]
   },
   {
    "name": "SKILL_PROMOTE_CAP_DEFAULT",
@@ -2820,8 +2823,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/features/skilllock.py"
+   ]
   },
   {
    "name": "_SKILL_NAME_RE",
@@ -2829,8 +2835,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/features/skilllock.py"
+   ]
   },
   {
    "name": "_SKILL_PROMOTE_OFF_TOKENS",

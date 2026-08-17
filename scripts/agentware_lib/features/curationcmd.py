@@ -261,6 +261,12 @@ def register_learn(sub, fmt_parent):
     p_learn.add_argument("--to-shared", dest="to_shared", action="store_true",
                          help="write org-wide into shared/ (curator only, CR-gated); "
                               "default writes go to the caller's team.")
+    p_learn.add_argument("--force", action="store_true",
+                         help="record even if a near-duplicate existing learning "
+                              "is detected")
+    p_learn.add_argument("--title", default=None,
+                         help="optional display title (default: derived from "
+                              "--topic via title-casing)")
     p_learn.set_defaults(func=cmd_learn)
 
 

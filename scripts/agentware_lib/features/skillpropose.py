@@ -70,7 +70,7 @@ import re
 from agentware_lib.core.config import resolve_skill_promote_cap
 from agentware_lib.core.frontmatter import _entry_list_field
 from agentware_lib.core.paths import REPO_ROOT
-from agentware_lib.features.dreamsteps.dreamcapture import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 from agentware_lib.features.skills import load_skill_catalog
 from agentware_lib.ops.planauthor.plankernelpath import _pref_hits_kernel
 from agentware_lib.ops.planauthor.plannew import (

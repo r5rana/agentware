@@ -66,7 +66,8 @@
         {
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::cmd_skill_propose",
-          "value": 20
+          "value": 21,
+          "note": "20 -> 21 at task 54. The union fixture requires `--dry-run` on `skill propose`, and the preview costs exactly ONE branch: the caller must test whether the dry-run path returned. The test itself was already pushed into `_report_dry_run` (which returns None when it is not a dry run) so the caller spends one branch rather than two, and every OTHER branch in the function is unchanged — each is a guard, a format switch or a loop that is doing real work, so there was no free branch to pay with. Recorded as a widening rather than dressed up as a paydown: this is a required capability growing a function by one, not a refactor hiding damage behind an existing row."
         },
         {
           "kind": "function_over_branch_cap",
@@ -608,6 +609,22 @@
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/retrieval/pinpolicy.py::_apply_skill_pin",
           "value": 22
+        }
+      ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "The vetted skill INSTALL GATE, ported by task 54 as a pure move. Both counts are IDENTICAL in the pre-port monolith (reconcile 26, cmd_skill_sync 34) — the move added no branch. These two are also the functions where a decomposition is most likely to introduce the one bug this subsystem may not have: `--approve` is the ONLY path that installs a skill where a harness will EXECUTE it, and every branch in `_skill_reconcile` is one arm of the verdict table (installed / pending / changed-since-approval / blocked / foreign / shadowing a package skill / removed from the KB). Quarantine-on-change lives in those arms: approval binds to a CONTENT HASH, so a skill whose tree changed returns to PENDING rather than carrying the old approval forward — because the operator approved a body, not a title, and the second version is the one worth attacking precisely because the first was reviewed. `cmd_skill_sync` (34) is the mode dispatcher over that table: approve / reject / uninstall / reset / status / status-line, each with its own refusal conditions. Splitting either in the same commit that moves it is exactly the concentrated risk the ratchet prevents. Owned by task 67 with the rest of the residual.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillsync.py::_skill_reconcile",
+          "value": 26
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillsync.py::cmd_skill_sync",
+          "value": 34
         }
       ]
     }

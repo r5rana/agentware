@@ -58,6 +58,10 @@ import agentware_lib.knowledge.proposals as _kp
 import agentware_lib.features.skills as _skills
 
 from .proposalreport import cmd_skill_proposals
+from agentware_lib.features.skillcandidate import (
+    cmd_skill_candidate_propose,
+)
+from agentware_lib.features.skillsync import cmd_skill_sync
 from .proposeauthor import _valid_proposal_slug, cmd_skill_propose
 
 
@@ -218,6 +222,7 @@ def cmd_skill_promote(args):
     return 0
 
 
+
 def register_skill(sub, fmt_parent):
     # skill ------------------------------------------------------------------
     # The authored skill catalog + installer. EXTENSIBLE:
@@ -279,6 +284,68 @@ def register_skill(sub, fmt_parent):
     p_sk_inj.add_argument("path", help="path to a rendered <sub>/index.md roster")
     p_sk_inj.set_defaults(func=_skills.cmd_skill_roster_injectable)
 
+    # skill sync (feature 260713-p4-skills-two-tier) — reconcile the canonical KB
+    # skills/ against the per-machine VETTED execution cache. The bare reconcile
+    _register_skill_cache(skill_sub, fmt_parent)
+    _register_skill_lifecycle(skill_sub, fmt_parent)
+
+
+def _register_skill_cache(skill_sub, fmt_parent):
+    """The EXECUTION-CACHE subverb: `skill sync`.
+
+    Split out purely to hold the per-function line cap — the registrar
+    grew past 120 lines when the install gate landed. The seam follows the
+    handlers: cache management lives in features.skillsync, the lifecycle
+    verbs below live in this package.
+    """
+    # NEVER installs; explicit --approve is the ONLY install path.
+    p_sk_sync = skill_sub.add_parser(
+        "sync", parents=[fmt_parent],
+        help="reconcile KB skills/ -> per-machine vetted execution cache "
+             "(quarantine-on-change; --approve to install)")
+    p_sk_sync.add_argument("--approve", default=None, metavar="NAME[,NAME...]",
+                           help="re-vet + install the named quarantined skill(s) "
+                                "into the execution cache (the ONLY install path)")
+    p_sk_sync.add_argument("--reject", default=None, metavar="NAME",
+                           help="block a skill (removes an owned cache copy)")
+    p_sk_sync.add_argument("--uninstall", default=None, metavar="NAME",
+                           help="remove an owned cache copy + drop its lockfile entry")
+    p_sk_sync.add_argument("--reset", action="store_true",
+                           help="remove ALL owned cache copies + clear the lockfile")
+    p_sk_sync.add_argument("--status", action="store_true",
+                           help="show the installed / pending / blocked roster")
+    p_sk_sync.add_argument("--status-line", action="store_true", dest="status_line",
+                           help="read-only one-block roster for the session-start hook")
+    p_sk_sync.add_argument("--harness-path", default=None, dest="harness_path",
+                           help="execution-cache dir (default ~/.claude/skills)")
+    p_sk_sync.add_argument("--force-shadow", action="store_true", dest="force_shadow",
+                           help="allow approving a name that shadows a PACKAGE skill")
+    p_sk_sync.add_argument("--force-conflict", action="store_true", dest="force_conflict",
+                           help="allow approving over a FOREIGN (unowned) cache dir")
+    p_sk_sync.set_defaults(func=cmd_skill_sync)
+
+
+def _register_skill_lifecycle(skill_sub, fmt_parent):
+    """The PROPOSAL-lifecycle subverbs: candidates / propose / proposals /
+    promote."""
+    # `skill candidates` — the on-demand CORPUS SWEEP. Preserved as its own
+    # subverb rather than folded into `propose`, because the union fixture keeps
+    # --slug/--ref REQUIRED on `propose`, and a sweep names no slug. Dropping it
+    # instead would have been a silent capability loss at the moment of
+    # promotion: the monolith reaches this today, and the promotion gate would
+    # not have noticed, since it checks for MISSING union nodes and this one is
+    # additive. The nightly dream step `k` runs the same shared emit seam, so the
+    # two entry points cannot drift.
+    p_sk_cand = skill_sub.add_parser(
+        "candidates", parents=[fmt_parent],
+        help="detect cohesive recurring learnings + PROPOSE tier-2 "
+             "skill-candidate workorders (DRAFT, never auto-started; "
+             "--dry-run to rank only)")
+    p_sk_cand.add_argument(
+        "--dry-run", action="store_true", dest="dry_run",
+        help="rank candidate clusters (member ids + scores) WITHOUT emitting")
+    p_sk_cand.set_defaults(func=cmd_skill_candidate_propose)
+
     p_sk_prop = skill_sub.add_parser(
         "propose", parents=[fmt_parent],
         help="create-or-increment an agent-PROPOSED skill under skills-proposed/ "
@@ -297,6 +364,16 @@ def register_skill(sub, fmt_parent):
                            help="optional worklog line reference for the ledger")
     p_sk_prop.add_argument("--to-shared", action="store_true", dest="to_shared",
                            help="curator-only: propose into the shared/ root (CR-gated)")
+    # --dry-run on the LEDGER path: compute the proposal and report what WOULD
+    # be recorded (new vs increment, the near-duplicate refusal, the resulting
+    # count) without writing the ledger or touching the index. The union fixture
+    # keeps --slug/--ref REQUIRED on this node, so every invocation names one
+    # proposal; a dry run therefore means "show me this proposal's effect",
+    # not "sweep the corpus".
+    p_sk_prop.add_argument(
+        "--dry-run", action="store_true", dest="dry_run",
+        help="report what this proposal WOULD record (new / increment / "
+             "near-duplicate refusal) without writing the ledger or index")
     p_sk_prop.set_defaults(func=cmd_skill_propose)
 
     p_sk_props = skill_sub.add_parser(

@@ -50,7 +50,7 @@ import argparse
 import json
 import os
 
-from agentware_lib.features.dreamsteps.dreamcapture import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 from agentware_lib.knowledge.freshsignals import STALE_MAX_AGE_DAYS
 from agentware_lib.ops.freshness import _CONFLICT_JACCARD
 from agentware_lib.ops.planauthor.plannew import (

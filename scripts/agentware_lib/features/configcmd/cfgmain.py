@@ -28,6 +28,7 @@ Re-grouping or reordering them, or rewording a single help string, is a
 behaviour change that FAILS the golden test.
 """
 
+from .cfgports import register_ported_setting_flags
 from .cfgroutes import CONFIG_ROUTES
 from .cfgshow import _show_config
 
@@ -253,6 +254,9 @@ def register_config(sub, fmt_parent):
     _register_cli_flags(p_cfg)
     _register_provenance_flags(p_cfg)
     _register_dream_flags(p_cfg)
+    # The settings this migration PORTED, whose resolvers landed without their
+    # accessors — see cfgports for why that is worse than a missing feature.
+    register_ported_setting_flags(p_cfg)
     p_cfg.set_defaults(func=cmd_config)
 
 

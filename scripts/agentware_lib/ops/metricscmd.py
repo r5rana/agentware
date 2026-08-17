@@ -238,6 +238,11 @@ def register_metrics(sub, fmt_parent):
                            help="model context-window size (tokens) the "
                                 "context-tax truncation-risk is measured "
                                 "against (default 200000)")
+    p_metrics.add_argument("--retrieval", action="store_true",
+                           help="report per-session RETRIEVAL utilization over "
+                                "live.jsonl (recall invoked, returned ids, "
+                                "read-through, corpus coverage) instead of "
+                                "execution-cost metrics")
     p_metrics.set_defaults(func=cmd_metrics)
 
 

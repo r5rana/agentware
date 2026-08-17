@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "8dbcb00b8cd3"
+      "git_head": "0f486f8a2a6e"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -45,7 +45,7 @@
     "dynamic": 9,
     "agentware_namespace": 69,
     "external_namespace": 13,
-    "read_sites": 262
+    "read_sites": 264
   },
   "pending_in_destination": [
     "AGENTWARE_REPOINT_AUTOPROVISION",
@@ -3939,6 +3939,14 @@
             "form": "get()",
             "default": null,
             "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/skilllock.py",
+            "line": 239,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
           }
         ],
         "donor": []
@@ -3972,6 +3980,14 @@
           {
             "file": "scripts/agentware_legacy.py",
             "line": 18378,
+            "lang": "python",
+            "form": "get()",
+            "default": null,
+            "kind": "read"
+          },
+          {
+            "file": "scripts/agentware_lib/features/skilllock.py",
+            "line": 79,
             "lang": "python",
             "form": "get()",
             "default": null,
