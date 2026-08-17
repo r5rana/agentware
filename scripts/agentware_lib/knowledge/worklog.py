@@ -34,6 +34,14 @@ import agentware_lib.core.config as config
 import agentware_lib.knowledge.curation as curation
 import agentware_lib.knowledge.index as index
 from agentware_lib.knowledge.proposals import existing_proposal_slugs
+# Bound BY NAME because the ported `cmd_worklog_scan` is the preserved
+# monolith's body verbatim and calls both bare. Re-spelling them to the
+# module-qualified form used elsewhere in this file would make a byte-
+# comparable move into a hand transcription, which is the one thing this
+# migration's verification cannot check.
+from agentware_lib.core.config import require_knowledge_dir
+from agentware_lib.knowledge.index import load_index
+from agentware_lib.knowledge.curation import _slugify
 
 
 # The optional `[-*+]` LIST BULLET is load-bearing, not cosmetic (task 45). A
@@ -51,7 +59,10 @@ DECISION_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*DECISION:\s*(.*?)\s*$")
 # matcher. The captured `<id>` is resolved EXACTLY against the live index/files
 # (no substring fuzz) — this is the primary signal that a marker was promoted.
 PROMOTED_RE = re.compile(
-    r"(?:\(\s*Promoted:\s*|\[\s*promoted\s*->\s*)([a-z0-9][a-z0-9-]*)", re.I)
+    r"(?:\(\s*Promoted:\s*"
+    r"|\[\s*promoted\s*(?:->|" "→" r")\s*"
+    r"|\[\s*kb:\s*)"
+    r"([a-z0-9][a-z0-9-]*)", re.I)
 
 
 def all_entry_ids(kdir, data):
@@ -181,12 +192,14 @@ def _learned_real_ids(kdir, data, l_stems):
     return _real_ids(l_stems, "learn-") | skill_promotion_ids(kdir, data)
 
 
-def _is_promoted(marker_text, stems, real_ids):
+def _is_promoted(marker_text, stems, real_ids, all_ids=None):
     """A marker is promoted iff:
 
-    * primary — it carries an explicit `(Promoted: <id>)` / `[promoted -> <id>]`
-      reference whose id resolves EXACTLY to a real entry (`real_ids`); or
-    * fallback (no reference) — its slug EQUALS a learning stem exactly.
+    * primary — it carries an explicit `(Promoted: <id>)` / `[promoted -> <id>]` /
+      `[kb: <id>]` reference whose id resolves EXACTLY to a real entry. Resolution
+      is against `real_ids` (same category) unioned with `all_ids` when supplied
+      (any category, so skill/decision refs on a `> LEARNED:` line resolve); or
+    * fallback (no reference) — its slug EQUALS a same-category stem exactly.
 
     The legacy substring branches (`stem in slug` / `slug in stem`) are gone:
     they produced false positives (short slug inside an unrelated stem) and could
@@ -195,29 +208,61 @@ def _is_promoted(marker_text, stems, real_ids):
     """
     refs = promoted_ids(marker_text)
     if refs:
-        return any(r in real_ids for r in refs)
-    slug = curation._slugify(marker_text)
+        universe = real_ids if all_ids is None else (real_ids | all_ids)
+        return any(r in universe for r in refs)
+    slug = _slugify(marker_text)
     if not slug:
         return False
     return any(slug == stem for stem in stems)
 
 
-def scan_worklog(path, kdir, data):
-    """Scan a worklog for unpromoted `> LEARNED:` and `> DECISION:` markers.
+# A `> WAIVED: <reason>` line legitimately CLOSES the most recently-scanned
+# still-open marker — an explicit "not worth promoting" decision (R-SI-03), so a
+# waived marker is not counted unpromoted.
+WAIVED_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*WAIVED:\s*(.*?)\s*$")
 
-    Both families gate completion (R-SI-03 / R-AUTO-05). The combined top-level
-    `unpromoted` list keeps the original exit semantics (non-empty -> fail);
-    each item carries a `kind` ("learned"|"decision") so callers can label it.
+
+def scan_worklog_markers(path, kdir, data):
+    """Single source of truth for worklog marker scanning (INV-2 read-only).
+
+    Recognizes `> LEARNED:` / `> DECISION:` markers in bare, blockquote, and
+    bullet-prefixed (`- > LEARNED:`) forms; a marker is CLOSED when it carries an
+    explicit promotion reference (`(Promoted: <id>)`, `[promoted -> <id>]`,
+    unicode `[promoted -> <id>]`, or legacy `[kb: <id>]`) resolving EXACTLY to a
+    real entry in ANY category (skills included), or when its slug equals a
+    same-category entry stem. A `> WAIVED: <reason>` line closes the most
+    recently-scanned still-open marker.
+
+    Returns a dict:
+      {"unpromoted": [{line,text,kind}], "total": int, "waived": int,
+       "per_kind": {"learned": {"total","unpromoted"}, "decision": {...}}}
+    Deterministic; opens the file leniently (never mutates the KB).
     """
     l_stems = learning_stems(kdir, data)
     d_stems = decision_stems(kdir, data)
+    all_ids = all_entry_ids(kdir, data)
     kinds = (
-        ("learned", LEARNED_RE, l_stems, _learned_real_ids(kdir, data, l_stems)),
+        ("learned", LEARNED_RE, l_stems, _real_ids(l_stems, "learn-")),
         ("decision", DECISION_RE, d_stems, _real_ids(d_stems, "decide-")),
     )
-    unpromoted, total = [], 0
-    with open(path, "r", encoding="utf-8") as f:
+    per_kind = {"learned": {"total": 0, "unpromoted": 0},
+                "decision": {"total": 0, "unpromoted": 0}}
+    empty = {"unpromoted": [], "total": 0, "waived": 0, "per_kind": per_kind}
+    try:
+        f = open(path, "r", encoding="utf-8", errors="replace")
+    except OSError:
+        return empty
+    unpromoted, total, waived = [], 0, 0
+    with f:
         for lineno, line in enumerate(f, start=1):
+            # A `> WAIVED:` line closes the most recently-scanned still-open
+            # marker (an explicit "not worth promoting" decision).
+            if WAIVED_RE.match(line):
+                if unpromoted:
+                    closed = unpromoted.pop()
+                    per_kind[closed["kind"]]["unpromoted"] -= 1
+                    waived += 1
+                continue
             for kind, rx, stems, real_ids in kinds:
                 m = rx.match(line)
                 if not m:
@@ -226,30 +271,88 @@ def scan_worklog(path, kdir, data):
                 if not text:
                     continue
                 total += 1
-                if not _is_promoted(text, stems, real_ids):
+                per_kind[kind]["total"] += 1
+                if not _is_promoted(text, stems, real_ids, all_ids):
                     unpromoted.append({"line": lineno, "text": text,
                                        "kind": kind})
+                    per_kind[kind]["unpromoted"] += 1
                 break
-    return unpromoted, total
+    return {"unpromoted": unpromoted, "total": total, "waived": waived,
+            "per_kind": per_kind}
+
+
+def scan_worklog(path, kdir, data):
+    """Scan a worklog for unpromoted `> LEARNED:` and `> DECISION:` markers.
+
+    Both families gate completion (R-SI-03 / R-AUTO-05). Back-compat wrapper over
+    `scan_worklog_markers`: returns `(unpromoted, total)`; the combined
+    `unpromoted` list keeps the original exit semantics (non-empty -> fail) and
+    each item carries a `kind` ("learned"|"decision") so callers can label it.
+    """
+    r = scan_worklog_markers(path, kdir, data)
+    return r["unpromoted"], r["total"]
+
+
+# Extracted-Knowledge 'Suggested ID' line in an assessment.md. Tolerates both
+# markdown emphasis styles the POST prompt produces:
+#   - **Suggested ID:** `learn-foo`
+#   - **Suggested ID**: `learn-foo` *(already promoted)*
+SUGGESTED_ID_RE = re.compile(r"Suggested\s+ID[*:\s]*`([a-z0-9][a-z0-9-]*)`", re.I)
+
+
+def scan_assessment_ids(path, data):
+    """Extracted-Knowledge 'Suggested ID' ids in `path` that do NOT resolve to a
+    live index entry (same id semantics as `query --id`: exact match against the
+    index `entries` ids — intentionally NOT the looser stem resolution used by
+    _is_promoted). Read-only; each item is {"line", "id"}. A missing or
+    unreadable assessment.md yields []."""
+    if not path or not os.path.isfile(path):
+        return []
+    live_ids = {e.get("id") for e in (data.get("entries") or [])
+                if isinstance(e, dict) and e.get("id")}
+    unresolved = []
+    with open(path, "r", encoding="utf-8") as f:
+        for lineno, line in enumerate(f, start=1):
+            m = SUGGESTED_ID_RE.search(line)
+            if not m:
+                continue
+            sid = m.group(1).lower()
+            if sid not in live_ids:
+                unresolved.append({"line": lineno, "id": sid})
+    return unresolved
 
 
 def cmd_worklog_scan(args):
     if not os.path.isfile(args.path):
         sys.stderr.write("agentware: worklog not found: %s\n" % args.path)
         return 1
-    kdir = config.require_knowledge_dir()
+    kdir = require_knowledge_dir()
     if not kdir:
         return 1
-    data, err = index.load_index(kdir)
+    data, err = load_index(kdir)
     if err is not None:
         sys.stderr.write("agentware: %s\n" % err)
         return 1
 
     unpromoted, total = scan_worklog(args.path, kdir, data)
     ok = len(unpromoted) == 0
+
+    # Advisory sidecar (opt-in --also-assessment): flag Extracted-Knowledge
+    # 'Suggested ID' entries in the sibling assessment.md that never made it into
+    # the live index (the POST-phase knowledge leak). Report-only — it NEVER
+    # changes the exit code, so the run_post_hooks / kb-sync / pre-hook gates that
+    # call `worklog scan` WITHOUT the flag stay byte-for-byte unaffected.
+    assessment_unpromoted = None
+    if getattr(args, "also_assessment", False):
+        assessment_path = os.path.join(
+            os.path.dirname(os.path.abspath(args.path)), "assessment.md")
+        assessment_unpromoted = scan_assessment_ids(assessment_path, data)
+
     if getattr(args, "format", "text") == "json":
-        json.dump({"unpromoted": unpromoted, "total": total},
-                  sys.stdout, ensure_ascii=False, indent=2)
+        payload = {"unpromoted": unpromoted, "total": total}
+        if assessment_unpromoted is not None:
+            payload["assessment_unpromoted"] = assessment_unpromoted
+        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
         if ok:
@@ -260,8 +363,12 @@ def cmd_worklog_scan(args):
             for item in unpromoted:
                 print("  line %d [%s]: %s"
                       % (item["line"], item.get("kind", "learned"), item["text"]))
+        if assessment_unpromoted:
+            print("ASSESSMENT SIDECAR: %d Extracted-Knowledge 'Suggested ID'(s) "
+                  "not in the live index (advisory):" % len(assessment_unpromoted))
+            for item in assessment_unpromoted:
+                print("  line %d: %s" % (item["line"], item["id"]))
     return 0 if ok else 1
-
 
 def register_worklog(sub, fmt_parent):
     # worklog ----------------------------------------------------------------

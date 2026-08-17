@@ -7,15 +7,15 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 228,
-  "lib": 521,
+  "legacy": 227,
+  "lib": 523,
   "legacy_only": 248,
-  "shared": 218,
+  "shared": 219,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 10,
-  "undecided_max": 4
+  "unresolved_max": 8,
+  "undecided_max": 3
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -1605,8 +1605,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ]
   },
   {
    "name": "SUPERSEDES_RELATION",
@@ -1734,8 +1737,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 45"
+   "status": "resolved",
+   "follow_up": "task 45",
+   "lib_sites": [
+    "scripts/agentware_lib/knowledge/worklog.py"
+   ]
   },
   {
    "name": "WORKORDER_DRAFT_CAP",
@@ -3124,7 +3130,7 @@
   {
    "name": "PROMOTED_RE",
    "legacy_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*(?:->|→)\\\\s*|\\\\[\\\\s*kb:\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
-   "lib_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*->\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
+   "lib_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*(?:->|→)\\\\s*|\\\\[\\\\s*kb:\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -3135,8 +3141,7 @@
    "rationale": "the monolith also recognises the `→` arrow and the `[kb: <id>]` form. Losing them does not fail open on the marker -- it fails open on the PROMOTION, so an already promoted marker reads as unpromoted and the gate cries wolf until someone disables it.",
    "decision": "legacy",
    "decided_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*(?:->|→)\\\\s*|\\\\[\\\\s*kb:\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)",
-   "landed": false,
-   "pending_literal": "re.compile('(?:\\\\(\\\\s*Promoted:\\\\s*|\\\\[\\\\s*promoted\\\\s*->\\\\s*)([a-z0-9][a-z0-9-]*)', re.I)"
+   "landed": true
   },
   {
    "name": "RELATION_TYPES",

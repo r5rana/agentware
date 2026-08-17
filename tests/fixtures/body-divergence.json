@@ -626,8 +626,14 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/failureladder.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1220
+   "adjudication": "decomposed",
+   "winner_chars": 1220,
+   "host": "scripts/agentware_lib/ops/failureladder.py",
+   "floor_chars": 963,
+   "absorbs": [
+    "scripts/agentware_lib/knowledge/worklog.py::scan_worklog_markers"
+   ],
+   "rationale": "It re-implemented the scan loop so the per-kind tally could count what the gate counts, which is exactly the coupling that guarantees drift -- and it HAD drifted, missing both WAIVED and cross-category refs. Delegating to the same primitive is what makes 'the tally agrees with the gate' a property of the code rather than a comment."
   },
   {
    "name": "_fanout_dir",
@@ -3452,8 +3458,14 @@
    "donor_sites": [
     "scripts/agentware_lib/knowledge/worklog.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1080
+   "adjudication": "decomposed",
+   "winner_chars": 1080,
+   "host": "scripts/agentware_lib/knowledge/worklog.py",
+   "floor_chars": 476,
+   "absorbs": [
+    "scripts/agentware_lib/knowledge/worklog.py::scan_worklog_markers"
+   ],
+   "rationale": "Reduced to the back-compat wrapper it is in the winning tree: `scan_worklog_markers` owns the marker vocabulary (bare/blockquote/bullet forms, the four promotion-reference spellings, cross-category resolution and WAIVED) and returns the richer record, while this keeps the (unpromoted, total) signature and the exit semantics every existing caller depends on."
   },
   {
    "name": "split_frontmatter",

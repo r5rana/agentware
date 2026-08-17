@@ -468,6 +468,9 @@ from agentware_lib.features.curationcmd import (   # noqa: F401  (re-export)
 from agentware_lib.retrieval.bm25 import (   # noqa: F401  (re-export)
     bm25_cache_is_fresh, bm25_cache_path, build_bm25_cache,
     load_bm25_cache, write_bm25_cache, _corpus_stat_signature)
+from agentware_lib.knowledge.worklog import (   # noqa: F401  (re-export)
+    WAIVED_RE, _is_promoted, cmd_worklog_scan, scan_assessment_ids,
+    scan_worklog, scan_worklog_markers)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -5194,10 +5197,6 @@ def _render_features(data):
 # the match).
 LEARNED_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*LEARNED:\s*(.*?)\s*$")
 DECISION_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*DECISION:\s*(.*?)\s*$")
-# A `> WAIVED: <reason>` line legitimately CLOSES the most recently-scanned
-# still-open marker — an explicit "not worth promoting" decision (R-SI-03), so a
-# waived marker is not counted unpromoted.
-WAIVED_RE = re.compile(r"^\s*(?:[-*+]\s+)?>?\s*WAIVED:\s*(.*?)\s*$")
 
 # Explicit, deterministic promotion reference on a marker line. Accepted forms:
 #   (Promoted: <id>)     canonical — any category, including skill-<id>
@@ -5298,177 +5297,11 @@ def all_entry_ids(kdir, data):
     return ids
 
 
-def _is_promoted(marker_text, stems, real_ids, all_ids=None):
-    """A marker is promoted iff:
-
-    * primary — it carries an explicit `(Promoted: <id>)` / `[promoted -> <id>]` /
-      `[kb: <id>]` reference whose id resolves EXACTLY to a real entry. Resolution
-      is against `real_ids` (same category) unioned with `all_ids` when supplied
-      (any category, so skill/decision refs on a `> LEARNED:` line resolve); or
-    * fallback (no reference) — its slug EQUALS a same-category stem exactly.
-
-    The legacy substring branches (`stem in slug` / `slug in stem`) are gone:
-    they produced false positives (short slug inside an unrelated stem) and could
-    never be trusted. Pure string/set comparison over on-disk data -> INV-1
-    deterministic, INV-2 read-only.
-    """
-    refs = promoted_ids(marker_text)
-    if refs:
-        universe = real_ids if all_ids is None else (real_ids | all_ids)
-        return any(r in universe for r in refs)
-    slug = _slugify(marker_text)
-    if not slug:
-        return False
-    return any(slug == stem for stem in stems)
-
-
-def scan_worklog_markers(path, kdir, data):
-    """Single source of truth for worklog marker scanning (INV-2 read-only).
-
-    Recognizes `> LEARNED:` / `> DECISION:` markers in bare, blockquote, and
-    bullet-prefixed (`- > LEARNED:`) forms; a marker is CLOSED when it carries an
-    explicit promotion reference (`(Promoted: <id>)`, `[promoted -> <id>]`,
-    unicode `[promoted -> <id>]`, or legacy `[kb: <id>]`) resolving EXACTLY to a
-    real entry in ANY category (skills included), or when its slug equals a
-    same-category entry stem. A `> WAIVED: <reason>` line closes the most
-    recently-scanned still-open marker.
-
-    Returns a dict:
-      {"unpromoted": [{line,text,kind}], "total": int, "waived": int,
-       "per_kind": {"learned": {"total","unpromoted"}, "decision": {...}}}
-    Deterministic; opens the file leniently (never mutates the KB).
-    """
-    l_stems = learning_stems(kdir, data)
-    d_stems = decision_stems(kdir, data)
-    all_ids = all_entry_ids(kdir, data)
-    kinds = (
-        ("learned", LEARNED_RE, l_stems, _real_ids(l_stems, "learn-")),
-        ("decision", DECISION_RE, d_stems, _real_ids(d_stems, "decide-")),
-    )
-    per_kind = {"learned": {"total": 0, "unpromoted": 0},
-                "decision": {"total": 0, "unpromoted": 0}}
-    empty = {"unpromoted": [], "total": 0, "waived": 0, "per_kind": per_kind}
-    try:
-        f = open(path, "r", encoding="utf-8", errors="replace")
-    except OSError:
-        return empty
-    unpromoted, total, waived = [], 0, 0
-    with f:
-        for lineno, line in enumerate(f, start=1):
-            # A `> WAIVED:` line closes the most recently-scanned still-open
-            # marker (an explicit "not worth promoting" decision).
-            if WAIVED_RE.match(line):
-                if unpromoted:
-                    closed = unpromoted.pop()
-                    per_kind[closed["kind"]]["unpromoted"] -= 1
-                    waived += 1
-                continue
-            for kind, rx, stems, real_ids in kinds:
-                m = rx.match(line)
-                if not m:
-                    continue
-                text = m.group(1).strip()
-                if not text:
-                    continue
-                total += 1
-                per_kind[kind]["total"] += 1
-                if not _is_promoted(text, stems, real_ids, all_ids):
-                    unpromoted.append({"line": lineno, "text": text,
-                                       "kind": kind})
-                    per_kind[kind]["unpromoted"] += 1
-                break
-    return {"unpromoted": unpromoted, "total": total, "waived": waived,
-            "per_kind": per_kind}
-
-
-def scan_worklog(path, kdir, data):
-    """Scan a worklog for unpromoted `> LEARNED:` and `> DECISION:` markers.
-
-    Both families gate completion (R-SI-03 / R-AUTO-05). Back-compat wrapper over
-    `scan_worklog_markers`: returns `(unpromoted, total)`; the combined
-    `unpromoted` list keeps the original exit semantics (non-empty -> fail) and
-    each item carries a `kind` ("learned"|"decision") so callers can label it.
-    """
-    r = scan_worklog_markers(path, kdir, data)
-    return r["unpromoted"], r["total"]
-
-
 # Extracted-Knowledge 'Suggested ID' line in an assessment.md. Tolerates both
 # markdown emphasis styles the POST prompt produces:
 #   - **Suggested ID:** `learn-foo`
 #   - **Suggested ID**: `learn-foo` *(already promoted)*
 SUGGESTED_ID_RE = re.compile(r"Suggested\s+ID[*:\s]*`([a-z0-9][a-z0-9-]*)`", re.I)
-
-
-def scan_assessment_ids(path, data):
-    """Extracted-Knowledge 'Suggested ID' ids in `path` that do NOT resolve to a
-    live index entry (same id semantics as `query --id`: exact match against the
-    index `entries` ids — intentionally NOT the looser stem resolution used by
-    _is_promoted). Read-only; each item is {"line", "id"}. A missing or
-    unreadable assessment.md yields []."""
-    if not path or not os.path.isfile(path):
-        return []
-    live_ids = {e.get("id") for e in (data.get("entries") or [])
-                if isinstance(e, dict) and e.get("id")}
-    unresolved = []
-    with open(path, "r", encoding="utf-8") as f:
-        for lineno, line in enumerate(f, start=1):
-            m = SUGGESTED_ID_RE.search(line)
-            if not m:
-                continue
-            sid = m.group(1).lower()
-            if sid not in live_ids:
-                unresolved.append({"line": lineno, "id": sid})
-    return unresolved
-
-
-def cmd_worklog_scan(args):
-    if not os.path.isfile(args.path):
-        sys.stderr.write("agentware: worklog not found: %s\n" % args.path)
-        return 1
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    data, err = load_index(kdir)
-    if err is not None:
-        sys.stderr.write("agentware: %s\n" % err)
-        return 1
-
-    unpromoted, total = scan_worklog(args.path, kdir, data)
-    ok = len(unpromoted) == 0
-
-    # Advisory sidecar (opt-in --also-assessment): flag Extracted-Knowledge
-    # 'Suggested ID' entries in the sibling assessment.md that never made it into
-    # the live index (the POST-phase knowledge leak). Report-only — it NEVER
-    # changes the exit code, so the run_post_hooks / kb-sync / pre-hook gates that
-    # call `worklog scan` WITHOUT the flag stay byte-for-byte unaffected.
-    assessment_unpromoted = None
-    if getattr(args, "also_assessment", False):
-        assessment_path = os.path.join(
-            os.path.dirname(os.path.abspath(args.path)), "assessment.md")
-        assessment_unpromoted = scan_assessment_ids(assessment_path, data)
-
-    if getattr(args, "format", "text") == "json":
-        payload = {"unpromoted": unpromoted, "total": total}
-        if assessment_unpromoted is not None:
-            payload["assessment_unpromoted"] = assessment_unpromoted
-        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        if ok:
-            print("WORKLOG SCAN PASSED: %d marker(s), all promoted." % total)
-        else:
-            print("WORKLOG SCAN FAILED: %d of %d marker(s) unpromoted:"
-                  % (len(unpromoted), total))
-            for item in unpromoted:
-                print("  line %d [%s]: %s"
-                      % (item["line"], item.get("kind", "learned"), item["text"]))
-        if assessment_unpromoted:
-            print("ASSESSMENT SIDECAR: %d Extracted-Knowledge 'Suggested ID'(s) "
-                  "not in the live index (advisory):" % len(assessment_unpromoted))
-            for item in assessment_unpromoted:
-                print("  line %d: %s" % (item["line"], item["id"]))
-    return 0 if ok else 1
 
 
 # --- Audit -------------------------------------------------------------------

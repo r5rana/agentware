@@ -108,38 +108,22 @@ def _classify_recovery(err_step, next_step):
 
 def _failure_marker_tally(kdir, feature):
     """Per-kind LEARNED/DECISION tallies (total + unpromoted) from the feature's
-    worklog (read-only). Reuses the completion-gate regexes + promotion stems so
-    the tally agrees with the worklog-scan gate."""
+    worklog (read-only). Delegates to `scan_worklog_markers` so the tally uses
+    the exact same regexes, cross-category resolution, and WAIVED handling as the
+    completion gate — the two can never drift.
+
+    It previously re-implemented the scan loop here instead, and had already
+    drifted: it recognized neither `> WAIVED:` nor a cross-category promotion
+    reference, so a waived marker and a `> LEARNED:` promoted as a skill both
+    counted as unpromoted in the tally while the gate itself counted them closed.
+    Two copies of one rule is the defect; delegation is the fix."""
     out = {"learned": {"total": 0, "unpromoted": 0},
            "decision": {"total": 0, "unpromoted": 0}}
     wl = os.path.join(kdir, "work", feature, "worklog.md")
     if not os.path.isfile(wl):
         return out
     data, _err = index.load_index(kdir)
-    l_stems = _worklog.learning_stems(kdir, data)
-    d_stems = _worklog.decision_stems(kdir, data)
-    kinds = (
-        ("learned", _worklog.LEARNED_RE, l_stems, _worklog._learned_real_ids(kdir, data, l_stems)),
-        ("decision", _worklog.DECISION_RE, d_stems, _worklog._real_ids(d_stems, "decide-")),
-    )
-    try:
-        f = open(wl, "r", encoding="utf-8", errors="replace")
-    except OSError:
-        return out
-    with f:
-        for line in f:
-            for kind, rx, stems, real_ids in kinds:
-                m = rx.match(line)
-                if not m:
-                    continue
-                text = m.group(1).strip()
-                if not text:
-                    continue
-                out[kind]["total"] += 1
-                if not _worklog._is_promoted(text, stems, real_ids):
-                    out[kind]["unpromoted"] += 1
-                break
-    return out
+    return _worklog.scan_worklog_markers(wl, kdir, data)["per_kind"]
 
 
 def derive_failures(kdir, feature):

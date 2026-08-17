@@ -486,6 +486,50 @@ ADJUDICATIONS.update({
     },
 })
 
+
+# --------------------------------------------------------------------------
+# TASK 54/55 -- the WORKLOG SCANNER union
+# --------------------------------------------------------------------------
+# Both trees scanned worklog markers, and one of them had already been refactored
+# so that a single primitive owns the rule and the two callers delegate to it.
+# This tree carried the OTHER shape: `scan_worklog` inlined the loop and
+# `_failure_marker_tally` inlined it a SECOND time. Two copies of one rule is not
+# a style question -- they had already drifted, and only in the direction that is
+# invisible: the tally recognized neither `> WAIVED:` nor a cross-category
+# promotion reference, so a waived marker and a `> LEARNED:` promoted as a skill
+# counted as unpromoted in the tally while the completion gate counted them
+# closed. Both callers now delegate, so both shrank, and both name the receiver.
+_WORKLOGMOD = "scripts/agentware_lib/knowledge/worklog.py"
+_MARKERS = _WORKLOGMOD + "::scan_worklog_markers"
+
+ADJUDICATIONS.update({
+    "scan_worklog": {
+        "adjudication": "decomposed",
+        "host": _WORKLOGMOD,
+        "floor_chars": 476,
+        "absorbs": [_MARKERS],
+        "rationale": "Reduced to the back-compat wrapper it is in the winning "
+                     "tree: `scan_worklog_markers` owns the marker vocabulary "
+                     "(bare/blockquote/bullet forms, the four promotion-reference "
+                     "spellings, cross-category resolution and WAIVED) and "
+                     "returns the richer record, while this keeps the "
+                     "(unpromoted, total) signature and the exit semantics every "
+                     "existing caller depends on.",
+    },
+    "_failure_marker_tally": {
+        "adjudication": "decomposed",
+        "host": "scripts/agentware_lib/ops/failureladder.py",
+        "floor_chars": 963,
+        "absorbs": [_MARKERS],
+        "rationale": "It re-implemented the scan loop so the per-kind tally could "
+                     "count what the gate counts, which is exactly the coupling "
+                     "that guarantees drift -- and it HAD drifted, missing both "
+                     "WAIVED and cross-category refs. Delegating to the same "
+                     "primitive is what makes 'the tally agrees with the gate' a "
+                     "property of the code rather than a comment.",
+    },
+})
+
 # Pinned by the suite. Growing this set requires editing BOTH this table and the
 # test that asserts it, which is the point: a deferral must be argued for, never
 # accumulated.

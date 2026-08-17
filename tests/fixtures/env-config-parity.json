@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "6ef24cde2f9f"
+      "git_head": "c352e1b35ec5"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -251,7 +251,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1241,
+            "line": 1244,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -259,7 +259,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1244,
+            "line": 1247,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -802,7 +802,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1390,
+            "line": 1393,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -810,7 +810,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1393,
+            "line": 1396,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -884,7 +884,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1470,
+            "line": 1473,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -892,7 +892,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1473,
+            "line": 1476,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -966,7 +966,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1426,
+            "line": 1429,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -974,7 +974,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1431,
+            "line": 1434,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1048,7 +1048,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1526,
+            "line": 1529,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1056,7 +1056,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1529,
+            "line": 1532,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1130,7 +1130,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1541,
+            "line": 1544,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1138,7 +1138,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1544,
+            "line": 1547,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1209,7 +1209,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 13593,
+            "line": 13426,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1380,7 +1380,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1055,
+            "line": 1058,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1388,7 +1388,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1058,
+            "line": 1061,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1462,7 +1462,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1197,
+            "line": 1200,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1470,7 +1470,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1200,
+            "line": 1203,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1544,7 +1544,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1073,
+            "line": 1076,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1552,7 +1552,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1076,
+            "line": 1079,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1630,7 +1630,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 950,
+            "line": 953,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1638,7 +1638,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 15162,
+            "line": 14995,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1646,7 +1646,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 15163,
+            "line": 14996,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -1764,7 +1764,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 7818,
+            "line": 7651,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -1772,7 +1772,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 11621,
+            "line": 11454,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -1780,7 +1780,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 13919,
+            "line": 13752,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -2005,7 +2005,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2112,7 +2112,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2170,7 +2170,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -2456,7 +2456,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1331,
+            "line": 1334,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -2464,7 +2464,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1331,
+            "line": 1334,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2553,7 +2553,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 7233,
+            "line": 7066,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2561,7 +2561,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 15313,
+            "line": 15146,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2569,7 +2569,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 15961,
+            "line": 15794,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2577,7 +2577,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 16273,
+            "line": 16106,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2585,7 +2585,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 16309,
+            "line": 16142,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2695,7 +2695,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 7236,
+            "line": 7069,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -2703,7 +2703,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 11582,
+            "line": 11415,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -3135,7 +3135,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3193,7 +3193,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3251,7 +3251,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3309,7 +3309,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3367,7 +3367,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3425,7 +3425,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1254,
+            "line": 1257,
             "lang": "python",
             "form": "template:AGENTWARE_%s_%s",
             "default": null,
@@ -3579,7 +3579,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1153,
+            "line": 1156,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -3587,7 +3587,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1156,
+            "line": 1159,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -3910,7 +3910,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 17219,
+            "line": 17052,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -3955,7 +3955,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 17011,
+            "line": 16844,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -4429,7 +4429,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1508,
+            "line": 1511,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -4437,7 +4437,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 1511,
+            "line": 1514,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,
@@ -4750,7 +4750,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 13108,
+            "line": 12941,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4805,7 +4805,7 @@
         "local": [
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 12911,
+            "line": 12744,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4813,7 +4813,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 13107,
+            "line": 12940,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4821,7 +4821,7 @@
           },
           {
             "file": "scripts/agentware_legacy.py",
-            "line": 13920,
+            "line": 13753,
             "lang": "python",
             "form": "environ[]",
             "default": null,
