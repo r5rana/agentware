@@ -158,6 +158,7 @@ PORTED_VERBS = frozenset({
     "recall",
     "mcp",
     "steering",
+    "gate",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

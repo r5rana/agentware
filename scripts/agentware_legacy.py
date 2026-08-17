@@ -439,6 +439,8 @@ from agentware_lib.features.setupcmd import (   # noqa: F401  (re-export)
     cmd_profile)
 from agentware_lib.ops.steering import (   # noqa: F401  (re-export)
     cmd_steering_lint)
+from agentware_lib.ops.releasegate import (   # noqa: F401  (re-export)
+    cmd_gate_release)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -13358,67 +13360,6 @@ def _gate4_swe_task():
                 "details": ["SKIP: bench swe subcommand not available"]}
     return {"gate": "swe-task", "passed": True,
             "details": ["bench swe exists but full-run deferred to CI"]}
-
-
-def cmd_gate_release(args):
-    """Run the release gate harness. Exit 0 on pass, 1 on any failure."""
-    # Kill-switch
-    if os.environ.get("AGENTWARE_DISABLE_RELEASE_GATE", "").strip():
-        msg = "release gate SKIPPED (AGENTWARE_DISABLE_RELEASE_GATE set)"
-        if getattr(args, "format", "text") == "json":
-            json.dump({"passed": True, "skipped": True, "reason": msg},
-                      sys.stdout, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print(msg)
-        return 0
-
-    as_json = getattr(args, "format", "text") == "json"
-    full = getattr(args, "full", False)
-    tolerance = getattr(args, "tolerance", 0.02)
-
-    # Graceful no-op when toolkit/workspace absent.
-    kdir = resolve_knowledge_dir()
-    if not kdir or not os.path.isdir(kdir):
-        msg = "release gate SKIPPED (no knowledge dir resolved)"
-        if as_json:
-            json.dump({"passed": True, "skipped": True, "reason": msg},
-                      sys.stdout, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print(msg)
-        return 0
-
-    data, err = load_index(kdir)
-    if err is not None:
-        # If index is broken, still run content lint (Gate 1) which is repo-only.
-        data = []
-
-    gates = []
-
-    # --- Tier A (always) ---
-    gates.append(_gate1_content_lint())
-    gates.append(_gate2_lite_gold_fixture(kdir, data, tolerance))
-    gates.append(_gate3_reliability_delta(kdir, tolerance))
-
-    # --- Tier B (--full only) ---
-    if full:
-        gates.extend(_gate2_full(kdir, data, tolerance))
-        gates.append(_gate4_swe_task())
-
-    all_passed = all(g["passed"] for g in gates)
-    payload = {"passed": all_passed, "skipped": False, "gates": gates}
-
-    if as_json:
-        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("RELEASE GATE %s" % ("PASSED" if all_passed else "FAILED"))
-        for g in gates:
-            print("  [%s] %s" % ("PASS" if g["passed"] else "FAIL", g["gate"]))
-            for d in g.get("details", []):
-                print("      %s" % d)
-    return 0 if all_passed else 1
 
 
 # `recall --scope work` BM25 multipliers by plan state (feature 260710): a
