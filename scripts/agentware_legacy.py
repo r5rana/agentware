@@ -451,6 +451,8 @@ from agentware_lib.retrieval.evalcmd import (   # noqa: F401  (re-export)
     cmd_eval)
 from agentware_lib.ops.metricscmd import (   # noqa: F401  (re-export)
     cmd_dashboard)
+from agentware_lib.ops.metricscmd import (   # noqa: F401  (re-export)
+    cmd_metrics)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -12025,98 +12027,6 @@ def _print_metrics_text(rows, agg, flt):
 
 
 DASHBOARD_SERVER = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard.py")
-
-
-def cmd_metrics(args):
-    """Execution observability over session transcripts (READ-ONLY, INV-2).
-
-    Parses logs/sessions/<sid>/main.jsonl (+ subagents/*.jsonl) for turn counts,
-    wall time, token usage, tool-call counts and subagent counts. NEVER touches
-    index.json or any KB file."""
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-
-    # Retrieval-utilization mode (Task 9): a distinct, self-contained derivation
-    # over live.jsonl — short-circuits the execution-cost path above.
-    if getattr(args, "retrieval", False):
-        report = derive_retrieval(kdir, session=getattr(args, "session", None))
-        if getattr(args, "format", "text") == "json":
-            json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print("retrieval utilization: %d session(s) sampled"
-                  % report["sessions_sampled"])
-            cc = report["corpus_coverage"]
-            print("  corpus coverage: %s/%s learning ids surfaced (ratio %s)"
-                  % (cc["learning_ids_surfaced"], cc["corpus_size"], cc["ratio"]))
-            for s in report["sessions"]:
-                rt = s["read_through"]
-                print("  %s: recall=%s calls=%d returned_ids=%d "
-                      "read-through=%s/%s"
-                      % (s["session"], s["recall_invoked"], s["recall_calls"],
-                         len(s["returned_ids"]), rt["read"],
-                         rt["returned_paths"]))
-        return 0
-
-    since = getattr(args, "since", None)
-    if since is not None and not _is_valid_date(since):
-        sys.stderr.write("agentware: --since must be YYYY-MM-DD\n")
-        return 1
-    prices = _DEFAULT_PRICES
-    price_source = "default"
-    prices_path = getattr(args, "prices", None)
-    if prices_path:
-        prices, perr = load_price_table(prices_path)
-        if perr:
-            sys.stderr.write("agentware: %s\n" % perr)
-            return 1
-        price_source = prices_path
-    rows = collect_sessions(
-        kdir, session=getattr(args, "session", None),
-        feature=getattr(args, "feature", None), since=since)
-    agg = aggregate_metrics(rows)
-    apply_pricing(rows, agg, prices)
-    flt = {"session": getattr(args, "session", None),
-           "feature": getattr(args, "feature", None), "since": since}
-
-    # Plan-authoring derivations (read-only): attributed authoring time/tokens
-    # always; plan-size only when a single feature is in scope (it has a plan.md).
-    agg["authoring"] = derive_authoring(rows)
-    # Context-tax derivations (read-only): cache-read-per-turn series, the
-    # injected MAIN.md footprint, and context-window utilization + truncation risk.
-    agg["context_tax"] = derive_context_tax(
-        rows, kdir, window=getattr(args, "context_window", None))
-    feature = getattr(args, "feature", None)
-    plan_meta = derive_plan_size(_plan_path(kdir, feature)) if feature else None
-
-    # Per-phase / per-iteration cost attribution + terminal run outcome (Task 5,
-    # read-only). phase_costs partition the session tokens by loop phase (sums ==
-    # session totals); iterations + outcome are per-feature: outcome reads the
-    # Task 6/7 metrics.jsonl terminal event when present, else falls back to the
-    # persisted .loop/plan/assessment artifacts.
-    agg["phase_costs"] = derive_phase_costs(rows)
-    if feature:
-        loop_events = _read_metrics_jsonl(kdir, feature=feature)
-        agg["iterations"] = derive_iteration_costs(loop_events)
-        agg["outcome"] = derive_outcome(kdir, feature, events=loop_events)
-
-    if args.format == "json":
-        payload = {"filter": flt, "session_count": len(rows),
-                   "price_source": price_source,
-                   "sessions": rows, "aggregate": agg}
-        if feature:
-            payload["plan"] = plan_meta
-        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-        return 0 if rows else 1
-
-    if not rows:
-        print("metrics: no matching sessions under %s"
-              % logs_sessions_dir(kdir))
-        return 1
-    _print_metrics_text(rows, agg, flt)
-    return 0
 
 
 def _audit_steering_lint_check():

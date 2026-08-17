@@ -42,6 +42,7 @@ import subprocess
 import sys
 
 import agentware_lib.core.config as config
+import agentware_lib.ops.deriveretrieval as _deriveret
 import agentware_lib.core.dates as dates
 from agentware_lib.core.paths import REPO_ROOT
 import agentware_lib.ops.derive as _derive
@@ -149,6 +150,31 @@ def cmd_dashboard(args):
         return 0
 
 
+def _report_retrieval(kdir, args):
+    """`metrics --retrieval`: recall invocation, returned ids, read-through and
+    corpus coverage, per session.
+
+    Split from `cmd_metrics` rather than inlined — that function carries a
+    declared ceiling row, and this branch is a whole second report.
+    """
+    report = _deriveret.derive_retrieval(kdir, session=getattr(args, "session", None))
+    if getattr(args, "format", "text") == "json":
+        json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+    print("retrieval utilization: %d session(s) sampled"
+          % report["sessions_sampled"])
+    cc = report["corpus_coverage"]
+    print("  corpus coverage: %s/%s learning ids surfaced (ratio %s)"
+          % (cc["learning_ids_surfaced"], cc["corpus_size"], cc["ratio"]))
+    for s in report["sessions"]:
+        rt = s["read_through"]
+        print("  %s: recall=%s calls=%d returned_ids=%d read-through=%s/%s"
+              % (s["session"], s["recall_invoked"], s["recall_calls"],
+                 len(s["returned_ids"]), rt["read"], rt["returned_paths"]))
+    return 0
+
+
 def cmd_metrics(args):
     """Execution observability over session transcripts (READ-ONLY, INV-2).
 
@@ -158,6 +184,15 @@ def cmd_metrics(args):
     kdir = config.require_knowledge_dir()
     if not kdir:
         return 1
+
+    # Retrieval-utilization mode: a distinct, self-contained derivation over
+    # live.jsonl that SHORT-CIRCUITS the execution-cost path below. The two
+    # answer different questions — "what did this cost" versus "was the knowledge
+    # base actually used" — and only the second can tell you a corpus is being
+    # maintained and never read.
+    if getattr(args, "retrieval", False):
+        return _report_retrieval(kdir, args)
+
     since = getattr(args, "since", None)
     if since is not None and not dates._is_valid_date(since):
         sys.stderr.write("agentware: --since must be YYYY-MM-DD\n")
