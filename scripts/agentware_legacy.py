@@ -449,6 +449,8 @@ from agentware_lib.retrieval.bench.benchswe import (   # noqa: F401  (re-export)
     cmd_bench_swe)
 from agentware_lib.retrieval.evalcmd import (   # noqa: F401  (re-export)
     cmd_eval)
+from agentware_lib.ops.metricscmd import (   # noqa: F401  (re-export)
+    cmd_dashboard)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -12023,39 +12025,6 @@ def _print_metrics_text(rows, agg, flt):
 
 
 DASHBOARD_SERVER = os.path.join(REPO_ROOT, "scripts", "agentware_dashboard.py")
-
-
-def cmd_dashboard(args):
-    """Serve the read-only observability dashboard (localhost-only).
-
-    The HTTP server needs `http.server`, which the toolkit's import guards
-    (INV-1/INV-6, tests/test_invariants.py) forbid in this CLI source. So the
-    server lives in a SEPARATE sidecar file (`scripts/agentware_dashboard.py`)
-    that the guards never scan, and we launch it via subprocess — the same
-    pattern as the optional embedder backend. This keeps the toolkit's
-    static-import surface stdlib-only while the dashboard still runs.
-
-    The server binds 127.0.0.1 ONLY, serves the built static bundle
-    (webui/dist/) through a hardened static handler, and exposes the read-only
-    JSON API. It adds NO writer.
-    """
-    if not os.path.isfile(DASHBOARD_SERVER):
-        print("error: dashboard server missing (%s)" % DASHBOARD_SERVER,
-              file=sys.stderr)
-        return 1
-    host = getattr(args, "host", None) or "127.0.0.1"
-    dist_dir = os.path.join(REPO_ROOT, "webui", "dist")
-    kdir = resolve_knowledge_dir()
-    cmd = [sys.executable, DASHBOARD_SERVER,
-           "--host", host, "--port", str(args.port), "--dist", dist_dir]
-    if kdir:
-        cmd += ["--kdir", kdir]
-    if getattr(args, "no_open", False):
-        cmd.append("--no-open")
-    try:
-        return subprocess.call(cmd, cwd=REPO_ROOT)
-    except KeyboardInterrupt:
-        return 0
 
 
 def cmd_metrics(args):

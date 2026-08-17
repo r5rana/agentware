@@ -6,13 +6,12 @@
   "generator": "python3 tests/_legacy_ratchet.py --record",
   "notes": "SHRINK-ONLY marks over scripts/agentware_legacy.py plus a GROW-ONLY floor over agentware_lib.strangler.PORTED_VERBS. legacy_lines and legacy_bytes may only fall; legacy_defs and legacy_handlers are NAME SETS that may only lose members; floor.ported_verbs may only gain them. --record enforces all of that and additionally refuses any handler departure that no newly-ported verb accounts for by name (cmd_<verb>[_<sub>]), where the crediting verb must itself be a top-level verb of tests/fixtures/surface-union.json. Seeded at task 32 from the monolith preserved byte-identical at aw-pre-merge, with the allowlist still EMPTY (task 29). An ABSENT monolith and an ABSENT strangler module are both terminal states task 56 leaves behind, not failures.",
   "high_water": {
-    "legacy_lines": 19986,
-    "legacy_bytes": 680862,
+    "legacy_lines": 19955,
+    "legacy_bytes": 679857,
     "legacy_handlers": [
       "cmd_attach",
       "cmd_audit",
       "cmd_config",
-      "cmd_dashboard",
       "cmd_decide",
       "cmd_dream",
       "cmd_fanout_list",
@@ -413,7 +412,6 @@
       "cmd_attach",
       "cmd_audit",
       "cmd_config",
-      "cmd_dashboard",
       "cmd_decide",
       "cmd_dream",
       "cmd_fanout_list",
@@ -619,6 +617,7 @@
     "ported_verbs": [
       "bench",
       "checkup",
+      "dashboard",
       "eval",
       "fleet",
       "fleet-emit",

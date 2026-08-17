@@ -161,6 +161,7 @@ PORTED_VERBS = frozenset({
     "gate",
     "bench",
     "eval",
+    "dashboard",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
