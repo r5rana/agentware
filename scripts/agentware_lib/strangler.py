@@ -145,6 +145,14 @@ PORTED_VERBS = frozenset({
     "work",         # work stamp
     "fleet",        # impact / issues
     "fleet-emit",   # the terminal loop event (R-ORG-06)
+    # task 54 — the SHARED-VERB promotion wave. Each verb below exists on BOTH
+    # sides, so its row is a CHOICE between two working implementations rather
+    # than the difference between working and dead (that was task 52). A row is
+    # written only after the promotion gate proves the lib node reproduces the
+    # UNION fixture for that verb — every subverb, every flag, every required
+    # disposition — because a verb promoted with a narrower surface does not
+    # fail, it silently stops accepting an argument someone's script passes.
+    "whereami",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an
