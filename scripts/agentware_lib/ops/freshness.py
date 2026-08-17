@@ -37,6 +37,10 @@ Fan-in: 4 (modules that import this; see catalog/modules.json depended_on_by; re
 
 import agentware_lib.core.dates as dates
 import agentware_lib.knowledge.index as index
+# The supersede rows read the SAME declared reverse edges the trust surface does,
+# so `audit --stale` and recall can never disagree about what is superseded.
+from agentware_lib.knowledge.freshsignals import SUPERSEDES_RELATION
+from agentware_lib.knowledge.graph import build_adjacency
 import agentware_lib.retrieval.corpus as _corpus
 # The stale WINDOW and its scan live one layer down, in knowledge, because three
 # consumers must agree on them: `audit --stale` (here), the read-time trust
@@ -86,8 +90,30 @@ def conflict_pairs(kdir, data, threshold=_CONFLICT_JACCARD):
     return pairs
 
 
+def _superseded_report_rows(data):
+    """Advisory rows for entries a NEWER entry DECLARES it supersedes:
+    [{id, category, path, superseded_by:[ids]}, ...] sorted by id.
+
+    Dogfoods the Task-2/3 trust surface in the audit report: the same DECLARED
+    reverse edges `superseded_ids`/`trust_signals` read (self-supersede excluded,
+    real entries only), so `audit --stale` and recall agree on what's superseded.
+    Timeless (no `as_of`) — supersession is declared, not age-based. Read-only."""
+    _forward, reverse = build_adjacency(data)
+    by_id = {e.get("id"): e for e in (data.get("entries") or [])
+             if isinstance(e, dict) and e.get("id")}
+    rows = []
+    for sid in sorted(by_id):
+        srcs = sorted({src for (etype, src) in reverse.get(sid, [])
+                       if etype == SUPERSEDES_RELATION and src != sid})
+        if srcs:
+            e = by_id[sid]
+            rows.append({"id": sid, "category": e.get("category"),
+                         "path": e.get("path"), "superseded_by": srcs})
+    return rows
+
+
 def build_stale_report(kdir, data, max_age_days):
-    """Build the advisory staleness + conflict report dict. Reporting only."""
+    """Build the advisory staleness + supersede + conflict report dict. Reporting only."""
     stale = stale_entries(data, max_age_days)
     conflicts = conflict_pairs(kdir, data)
     return {
@@ -99,6 +125,13 @@ def build_stale_report(kdir, data, max_age_days):
              "age_days": age}
             for (e, age) in stale
         ],
+        # The SUPERSEDE section dogfoods the read-time trust surface: the same
+        # DECLARED reverse edges `superseded_ids` and `trust_signals` read, so
+        # `audit --stale` and recall agree about what is superseded. Dropping it
+        # would let the audit report an entry as merely old while recall already
+        # ranks it as replaced — two halves of one system disagreeing about the
+        # same fact, with no way for an operator to tell which is right.
+        "superseded": _superseded_report_rows(data),
         "conflicts": [
             {"a": a.get("id"), "b": b.get("id"),
              "category": a.get("category"), "jaccard": jac}

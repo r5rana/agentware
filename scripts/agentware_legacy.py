@@ -453,6 +453,8 @@ from agentware_lib.ops.metricscmd import (   # noqa: F401  (re-export)
     cmd_dashboard)
 from agentware_lib.ops.metricscmd import (   # noqa: F401  (re-export)
     cmd_metrics)
+from agentware_lib.ops.audit import (   # noqa: F401  (re-export)
+    cmd_audit)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -12575,86 +12577,6 @@ def _print_stale_report(report):
                 c["a"], c["b"], c["category"], c["jaccard"]))
     else:
         print("  possible duplicate/conflict pairs: none")
-
-
-def cmd_audit(args):
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    as_json = getattr(args, "format", "text") == "json"
-    data, err = load_index(kdir)
-    if err is not None:
-        checks = [{"name": "index_validate", "ok": False, "details": [err]}]
-    else:
-        ve = validate_index(kdir, data)
-        un = scan_unindexed(kdir, data)
-        te = tag_consistency_errors(data)
-        tce = template_conformance_errors(kdir, data)
-        oe = orphaned_learning_errors(kdir, data)
-        checks = [
-            {"name": "index_validate", "ok": not ve, "details": ve},
-            {"name": "filesystem_sync", "ok": not un, "details": un},
-            {"name": "tag_consistency", "ok": not te, "details": te},
-            {"name": "template_conformance", "ok": not tce, "details": tce},
-            {"name": "orphaned_learnings", "ok": not oe, "details": oe},
-            _audit_steering_lint_check(),
-            _audit_personal_data_check(kdir),
-            _audit_bm25_cache_check(kdir, data),
-            _audit_mode_b_health_check(kdir, data),
-            _audit_graph_integrity_check(kdir, data),
-            _audit_provenance_coverage_check(kdir, data),
-            _audit_dream_health_check(kdir),
-            _audit_pkg_version_check(kdir),
-        ]
-        # Rule-7 observability: advisory graph-health signal (append-only,
-        # gitignored, read-only w.r.t. the KB/index).
-        _append_graph_health_metric(kdir, data)
-    if getattr(args, "with_tests", False):
-        checks.append(_audit_tests_check())
-        if err is None:
-            checks.append(_audit_gate_check(kdir))
-    stale_report = None
-    proposal = None
-    if getattr(args, "stale", False) and err is None:
-        stale_report = build_stale_report(
-            kdir, data, getattr(args, "max_age_days", STALE_MAX_AGE_DAYS))
-        # --propose (opt-in): emit ONE tier-2 PROPOSED review workorder when the
-        # report has anything to review. Read-only w.r.t. the KB/index — the only
-        # write is a new draft work/auto/<slug>/plan.md (Q5: PROPOSE, never mutate).
-        # A clean report proposes nothing. The propose OUTCOME is informational; it
-        # never changes the audit's pass/fail exit code.
-        if getattr(args, "propose", False):
-            if _stale_report_is_empty(stale_report):
-                proposal = {"proposed": False, "reason": "clean report"}
-            else:
-                feature, perr = _emit_stale_review_workorder(kdir, stale_report)
-                proposal = ({"proposed": True, "feature": feature} if feature
-                            else {"proposed": False, "reason": perr})
-    ok = all(c["ok"] for c in checks)
-    if as_json:
-        payload = {"ok": ok, "checks": checks}
-        if stale_report is not None:
-            payload["stale_report"] = stale_report
-        if proposal is not None:
-            payload["proposal"] = proposal
-        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("AUDIT %s (%d check(s)):" % ("PASSED" if ok else "FAILED", len(checks)))
-        for c in checks:
-            print("  [%s] %s" % ("ok" if c["ok"] else "FAIL", c["name"]))
-            if not c["ok"]:
-                for d in c["details"]:
-                    print("      - %s" % d)
-        if stale_report is not None:
-            _print_stale_report(stale_report)
-        if proposal is not None:
-            if proposal.get("proposed"):
-                print("  proposed tier-2 review workorder (DRAFT, not auto-started): %s"
-                      % proposal["feature"])
-            else:
-                print("  proposed nothing (%s)" % proposal.get("reason"))
-    return 0 if ok else 1
 
 
 # --- Steering DSF lint -------------------------------------------------------
