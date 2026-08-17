@@ -437,6 +437,8 @@ from agentware_lib.cli import (   # noqa: F401  (re-export)
     cmd_whereami)
 from agentware_lib.features.setupcmd import (   # noqa: F401  (re-export)
     cmd_profile)
+from agentware_lib.ops.steering import (   # noqa: F401  (re-export)
+    cmd_steering_lint)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -13194,32 +13196,6 @@ def _write_rule_count_baseline(count):
     path = os.path.join(REPO_ROOT, ".rule-count-baseline")
     with open(path, "w", encoding="utf-8") as f:
         f.write("%d\n" % count)
-
-
-def cmd_steering_lint(args):
-    strict = getattr(args, "strict", False)
-    result = lint_steering(strict=strict)
-    as_json = getattr(args, "format", "text") == "json"
-    if as_json:
-        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("STEERING LINT %s" % ("PASSED" if result["ok"] else "FAILED"))
-        print("  chars: %d / %d (budget %s)" % (
-            result["total_chars"], result["char_budget"],
-            "ok" if result["budget_ok"] else "EXCEEDED"))
-        if result.get("rule_count") is not None:
-            print("  rule-count: %d (baseline: %s)" % (
-                result["rule_count"],
-                str(result["rule_count_baseline"]) if result["rule_count_baseline"] is not None else "none"))
-        for v in result["violations"]:
-            print("  [%s] %s:%d  %s" % (v["rule"], v["file"], v["line"], v["text"]))
-        for b in result["banned_words"]:
-            print("  [DSF-5] %s:%d  banned %r in: %s" % (
-                b["file"], b["line"], b["word"], b["text"]))
-        for ce in result.get("content_errors", []):
-            print("  [%s] %s" % (ce["rule"], ce["text"]))
-    return 0 if result["ok"] else 1
 
 
 # --- Release gate harness (feature 260630-release-gate) -----------------------
