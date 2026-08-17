@@ -34,7 +34,7 @@ import time
 
 from agentware_lib.core.config import require_knowledge_dir, resolve_knowledge_dir
 from agentware_lib.core.dates import _iso_to_epoch, _now_iso
-from agentware_lib.features.dreamsteps import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 from agentware_lib.ops.planauthor.planedit import _atomic_write
 from agentware_lib.ops.checkupconfig import (
     CHECKUP_ACK_REL,

@@ -49,7 +49,7 @@ from agentware_lib.features.reviewagent import (
     _review_invoke_agent,
 )
 from agentware_lib.features.reviewoutput import _review_extract_json, _review_fence
-from agentware_lib.features.dreamsteps import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 from agentware_lib.knowledge.curation import _slugify
 from agentware_lib.ops.planauthor.plankernelpath import _pref_hits_kernel
 from agentware_lib.ops.planauthor.plannew import cmd_plan_new

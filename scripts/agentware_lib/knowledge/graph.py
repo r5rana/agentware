@@ -21,6 +21,11 @@ import json
 import sys
 
 import agentware_lib.core.config as config
+import agentware_lib.core.dates as dates
+# The freshness fields are defined ONCE, beside the recall payload that also
+# emits them — two copies would drift and `query` would start disagreeing
+# with `recall` about the same entry's age. Imported lazily inside the
+# helper to keep knowledge -> retrieval off the module-import path.
 import agentware_lib.core.frontmatter as frontmatter
 import agentware_lib.knowledge.index as index
 
@@ -179,6 +184,16 @@ def graph_traverse(adjacency, start, depth):
     return order
 
 
+def _entry_with_freshness(entry, kdir, as_of):
+    """A COPY of an index entry with the freshness fields appended. Never mutates
+    the input dict — the MCP server reuses the loaded index across calls and
+    recall/query are read-only (INV-2)."""
+    from agentware_lib.retrieval.recallcmd import _freshness_fields
+    out = dict(entry)
+    out.update(_freshness_fields(entry, kdir, as_of))
+    return out
+
+
 def cmd_query(args):
     kdir = config.require_knowledge_dir()
     if not kdir:
@@ -237,6 +252,12 @@ def cmd_query(args):
         ids = graph_traverse(combined, args.relates, getattr(args, "depth", 1))
         results = [by_id[i] for i in ids if i in by_id]
 
+    # Append the point-in-time freshness fields to a COPY of each entry. Never
+    # mutates the loaded index: the MCP server reuses it across calls and both
+    # `query` and `recall` are read-only (INV-2). The LIVE-anchored `abs_path` is
+    # the load-bearing one — a caller acting on a repo-relative path resolves it
+    # against ITS cwd, which is not necessarily this one (R-FAIL-08).
+    results = [_entry_with_freshness(e, kdir, dates._today()) for e in results]
     json.dump(results, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0

@@ -340,11 +340,6 @@
           "value": 27
         },
         {
-          "kind": "function_over_line_cap",
-          "location": "scripts/agentware_lib/retrieval/recallcmd.py::cmd_recall",
-          "value": 131
-        },
-        {
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/retrieval/scorecard.py::render_scorecard",
           "value": 20

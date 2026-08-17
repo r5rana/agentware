@@ -53,7 +53,7 @@ the belt.
 import argparse
 import json
 
-from agentware_lib.features.dreamsteps.dreamcapture import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 # The stale WINDOW comes from its single definition in knowledge, NOT from
 # `features.staleproposal`. Reaching it through the emitter would close a cycle
 # (staleproposal -> dreamsteps.dreamcapture -> the dreamsteps package -> this

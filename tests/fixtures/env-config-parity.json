@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "0f486f8a2a6e"
+      "git_head": "18abbc96f1e8"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",

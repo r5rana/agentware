@@ -40,7 +40,7 @@ from agentware_lib.ops.planauthor.planstate import (
     _read_plan_status,
     cmd_plan_set_state,
 )
-from agentware_lib.features.dreamsteps import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 from agentware_lib.ops.prefercapture import _prefer_capture
 from agentware_lib.ops.preferqueue import (
     PREFER_QUEUE_ARCHIVE_REL,

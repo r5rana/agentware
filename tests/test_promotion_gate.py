@@ -68,6 +68,20 @@ def _live(*also_ported):
     return pg.ported_verbs() | set(also_ported)
 
 
+def _live_without(*not_ported):
+    """The LIVE allowlist MINUS a verb this probe wants to see on the UNPORTED arm.
+
+    The complement of `_live`, and it exists for the same reason. A probe that
+    needs an unported exemplar used to borrow whichever real verb happened to be
+    unported that week — which works right up until the wave that promotes it,
+    and at the END of task 54 there is no unported shared verb left to borrow at
+    all. Subtracting instead states the arm the probe is testing, so the
+    assertion keeps measuring its own mutation no matter how far the migration
+    has advanced.
+    """
+    return pg.ported_verbs() - set(not_ported)
+
+
 def _lib():
     return copy.deepcopy(pg.capture_lib())
 
@@ -296,7 +310,8 @@ class BothArmsLiveTests(unittest.TestCase):
         ported = dict((v, x) for v, _a, x in
                       pg.evaluate(UNION, LOCAL, lib, _cli(), _live("recall")))
         unported = dict((v, x) for v, _a, x in
-                        pg.evaluate(UNION, LOCAL, lib, _cli(), _live()))
+                        pg.evaluate(UNION, LOCAL, lib, _cli(),
+                                    _live_without("recall")))
         self.assertTrue(any("token_budget" in v and "1500" in v
                             for v in ported["recall"]), ported["recall"])
         self.assertEqual([], unported["recall"])
@@ -306,7 +321,7 @@ class BothArmsLiveTests(unittest.TestCase):
         node = _node(cli, ["recall"])
         keep = [a for a in node["actions"] if a["dest"] != "token_budget"]
         node["actions"] = keep
-        rows = pg.evaluate(UNION, LOCAL, _lib(), cli, _live())
+        rows = pg.evaluate(UNION, LOCAL, _lib(), cli, _live_without("recall"))
         bad = [(v, x) for v, _a, x in rows if x]
         self.assertEqual(1, len(bad))
         self.assertEqual("recall", bad[0][0])

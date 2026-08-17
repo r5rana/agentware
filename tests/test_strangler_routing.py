@@ -297,7 +297,24 @@ class GlobalOptionTableTest(unittest.TestCase):
 
 
 class DispatchTest(unittest.TestCase):
-    """dispatch() — one call deep, argv forwarded EXPLICITLY."""
+    """dispatch() — one call deep, argv forwarded EXPLICITLY.
+
+    The exemplar is a verb that DOES NOT EXIST, and that is the point. These
+    probes need something the router sends to the legacy arm, and every earlier
+    version borrowed whichever real verb happened to be unported that week —
+    which works until the wave that promotes it, and by the end of task 54 there
+    is no unported shared verb left to borrow. An unknown token is routed to
+    legacy by the LEGACY-DEFAULT rule itself, so it exercises exactly the arm
+    under test and keeps exercising it for as long as the arm exists (task 56
+    deletes it, and then these tests go with it).
+    """
+
+    #: Not a verb, and never will be — LEGACY-DEFAULT routes it to the monolith.
+    UNKNOWN = "no-such-verb-x9"
+
+    def test_an_unknown_verb_routes_to_the_legacy_arm(self):
+        """The premise the two probes below rest on, asserted rather than assumed."""
+        self.assertEqual(SR.route([self.UNKNOWN]), SR.LEGACY)
 
     def test_the_legacy_arm_receives_the_exact_argv_that_was_routed(self):
         seen = {}
@@ -306,7 +323,7 @@ class DispatchTest(unittest.TestCase):
             seen["argv"] = argv
             return 3
 
-        argv = ["--format", "json", "audit", "--stale"]
+        argv = ["--format", "json", self.UNKNOWN, "--stale"]
         self.assertEqual(SR.dispatch(argv, fake_legacy_main), 3)
         # Never None: the tokens ROUTED must be the tokens PARSED, so a caller
         # cannot route one argv and have the callee default to another.
@@ -314,7 +331,7 @@ class DispatchTest(unittest.TestCase):
 
     def test_the_legacy_return_code_is_propagated_unchanged(self):
         for rc in (0, 1, 2, 42):
-            self.assertEqual(SR.dispatch(["audit"], lambda _a, r=rc: r), rc)
+            self.assertEqual(SR.dispatch([self.UNKNOWN], lambda _a, r=rc: r), rc)
 
 
 class FacadeWiringTest(unittest.TestCase):

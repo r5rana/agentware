@@ -228,9 +228,16 @@ class RecallCommandTest(SyntheticKBTestCase):
         # silently drop or rename a base one.
         FRESHNESS = {"abs_path", "created", "last_verified", "age_days"}
         TRUST = {"stale", "superseded_by", "trust"}   # 260713-p3-trust-staleness
+        # Org provenance (260813 merge, R-ORG-05): emitted ONLY when the entry
+        # carries the facet, so a flat single-operator KB's payload is unchanged.
+        # Declared as its own layer rather than folded into the base set, because
+        # the guarantee this test holds is "subtracting the DECLARED layers leaves
+        # the base EXACTLY" — an undeclared key passing silently is the drift it
+        # exists to catch.
+        ORG = {"origin", "team", "author"}
         for r in payload["results"]:
             self.assertEqual(
-                set(r) - FRESHNESS - TRUST,
+                set(r) - FRESHNESS - TRUST - ORG,
                 {"id", "path", "category", "score", "summary",
                  "estimated_tokens"})
         scores = [r["score"] for r in payload["results"]]

@@ -52,7 +52,7 @@ from agentware_lib.ops.planauthor.plannew import (
 )
 from agentware_lib.ops.planauthor.planedit import _plan_path
 from agentware_lib.ops.planauthor.planstate import _PLAN_TERMINAL_STATES, _read_plan_status
-from agentware_lib.features.dreamsteps import _dream_capture
+from agentware_lib.core.capture import _dream_capture
 
 
 # Layer-3 CONSUMER (Task 7): the OFFLINE dream drain of the producer-agnostic

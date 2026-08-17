@@ -305,6 +305,25 @@ def cmd_recall(args):
         sys.stdout.write("\n")
         return 0
 
+    _print_recall_text(args, strategy, results, overflow, used)
+    return 0
+
+
+def _print_recall_text(args, strategy, results, overflow, used):
+    """Render the human view of a recall result.
+
+    Extracted from `cmd_recall` rather than inlined: that function carries a
+    declared ceiling row, and restoring the full renderer (the live-anchored
+    path, the age line, the trust line and the staleness footer) alongside the
+    donor's org-scoping block would have pushed it past the row — widening a debt
+    row to cover a change of mine is the one thing the ratchet exists to stop.
+
+    Everything printed here is POINT-IN-TIME, which is why the footer is
+    unconditional and appears exactly once per invocation rather than per result:
+    a reader who acts on a stale id, path or version without re-checking is the
+    failure R-FAIL-08 names, and repeating the warning per row would train them
+    to skip it.
+    """
     print("recall: query=%r  strategy=%s  top_k=%d  budget=%d  -> %d entr%s (~%d tokens)"
           % (args.query, strategy, args.top_k, args.token_budget, len(results),
              "y" if len(results) == 1 else "ies", used))
@@ -312,18 +331,44 @@ def cmd_recall(args):
         print("  category: %s" % args.category)
     for r in results:
         print("  [%.4f] %s" % (r["score"], r["id"]))
-        print("    %s" % r["path"])
+        # the LIVE-anchored absolute path, not the repo-relative one: a recall
+        # result is read by an agent that may not share this process's cwd, and a
+        # relative path silently resolves somewhere else for it (R-FAIL-08).
+        print("    %s" % r["abs_path"])
         if r["summary"]:
             print("    %s" % r["summary"])
-    if overflow:
-        print("  note: %d ranked entr%s exceeded the token budget and %s skipped "
-              "(pointers only) — inspect with `agentware query --id <id>`:"
-              % (len(overflow), "y" if len(overflow) == 1 else "ies",
-                 "was" if len(overflow) == 1 else "were"))
-        for o in overflow:
-            print("    [%.4f] %s (~%d tokens) %s"
-                  % (o["score"], o["id"], o["estimated_tokens"], o["path"]))
-    return 0
+        print("    age: %s days (created %s, last_verified %s)"
+              % ("?" if r.get("age_days") is None else r["age_days"],
+                 r.get("created") or "?", r.get("last_verified") or "?"))
+        print("    trust: %s%s"
+              % (r.get("trust") or "current",
+                 (" (superseded by %s)" % ", ".join(r["superseded_by"]))
+                 if r.get("superseded_by") else ""))
+    _print_recall_overflow(overflow)
+    # ONE static footer per invocation, not per result: every value above is
+    # point-in-time, and a reader who acts on a stale id/path/version without
+    # re-checking is the failure R-FAIL-08 exists to name.
+    print("  point-in-time values may be stale — verify against live state (R-FAIL-08)")
+
+
+def _print_recall_overflow(overflow):
+    """Name what the token budget SKIPPED, as pointers only.
+
+    A budget that silently drops ranked entries makes "no result" and "the result
+    did not fit" the same output, and only one of those means the knowledge is
+    absent. So the skipped entries are listed — id, score, size and path, never a
+    body — and a partial answer becomes actionable instead of a silent miss.
+    """
+    if not overflow:
+        return
+    print("  note: %d ranked entr%s exceeded the token budget and %s skipped "
+          "(pointers only) — inspect with `agentware query --id <id>`:"
+          % (len(overflow), "y" if len(overflow) == 1 else "ies",
+             "was" if len(overflow) == 1 else "were"))
+    for o in overflow:
+        print("    [%.4f] %s (~%d tokens) %s"
+              % (o["score"], o["id"], o["estimated_tokens"], o["path"]))
+
 
 def register_recall(sub, fmt_parent):
     # recall -----------------------------------------------------------------
