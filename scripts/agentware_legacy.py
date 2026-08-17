@@ -459,6 +459,8 @@ from agentware_lib.knowledge.attach import (   # noqa: F401  (re-export)
     cmd_attach)
 from agentware_lib.features.setupcmd import (   # noqa: F401  (re-export)
     cmd_init)
+from agentware_lib.knowledge.curation.curationfeatures import (   # noqa: F401  (re-export)
+    cmd_features)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -5391,29 +5393,6 @@ def _render_features(data):
         markdown += "_No entries yet. Capture knowledge with " \
                     "`scripts/agentware learn ...`._\n"
     return markdown
-
-
-def cmd_features(args):
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    data, err = load_index(kdir)
-    if err is not None:
-        sys.stderr.write("agentware: %s\n" % err)
-        return 1
-    content = _render_features(data)
-    with open(features_path(kdir), "w", encoding="utf-8") as f:
-        f.write(content)
-    if getattr(args, "format", "text") == "json":
-        cat_count = len({e.get("category", "uncategorized")
-                         for e in data.get("entries", [])})
-        json.dump({"ok": True, "path": features_path(kdir),
-                   "entries": len(data.get("entries", [])), "categories": cat_count},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("Successfully generated %s" % features_path(kdir))
-    return 0
 
 
 # Marker matchers accept the bare, blockquote (`> LEARNED:`), AND bullet-prefixed

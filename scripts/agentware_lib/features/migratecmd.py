@@ -291,6 +291,13 @@ _KB_WRITER_TARGETS = (
     ("agentware_lib.ops.prefercmd", "cmd_prefer_mine"),
     ("agentware_lib.ops.preferdispose", "cmd_prefer_approve"),
     ("agentware_lib.ops.preferdispose", "cmd_prefer_reject"),
+    # task 54 — each shared-verb promotion brings its writer row IN THE SAME
+    # COMMIT. Without the row the handler dispatches straight PAST the older-CLI
+    # schema refusal: the interlock failing OPEN, silently, for exactly the verbs
+    # that mutate the knowledge base. The correspondence check refuses a row for
+    # an unrouted verb and refuses a routed writer with no row, so the two halves
+    # cannot drift apart.
+    ("agentware_lib.knowledge.curation.curationfeatures", "cmd_features"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the
