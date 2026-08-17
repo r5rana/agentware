@@ -447,6 +447,8 @@ from agentware_lib.retrieval.bench.benchledger import (   # noqa: F401  (re-expo
     cmd_bench_redact)
 from agentware_lib.retrieval.bench.benchswe import (   # noqa: F401  (re-export)
     cmd_bench_swe)
+from agentware_lib.retrieval.evalcmd import (   # noqa: F401  (re-export)
+    cmd_eval)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -9100,127 +9102,6 @@ def _run_gold_fixture_suite(args, kdir, data):
             recorded["reliability"], recorded["run"]))
     _print_gate(gate)
     return _gate_exit(gate)
-
-
-def cmd_eval(args):
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    data, err = load_index(kdir)
-    if err is not None:
-        sys.stderr.write("agentware: %s\n" % err)
-        return 1
-
-    if getattr(args, "suite", None) == "longmemeval":
-        return _run_longmemeval_suite(args, kdir, data)
-    if getattr(args, "suite", None) == GOLD_FIXTURE_SUITE:
-        return _run_gold_fixture_suite(args, kdir, data)
-
-    gold_path = args.gold or os.path.join(kdir, "benchmarks", "recall-gold.json")
-    gold, gerr = load_gold(gold_path)
-    if gerr is not None:
-        sys.stderr.write("agentware: %s\n" % gerr)
-        return 1
-
-    if args.top_k <= 0:
-        sys.stderr.write("agentware: --top-k must be a positive integer\n")
-        return 1
-    as_of = getattr(args, "as_of", None) or _today()
-    if not _is_valid_date(as_of):
-        sys.stderr.write("agentware: --as-of must be a YYYY-MM-DD date\n")
-        return 1
-
-    if getattr(args, "acr_gate", False):
-        try:
-            return _run_acr_gate(args, kdir, data, gold, gold_path, as_of)
-        except NotImplementedError as exc:
-            sys.stderr.write("agentware: %s\n" % exc)
-            return 2
-
-    if getattr(args, "ablate", False):
-        baseline = getattr(args, "baseline", "tag")
-        treatment = getattr(args, "treatment", "bm25")
-        if baseline == treatment:
-            sys.stderr.write(
-                "agentware: --baseline and --treatment must differ (got %s)\n"
-                % baseline)
-            return 1
-        try:
-            result = evaluate_ablation(kdir, data, gold, args.top_k,
-                                       baseline=baseline, treatment=treatment,
-                                       as_of=as_of)
-            result["as_of"] = as_of
-        except NotImplementedError as exc:
-            sys.stderr.write("agentware: %s\n" % exc)
-            return 2
-        result["gold_path"] = gold_path
-        recorded, gate = _record_and_gate(args, kdir, data, gold, gold_path, result)
-        if args.format == "json":
-            json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-            return _gate_exit(gate)
-        k = result["top_k"]
-        base, treat = result["baseline"], result["treatment"]
-        bm, tm = result["strategies"][base], result["strategies"][treat]
-        d = result["delta"]
-        print("eval --ablate: %s (baseline) vs %s  top_k=%d  queries=%d" % (
-            base, treat, k, result["num_queries"]))
-        print("  gold: %s" % gold_path)
-        labels = [
-            ("Recall@%d" % k, "recall_at_k"),
-            ("Precision@%d" % k, "precision_at_k"),
-            ("nDCG@%d" % k, "ndcg_at_k"),
-            ("MRR", "mrr"),
-            ("latency_ms_mean", "latency_ms_mean"),
-            ("latency_ms_p50", "latency_ms_p50"),
-            ("ctx_tokens_mean", "context_tokens_mean"),
-        ]
-        print("  %-16s %12s %12s %12s" % ("metric", base, treat, "delta"))
-        for label, key in labels:
-            print("  %-16s %12.4f %12.4f %+12.4f" % (
-                label, bm[key], tm[key], d[key]))
-        if recorded is not None:
-            print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
-                os.path.join(kdir, HISTORY_REL), recorded["commit"],
-                recorded["reliability"], recorded["run"]))
-        _print_gate(gate)
-        return _gate_exit(gate)
-
-    try:
-        result = evaluate(kdir, data, gold, args.strategy, args.top_k, as_of=as_of)
-    except NotImplementedError as exc:
-        sys.stderr.write("agentware: %s\n" % exc)
-        return 2
-    result["gold_path"] = gold_path
-    result["as_of"] = as_of
-    recorded, gate = _record_and_gate(args, kdir, data, gold, gold_path, result)
-    ab = (run_ab_gate(args, kdir, result, gold_path)
-          if getattr(args, "ab", False) else None)
-
-    if args.format == "json":
-        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-        return _gate_exit(gate, ab)
-
-    m = result["metrics"]
-    k = result["top_k"]
-    print("eval: strategy=%s  top_k=%d  queries=%d" % (
-        result["strategy"], k, result["num_queries"]))
-    print("  gold: %s" % gold_path)
-    print("  Recall@%d     : %.4f" % (k, m["recall_at_k"]))
-    print("  Precision@%d  : %.4f" % (k, m["precision_at_k"]))
-    print("  nDCG@%d       : %.4f" % (k, m["ndcg_at_k"]))
-    print("  MRR           : %.4f" % m["mrr"])
-    print("  latency (ms)  : mean=%.3f  p50=%.3f" % (
-        m["latency_ms_mean"], m["latency_ms_p50"]))
-    print("  ctx tokens    : mean=%.1f" % m["context_tokens_mean"])
-    if recorded is not None:
-        print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
-            os.path.join(kdir, HISTORY_REL), recorded["commit"],
-            recorded["reliability"], recorded["run"]))
-    _print_gate(gate)
-    _print_ab(ab)
-    return _gate_exit(gate, ab)
 
 
 # --- metrics (execution observability over session transcripts) -------------
