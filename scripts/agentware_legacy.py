@@ -433,6 +433,10 @@ from agentware_lib.retrieval.recallcmd import (   # noqa: F401  (re-export)
     _freshness_fields, build_recall_payload, cmd_recall)
 from agentware_lib.knowledge.graph import (   # noqa: F401  (re-export)
     _entry_with_freshness, cmd_query)
+from agentware_lib.cli import (   # noqa: F401  (re-export)
+    cmd_whereami)
+from agentware_lib.features.setupcmd import (   # noqa: F401  (re-export)
+    cmd_profile)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -3588,35 +3592,6 @@ def cmd_config(args):
     print(dream_max_line)
     print(skill_promote_line)
     return 1
-
-
-# --- profile -----------------------------------------------------------------
-def cmd_profile(args):
-    """Resolve the path to a per-user profile overlay in the knowledge dir.
-
-    Usage: scripts/agentware profile --path <handle>
-    Prints the absolute path to <kdir>/profiles/<handle>.md (the file may or may
-    not exist yet — this is a resolver, not a validator). Requires the knowledge
-    dir to be configured.
-    """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    handle = args.handle
-    if not handle or not handle.strip():
-        sys.stderr.write("agentware: profile --path requires a non-empty handle\n")
-        return 2
-    handle = handle.strip()
-    profile_path = os.path.join(kdir, "profiles", "%s.md" % handle)
-    as_json = getattr(args, "format", "text") == "json"
-    if as_json:
-        json.dump({"handle": handle, "path": profile_path,
-                   "exists": os.path.isfile(profile_path)},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print(profile_path)
-    return 0
 
 
 # --- index / query / learn / features / worklog ------------------------------
@@ -18812,25 +18787,6 @@ def _resolve_context(start_dir):
         result["repo_root"] = result["project_dir"]
 
     return result
-
-
-def cmd_whereami(args):
-    """Resolve the project/repo context for a directory (build-system-neutral)."""
-    start_dir = getattr(args, "dir", None) or os.environ.get("AGENTWARE_INVOKED_FROM") or os.getcwd()
-    result = _resolve_context(start_dir)
-
-    fmt = getattr(args, "format", "json")
-    if fmt == "json":
-        print(json.dumps(result, indent=2))
-    else:
-        if result["project_name"]:
-            print("invoked_from:  %s" % result["invoked_from"])
-            print("repo_root:     %s" % result["repo_root"])
-            print("project_name:  %s" % result["project_name"])
-            print("project_dir:   %s" % result["project_dir"])
-        else:
-            print("No project resolved for: %s" % result["invoked_from"])
-    return 0
 
 
 def build_parser():
