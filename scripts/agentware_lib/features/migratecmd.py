@@ -298,6 +298,7 @@ _KB_WRITER_TARGETS = (
     # an unrouted verb and refuses a routed writer with no row, so the two halves
     # cannot drift apart.
     ("agentware_lib.knowledge.curation.curationfeatures", "cmd_features"),
+    ("agentware_lib.features.curationcmd", "cmd_decide"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the

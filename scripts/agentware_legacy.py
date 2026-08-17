@@ -461,6 +461,8 @@ from agentware_lib.features.setupcmd import (   # noqa: F401  (re-export)
     cmd_init)
 from agentware_lib.knowledge.curation.curationfeatures import (   # noqa: F401  (re-export)
     cmd_features)
+from agentware_lib.features.curationcmd import (   # noqa: F401  (re-export)
+    cmd_decide)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -4837,90 +4839,6 @@ def _render_decision_body(summary, options, choice, rationale, reversible):
         % (summary.strip(), options.strip(), choice.strip(),
            rationale.strip(), reversible.strip())
     )
-
-
-def cmd_decide(args):
-    """Write + register a `decisions/`-category entry (auto-tagged `decision`).
-
-    A near-clone of `cmd_learn` that reuses the same index plumbing (NEVER hand-
-    edits index.json) and the same renderer; the only differences are the
-    category, the auto `decision` tag, and the structured decision body.
-    """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-
-    topic = (args.topic or "").strip()
-    if not topic:
-        sys.stderr.write("agentware: --topic must not be empty\n")
-        return 1
-
-    eid = "decide-%s" % topic
-    rel_path = "%s/%s.md" % (DECISIONS_REL, topic)
-    abs_path = os.path.join(kdir, rel_path)
-    tag_list = parse_tags(args.tags) if getattr(args, "tags", None) else []
-    if "decision" not in tag_list:
-        tag_list = ["decision"] + tag_list
-    title = _topic_to_title(topic)
-    created = _today()
-
-    # Serialize the index read-modify-write against concurrent writers (B2); load
-    # INSIDE the lock (same rationale as cmd_learn).
-    with _index_lock(kdir):
-        data, err = load_index(kdir)
-        if err is not None:
-            sys.stderr.write("agentware: %s\n" % err)
-            return 1
-
-        entries = data.get("entries") or []
-        if any(e.get("id") == eid for e in entries):
-            sys.stderr.write("agentware: duplicate id '%s'\n" % eid)
-            return 1
-        if any(e.get("path") == rel_path for e in entries):
-            sys.stderr.write("agentware: path already indexed: %s\n" % rel_path)
-            return 1
-        if os.path.exists(abs_path):
-            sys.stderr.write(
-                "agentware: decision file already exists (refusing to overwrite): "
-                "%s\n" % abs_path)
-            return 1
-
-        body = _render_decision_body(args.summary, args.options, args.choice,
-                                     args.rationale, args.reversible)
-        # Resolve author: explicit --author override, else the per-user handle, else
-        # _operator_handle (power-user fallback, byte-identical to pre-team behavior).
-        author = getattr(args, "author", None)
-        if author is not None:
-            author = _normalize_user_handle(author) or None
-        if not author:
-            author = resolve_user_handle()  # None => build_entry_frontmatter uses _operator_handle
-        fm = build_entry_frontmatter(
-            {"id": eid, "title": title, "category": "decisions", "tags": tag_list,
-             "created": created, "summary": args.summary},
-            kdir, author=author, source=DEFAULT_ENTRY_SOURCE)
-        os.makedirs(decisions_dir(kdir), exist_ok=True)
-        with open(abs_path, "w", encoding="utf-8") as f:
-            f.write(_render_learning(fm, body, back_label="Decisions"))
-
-        entry, add_err = _do_add(
-            kdir, data, eid, title, "decisions", rel_path, tag_list,
-            args.summary, created)
-        if add_err is not None:
-            try:
-                os.remove(abs_path)
-            except OSError:
-                pass
-            sys.stderr.write("agentware: %s\n" % add_err)
-            return 1
-
-        save_index(kdir, data)
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, "decision": entry}, sys.stdout,
-                  ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("DECISION entry '%s' -> %s (registered in index)" % (eid, abs_path))
-    return 0
 
 
 # --- Steering capture: the `prefer` verb (feature 260712-steering-capture) ----
