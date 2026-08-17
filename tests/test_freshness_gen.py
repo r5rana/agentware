@@ -155,19 +155,26 @@ class FreshnessGenerationTest(unittest.TestCase):
 
 
 class FreshnessMonotonicTest(unittest.TestCase):
-    """Regression: generation MUST be monotonic across rebuilds (adversarial-review
-    finding). A rebuild that reset generation to 1 let a stale prior-rebuild cache
-    (also gen 1) false-match a freshly-rebuilt index → recall silently served stale
-    postings. These lock the seed-prior-generation fix + the atomic cache write."""
+    """Regression: a rebuild must never let a PRIOR-rebuild cache false-match
+    (adversarial-review finding). Originally a rebuild reset the monotonic
+    `generation` to 1, so a stale cache also stamped 1 matched a freshly-rebuilt
+    index and recall silently served stale postings.
+
+    Task 24 replaced that counter with the whole-corpus CONTENT fingerprint, which
+    has the property natively and more strongly: different content is a different
+    fingerprint, with no sequence to reset. So the regression is asserted against
+    the live mechanism — the invariant it protects is unchanged, and the counter it
+    was written for no longer exists to assert."""
 
     def setUp(self):
         self.kdir = tempfile.mkdtemp(prefix="aw-freshmono-")
         self.addCleanup(shutil.rmtree, self.kdir, True)
         _build_large_fm_kb(self.kdir, n=40)
 
-    def _gen(self):
+    def _fp(self):
+        """The stored whole-corpus fingerprint — the freshness authority."""
         data, _e = CLI.load_index(self.kdir)
-        return data.get("generation")
+        return data.get("corpus_fingerprint")
 
     def _add_entry(self, eid, token):
         fields = {"id": eid, "title": eid, "category": "learnings",
@@ -180,17 +187,31 @@ class FreshnessMonotonicTest(unittest.TestCase):
                     % (eid, token))
 
     def test_freshness_generation_strictly_monotonic_across_rebuilds(self):
+        # FROZEN NAME. `tests/fixtures/nodeids-local.json` records the pre-merge
+        # node ids as a preservation floor with no alias mechanism, so the name
+        # stays and delegates to the clearly-named test below.
+        self.test_freshness_rebuild_never_lets_a_prior_cache_false_match()
+
+    def test_freshness_rebuild_never_lets_a_prior_cache_false_match(self):
         run_cli(["index", "rebuild"], self.kdir)
-        g1 = self._gen()
+        f1, cache1 = self._fp(), CLI.load_bm25_cache(self.kdir)
         self._add_entry("learn-mono-a", "monotoken1")
         run_cli(["index", "rebuild"], self.kdir)
-        g2 = self._gen()
+        f2 = self._fp()
         self._add_entry("learn-mono-b", "monotoken2")
         run_cli(["index", "rebuild"], self.kdir)
-        g3 = self._gen()
-        self.assertIsInstance(g1, int)
-        self.assertGreater(g2, g1, "generation reset across rebuilds (non-monotonic)")
-        self.assertGreater(g3, g2, "generation reset across rebuilds (non-monotonic)")
+        f3 = self._fp()
+        # Every rebuild over CHANGED content yields a different authority value.
+        self.assertTrue(f1 and f2 and f3)
+        self.assertNotEqual(f2, f1, "rebuild reused the prior corpus fingerprint")
+        self.assertNotEqual(f3, f2, "rebuild reused the prior corpus fingerprint")
+        self.assertNotEqual(f3, f1)
+        # And the point of all of it: the FIRST rebuild's cache must not read as
+        # fresh against the third rebuild's index. Under the retired counter this
+        # is what failed, because a reset put both back at 1.
+        index3, _e = CLI.load_index(self.kdir)
+        self.assertFalse(CLI.bm25_cache_is_fresh(cache1, index3, self.kdir),
+                         "a prior-rebuild cache false-matched a rebuilt index")
 
     def test_freshness_stale_cache_after_failed_rebuild_write_is_detected(self):
         # Rebuild → cache gen g1, content C1.

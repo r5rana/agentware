@@ -302,6 +302,16 @@ _KB_WRITER_TARGETS = (
     ("agentware_lib.features.curationcmd", "cmd_learn"),
     ("agentware_lib.knowledge.curation.curationingest", "cmd_ingest"),
     ("agentware_lib.features.dream", "cmd_dream"),
+    # task 54 — the `index` family. Five of the six subverbs MUTATE (add /
+    # remove / rebuild / sync / migrate); `validate` is read-only and is
+    # deliberately absent, since guarding a validator would make a health
+    # check refuse to run on exactly the KB whose schema it is meant to
+    # report on.
+    ("agentware_lib.features.indexcmd", "cmd_index_add"),
+    ("agentware_lib.features.indexcmd", "cmd_index_remove"),
+    ("agentware_lib.features.indexcmd", "cmd_index_rebuild"),
+    ("agentware_lib.features.indexcmd", "cmd_index_sync"),
+    ("agentware_lib.features.indexcmd", "cmd_index_migrate"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the
