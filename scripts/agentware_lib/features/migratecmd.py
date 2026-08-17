@@ -300,6 +300,8 @@ _KB_WRITER_TARGETS = (
     ("agentware_lib.knowledge.curation.curationfeatures", "cmd_features"),
     ("agentware_lib.features.curationcmd", "cmd_decide"),
     ("agentware_lib.features.curationcmd", "cmd_learn"),
+    ("agentware_lib.knowledge.curation.curationingest", "cmd_ingest"),
+    ("agentware_lib.features.dream", "cmd_dream"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the
@@ -320,6 +322,12 @@ _KB_AUTOAPPLY_EXCLUDED_TARGETS = (
     # Version-REFUSAL still applies (it stays in _KB_WRITER_TARGETS above);
     # only the auto-apply is withheld.
     ("agentware_lib.ops.prefercmd", "cmd_prefer"),
+    # task 54 — `cmd_dream` is DUAL-MODE: `--dry-run` runs the whole cycle and
+    # writes nothing, and the cadence tick invokes it unattended, so
+    # auto-applying migrations from it would let a scheduled READ advance the
+    # KB `.schema` with no operator present. Version-REFUSAL still applies (it
+    # stays in _KB_WRITER_TARGETS above); only the auto-apply is withheld.
+    ("agentware_lib.features.dream", "cmd_dream"),
 )
 
 

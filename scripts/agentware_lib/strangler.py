@@ -170,6 +170,8 @@ PORTED_VERBS = frozenset({
     "decide",
     "learn",
     "worklog",
+    "ingest",
+    "dream",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

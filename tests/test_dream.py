@@ -30,6 +30,23 @@ def _touch(path, mtime=None):
         os.utime(path, (mtime, mtime))
 
 
+
+def _steps_mod(mod):
+    """The module that OWNS DREAM_STEP_FUNCS / _dream_perf, for monkeypatching.
+
+    Patching the CLI facade stopped working when the step family moved into
+    `agentware_lib.features.dreamsteps`: a re-export binds a NEW name, so
+    rebinding the facade's attribute leaves the implementation's own binding
+    untouched and the override silently does nothing. The package documents
+    `<consumer>.dreamsteps.<name>` as the supported target, which is this module.
+    Falls back to the facade so the helper still works on a pre-split tree.
+    """
+    try:
+        import agentware_lib.features.dreamsteps as dreamsteps
+        return dreamsteps
+    except ImportError:            # pragma: no cover - pre-split fallback
+        return mod
+
 class DreamSessionGateTests(unittest.TestCase):
     def setUp(self):
         self.mod = load_cli()
@@ -989,14 +1006,14 @@ class DreamFailureArtifactTests(unittest.TestCase, _GuardedEnv):
                     "failed_tests": "tests.test_x,tests.test_y",
                     "_failure_capture": cap}
 
-        saved = mod.DREAM_STEP_FUNCS
-        mod.DREAM_STEP_FUNCS = (("c", "audit", fake_c),)
+        saved = _steps_mod(mod).DREAM_STEP_FUNCS
+        _steps_mod(mod).DREAM_STEP_FUNCS = (("c", "audit", fake_c),)
         try:
             code, out, err = run_cli(
                 ["dream", "--steps", "c", "--force", "--format", "json"],
                 self.kdir)
         finally:
-            mod.DREAM_STEP_FUNCS = saved
+            _steps_mod(mod).DREAM_STEP_FUNCS = saved
         self.assertEqual(code, 1, err)  # a failed step -> non-zero exit
         step = json.loads(out)["steps"][0]
         # (1) The per-cycle triage artifact is written + referenced; the private
@@ -1050,16 +1067,16 @@ class DreamMaxRuntimeGuardTests(unittest.TestCase, _GuardedEnv):
         def fake_perf():
             return vals.pop(0) if vals else 999.0
 
-        saved_funcs, saved_perf = mod.DREAM_STEP_FUNCS, mod._dream_perf
-        mod.DREAM_STEP_FUNCS = (("a", "s1", ok_step), ("b", "s2", ok_step),
+        saved_funcs, saved_perf = _steps_mod(mod).DREAM_STEP_FUNCS, _steps_mod(mod)._dream_perf
+        _steps_mod(mod).DREAM_STEP_FUNCS = (("a", "s1", ok_step), ("b", "s2", ok_step),
                                 ("c", "s3", ok_step))
-        mod._dream_perf = fake_perf
+        _steps_mod(mod)._dream_perf = fake_perf
         os.environ[mod.DREAM_MAX_RUNTIME_KEY] = "10"  # 10-second cap
         try:
             code, out, err = run_cli(["dream", "--force", "--format", "json"],
                                      self.kdir)
         finally:
-            mod.DREAM_STEP_FUNCS, mod._dream_perf = saved_funcs, saved_perf
+            _steps_mod(mod).DREAM_STEP_FUNCS, _steps_mod(mod)._dream_perf = saved_funcs, saved_perf
             os.environ.pop(mod.DREAM_MAX_RUNTIME_KEY, None)
         self.assertEqual(code, 1, err)  # guard error -> non-zero exit
         payload = json.loads(out)
@@ -1095,15 +1112,15 @@ class DreamMaxRuntimeGuardTests(unittest.TestCase, _GuardedEnv):
             return fake_perf.t
         fake_perf.t = 0.0
 
-        saved_funcs, saved_perf = mod.DREAM_STEP_FUNCS, mod._dream_perf
-        mod.DREAM_STEP_FUNCS = (("a", "s1", ok_step), ("b", "s2", ok_step))
-        mod._dream_perf = fake_perf
+        saved_funcs, saved_perf = _steps_mod(mod).DREAM_STEP_FUNCS, _steps_mod(mod)._dream_perf
+        _steps_mod(mod).DREAM_STEP_FUNCS = (("a", "s1", ok_step), ("b", "s2", ok_step))
+        _steps_mod(mod)._dream_perf = fake_perf
         os.environ[mod.DREAM_MAX_RUNTIME_KEY] = "off"
         try:
             code, out, err = run_cli(["dream", "--force", "--format", "json"],
                                      self.kdir)
         finally:
-            mod.DREAM_STEP_FUNCS, mod._dream_perf = saved_funcs, saved_perf
+            _steps_mod(mod).DREAM_STEP_FUNCS, _steps_mod(mod)._dream_perf = saved_funcs, saved_perf
             os.environ.pop(mod.DREAM_MAX_RUNTIME_KEY, None)
         self.assertEqual(code, 0, err)
         self.assertIsNone(json.loads(out).get("timed_out"))
@@ -1222,14 +1239,14 @@ class DreamObservabilityE2ETests(unittest.TestCase, _GuardedEnv):
                     "_failure_capture": cap}
 
         # Swap ONLY step c; every other step runs for real -> a genuine full cycle.
-        saved = mod.DREAM_STEP_FUNCS
-        mod.DREAM_STEP_FUNCS = tuple(
+        saved = _steps_mod(mod).DREAM_STEP_FUNCS
+        _steps_mod(mod).DREAM_STEP_FUNCS = tuple(
             (s, lbl, fake_c if s == "c" else fn) for (s, lbl, fn) in saved)
         try:
             code, out, err = run_cli(
                 ["dream", "--force", "--format", "json"], self.kdir)
         finally:
-            mod.DREAM_STEP_FUNCS = saved
+            _steps_mod(mod).DREAM_STEP_FUNCS = saved
 
         self.assertEqual(code, 1, err)  # a failed step -> non-zero exit
         payload = json.loads(out)

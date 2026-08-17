@@ -35,6 +35,16 @@ import agentware_lib.core.config as config
 import agentware_lib.core.dates as dates
 import agentware_lib.core.frontmatter as frontmatter
 import agentware_lib.knowledge.index as index
+# Bound BY NAME because the ported `cmd_ingest` is the preserved monolith's
+# body verbatim and calls all five bare. The point of taking that body is the
+# CRITICAL SECTION it draws: the lock spans load -> dedup -> register -> save
+# and nothing else, where this tree's copy had widened it to cover adapter
+# parsing of an arbitrary path, the staging write, the metric append and every
+# line of output — holding the global index lock across file I/O and rendering
+# that touch no index at all.
+from agentware_lib.core.config import require_knowledge_dir
+from agentware_lib.knowledge.index import (
+    _index_lock, load_index, parse_tags, save_index)
 import agentware_lib.knowledge.curation.curationrender as curationrender
 
 
@@ -350,43 +360,46 @@ def cmd_ingest(args):
     duplicates. Never fetches the network (the operator produces the local
     export). The CLI stays the sole index writer.
     """
-    kdir = config.require_knowledge_dir()
+    kdir = require_knowledge_dir()
     if not kdir:
         return 1
-    with index._index_lock(kdir):  # serialize load->mutate->save (B2 lost-update guard)
-        data, err = index.load_index(kdir)
+
+    source = args.source
+    extra_tags = parse_tags(getattr(args, "tags", None))
+    try:
+        if source == "docs":
+            raw_candidates, adapter_rejected = _ingest_docs_adapter(
+                args.path, extra_tags)
+        elif source == "github-issues":
+            raw_candidates, adapter_rejected = _ingest_github_issues_adapter(
+                args.path, extra_tags)
+        else:
+            sys.stderr.write("agentware: unknown --source '%s'\n" % source)
+            return 1
+    except ValueError as exc:
+        sys.stderr.write("agentware: %s\n" % exc)
+        return 1
+
+    valid, validate_rejected = _ingest_validate(raw_candidates)
+    rejected = adapter_rejected + validate_rejected
+
+    only = None
+    if getattr(args, "only", None):
+        only = set(t.strip() for t in args.only.split(",") if t.strip())
+    selected = [c for c in valid if (only is None or c["topic"] in only)]
+
+    do_commit = getattr(args, "commit", False)
+    committed_entries, skipped_dup, seen_ids = [], [], set()
+    # Serialize the load->register->save against concurrent writers (B2). Load the
+    # index INSIDE the lock so `--commit` dedups + registers against the freshest
+    # committed state. Adapter parsing/validation above is index-independent and
+    # stayed outside; the staging write below does not touch the index.
+    with _index_lock(kdir):
+        data, err = load_index(kdir)
         if err is not None:
             sys.stderr.write("agentware: %s\n" % err)
             return 1
-
-        source = args.source
-        extra_tags = index.parse_tags(getattr(args, "tags", None))
-        try:
-            if source == "docs":
-                raw_candidates, adapter_rejected = _ingest_docs_adapter(
-                    args.path, extra_tags)
-            elif source == "github-issues":
-                raw_candidates, adapter_rejected = _ingest_github_issues_adapter(
-                    args.path, extra_tags)
-            else:
-                sys.stderr.write("agentware: unknown --source '%s'\n" % source)
-                return 1
-        except ValueError as exc:
-            sys.stderr.write("agentware: %s\n" % exc)
-            return 1
-
-        valid, validate_rejected = _ingest_validate(raw_candidates)
-        rejected = adapter_rejected + validate_rejected
-
-        only = None
-        if getattr(args, "only", None):
-            only = set(t.strip() for t in args.only.split(",") if t.strip())
-        selected = [c for c in valid if (only is None or c["topic"] in only)]
-
         existing_ids, existing_fps = _ingest_existing_dedup(kdir, data)
-        do_commit = getattr(args, "commit", False)
-
-        committed_entries, skipped_dup, seen_ids = [], [], set()
         for c in selected:
             eid = "learn-%s" % c["topic"]
             fp = _ingest_fingerprint(c["content"])
@@ -405,46 +418,46 @@ def cmd_ingest(args):
                 existing_fps.add(fp)
 
         if committed_entries:
-            index.save_index(kdir, data)
+            save_index(kdir, data)
 
-        staging_rel = _ingest_write_staging(kdir, source, valid)
+    staging_rel = _ingest_write_staging(kdir, source, valid)
 
-        counts = {
-            "candidates": len(valid),
-            "selected": len(selected),
-            "committed": len(committed_entries),
-            "skipped_dup": len(skipped_dup),
-            "rejected": len(rejected),
-        }
-        _ingest_emit_metric(kdir, source, counts)
+    counts = {
+        "candidates": len(valid),
+        "selected": len(selected),
+        "committed": len(committed_entries),
+        "skipped_dup": len(skipped_dup),
+        "rejected": len(rejected),
+    }
+    _ingest_emit_metric(kdir, source, counts)
 
-        result = dict(counts)
-        result.update({
-            "source": source,
-            "path": args.path,
-            "dry_run": not do_commit,
-            "staging_dir": staging_rel,
-            "committed_ids": [e["id"] for e in committed_entries],
-            "skipped": skipped_dup,
-            "rejected_items": rejected,
-        })
-        if getattr(args, "format", "text") == "json":
-            json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            mode = "COMMIT" if do_commit else "DRY-RUN"
-            print("INGEST %s [%s] %s" % (mode, source, args.path))
-            print("  candidates: %d  selected: %d  committed: %d  "
-                  "skipped_dup: %d  rejected: %d"
-                  % (len(valid), len(selected), len(committed_entries),
-                     len(skipped_dup), len(rejected)))
-            print("  staging: %s" % staging_rel)
-            for e in committed_entries:
-                print("  + %s" % e["id"])
-            for r in rejected:
-                print("  ! rejected %s: %s"
-                      % (r.get("source_ref"), r.get("reason")))
-        return 0
+    result = dict(counts)
+    result.update({
+        "source": source,
+        "path": args.path,
+        "dry_run": not do_commit,
+        "staging_dir": staging_rel,
+        "committed_ids": [e["id"] for e in committed_entries],
+        "skipped": skipped_dup,
+        "rejected_items": rejected,
+    })
+    if getattr(args, "format", "text") == "json":
+        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        mode = "COMMIT" if do_commit else "DRY-RUN"
+        print("INGEST %s [%s] %s" % (mode, source, args.path))
+        print("  candidates: %d  selected: %d  committed: %d  "
+              "skipped_dup: %d  rejected: %d"
+              % (len(valid), len(selected), len(committed_entries),
+                 len(skipped_dup), len(rejected)))
+        print("  staging: %s" % staging_rel)
+        for e in committed_entries:
+            print("  + %s" % e["id"])
+        for r in rejected:
+            print("  ! rejected %s: %s"
+                  % (r.get("source_ref"), r.get("reason")))
+    return 0
 
 
 # --- parser registrars (owned here; assembled by agentware_lib.cli via the

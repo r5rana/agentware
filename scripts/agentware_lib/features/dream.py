@@ -27,8 +27,12 @@ keeping module-level acyclicity.
 Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 Determinism: cmd_dream reaches cross-module FUNCTIONS by MODULE-ALIAS attribute (so
 the global-resolve gate never cascades into their globals) and cross-module
-CONSTANTS (DREAM_STEP_FUNCS/DREAM_NICE) BY NAME -- the 13 gate-safe requals are the
-ONLY change from the monolith text. A cycle is idempotent + idle-gated + lock-guarded
+CONSTANT DREAM_NICE by name. DREAM_STEP_FUNCS is deliberately NOT among the by-name
+imports: it is the step REGISTRY, which `dreamsteps` documents as the override point
+("every existing monkeypatch target `<consumer>.dreamsteps.<name>` keeps working"),
+and the monolith read it late-bound off the module. Importing it by name froze it at
+import time, so overriding the registry silently did nothing -- the cycle ran the
+twelve real steps while the caller believed it had substituted its own. A cycle is idempotent + idle-gated + lock-guarded
 (INV-2); --dry-run mutates NOTHING; the heartbeat readers are read-only over
 logs/metrics.jsonl with no clock (_dream_age_hours reads the wall clock only for an
 ADVISORY age, never feeding ranking, INV-1); non-interactive (R-SHELL-01); stdlib +
@@ -39,6 +43,7 @@ import datetime
 import json
 import os
 import sys
+import time
 
 import agentware_lib.core.config as config
 import agentware_lib.core.dates as dates
@@ -47,9 +52,12 @@ import agentware_lib.core.routing as routing
 import agentware_lib.features.dreamgate as dreamgate
 import agentware_lib.features.dreamjournal as dreamjournal
 import agentware_lib.features.dreamsched as dreamsched
+# The ISO->epoch helper is the package-updater's; shared rather than
+# re-spelt so the two cadence gates can never disagree about what a
+# timestamp means.
+from agentware_lib.features.pkgupdater import _pkg_iso_to_epoch
 import agentware_lib.features.dreamsteps as dreamsteps
 
-from agentware_lib.features.dreamsteps import DREAM_STEP_FUNCS
 from agentware_lib.features.dreamsched import DREAM_NICE
 
 
@@ -140,12 +148,39 @@ def _audit_dream_health_check(kdir):
                          % (last, age_str)])
 
 
+# --- P2c (260713): dream cadence + affordability guards ---------------------
+# A shared 6h floor: the min-interval gate (Task 7) makes the 30-min tick express
+# a ~6h EFFECTIVE cadence, and the dream-cadence tick job (Task 9) is due on the
+# same interval. These are TIME-based control-plane gates (a cadence is inherently
+# clock-driven) — the INV-1 "no clock in a decision" constraint is scoped to the
+# MINER's mined decisions, never these gates.
+DREAM_CADENCE_INTERVAL_SEC = 6 * 3600
+
+
 def _dream_last_cycle_ts(kdir):
     """Timestamp (ISO 'Z') of the most recent dream from logs/metrics.jsonl, or
     None. Read-only; tolerant of a missing/garbled log."""
     rec = _dream_last_cycle(kdir)
     return rec.get("ts") if rec else None
 
+
+
+def _dream_min_interval_skip(kdir, now, force):
+    """Task 7 (affordability guard #1). Return a SKIP reason when the last recorded
+    dream cycle is YOUNGER than the 6h floor, else None. `force` bypasses it
+    (parity with the idle-gate) so manual debugging is unaffected. FAIL-OPEN: a
+    missing / garbled last-cycle ts proceeds (returns None). Read-only — a caller
+    that skips on this mutates NOTHING (no lock, no journal, no metric)."""
+    if force:
+        return None
+    last = _pkg_iso_to_epoch(_dream_last_cycle_ts(kdir))
+    if last is None:
+        return None
+    age = now - last
+    if age < DREAM_CADENCE_INTERVAL_SEC:
+        return ("last dream cycle was %.1fh ago (< %dh min-interval)"
+                % (age / 3600.0, DREAM_CADENCE_INTERVAL_SEC // 3600))
+    return None
 
 def cmd_dream(args):
     """Run ONE deterministic, idle-gated KB-maintenance cycle (Phase 1).
@@ -181,7 +216,7 @@ def cmd_dream(args):
         # can't interrupt a step already running, only stop the cycle before the
         # next one once the cap is exceeded.
         max_runtime = routing.resolve_dream_max_runtime()
-        planned = [t for t in DREAM_STEP_FUNCS if t[0] in steps]
+        planned = [t for t in dreamsteps.DREAM_STEP_FUNCS if t[0] in steps]
         results = []
         timed_out, timeout_reason = False, None
         for i, (s, label, fn) in enumerate(planned):
@@ -236,6 +271,13 @@ def cmd_dream(args):
     skip = dreamgate.dream_gate_reason(kdir, force=force)
     if skip:
         return dreamjournal._dream_skip_output("idle-gate", skip, as_json)
+
+    # Min-interval floor (Task 7): a too-soon cycle skips, mutating NOTHING (no
+    # lock, no journal, no metric) — this makes the 30-min tick a ~6h effective
+    # cadence. --force bypasses it (parity with the idle-gate).
+    min_skip = _dream_min_interval_skip(kdir, time.time(), force)
+    if min_skip:
+        return dreamjournal._dream_skip_output("min-interval", min_skip, as_json)
 
     # Single-writer concurrency lock (honored even with --force).
     if not dreamgate.dream_acquire_lock(kdir):

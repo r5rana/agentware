@@ -8,13 +8,13 @@
  },
  "counts": {
   "legacy": 227,
-  "lib": 523,
+  "lib": 525,
   "legacy_only": 248,
-  "shared": 219,
+  "shared": 221,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 8,
+  "unresolved_max": 6,
   "undecided_max": 3
  },
  "multi_literal": {
@@ -258,8 +258,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 46"
+   "status": "resolved",
+   "follow_up": "task 46",
+   "lib_sites": [
+    "scripts/agentware_lib/features/dream.py"
+   ]
   },
   {
    "name": "DREAM_PLAN_ONLY_MIN_AGE_HOURS",
@@ -267,8 +270,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 46"
+   "status": "resolved",
+   "follow_up": "task 46",
+   "lib_sites": [
+    "scripts/agentware_lib/features/dreamsteps/stepdetectreport.py"
+   ]
   },
   {
    "name": "GIT_GUARD_MARKER",

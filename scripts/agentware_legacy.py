@@ -471,6 +471,10 @@ from agentware_lib.retrieval.bm25 import (   # noqa: F401  (re-export)
 from agentware_lib.knowledge.worklog import (   # noqa: F401  (re-export)
     WAIVED_RE, _is_promoted, cmd_worklog_scan, scan_assessment_ids,
     scan_worklog, scan_worklog_markers)
+from agentware_lib.knowledge.curation.curationingest import (   # noqa: F401  (re-export)
+    cmd_ingest)
+from agentware_lib.features.dream import (   # noqa: F401  (re-export)
+    cmd_dream)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -5054,114 +5058,6 @@ def _ingest_emit_metric(kdir, source, counts, ts=None):
             f.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
     except OSError:
         pass
-
-
-def cmd_ingest(args):
-    """Deterministic curated capture from a LOCAL source artifact.
-
-    Dry-run by default (writes staging under `work/`, registers nothing);
-    `--commit` registers the reviewed subset with `source: imported`, skipping
-    duplicates. Never fetches the network (the operator produces the local
-    export). The CLI stays the sole index writer.
-    """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-
-    source = args.source
-    extra_tags = parse_tags(getattr(args, "tags", None))
-    try:
-        if source == "docs":
-            raw_candidates, adapter_rejected = _ingest_docs_adapter(
-                args.path, extra_tags)
-        elif source == "github-issues":
-            raw_candidates, adapter_rejected = _ingest_github_issues_adapter(
-                args.path, extra_tags)
-        else:
-            sys.stderr.write("agentware: unknown --source '%s'\n" % source)
-            return 1
-    except ValueError as exc:
-        sys.stderr.write("agentware: %s\n" % exc)
-        return 1
-
-    valid, validate_rejected = _ingest_validate(raw_candidates)
-    rejected = adapter_rejected + validate_rejected
-
-    only = None
-    if getattr(args, "only", None):
-        only = set(t.strip() for t in args.only.split(",") if t.strip())
-    selected = [c for c in valid if (only is None or c["topic"] in only)]
-
-    do_commit = getattr(args, "commit", False)
-    committed_entries, skipped_dup, seen_ids = [], [], set()
-    # Serialize the load->register->save against concurrent writers (B2). Load the
-    # index INSIDE the lock so `--commit` dedups + registers against the freshest
-    # committed state. Adapter parsing/validation above is index-independent and
-    # stayed outside; the staging write below does not touch the index.
-    with _index_lock(kdir):
-        data, err = load_index(kdir)
-        if err is not None:
-            sys.stderr.write("agentware: %s\n" % err)
-            return 1
-        existing_ids, existing_fps = _ingest_existing_dedup(kdir, data)
-        for c in selected:
-            eid = "learn-%s" % c["topic"]
-            fp = _ingest_fingerprint(c["content"])
-            if eid in existing_ids or fp in existing_fps or eid in seen_ids:
-                skipped_dup.append({"topic": c["topic"], "id": eid})
-                continue
-            seen_ids.add(eid)
-            if do_commit:
-                entry, add_err = _ingest_register(kdir, data, c)
-                if add_err is not None:
-                    skipped_dup.append(
-                        {"topic": c["topic"], "id": eid, "error": add_err})
-                    continue
-                committed_entries.append(entry)
-                existing_ids.add(eid)
-                existing_fps.add(fp)
-
-        if committed_entries:
-            save_index(kdir, data)
-
-    staging_rel = _ingest_write_staging(kdir, source, valid)
-
-    counts = {
-        "candidates": len(valid),
-        "selected": len(selected),
-        "committed": len(committed_entries),
-        "skipped_dup": len(skipped_dup),
-        "rejected": len(rejected),
-    }
-    _ingest_emit_metric(kdir, source, counts)
-
-    result = dict(counts)
-    result.update({
-        "source": source,
-        "path": args.path,
-        "dry_run": not do_commit,
-        "staging_dir": staging_rel,
-        "committed_ids": [e["id"] for e in committed_entries],
-        "skipped": skipped_dup,
-        "rejected_items": rejected,
-    })
-    if getattr(args, "format", "text") == "json":
-        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        mode = "COMMIT" if do_commit else "DRY-RUN"
-        print("INGEST %s [%s] %s" % (mode, source, args.path))
-        print("  candidates: %d  selected: %d  committed: %d  "
-              "skipped_dup: %d  rejected: %d"
-              % (len(valid), len(selected), len(committed_entries),
-                 len(skipped_dup), len(rejected)))
-        print("  staging: %s" % staging_rel)
-        for e in committed_entries:
-            print("  + %s" % e["id"])
-        for r in rejected:
-            print("  ! rejected %s: %s"
-                  % (r.get("source_ref"), r.get("reason")))
-    return 0
 
 
 def _render_features(data):
@@ -15688,120 +15584,6 @@ def _dream_skip_output(kind, reason, as_json):
     else:
         print("DREAM SKIPPED (%s): %s" % (kind, reason))
     return 0
-
-
-def cmd_dream(args):
-    """Run ONE deterministic, idle-gated KB-maintenance cycle (Phase 1).
-
-    Orchestrates the sanctioned writers in fixed order a-f; each step is
-    idempotent + skippable (--steps). --dry-run reports the plan and mutates
-    NOTHING. The idle-gate skips (with a logged reason) when a loop session is
-    active or load is high (bypass with --force); the concurrency lock is ALWAYS
-    honored. Non-interactive (R-SHELL-01).
-    """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    as_json = getattr(args, "format", "text") == "json"
-
-    if getattr(args, "install_schedule", False):
-        return _dream_install_schedule(kdir, as_json)
-    if getattr(args, "uninstall_schedule", False):
-        return _dream_uninstall_schedule(as_json)
-
-    dry_run = getattr(args, "dry_run", False)
-    force = getattr(args, "force", False)
-    steps, err = _dream_parse_steps(getattr(args, "steps", None))
-    if err:
-        sys.stderr.write("agentware: %s\n" % err)
-        return 2
-
-    def _run_cycle():
-        started, wall0 = utc_now_iso(), _dream_perf()
-        # Best-effort, FULLY OFFLINE wall-clock guard (Task 7). 0 = disabled.
-        # Checked BETWEEN steps (no signals/threads — see worklog DECISION); it
-        # can't interrupt a step already running, only stop the cycle before the
-        # next one once the cap is exceeded.
-        max_runtime = resolve_dream_max_runtime()
-        planned = [t for t in DREAM_STEP_FUNCS if t[0] in steps]
-        results = []
-        timed_out, timeout_reason = False, None
-        for i, (s, label, fn) in enumerate(planned):
-            elapsed = _dream_perf() - wall0
-            if max_runtime and elapsed > max_runtime:
-                # Cap tripped: record a synthetic guard step (status error ->
-                # non-zero exit), mark the remaining steps stopped, and stop.
-                timed_out = True
-                timeout_reason = ("max-runtime cap exceeded: %.1fs elapsed > %ds "
-                                  "cap (AGENTWARE_DREAM_MAX_RUNTIME)"
-                                  % (elapsed, max_runtime))
-                results.append({"step": "guard", "label": "max-runtime",
-                                "status": "error", "error": timeout_reason,
-                                "duration_s": round(elapsed, 4)})
-                for rs, rlabel, _fn in planned[i:]:
-                    results.append({"step": rs, "label": rlabel,
-                                    "status": "skipped",
-                                    "skipped_reason": "not run: max-runtime cap "
-                                                      "tripped",
-                                    "duration_s": 0.0})
-                break
-            t0 = _dream_perf()
-            try:
-                r = fn(kdir, dry_run)
-            except Exception as exc:   # one bad step never aborts the cycle
-                r = {"status": "error", "error": "%s: %s" % (type(exc).__name__, exc)}
-            r["step"], r["label"] = s, label
-            r["duration_s"] = round(_dream_perf() - t0, 4)
-            # A failed step may hand back the full captured output under the
-            # private `_failure_capture` key — persist it to a per-cycle triage
-            # artifact and replace the blob with its (diff-friendly) path so the
-            # step dict stays small + byte-stable in the journal/metric (INV-1).
-            cap = r.pop("_failure_capture", None)
-            if cap is not None and not dry_run:
-                log_rel = _dream_write_failure_capture(kdir, started, s, cap)
-                if log_rel:
-                    r["triage_log"] = log_rel
-            results.append(r)
-        cyc = {"event": "dream", "started": started, "finished": utc_now_iso(),
-               "duration_s": round(_dream_perf() - wall0, 4), "dry_run": dry_run,
-               "force": force, "skipped": False, "steps": results}
-        if timed_out:
-            cyc["timed_out"] = True
-            cyc["timeout_reason"] = timeout_reason
-        return cyc
-
-    # --dry-run: pure report — no lock, no idle-gate writes, no journal/metric.
-    if dry_run:
-        return _dream_output(_run_cycle(), as_json, True)
-
-    # Idle-gate FIRST (reads only) so an active-session skip mutates nothing.
-    skip = dream_gate_reason(kdir, force=force)
-    if skip:
-        return _dream_skip_output("idle-gate", skip, as_json)
-
-    # Min-interval floor (Task 7): a too-soon cycle skips, mutating NOTHING (no
-    # lock, no journal, no metric) — this makes the 30-min tick a ~6h effective
-    # cadence. --force bypasses it (parity with the idle-gate).
-    min_skip = _dream_min_interval_skip(kdir, time.time(), force)
-    if min_skip:
-        return _dream_skip_output("min-interval", min_skip, as_json)
-
-    # Single-writer concurrency lock (honored even with --force).
-    if not dream_acquire_lock(kdir):
-        return _dream_skip_output(
-            "lock", "another dream holds the lock (concurrency guard)", as_json)
-    try:
-        if os.environ.get("AGENTWARE_NESTED_UNITTEST") != "1":
-            try:
-                os.nice(DREAM_NICE)   # low priority; best-effort
-            except (OSError, AttributeError):
-                pass
-        cycle = _run_cycle()
-        _dream_write_journal(kdir, cycle)
-        _dream_emit_metric(kdir, cycle)
-        return _dream_output(cycle, as_json, False)
-    finally:
-        dream_release_lock(kdir)
 
 
 def _dream_last_cycle(kdir):
