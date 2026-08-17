@@ -352,6 +352,140 @@ ADJUDICATIONS = {
     },
 }
 
+
+# --------------------------------------------------------------------------
+# TASK 54 -- the SHARED-VERB promotion wave
+# --------------------------------------------------------------------------
+# Each of these verbs existed on BOTH sides. Promoting one deletes the
+# monolith's handler, so the merged tree stops seeing the longer body and the
+# floor recorded against it reddens. Three of the four are DECOMPOSED: the lib's
+# handler is shorter because content moved into named helpers in the same
+# module, and naming every receiver is what separates that from a deleted
+# branch. The fourth is SUPERSEDED by a decision the plan already recorded.
+#
+# `audit` is the cautionary one. Its row is here because the gate caught a
+# genuinely DROPPED check: the lib's checks list was byte-identical to the
+# monolith's except `_audit_pkg_version_check(kdir)` was absent, so `agentware
+# audit` silently stopped reporting the package-version signal when the verb was
+# ported. The check was restored (it already lived in ops.checkuphealth, merely
+# uncalled) BEFORE this floor was pinned -- a floor pinned over a real loss
+# certifies the loss.
+_AUDIT = "scripts/agentware_lib/ops/audit.py"
+_METRICSCMD = "scripts/agentware_lib/ops/metricscmd.py"
+_RECALLCMD = "scripts/agentware_lib/retrieval/recallcmd.py"
+
+ADJUDICATIONS.update({
+    "cmd_audit": {
+        "adjudication": "decomposed",
+        "host": _AUDIT,
+        "floor_chars": 2176,
+        "absorbs": [_AUDIT + "::_audit_stale_section",
+                    _AUDIT + "::_print_stale_section"],
+        "rationale": "The staleness half of the audit -- deciding whether to run "
+                     "the stale scan and how to render it -- became a computing "
+                     "half (`_audit_stale_section`) and a rendering half "
+                     "(`_print_stale_section`), leaving the parent as the checks "
+                     "list plus dispatch. The checks list is a flat literal, so a "
+                     "dropped line there is an absent check and not an error; "
+                     "that is exactly what happened to the package-version check "
+                     "and why it is restored in the same commit as this row.",
+    },
+    "cmd_metrics": {
+        "adjudication": "decomposed",
+        "host": _METRICSCMD,
+        "floor_chars": 2262,
+        "absorbs": [_METRICSCMD + "::_report_retrieval"],
+        "rationale": "`metrics --retrieval` is a distinct report over the "
+                     "retrieval metrics rather than the session aggregate, and it "
+                     "short-circuits before any session parsing. It landed in the "
+                     "surface pass as a flag the lib ACCEPTED and then ignored, "
+                     "which is worse than a missing flag -- the caller gets exit "
+                     "0 and the wrong report. Extracting it is what let the "
+                     "parent stay under its branch cap while the flag does "
+                     "something.",
+    },
+    "cmd_recall": {
+        "adjudication": "decomposed",
+        "host": _RECALLCMD,
+        "floor_chars": 4478,
+        "absorbs": [_RECALLCMD + "::_print_recall_text",
+                    _RECALLCMD + "::_print_recall_overflow"],
+        "rationale": "The monolith's text renderer -- live-anchored absolute "
+                     "path, age line, trust line, and the one-per-invocation "
+                     "R-FAIL-08 staleness footer -- was missing from the lib "
+                     "entirely and had to be restored. Restoring it inline put "
+                     "the parent at 32 branches / 145 lines against a 12/120 cap, "
+                     "so the renderer and its overflow half became named "
+                     "receivers and the parent went to 19/114.",
+    },
+    "build_bm25_cache": {
+        "adjudication": "superseded",
+        "floor_chars": 1255,
+        "rationale": "Task 24 adjudicated the cache freshness key: the "
+                     "whole-corpus content FINGERPRINT is the authority and the "
+                     "monotonic `generation` counter is retired, because a "
+                     "counter only orders ONE writer's writes and an index "
+                     "arriving from a pull, a restored backup or a teammate's "
+                     "shard carries an unrelated sequence. The replacement body "
+                     "stamps `fingerprint` + `stat_signature` instead of "
+                     "`generation` and is 4 chars shorter for it. The row now "
+                     "ratchets against the replacement.",
+    },
+})
+
+
+# --------------------------------------------------------------------------
+# DONOR-LONGER rows carried by the tasks 54/55 wave
+# --------------------------------------------------------------------------
+# These three compare against the DONOR body rather than the monolith's, and all
+# three predate the verb that surfaced them -- they are pinned here because the
+# body gate is the thing that finally named them, and an unadjudicated floor is
+# indistinguishable from a regression nobody looked at.
+_MCP = "scripts/agentware_lib/features/mcp.py"
+_WORKCORPUS = "scripts/agentware_lib/retrieval/workcorpus.py"
+
+ADJUDICATIONS.update({
+    "_mcp_tool_recall": {
+        "adjudication": "superseded",
+        "floor_chars": 973,
+        "rationale": "One character, and it is a decision: the donor defaults the "
+                     "MCP recall `token_budget` to 10000, this tree to 1500, "
+                     "matching the CLI's own recall default (the surface-union "
+                     "adjudication picked local). An MCP tool that injects nearly "
+                     "seven times the CLI's budget is the same context bloat "
+                     "recall exists to prevent, and the two front doors "
+                     "disagreeing on it is worse than either value.",
+    },
+    "_mcp_tool_definitions": {
+        "adjudication": "superseded",
+        "floor_chars": 1627,
+        "rationale": "The same 10000 -> 1500 decision, seen from the SCHEMA side: "
+                     "this function declares the `default` the MCP client shows "
+                     "its user. It is pinned as its own row because the schema "
+                     "and the handler are two places one default has to agree "
+                     "with itself, and a length proxy would let either drift.",
+    },
+    "build_work_corpus": {
+        "adjudication": "decomposed",
+        "host": _WORKCORPUS,
+        "floor_chars": 1195,
+        "absorbs": [_WORKCORPUS + "::" + n for n in (
+            "_build_work_corpus_uncached",   # the whole uncached build
+            "_work_corpus_stat_digest",      # the O(stat) freshness digest
+            "_load_work_corpus_cache",       # read + version/digest validation
+            "_write_work_corpus_cache",      # atomic write
+            "_read_work_text",               # one work document
+            "_work_status_multiplier")],     # the plan-status ranking weights
+        "rationale": "The donor's version is one inlined body that calls no "
+                     "helper at all; this tree's is the same capability split "
+                     "into a named family in its own module, so the parent is "
+                     "the cache-or-build decision and nothing else. The split is "
+                     "what makes the stat short-circuit testable in isolation -- "
+                     "a warm work-scope recall must read ZERO work bodies, which "
+                     "is an assertion you cannot write against an inlined body.",
+    },
+})
+
 # Pinned by the suite. Growing this set requires editing BOTH this table and the
 # test that asserts it, which is the point: a deferral must be argued for, never
 # accumulated.

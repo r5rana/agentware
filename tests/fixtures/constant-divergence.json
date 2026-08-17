@@ -7,14 +7,14 @@
   "lib": "scripts/agentware_lib/**.py"
  },
  "counts": {
-  "legacy": 229,
-  "lib": 519,
+  "legacy": 228,
+  "lib": 521,
   "legacy_only": 248,
-  "shared": 217,
+  "shared": 218,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 12,
+  "unresolved_max": 10,
   "undecided_max": 4
  },
  "multi_literal": {
@@ -618,8 +618,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 61"
+   "status": "resolved",
+   "follow_up": "task 61",
+   "lib_sites": [
+    "scripts/agentware_lib/features/curationcmd.py"
+   ]
   },
   {
    "name": "MAX_QUARANTINED_TAGS",
@@ -1542,8 +1545,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 39"
+   "status": "resolved",
+   "follow_up": "task 39",
+   "lib_sites": [
+    "scripts/agentware_lib/features/curationcmd.py"
+   ]
   },
   {
    "name": "STALENESS_STALE_MULT",

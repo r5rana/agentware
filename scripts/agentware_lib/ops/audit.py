@@ -410,6 +410,12 @@ def cmd_audit(args):
         checks = [{"name": "index_validate", "ok": False, "details": [err]}]
     else:
         from agentware_lib.features.dream import _audit_dream_health_check
+        # Imported HERE beside the dream check for the same reason: both are
+        # audit checks that live in another module, and both are needed only on
+        # the index-loaded path. Its absence from the list below is what a length
+        # proxy cannot see — the checks are a flat literal, so a dropped line is a
+        # silently missing check, not an error.
+        from agentware_lib.ops.checkuphealth import _audit_pkg_version_check
         ve = index.validate_index(kdir, data)
         un = index.scan_unindexed(kdir, data)
         te = index.tag_consistency_errors(data)
@@ -428,6 +434,7 @@ def cmd_audit(args):
             _audit_graph_integrity_check(kdir, data),
             _audit_provenance_coverage_check(kdir, data),
             _audit_dream_health_check(kdir),
+            _audit_pkg_version_check(kdir),
         ]
         # Rule-7 observability: advisory graph-health signal (append-only,
         # gitignored, read-only w.r.t. the KB/index).

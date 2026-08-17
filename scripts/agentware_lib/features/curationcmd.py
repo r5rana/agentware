@@ -43,67 +43,150 @@ import agentware_lib.knowledge.curation as curation
 import agentware_lib.knowledge.index as index
 import agentware_lib.ops.fleet as _fleet
 from agentware_lib.retrieval.acr import ACR_SOURCE_WEIGHTS
+from agentware_lib.core.frontmatter import DEFAULT_ENTRY_SOURCE
+# Imported BY NAME because the ported `cmd_learn` body is the monolith's verbatim
+# and calls these bare. Rewriting the body to alias form would have made a
+# hardened, security-relevant function a transcription instead of a move — and
+# this migration's whole verification story is byte-identical bodies.
+from agentware_lib.core.config import require_knowledge_dir
+from agentware_lib.core.dates import _today, utc_now_iso
+from agentware_lib.core.frontmatter import build_entry_frontmatter, _operator_handle
+from agentware_lib.core.routing import resolve_user_handle
+from agentware_lib.knowledge.curation import _slugify, _topic_to_title
+from agentware_lib.knowledge.index import (
+    insert_entry_sorted, learnings_dir, load_index, save_index, add_tags_to_map,
+    LEARNINGS_REL, parse_tags, _do_add, _index_lock)
+from agentware_lib.knowledge.curation import _render_learning
+from agentware_lib.knowledge.worklog import all_entry_ids
+from agentware_lib.core.routing import _normalize_user_handle
+from agentware_lib.retrieval.bm25 import bm25_scores
+from agentware_lib.retrieval.corpus import build_corpus, tokenize
+
+
+# A slug-safe learning topic stem: starts alnum, then alnum-or-hyphen.
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+# Self-normalized BM25 overlap at/above which `learn` treats new content as a
+# near-duplicate of an existing learning and refuses without --force. Tuned so a
+# near-verbatim restatement (~1.0) blocks while distinct entries sharing only
+# boilerplate stay well under (empirically <= ~0.5 on the synthetic KB).
+LEARN_NEAR_DUP_THRESHOLD = 0.75
+
+
+def _near_duplicate_learning(kdir, data, query_text):
+    """Closest existing-learning near-duplicate of `query_text`: (entry, ratio).
+
+    Retrieval reuses the SAME lexical machinery recall uses (`build_corpus` +
+    `bm25_scores`) scoped to the `learnings` sub-corpus. The new content is
+    appended as an ephemeral pseudo-doc so its BM25 SELF-score normalizes scale:
+    `ratio = bm25(query, best_existing) / bm25(query, new_content)`, a corpus-
+    independent [0,1] self-similarity (~1.0 == near-verbatim; distinct entries
+    sharing only boilerplate score low because BM25 discounts common terms via
+    IDF). On ties the reported entry follows recall's canonical order (score desc
+    -> created desc -> id asc). Read-only; no network/LLM/index write."""
+    q_tokens = tokenize(query_text)
+    if not q_tokens:
+        return None, 0.0
+    corpus = [(e, t) for (e, t) in build_corpus(kdir, data)
+              if e.get("category") == "learnings"]
+    if not corpus:
+        return None, 0.0
+    pseudo_id = "\x00new-learning"  # sentinel absent from any real corpus id
+    corpus.append(({"id": pseudo_id, "category": "learnings", "created": ""},
+                   query_text))
+    scored = bm25_scores(corpus, q_tokens)
+    self_score = 0.0
+    others = []
+    for entry, score in scored:
+        if entry.get("id") == pseudo_id:
+            self_score = score
+        elif score > 0.0:
+            others.append((entry, score))
+    if self_score <= 0.0 or not others:
+        return None, 0.0
+    others.sort(key=lambda es: es[0].get("id") or "")
+    others.sort(key=lambda es: es[0].get("created") or "", reverse=True)
+    others.sort(key=lambda es: es[1], reverse=True)
+    best_entry, best_score = others[0]
+    return best_entry, best_score / self_score
 
 
 def cmd_learn(args):
-    kdir = config.require_knowledge_dir()
+    kdir = require_knowledge_dir()
     if not kdir:
         return 1
-    # Shared CR-gate: a default team-loop write into shared/ is
-    # refused unless --to-shared by a curator. No-op for team/flat writes.
-    ok, gerr = _fleet.guard_shared_write(kdir, to_shared=getattr(args, "to_shared", False))
-    if not ok:
-        sys.stderr.write("agentware: %s\n" % gerr)
+
+    raw_topic = (args.topic or "").strip()
+    if not raw_topic:
+        sys.stderr.write("agentware: --topic must not be empty\n")
         return 1
-    with index._index_lock(kdir):  # serialize load->mutate->save (B2 lost-update guard)
-        data, err = index.load_index(kdir)
+    # Normalize --topic to a slug-safe stem (^[a-z0-9][a-z0-9-]*$). A non-slug
+    # topic (spaces, punctuation, uppercase) silently produced broken ids AND
+    # filenames, and breaks worklog-scan promotion (which slugifies markers
+    # before matching learning stems). Auto-slugify + notice instead of writing a
+    # malformed entry (the exact bug that left 4 unpromotable legacy entries).
+    topic = raw_topic if SLUG_RE.match(raw_topic) else _slugify(raw_topic)
+    if not topic:
+        sys.stderr.write(
+            "agentware: --topic %r has no slug-safe characters\n" % raw_topic)
+        return 1
+    if topic != raw_topic:
+        sys.stderr.write(
+            "agentware: normalized --topic %r -> %r\n" % (raw_topic, topic))
+
+    body = sys.stdin.read() if args.content == "-" else args.content
+    if not (body or "").strip():
+        sys.stderr.write("agentware: --content must not be empty\n")
+        return 1
+
+    # Optional provenance passthrough (feature 260625-team-mode-onboarding-fork).
+    # Backward-compat invariant: when BOTH are omitted the frontmatter is
+    # byte-identical to today — `source` stays DEFAULT_ENTRY_SOURCE and `author`
+    # defaults to the per-user handle if configured, else _operator_handle(kdir)
+    # (which is exactly today's behavior when no per-user handle is set).
+    src = getattr(args, "source", None)
+    if src is not None:
+        src_norm = src.strip().lower()
+        if src_norm not in ACR_SOURCE_WEIGHTS:
+            sys.stderr.write(
+                "agentware: invalid --source %r (use %s)\n"
+                % (src, "|".join(sorted(ACR_SOURCE_WEIGHTS))))
+            return 1
+        src = src_norm
+    else:
+        src = DEFAULT_ENTRY_SOURCE
+    author = getattr(args, "author", None)
+    if author is not None:
+        author = _normalize_user_handle(author)
+        if not author:
+            sys.stderr.write(
+                "agentware: invalid --author (must contain at least one of "
+                "A-Z a-z 0-9 . _ -)\n")
+            return 1
+    else:
+        author = resolve_user_handle()  # None => build_entry_frontmatter uses _operator_handle
+
+    eid = "learn-%s" % topic
+    rel_path = "%s/%s.md" % (LEARNINGS_REL, topic)
+    abs_path = os.path.join(kdir, rel_path)
+    tag_list = parse_tags(args.tags)
+    # --title overrides the derived display title; the default derives from the
+    # ORIGINAL (pre-slug) topic so readability survives auto-slugify. When topic
+    # is already a slug and --title is omitted this is byte-identical to the prior
+    # `_topic_to_title(topic)` (raw_topic == topic).
+    title = (getattr(args, "title", None) or "").strip() or _topic_to_title(raw_topic)
+    created = _today()
+
+    # Serialize the index read-modify-write against concurrent writers (B2). Load
+    # INSIDE the lock so the dup/near-dup checks and _do_add all see the freshest
+    # committed index — a lock that opened after the load could not prevent a lost
+    # update. Arg-parse/validation + stdin read stayed OUTSIDE (index-independent).
+    with _index_lock(kdir):
+        data, err = load_index(kdir)
         if err is not None:
             sys.stderr.write("agentware: %s\n" % err)
             return 1
-
-        topic = (args.topic or "").strip()
-        if not topic:
-            sys.stderr.write("agentware: --topic must not be empty\n")
-            return 1
-
-        body = sys.stdin.read() if args.content == "-" else args.content
-        if not (body or "").strip():
-            sys.stderr.write("agentware: --content must not be empty\n")
-            return 1
-
-        # Optional provenance passthrough (feature 260625-team-mode-onboarding-fork).
-        # Backward-compat invariant: when BOTH are omitted the frontmatter is
-        # byte-identical to today — `source` stays DEFAULT_ENTRY_SOURCE and `author`
-        # defaults to the per-user handle if configured, else _operator_handle(kdir)
-        # (which is exactly today's behavior when no per-user handle is set).
-        src = getattr(args, "source", None)
-        if src is not None:
-            src_norm = src.strip().lower()
-            if src_norm not in ACR_SOURCE_WEIGHTS:
-                sys.stderr.write(
-                    "agentware: invalid --source %r (use %s)\n"
-                    % (src, "|".join(sorted(ACR_SOURCE_WEIGHTS))))
-                return 1
-            src = src_norm
-        else:
-            src = frontmatter.DEFAULT_ENTRY_SOURCE
-        author = getattr(args, "author", None)
-        if author is not None:
-            author = routing._normalize_user_handle(author)
-            if not author:
-                sys.stderr.write(
-                    "agentware: invalid --author (must contain at least one of "
-                    "A-Z a-z 0-9 . _ -)\n")
-                return 1
-        else:
-            author = routing.resolve_user_handle()  # None => build_entry_frontmatter uses _operator_handle
-
-        eid = "learn-%s" % topic
-        rel_path = "%s/%s.md" % (index.LEARNINGS_REL, topic)
-        abs_path = os.path.join(kdir, rel_path)
-        tag_list = index.parse_tags(args.tags)
-        title = curation._topic_to_title(topic)
-        created = dates._today()
 
         entries = data.get("entries") or []
         if any(e.get("id") == eid for e in entries):
@@ -118,15 +201,32 @@ def cmd_learn(args):
                 % abs_path)
             return 1
 
-        fm = frontmatter.build_entry_frontmatter(
+        # BM25 near-duplicate probe: self-query the new content against EXISTING
+        # learnings via the SAME lexical retrieval recall uses. A high self-
+        # normalized overlap means this likely restates an entry that already
+        # exists — point at the match and refuse unless --force.
+        if not getattr(args, "force", False):
+            probe_text = "\n".join(
+                [title, args.summary or "", " ".join(tag_list), body])
+            dup_entry, ratio = _near_duplicate_learning(kdir, data, probe_text)
+            if dup_entry is not None and ratio >= LEARN_NEAR_DUP_THRESHOLD:
+                sys.stderr.write(
+                    "agentware: near-duplicate of existing learning '%s' "
+                    "(%.0f%% overlap): %s\n"
+                    "  amend that entry, pick a more specific --topic, or pass "
+                    "--force to record anyway.\n"
+                    % (dup_entry.get("id"), ratio * 100.0, dup_entry.get("path")))
+                return 1
+
+        fm = build_entry_frontmatter(
             {"id": eid, "title": title, "category": "learnings", "tags": tag_list,
              "created": created, "summary": args.summary},
             kdir, author=author, source=src)
-        os.makedirs(index.learnings_dir(kdir), exist_ok=True)
+        os.makedirs(learnings_dir(kdir), exist_ok=True)
         with open(abs_path, "w", encoding="utf-8") as f:
-            f.write(curation._render_learning(fm, body))
+            f.write(_render_learning(fm, body))
 
-        entry, add_err = index._do_add(
+        entry, add_err = _do_add(
             kdir, data, eid, title, "learnings", rel_path, tag_list, args.summary, created)
         if add_err is not None:
             try:
@@ -136,25 +236,14 @@ def cmd_learn(args):
             sys.stderr.write("agentware: %s\n" % add_err)
             return 1
 
-        index.save_index(kdir, data)
-
-        # Advisory capture-quality hint (non-blocking): if body references an artifact
-        # keyword but contains no fenced code block, nudge the caller to embed verbatim.
-        _ARTIFACT_KEYWORDS = re.compile(
-            r'\b(config|command|yaml|error|endpoint|run )', re.IGNORECASE)
-        if _ARTIFACT_KEYWORDS.search(body) and '```' not in body:
-            sys.stderr.write(
-                "agentware: hint: this learning mentions an artifact but embeds no "
-                "code block — consider re-running with the artifact pasted inside a "
-                "fenced ``` block so future agents can embed the artifact verbatim.\n")
-
-        if getattr(args, "format", "text") == "json":
-            json.dump({"ok": True, "learning": entry}, sys.stdout,
-                      ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print("LEARNED entry '%s' -> %s (registered in index)" % (eid, abs_path))
-        return 0
+        save_index(kdir, data)
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "learning": entry}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("LEARNED entry '%s' -> %s (registered in index)" % (eid, abs_path))
+    return 0
 
 
 def cmd_decide(args):

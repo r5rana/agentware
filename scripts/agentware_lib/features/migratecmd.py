@@ -299,6 +299,7 @@ _KB_WRITER_TARGETS = (
     # cannot drift apart.
     ("agentware_lib.knowledge.curation.curationfeatures", "cmd_features"),
     ("agentware_lib.features.curationcmd", "cmd_decide"),
+    ("agentware_lib.features.curationcmd", "cmd_learn"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the

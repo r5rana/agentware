@@ -90,10 +90,29 @@ class FreshnessGenerationTest(unittest.TestCase):
                          "freshness read %d entry bodies (must be 0, B1)" % calls[0])
 
     def test_freshness_cache_header_has_generation_matching_index(self):
+    # The name below is FROZEN. `tests/fixtures/nodeids-local.json` records the
+    # pre-merge node ids as a preservation floor that may only ever grow, and the
+    # gate reports a vanished id as "LOST node id" with no alias mechanism on
+    # purpose: a renamed test and a deleted test are indistinguishable to anything
+    # downstream holding the old name. So the clearer name above is the real test
+    # and this one delegates to it, which keeps the floor intact AND leaves the
+    # rename visible instead of trading one for the other.
+        self.test_freshness_cache_header_carries_the_content_authority()
+
+    def test_freshness_cache_header_carries_the_content_authority(self):
+        # The header stamps the CONTENT keys the merged reader consults, not the
+        # retired `generation` counter: the whole-corpus fingerprint (tier 1/3) and
+        # the zero-body-read stat proxy (tier 2), both computed in the same call so
+        # they can never describe different states of the tree. The version must be
+        # the merged v3 — v1 (donor) and v2 (this tree's counter) are both burned at
+        # this same cache path, so reusing either would let a foreign schema load.
         data, cache = self._load()
-        self.assertIn("generation", cache)
-        self.assertEqual(cache["generation"], data.get("generation", 0))
+        self.assertIn("fingerprint", cache)
+        self.assertTrue(cache["fingerprint"])
+        self.assertIn("stat_signature", cache)
+        self.assertNotIn("generation", cache)
         self.assertEqual(cache["version"], CLI.BM25_CACHE_VERSION)
+        self.assertTrue(CLI.bm25_cache_is_fresh(cache, data, self.kdir))
 
     def test_freshness_learn_bump_detects_staleness_then_rebuild_refreshens(self):
         data, cache = self._load()
@@ -190,10 +209,12 @@ class FreshnessMonotonicTest(unittest.TestCase):
         new_index, _e = CLI.load_index(self.kdir)
         surviving = CLI.load_bm25_cache(self.kdir)
         self.assertIsNotNone(surviving, "atomic write should leave the OLD cache")
-        self.assertEqual(surviving["generation"], old_cache["generation"])
-        # The surviving stale cache MUST be detected as stale (monotonic gen) — NOT
-        # false-fresh — so recall falls back to the live scan.
-        self.assertGreater(new_index.get("generation"), surviving["generation"])
+        self.assertEqual(surviving["fingerprint"], old_cache["fingerprint"])
+        # The surviving stale cache MUST be detected as stale — NOT false-fresh — so
+        # recall falls back to the live scan. The cache that survived the failed
+        # write describes the corpus BEFORE the new entry, so its fingerprint cannot
+        # match the rebuilt one; this is the assertion that makes the atomic write
+        # safe rather than merely tidy.
         self.assertFalse(CLI.bm25_cache_is_fresh(surviving, new_index, self.kdir),
                          "stale cache after a failed rebuild-write must NOT be fresh")
         # And recall surfaces the new entry (live fallback), never silently drops it.

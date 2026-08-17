@@ -463,6 +463,11 @@ from agentware_lib.knowledge.curation.curationfeatures import (   # noqa: F401  
     cmd_features)
 from agentware_lib.features.curationcmd import (   # noqa: F401  (re-export)
     cmd_decide)
+from agentware_lib.features.curationcmd import (   # noqa: F401  (re-export)
+    cmd_learn)
+from agentware_lib.retrieval.bm25 import (   # noqa: F401  (re-export)
+    bm25_cache_is_fresh, bm25_cache_path, build_bm25_cache,
+    load_bm25_cache, write_bm25_cache, _corpus_stat_signature)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -655,7 +660,10 @@ VECTOR_CACHE_VERSION = 1
 # the live scan, so correctness NEVER depends on the cache being present (INV-1
 # byte-identity is enforced by a guard test, not assumed).
 BM25_CACHE_REL = os.path.join(".cache", "bm25-postings.json")
-BM25_CACHE_VERSION = 2  # v2: adds the `generation` freshness token (B1, P1.7)
+from agentware_lib.retrieval.bm25 import (   # noqa: F401  (re-export)
+    BM25_CACHE_VERSION)  # v3 — the MERGED schema. v1 (donor) and v2 (this
+# tree's `generation` token) are both burned at this same cache path, so the
+# merged reader must reject them by using a number neither tree ever wrote.
 # Derived, gitignored --scope work corpus cache (B8). Local-only (rebuilt per
 # machine), so a (path,size,mtime) stat digest is a safe freshness key here —
 # unlike the clone-surviving primary index. Keyed under the same `.cache/`.
@@ -4689,140 +4697,6 @@ def _render_learning(fields, body, back_label="Learnings"):
     )
 
 
-def cmd_learn(args):
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-
-    raw_topic = (args.topic or "").strip()
-    if not raw_topic:
-        sys.stderr.write("agentware: --topic must not be empty\n")
-        return 1
-    # Normalize --topic to a slug-safe stem (^[a-z0-9][a-z0-9-]*$). A non-slug
-    # topic (spaces, punctuation, uppercase) silently produced broken ids AND
-    # filenames, and breaks worklog-scan promotion (which slugifies markers
-    # before matching learning stems). Auto-slugify + notice instead of writing a
-    # malformed entry (the exact bug that left 4 unpromotable legacy entries).
-    topic = raw_topic if SLUG_RE.match(raw_topic) else _slugify(raw_topic)
-    if not topic:
-        sys.stderr.write(
-            "agentware: --topic %r has no slug-safe characters\n" % raw_topic)
-        return 1
-    if topic != raw_topic:
-        sys.stderr.write(
-            "agentware: normalized --topic %r -> %r\n" % (raw_topic, topic))
-
-    body = sys.stdin.read() if args.content == "-" else args.content
-    if not (body or "").strip():
-        sys.stderr.write("agentware: --content must not be empty\n")
-        return 1
-
-    # Optional provenance passthrough (feature 260625-team-mode-onboarding-fork).
-    # Backward-compat invariant: when BOTH are omitted the frontmatter is
-    # byte-identical to today — `source` stays DEFAULT_ENTRY_SOURCE and `author`
-    # defaults to the per-user handle if configured, else _operator_handle(kdir)
-    # (which is exactly today's behavior when no per-user handle is set).
-    src = getattr(args, "source", None)
-    if src is not None:
-        src_norm = src.strip().lower()
-        if src_norm not in ACR_SOURCE_WEIGHTS:
-            sys.stderr.write(
-                "agentware: invalid --source %r (use %s)\n"
-                % (src, "|".join(sorted(ACR_SOURCE_WEIGHTS))))
-            return 1
-        src = src_norm
-    else:
-        src = DEFAULT_ENTRY_SOURCE
-    author = getattr(args, "author", None)
-    if author is not None:
-        author = _normalize_user_handle(author)
-        if not author:
-            sys.stderr.write(
-                "agentware: invalid --author (must contain at least one of "
-                "A-Z a-z 0-9 . _ -)\n")
-            return 1
-    else:
-        author = resolve_user_handle()  # None => build_entry_frontmatter uses _operator_handle
-
-    eid = "learn-%s" % topic
-    rel_path = "%s/%s.md" % (LEARNINGS_REL, topic)
-    abs_path = os.path.join(kdir, rel_path)
-    tag_list = parse_tags(args.tags)
-    # --title overrides the derived display title; the default derives from the
-    # ORIGINAL (pre-slug) topic so readability survives auto-slugify. When topic
-    # is already a slug and --title is omitted this is byte-identical to the prior
-    # `_topic_to_title(topic)` (raw_topic == topic).
-    title = (getattr(args, "title", None) or "").strip() or _topic_to_title(raw_topic)
-    created = _today()
-
-    # Serialize the index read-modify-write against concurrent writers (B2). Load
-    # INSIDE the lock so the dup/near-dup checks and _do_add all see the freshest
-    # committed index — a lock that opened after the load could not prevent a lost
-    # update. Arg-parse/validation + stdin read stayed OUTSIDE (index-independent).
-    with _index_lock(kdir):
-        data, err = load_index(kdir)
-        if err is not None:
-            sys.stderr.write("agentware: %s\n" % err)
-            return 1
-
-        entries = data.get("entries") or []
-        if any(e.get("id") == eid for e in entries):
-            sys.stderr.write("agentware: duplicate id '%s'\n" % eid)
-            return 1
-        if any(e.get("path") == rel_path for e in entries):
-            sys.stderr.write("agentware: path already indexed: %s\n" % rel_path)
-            return 1
-        if os.path.exists(abs_path):
-            sys.stderr.write(
-                "agentware: learning file already exists (refusing to overwrite): %s\n"
-                % abs_path)
-            return 1
-
-        # BM25 near-duplicate probe: self-query the new content against EXISTING
-        # learnings via the SAME lexical retrieval recall uses. A high self-
-        # normalized overlap means this likely restates an entry that already
-        # exists — point at the match and refuse unless --force.
-        if not getattr(args, "force", False):
-            probe_text = "\n".join(
-                [title, args.summary or "", " ".join(tag_list), body])
-            dup_entry, ratio = _near_duplicate_learning(kdir, data, probe_text)
-            if dup_entry is not None and ratio >= LEARN_NEAR_DUP_THRESHOLD:
-                sys.stderr.write(
-                    "agentware: near-duplicate of existing learning '%s' "
-                    "(%.0f%% overlap): %s\n"
-                    "  amend that entry, pick a more specific --topic, or pass "
-                    "--force to record anyway.\n"
-                    % (dup_entry.get("id"), ratio * 100.0, dup_entry.get("path")))
-                return 1
-
-        fm = build_entry_frontmatter(
-            {"id": eid, "title": title, "category": "learnings", "tags": tag_list,
-             "created": created, "summary": args.summary},
-            kdir, author=author, source=src)
-        os.makedirs(learnings_dir(kdir), exist_ok=True)
-        with open(abs_path, "w", encoding="utf-8") as f:
-            f.write(_render_learning(fm, body))
-
-        entry, add_err = _do_add(
-            kdir, data, eid, title, "learnings", rel_path, tag_list, args.summary, created)
-        if add_err is not None:
-            try:
-                os.remove(abs_path)
-            except OSError:
-                pass
-            sys.stderr.write("agentware: %s\n" % add_err)
-            return 1
-
-        save_index(kdir, data)
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, "learning": entry}, sys.stdout,
-                  ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("LEARNED entry '%s' -> %s (registered in index)" % (eid, abs_path))
-    return 0
-
-
 def _render_decision_body(summary, options, choice, rationale, reversible):
     """Compose a decision entry body from its structured fields.
 
@@ -6062,134 +5936,6 @@ def bm25_scores(corpus, query_tokens):
 # sorted keys):
 #   {version, fingerprint, n, avgdl, k1, b,
 #    doc_lens:{id:len}, df:{term:df}, postings:{term:[[id,tf], ...]}}
-
-
-def bm25_cache_path(kdir):
-    """Absolute path to the derived BM25 postings cache JSON under `.cache/`."""
-    return os.path.join(kdir, BM25_CACHE_REL)
-
-
-def build_bm25_cache(kdir, data):
-    """Build the (pure) BM25 postings cache dict from the live corpus.
-
-    Derives from the IDENTICAL `build_corpus` + `_bm25_index` the live scorer uses,
-    so the persisted df/avgdl/n/doc_lens/postings reproduce `bm25_scores` exactly.
-    The `fingerprint` is the deterministic whole-corpus content hash
-    (`eval_corpus_fingerprint`) so ANY body/frontmatter/add/remove change
-    invalidates the cache. Postings are ordered by doc_id and all dict keys are
-    serialized sorted (see `write_bm25_cache`), so two builds over one KB state are
-    byte-identical. Read-only.
-    """
-    corpus = build_corpus(kdir, data)
-    docs, df, avgdl = _bm25_index(corpus)
-    fingerprint = eval_corpus_fingerprint(corpus)
-    doc_lens = {}
-    postings = {}
-    for entry, tf, dl in docs:
-        eid = entry.get("id")
-        if eid is None:
-            continue
-        doc_lens[eid] = dl
-        for term, freq in tf.items():
-            postings.setdefault(term, []).append([eid, freq])
-    for term in postings:
-        postings[term].sort(key=lambda p: p[0])  # stable: order by doc_id
-    return {
-        "version": BM25_CACHE_VERSION,
-        # Monotonic index generation this cache was built at (B1). Freshness is an
-        # O(1) `cache.generation == index.generation` compare — no whole-corpus
-        # body re-read on every recall. Stamped AFTER the postings are built (this
-        # dict is assembled last), so a failed cache WRITE leaves a corrupt/absent
-        # cache (load returns None -> rebuild), never a stamp-without-postings.
-        "generation": data.get("generation", 0) if isinstance(data, dict) else 0,
-        "fingerprint": fingerprint,
-        "n": len(docs),
-        "avgdl": avgdl,
-        "k1": _BM25_K1,
-        "b": _BM25_B,
-        "doc_lens": doc_lens,
-        "df": df,
-        "postings": postings,
-    }
-
-
-def write_bm25_cache(kdir, cache):
-    """Persist the postings cache deterministically (sorted keys, byte-stable).
-
-    The SOLE writer is `rebuild_kb` (`index rebuild`). Creates `.cache/` as needed.
-    ATOMIC (tempfile + fsync + os.replace, like save_index): a lock-free concurrent
-    recall can NEVER observe a half-written cache — it sees either the previous
-    complete cache or the new one, so a torn read can't be mistaken for fresh."""
-    import tempfile
-    path = bm25_cache_path(kdir)
-    d = os.path.dirname(path)
-    os.makedirs(d, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=".bm25.", suffix=".tmp", dir=d)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2, sort_keys=True)
-            f.write("\n")
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-    return path
-
-
-def load_bm25_cache(kdir):
-    """Load the derived postings cache, or None if unusable.
-
-    Graceful by contract: a missing file, corrupt JSON, non-dict payload, or a
-    version mismatch ALL return None so the caller falls back to the live scan.
-    Never raises, never mutates.
-    """
-    path = bm25_cache_path(kdir)
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            cache = json.load(f)
-    except (OSError, ValueError):
-        return None
-    if not isinstance(cache, dict):
-        return None
-    if cache.get("version") != BM25_CACHE_VERSION:
-        return None
-    for key in ("generation", "fingerprint", "n", "avgdl", "doc_lens", "df",
-                "postings"):
-        if key not in cache:
-            return None
-    if not isinstance(cache.get("postings"), dict) \
-            or not isinstance(cache.get("df"), dict) \
-            or not isinstance(cache.get("doc_lens"), dict):
-        return None
-    return cache
-
-
-def bm25_cache_is_fresh(cache, data, kdir):
-    """True iff `cache` was built at the CURRENT index generation.
-
-    O(1): compares the monotonic `generation` integer stamped in the cache header
-    against the live index's top-level `generation` — reading ZERO entry bodies.
-    (The prior implementation re-derived a WHOLE-CORPUS fingerprint on EVERY recall,
-    reading every entry body even when the postings cache was warm — blocker B1.)
-
-    CORRECT under the sole-writer invariant (R-KB-01): every legitimate mutation
-    goes through `save_index`, which bumps `generation`, and rebuild stamps the
-    cache with the generation it was built at, so a mutation that has not been
-    followed by a rebuild is detected as stale (mismatch) and the caller falls back
-    to the live scan. TRADEOFF (recorded `> DECISION:`): a RAW out-of-band entry
-    body edit (already forbidden — save_index is the sole writer) does NOT bump the
-    generation, so it is not auto-detected; recovery is an explicit `index rebuild`,
-    exactly as for any hand-edit. `kdir` is retained for signature compatibility
-    (no longer read). Read-only; no body reads, no network.
-    """
-    if not isinstance(cache, dict) or not isinstance(data, dict):
-        return False
-    return cache.get("generation") == data.get("generation", 0)
 
 
 def bm25_scores_cached(cache, query_tokens, entries_by_id):

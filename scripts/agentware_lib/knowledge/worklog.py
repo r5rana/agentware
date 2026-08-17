@@ -54,6 +54,34 @@ PROMOTED_RE = re.compile(
     r"(?:\(\s*Promoted:\s*|\[\s*promoted\s*->\s*)([a-z0-9][a-z0-9-]*)", re.I)
 
 
+def all_entry_ids(kdir, data):
+    """Every id a promotion reference may resolve to, lowercased: all indexed
+    entry ids + their filename stems, plus skill stems on disk. This is the
+    exact-match universe so a CROSS-category ref on a marker — e.g.
+    `(Promoted: skill-x)` or `[kb: decide-y]` on a `> LEARNED:` line — resolves
+    regardless of the marker's own kind. Read-only (INV-2), deterministic."""
+    ids = set()
+    for e in (data.get("entries") or []):
+        if not isinstance(e, dict):
+            continue
+        eid = e.get("id")
+        if eid:
+            ids.add(eid.lower())
+        base = os.path.basename(e.get("path") or "")
+        if base.endswith(".md"):
+            ids.add(base[:-3].lower())
+    # Skills can live on disk without appearing in the user index; include their
+    # stems (bare and `skill-`-prefixed) so skill-promotion refs resolve.
+    sdir = os.path.join(kdir, "skills")
+    if os.path.isdir(sdir):
+        for fn in os.listdir(sdir):
+            if fn.endswith(".md") and fn != "index.md":
+                stem = fn[:-3].lower()
+                ids.add(stem)
+                ids.add("skill-" + stem)
+    return ids
+
+
 def promoted_ids(marker_text):
     """Lowercased ids referenced by an explicit promotion marker, in order."""
     return [m.lower() for m in PROMOTED_RE.findall(marker_text or "")]

@@ -118,23 +118,57 @@ class LoadAndFreshnessTest(BM25CacheTestCase):
         cache = CLI.build_bm25_cache(self.kdir, self.data)
         self.assertTrue(CLI.bm25_cache_is_fresh(cache, self.data, self.kdir))
 
-    def test_generation_bump_is_not_fresh(self):
-        # A mutation that goes through save_index bumps the index `generation`; the
-        # cache stamped at the old generation is then detected as STALE (B1, O(1)).
+    def test_index_mutation_is_not_fresh(self):
+        # A mutation that goes through save_index leaves the PRIOR cache stale.
+        # Task 24 adjudicated the authority for this from a monotonic `generation`
+        # counter to the whole-corpus CONTENT fingerprint, so the staleness is
+        # asserted the way it is now detected: change the entry set, and the cache
+        # built over the old set no longer describes the corpus. The counter this
+        # replaces could only order ONE writer's writes and read an index authored
+        # elsewhere (a pull, a restored backup, a teammate's shard) as fresh.
         cache = CLI.build_bm25_cache(self.kdir, self.data)
-        bumped = dict(self.data, generation=self.data.get("generation", 0) + 1)
-        self.assertFalse(CLI.bm25_cache_is_fresh(cache, bumped, self.kdir))
+        self.assertTrue(CLI.bm25_cache_is_fresh(cache, self.data, self.kdir))
+        mutated = dict(self.data, entries=list(self.data["entries"])[:-1])
+        self.assertFalse(CLI.bm25_cache_is_fresh(cache, mutated, self.kdir))
+
+    def test_generation_bump_is_not_fresh(self):
+    # The name below is FROZEN. `tests/fixtures/nodeids-local.json` records the
+    # pre-merge node ids as a preservation floor that may only ever grow, and the
+    # gate reports a vanished id as "LOST node id" with no alias mechanism on
+    # purpose: a renamed test and a deleted test are indistinguishable to anything
+    # downstream holding the old name. So the clearer name above is the real test
+    # and this one delegates to it, which keeps the floor intact AND leaves the
+    # rename visible instead of trading one for the other.
+        self.test_index_mutation_is_not_fresh()
 
     def test_out_of_band_body_edit_is_not_auto_detected(self):
-        # RECORDED TRADEOFF (P1.7 DECISION): the O(1) generation compare does NOT
-        # self-heal a RAW out-of-band body edit (already forbidden — save_index is
-        # the sole writer). Without a generation bump the cache still reads as fresh;
-        # recovery is an explicit `index rebuild`. This locks the intended contract.
+    # The name below is FROZEN. `tests/fixtures/nodeids-local.json` records the
+    # pre-merge node ids as a preservation floor that may only ever grow, and the
+    # gate reports a vanished id as "LOST node id" with no alias mechanism on
+    # purpose: a renamed test and a deleted test are indistinguishable to anything
+    # downstream holding the old name. So the clearer name above is the real test
+    # and this one delegates to it, which keeps the floor intact AND leaves the
+    # rename visible instead of trading one for the other.
+        self.test_out_of_band_body_edit_IS_detected()
+
+    def test_out_of_band_body_edit_IS_detected(self):
+        # The INVERSE of the tradeoff the retired counter recorded. That mechanism
+        # compared two integers, so a RAW out-of-band body edit (forbidden, but the
+        # thing that actually happens: a hand-fix, a merge, a restored file) bumped
+        # nothing and the cache stayed false-fresh until someone thought to rebuild.
+        # Content is the authority now, so the edit is caught: the stat proxy sees a
+        # changed (size, mtime) and advances to the hash rather than short-circuiting.
+        # Asserted as an IMPROVEMENT rather than deleted with the counter, because
+        # this is the failure the adjudication was FOR — a cache wrongly believed
+        # fresh raises nothing and changes no exit code; recall just quietly answers
+        # from the old corpus.
         cache = CLI.build_bm25_cache(self.kdir, self.data)
+        self.assertTrue(CLI.bm25_cache_is_fresh(cache, self.data, self.kdir))
         body = os.path.join(self.kdir, self.data["entries"][0]["path"])
         with open(body, "a", encoding="utf-8") as f:
             f.write("\nNEWWORD distinctmutationmarker\n")
-        self.assertTrue(CLI.bm25_cache_is_fresh(cache, self.data, self.kdir))
+        self.assertFalse(CLI.bm25_cache_is_fresh(cache, self.data, self.kdir),
+                         "a raw body edit must invalidate the cache")
 
     def test_freshness_reads_zero_entry_bodies(self):
         # The B1 headline: the freshness check must read NO entry bodies.

@@ -300,7 +300,19 @@ class ExhaustiveRefutationTest(unittest.TestCase):
 
     def _mutated(self, tree, name, literal):
         out = dict(tree)
-        out[name] = [(tree[name][0][0], literal)]
+        if name in tree:
+            site = tree[name][0][0]
+        else:
+            # The name is TRACKED but no longer DEFINED in this tree, because a
+            # port resolved it (row names are a ratchet — see _tracked). Synthesize
+            # the definition at a real site in the same tree rather than skipping
+            # the row: skipping would silently shrink the refutation set by one on
+            # every successful port, which is the exact self-disarming this suite
+            # exists to prevent. Synthesizing also asks the sharper question — if
+            # someone RE-INTRODUCED a rival definition here after the port, would
+            # the gate still answer?
+            site = next(iter(tree.values()))[0][0]
+        out[name] = [(site, literal)]
         return out
 
     def test_every_pending_row_reddens_when_its_monolith_value_is_edited(self):
