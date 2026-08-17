@@ -457,6 +457,8 @@ from agentware_lib.ops.audit import (   # noqa: F401  (re-export)
     cmd_audit)
 from agentware_lib.knowledge.attach import (   # noqa: F401  (re-export)
     cmd_attach)
+from agentware_lib.features.setupcmd import (   # noqa: F401  (re-export)
+    cmd_init)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -2740,110 +2742,6 @@ def _ensure_kb_gitignore(kdir):
                 "agentware).\n"
                 + "".join(_gitignore_rule_line(rule) + "\n" for rule in missing))
     return "appended"
-
-
-def cmd_init(args):
-    """Scaffold the external knowledge dir + seed an empty index + write config.
-
-    Idempotent: re-running against an existing dir leaves entries intact and
-    only fills in any missing structure. Does NOT write the .initialized
-    sentinel — onboarding writes that after the interview.
-    """
-    kdir = os.path.abspath(os.path.expanduser(args.knowledge_dir))
-    as_json = getattr(args, "format", "text") == "json"
-
-    # KNOWLEDGE_SUBDIRS are indexed knowledge categories; NON_INDEXED_DIRS are
-    # the operator's work artifacts (plans/worklogs) and append-only logs that
-    # the orchestrator writes here INSTEAD of into the package.
-    created_dirs = []
-    for sub in ("",) + KNOWLEDGE_SUBDIRS + NON_INDEXED_DIRS:
-        d = os.path.join(kdir, sub) if sub else kdir
-        if not os.path.isdir(d):
-            os.makedirs(d, exist_ok=True)
-            created_dirs.append(d)
-
-    # Seed an empty valid index only if absent (never clobber real data).
-    ipath = index_path(kdir)
-    seeded = False
-    if not os.path.exists(ipath):
-        save_index(kdir, {"entries": [], "tags": {}})
-        seeded = True
-
-    # Drop a category roster placeholder so each subdir is browsable.
-    for sub in KNOWLEDGE_SUBDIRS:
-        roster = os.path.join(kdir, sub, "index.md")
-        if not os.path.exists(roster):
-            with open(roster, "w", encoding="utf-8") as f:
-                f.write("# %s\n\n_Index of %s. Entries are registered in "
-                        "`../index.json` via `scripts/agentware`._\n"
-                        % (sub.capitalize(), sub))
-
-    # Install the entry templates INTO the operator's dir so their working
-    # instance is self-contained and they never have to reach back into the
-    # package to scaffold a learning / project / skill entry.
-    installed_templates = []
-    src_templates = os.path.join(REPO_ROOT, "templates")
-    dst_templates = os.path.join(kdir, "templates")
-    if os.path.isdir(src_templates):
-        os.makedirs(dst_templates, exist_ok=True)
-        for fn in sorted(os.listdir(src_templates)):
-            if not fn.endswith(".md"):
-                continue
-            dst = os.path.join(dst_templates, fn)
-            if not os.path.exists(dst):
-                shutil.copyfile(os.path.join(src_templates, fn), dst)
-                installed_templates.append(fn)
-
-    # Scaffold the KB .gitignore so transcripts (logs/) are never committed/pushed
-    # once autocommit is ON by default.
-    gitignore_action = _ensure_kb_gitignore(kdir)
-
-    # Guard against SILENTLY repointing an already-initialized knowledge base.
-    # Pinning the config on first onboarding is correct and still happens; but
-    # running init against a DIFFERENT dir (e.g. a test/scratch path) would
-    # otherwise clobber the operator's live pointer with no warning. Only block
-    # when HOME_CONFIG already points at a different dir that carries the
-    # `.initialized` sentinel and --force was not given. Keying on the sentinel
-    # (which init never writes — onboarding does) keeps uninitialized/test
-    # scaffolds unaffected, so the existing test suite stays green.
-    existing = _persisted_knowledge_dir()
-    if (not getattr(args, "force", False) and existing and existing != kdir
-            and os.path.isfile(os.path.join(existing, SENTINEL_REL))):
-        sys.stderr.write(
-            "agentware init: refusing to repoint an already-initialized "
-            "knowledge base.\n"
-            "  currently configured: %s\n"
-            "  requested:            %s\n"
-            "Your %s was left unchanged. Re-run with --force to repoint it.\n"
-            % (existing, kdir, HOME_CONFIG))
-        if as_json:
-            json.dump({"ok": False, "error": "kb-already-configured",
-                       "configured_dir": existing, "requested_dir": kdir,
-                       "config": HOME_CONFIG, "hint": "pass --force to repoint"},
-                      sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        return 3
-
-    _write_config(kdir)
-
-    if as_json:
-        json.dump({"ok": True, "knowledge_dir": kdir, "seeded_index": seeded,
-                   "created_dirs": created_dirs, "installed_templates": installed_templates,
-                   "gitignore": gitignore_action, "config": HOME_CONFIG},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("INITIALIZED knowledge dir: %s" % kdir)
-        print("  index:  %s%s" % (ipath, " (seeded)" if seeded else " (kept)"))
-        print("  config: %s" % HOME_CONFIG)
-        print("  work:   %s/work/<feature>/   logs: %s/logs/" % (kdir, kdir))
-        print("  .gitignore: %s (logs/ + .loop/ excluded — transcripts & loop "
-              "state never committed)" % gitignore_action)
-        if installed_templates:
-            print("  templates installed: %s" % ", ".join(installed_templates))
-        print("Next: run onboarding (.claude/skills/onboarding/SKILL.md) to "
-              "personalize MAIN.md and write the .initialized sentinel.")
-    return 0
 
 
 # --- Task 6: opt-in commit-msg co-author strip guard (operator commits) --------
