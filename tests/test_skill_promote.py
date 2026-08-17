@@ -572,7 +572,16 @@ class ClusterLearningsTest(SyntheticKBTestCase):
 class SkillProposeCmdTest(SyntheticKBTestCase):
     """Task 5: the on-demand `scripts/agentware skill propose` verb — the backfill
     / fresh-clone path, driven end-to-end through `main()` (argparse dispatch),
-    mirroring `audit --stale --propose`. DETECTION + PROPOSAL ONLY."""
+    mirroring `audit --stale --propose`. DETECTION + PROPOSAL ONLY.
+    SPELLING (task 54): this exercised `skill propose` with no arguments. The
+    merged CLI's `skill propose` is the donor's proposal-AUTHORING lifecycle and
+    hard-requires --slug/--ref (the union fixture is derived, and its adjudication
+    table only fires where BOTH trees declare an action, so a donor-only
+    `required` cannot be relaxed). The argument-less skill-CANDIDATE detection
+    this class covers keeps its own spelling, `skill candidates` — same handler,
+    same report, same assertions. The capability is preserved; only the
+    invocation moved.
+    """
 
     def _auto_dirs(self):
         auto = os.path.join(self.kdir, "work", "auto")
@@ -587,7 +596,7 @@ class SkillProposeCmdTest(SyntheticKBTestCase):
     def test_skill_propose_cmd_emits_draft(self):
         self.index_data = build_synthetic_kb(self.kdir, entries=_TIGHT)
         before = self._index_bytes()
-        code, out, err = self.run_cli(["skill", "propose"])
+        code, out, err = self.run_cli(["skill", "candidates"])
         self.assertEqual(code, 0, err)
         dirs = self._auto_dirs()
         self.assertEqual(len(dirs), 1, dirs)
@@ -610,7 +619,7 @@ class SkillProposeCmdTest(SyntheticKBTestCase):
 
     def test_skill_propose_cmd_dry_run_no_emit(self):
         self.index_data = build_synthetic_kb(self.kdir, entries=_TIGHT)
-        code, out, err = self.run_cli(["skill", "propose", "--dry-run"])
+        code, out, err = self.run_cli(["skill", "candidates", "--dry-run"])
         self.assertEqual(code, 0, err)
         self.assertEqual(self._auto_dirs(), [], "dry-run must emit nothing")
         # Ranked listing surfaces the member ids.
@@ -622,7 +631,7 @@ class SkillProposeCmdTest(SyntheticKBTestCase):
     def test_skill_propose_cmd_json(self):
         self.index_data = build_synthetic_kb(self.kdir, entries=_TIGHT)
         code, out, err = self.run_cli(
-            ["skill", "propose", "--dry-run", "--format", "json"])
+            ["skill", "candidates", "--dry-run", "--format", "json"])
         self.assertEqual(code, 0, err)
         obj = json.loads(out)
         for k in ("candidates", "emitted", "cap", "ranked", "proposed",
@@ -637,14 +646,14 @@ class SkillProposeCmdTest(SyntheticKBTestCase):
 
     def test_skill_propose_cmd_idempotent(self):
         self.index_data = build_synthetic_kb(self.kdir, entries=_TIGHT)
-        code, _o, err = self.run_cli(["skill", "propose"])
+        code, _o, err = self.run_cli(["skill", "candidates"])
         self.assertEqual(code, 0, err)
         self.assertEqual(len(self._auto_dirs()), 1)
-        code, out, err = self.run_cli(["skill", "propose"])
+        code, out, err = self.run_cli(["skill", "candidates"])
         self.assertEqual(code, 0, err)
         self.assertEqual(len(self._auto_dirs()), 1, "re-run must not duplicate")
         # JSON re-run confirms the existing draft is an idempotent no-op.
-        code, out, err = self.run_cli(["skill", "propose", "--format", "json"])
+        code, out, err = self.run_cli(["skill", "candidates", "--format", "json"])
         obj = json.loads(out)
         self.assertEqual(obj["emitted"], 0)
         self.assertEqual(len(obj["existing"]), 1)
@@ -718,7 +727,7 @@ class EndToEndSkillPromoteTest(SyntheticKBTestCase):
         before_idx = self._index_bytes()
 
         # 1) On-demand `skill propose` over the mixed corpus.
-        code, out, err = self.run_cli(["skill", "propose", "--format", "json"])
+        code, out, err = self.run_cli(["skill", "candidates", "--format", "json"])
         self.assertEqual(code, 0, err)
         report = json.loads(out)
 
@@ -768,7 +777,7 @@ class EndToEndSkillPromoteTest(SyntheticKBTestCase):
                          "skill propose must not mutate index.json")
 
         # 2) Idempotent re-run of `skill propose`: nothing new, same two drafts.
-        code, out, err = self.run_cli(["skill", "propose", "--format", "json"])
+        code, out, err = self.run_cli(["skill", "candidates", "--format", "json"])
         self.assertEqual(code, 0, err)
         r2 = json.loads(out)
         self.assertEqual(r2["emitted"], 0, r2)
@@ -803,7 +812,7 @@ class EndToEndSkillPromoteTest(SyntheticKBTestCase):
                         "## Tasks\n- ⬜ **1** x\n" % i)
         load_cli()  # ensure WORKORDER_DRAFT_CAP is the shipped 5
         before_idx = self._index_bytes()
-        code, out, err = self.run_cli(["skill", "propose", "--format", "json"])
+        code, out, err = self.run_cli(["skill", "candidates", "--format", "json"])
         self.assertEqual(code, 0, err)          # a defer is NOT a failure
         report = json.loads(out)
         self.assertTrue(report["deferred"], report)   # non-empty defer list

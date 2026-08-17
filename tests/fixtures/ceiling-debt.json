@@ -70,8 +70,8 @@
         },
         {
           "kind": "function_over_branch_cap",
-          "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::cmd_skill_propose",
-          "value": 21,
+          "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::_propose_author",
+          "value": 17,
           "note": "20 -> 21 at task 54. The union fixture requires `--dry-run` on `skill propose`, and the preview costs exactly ONE branch: the caller must test whether the dry-run path returned. The test itself was already pushed into `_report_dry_run` (which returns None when it is not a dry run) so the caller spends one branch rather than two, and every OTHER branch in the function is unchanged \u2014 each is a guard, a format switch or a loop that is doing real work, so there was no free branch to pay with. Recorded as a widening rather than dressed up as a paydown: this is a required capability growing a function by one, not a refactor hiding damage behind an existing row."
         },
         {

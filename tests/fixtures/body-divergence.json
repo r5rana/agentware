@@ -2291,8 +2291,15 @@
    "donor_sites": [
     "scripts/agentware_lib/features/skills.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 4625
+   "adjudication": "decomposed",
+   "winner_chars": 4625,
+   "host": "scripts/agentware_lib/features/skills.py",
+   "floor_chars": 3533,
+   "absorbs": [
+    "scripts/agentware_lib/features/skills.py::_vet_or_refuse",
+    "scripts/agentware_lib/knowledge/skillentry.py::skill_register_entry"
+   ],
+   "rationale": "The vetter call was NOT a decomposition when this port started -- it was a downgrade: the modular copy called `vet_skill_dir` (the danger-marker scan) directly instead of the BLOCK-dominant `_skill_verdict`, so a skill tree containing a SYMLINK installed cleanly and the install-name validation and REVIEW tier were bypassed entirely. The tiered verdict is restored and now lives in `_vet_or_refuse`, one named boundary every cache-write path can share. The index registration is a true decomposition into `skill_register_entry`, which keeps the lock."
   },
   {
    "name": "cmd_skill_propose",
@@ -2305,8 +2312,14 @@
    "donor_sites": [
     "scripts/agentware_lib/features/proposals.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 3953
+   "adjudication": "decomposed",
+   "winner_chars": 3953,
+   "host": "scripts/agentware_lib/features/proposals/proposeauthor.py",
+   "floor_chars": 2464,
+   "absorbs": [
+    "scripts/agentware_lib/features/proposals/proposeauthor.py::_propose_author"
+   ],
+   "rationale": "The two pre-merge trees both shipped `skill propose` and meant DIFFERENT things by it: proposal AUTHORING (create-or-increment a skills-proposed/ ledger) and argument-less skill-CANDIDATE detection. The union fixture folds both lifecycles' FLAGS onto one node, but it is DERIVED and its adjudication table fires only where BOTH trees declare an action -- `--slug` is donor-only, so its `required` cannot be relaxed and the merged `propose` IS the authoring lifecycle. Detection keeps its own spelling, `skill candidates`, against the same handler: capability preserved, invocation moved. This parent is the validation + the ledger write it delegates to `_propose_author`."
   },
   {
    "name": "cmd_skill_remove",
@@ -2319,8 +2332,14 @@
    "donor_sites": [
     "scripts/agentware_lib/features/skills.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1298
+   "adjudication": "decomposed",
+   "winner_chars": 1298,
+   "host": "scripts/agentware_lib/features/skills.py",
+   "floor_chars": 1012,
+   "absorbs": [
+    "scripts/agentware_lib/knowledge/skillentry.py::skill_unregister_entry"
+   ],
+   "rationale": "The entry/tag-map removal moved into `skill_unregister_entry` under the same `index._index_lock` discipline as the register direction. Verified rather than assumed: a shrink here would otherwise be indistinguishable from dropping the lock, which is exactly the silent lost-update this row exists to police."
   },
   {
    "name": "cmd_skill_validate",

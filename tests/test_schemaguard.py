@@ -155,8 +155,14 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "_mq_integrate_kb": "cmd_fanout_merge_queue",
     "_dream_step_kb_pull": "cmd_dream",
     "_dream_step_index_rebuild": "cmd_dream",
-    "cmd_skill_add": "cmd_skill_add",
-    "cmd_skill_remove": "cmd_skill_remove",
+    # --- task 54 (the `skill` port) ------------------------------------------
+    # cmd_skill_add / cmd_skill_remove / cmd_skill_propose no longer appear here
+    # because they no longer WRITE the index themselves: each delegates its
+    # load->mutate->save to a named receiver that holds `index._index_lock`
+    # (skill_register_entry / skill_unregister_entry / _propose_author, all
+    # classified below). Their entries are removed rather than left in place, so
+    # this set keeps meaning "the functions that actually write" — a stale entry
+    # here is a function the gate believes it is policing and is not.
 
     # --- surfaced at task 41 -------------------------------------------------
     # Six index writers that live in `agentware_lib` and had been INVISIBLE to
@@ -169,7 +175,10 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "skill_register_entry": "cmd_skill_add",       # lock-wrapped index RMW
     "skill_unregister_entry": "cmd_skill_remove",  # lock-wrapped index RMW
     "cmd_skill_promote": "cmd_skill_promote",
-    "cmd_skill_propose": "cmd_skill_propose",
+    # `skill propose` became the two-lifecycle SELECTOR at task 54; the ledger
+    # write it used to perform inline moved to `_propose_author`, which is what
+    # the scan now sees. Owning command unchanged — the only thing this map governs.
+    "_propose_author": "cmd_skill_propose",
     "_scaffold_team_dir": "cmd_team",              # team create|register
     "_dream_pull_resolve_derived": "cmd_dream",    # kb-pull step's derived reconcile
 }

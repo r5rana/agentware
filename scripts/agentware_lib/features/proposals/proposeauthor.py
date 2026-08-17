@@ -177,6 +177,18 @@ def cmd_skill_propose(args):
     The ledger is append-only `.jsonl` (git-merge-friendly; the count is derived,
     never stored authoritatively), and `index rebuild` is run so the proposal is
     immediately recall-visible (but never in the skills roster — Task 5).
+
+    TWO LIFECYCLES, ONE NODE (task 54). The two pre-merge trees both shipped
+    `skill propose` and meant different things by it: this authoring path, and the
+    other tree's on-demand skill-CANDIDATE detection (cluster recurring learnings,
+    emit tier-2 PROPOSED drafts, never author or install). The union fixture keeps
+    ONE `propose` node, so the two are selected by ARGUMENT rather than by verb:
+    authoring requires `--slug`, so its ABSENCE dispatches to detection — which is
+    exactly the bare `skill propose` / `skill propose --dry-run` the other tree's
+    callers already use. `skill candidates` remains the explicit spelling for the
+    same detection path. Without this, a bare `skill propose` failed with
+    "--slug must be a lowercase kebab-case identifier (got '')" — a working
+    invocation turned into an argument error by a merge.
     """
     slug = (getattr(args, "slug", None) or "").strip()
     ref = (getattr(args, "ref", None) or "").strip()
@@ -189,7 +201,17 @@ def cmd_skill_propose(args):
         sys.stderr.write("agentware: --ref must not be empty (the feature/run "
                          "this proposal occurred in)\n")
         return 1
+    return _propose_author(args, slug, ref, fmt)
 
+
+def _propose_author(args, slug, ref, fmt):
+    """The PROPOSAL-AUTHORING half of `skill propose` (create-or-increment).
+
+    Split from the selector so the two lifecycles the union fixture folded onto
+    one node are two named functions rather than one body with a mode branch —
+    the selector stays readable as "which lifecycle", and this stays readable as
+    the ledger write it always was. Args are pre-validated by the selector.
+    """
     kdir = config.require_knowledge_dir()
     if not kdir:
         return 1
@@ -279,6 +301,7 @@ def cmd_skill_propose(args):
               % ("CREATED" if not exists else "INCREMENTED", slug, ref,
                  count, threshold, "  [RIPE]" if ripe else ""))
     return 0
+
 
 
 # resolve_skill_propose_threshold + _parse_skill_propose_threshold now live in

@@ -383,6 +383,35 @@ def _copy_skill_tree(src_dir, dest_dir):
     return True, "copied"
 
 
+def _vet_or_refuse(skill_dir, name):
+    """Run the tiered skill-vetter and decide whether the install may proceed.
+
+    Returns (allowed, verdict, findings). BLOCK is fail-closed (R-SEC-02) and
+    prints the findings; REVIEW installs with a loud unscannable-content warning;
+    PASS is silent. Extracted from `cmd_skill_add` so the security boundary is one
+    named thing every cache-write path can share, rather than a block inlined in
+    one caller.
+    """
+    # Validate the TARGET install `name` (not the source basename) so a clean skill
+    # installed from a non-conforming SOURCE dir under a valid name is not falsely
+    # BLOCKed; an invalid TARGET name is still refused. Function-local import —
+    # `skillsync` imports this module, so a module-scope edge would close the cycle.
+    from agentware_lib.features.skillsync import _skill_verdict
+    verdict, findings = _skill_verdict(skill_dir, name=name)
+    if verdict == "BLOCK":
+        sys.stderr.write("agentware: skill-vetter BLOCKED '%s' (danger / symlink / "
+                         "invalid name):\n" % name)
+        for f in findings:
+            sys.stderr.write("  - %s\n" % f)
+        sys.stderr.write("Aborting install (fail-closed, R-SEC-02).\n")
+        return False, verdict, findings
+    if verdict == "REVIEW":
+        sys.stderr.write("agentware: WARNING — '%s' contains unscannable/binary "
+                         "content (%s); installing on explicit request.\n"
+                         % (name, "; ".join(findings)))
+    return True, verdict, findings
+
+
 def cmd_skill_add(args):
     name = args.name
     data, cerr = load_skill_catalog()
@@ -419,22 +448,17 @@ def cmd_skill_add(args):
         sys.stderr.write("agentware: skill source not found: %s\n" % skill_dir)
         return 1
 
-    # skill-vetter static review + provenance/pinned-ref report (R-SEC-02).
-    findings = vet_skill_dir(skill_dir)
+    allowed, verdict, findings = _vet_or_refuse(skill_dir, name)
+    if not allowed:
+        return 1
     provenance = {
         "name": name,
         "trust": trust,
         "source": skill_dir,
         "pinned_ref": _pinned_ref() if not external else "n/a (external)",
         "vet_findings": findings,
+        "verdict": verdict,
     }
-    if findings:
-        sys.stderr.write("agentware: skill-vetter found issues in '%s':\n" % name)
-        for f in findings:
-            sys.stderr.write("  - %s\n" % f)
-        sys.stderr.write("Aborting install (fail-closed). Resolve the findings "
-                         "or vet manually with the skill-vetter skill.\n")
-        return 1
     if external and not getattr(args, "allow_external", False):
         sys.stderr.write("agentware: '%s' is an EXTERNAL source. It passed the "
                          "static vet, but external skills require explicit "

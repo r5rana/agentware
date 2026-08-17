@@ -50,6 +50,46 @@ from agentware_lib.features.skillpropose import _skill_promote_run
 from agentware_lib.knowledge.index import load_index
 
 
+def _skp_score(v):
+    """Compact score formatter for the text report (None -> '-')."""
+    return ("%.3f" % v) if isinstance(v, (int, float)) else "-"
+
+
+def _print_skill_propose_report(report, dry_run):
+    if dry_run:
+        print("SKILL PROPOSE (dry-run — ranked candidates, NO emission):")
+        if not report["ranked"]:
+            print("  no qualifying skill-candidate clusters.")
+            return
+        for r in report["ranked"]:
+            tail = (" -> EXTEND %s" % r["extend"]) if r.get("extend") else ""
+            print("  - %s [%d members: %s]%s" % (
+                r["fingerprint"], len(r["members"]),
+                ", ".join(r["members"]), tail))
+            print("      cohesion=%s density=%s separation=%s spine=%s" % (
+                _skp_score(r.get("cohesion")), _skp_score(r.get("density")),
+                _skp_score(r.get("separation")), r.get("tag_spine")))
+        return
+    print("SKILL PROPOSE (detect + PROPOSE tier-2 DRAFT workorders — "
+          "never auto-started, never installs):")
+    print("  candidates=%d emitted=%d (cap %s)" % (
+        report["candidates"], report["emitted"], report["cap"]))
+    for f in report["proposed"]:
+        print("  proposed (author): %s" % f)
+    for e in report["extended"]:
+        print("  proposed (EXTEND %s): %s" % (e["skill"], e["feature"]))
+    for x in report["existing"]:
+        print("  existing (idempotent no-op): %s" % x)
+    if report["skipped_cap"]:
+        print("  skipped (per-run cap): %d" % report["skipped_cap"])
+    for d in report["deferred"]:
+        print("  deferred (draft cap g3): %s" % d)
+    for b in report["blocked"]:
+        print("  blocked (kernel/sanitize refusal): %s" % b)
+    if report["clean"]:
+        print("  nothing to propose (clean).")
+
+
 def cmd_skill_candidate_propose(args):
     """On-demand skill-candidate detection + proposal (the backfill / fresh-clone
     path), mirroring `audit --stale --propose`. DETECTION + PROPOSAL ONLY: it never

@@ -312,6 +312,13 @@ _KB_WRITER_TARGETS = (
     ("agentware_lib.features.indexcmd", "cmd_index_rebuild"),
     ("agentware_lib.features.indexcmd", "cmd_index_sync"),
     ("agentware_lib.features.indexcmd", "cmd_index_migrate"),
+    # task 54 — `skill add` / `skill remove` register and unregister a `skills`
+    # index entry. The other skill subverbs are read-only reports or operate on
+    # the proposals tier, and `skill propose` is deliberately absent: it is
+    # dispatched by its OWN func and is read-only w.r.t. the index (its writes
+    # are work/auto drafts), so it stays exempt-by-omission.
+    ("agentware_lib.features.skills", "cmd_skill_add"),
+    ("agentware_lib.features.skills", "cmd_skill_remove"),
 )
 
 # Ported handlers that carry a READ-ONLY mode and therefore must never trip the

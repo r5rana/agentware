@@ -530,6 +530,73 @@ ADJUDICATIONS.update({
     },
 })
 
+
+# --------------------------------------------------------------------------
+# TASK 54 -- the SKILL family
+# --------------------------------------------------------------------------
+# Both handlers shrank because their index read-modify-write moved into named
+# `skillentry` helpers that keep the SAME lock discipline (the lost-update window
+# opens at the LOAD, so the whole load->mutate->save runs under index._index_lock
+# in the receiver). `cmd_skill_add` additionally hands its security boundary to a
+# named vetter. Naming every receiver is what separates that from a dropped lock
+# or a dropped check -- and this port restored a genuinely dropped check, so the
+# distinction is not hypothetical here.
+_SKILLS = "scripts/agentware_lib/features/skills.py"
+_SKILLENTRY = "scripts/agentware_lib/knowledge/skillentry.py"
+
+ADJUDICATIONS.update({
+    "cmd_skill_add": {
+        "adjudication": "decomposed",
+        "host": _SKILLS,
+        "floor_chars": 3533,
+        "absorbs": [_SKILLS + "::_vet_or_refuse",
+                    _SKILLENTRY + "::skill_register_entry"],
+        "rationale": "The vetter call was NOT a decomposition when this port "
+                     "started -- it was a downgrade: the modular copy called "
+                     "`vet_skill_dir` (the danger-marker scan) directly instead of "
+                     "the BLOCK-dominant `_skill_verdict`, so a skill tree "
+                     "containing a SYMLINK installed cleanly and the install-name "
+                     "validation and REVIEW tier were bypassed entirely. The tiered "
+                     "verdict is restored and now lives in `_vet_or_refuse`, one "
+                     "named boundary every cache-write path can share. The index "
+                     "registration is a true decomposition into "
+                     "`skill_register_entry`, which keeps the lock.",
+    },
+    "cmd_skill_remove": {
+        "adjudication": "decomposed",
+        "host": _SKILLS,
+        "floor_chars": 1012,
+        "absorbs": [_SKILLENTRY + "::skill_unregister_entry"],
+        "rationale": "The entry/tag-map removal moved into `skill_unregister_entry` "
+                     "under the same `index._index_lock` discipline as the register "
+                     "direction. Verified rather than assumed: a shrink here would "
+                     "otherwise be indistinguishable from dropping the lock, which "
+                     "is exactly the silent lost-update this row exists to police.",
+    },
+})
+
+ADJUDICATIONS.update({
+    "cmd_skill_propose": {
+        "adjudication": "decomposed",
+        "host": "scripts/agentware_lib/features/proposals/proposeauthor.py",
+        "floor_chars": 2464,
+        "absorbs": [
+            "scripts/agentware_lib/features/proposals/proposeauthor.py::_propose_author"],
+        "rationale": "The two pre-merge trees both shipped `skill propose` and "
+                     "meant DIFFERENT things by it: proposal AUTHORING "
+                     "(create-or-increment a skills-proposed/ ledger) and "
+                     "argument-less skill-CANDIDATE detection. The union fixture "
+                     "folds both lifecycles' FLAGS onto one node, but it is DERIVED "
+                     "and its adjudication table fires only where BOTH trees "
+                     "declare an action -- `--slug` is donor-only, so its `required` "
+                     "cannot be relaxed and the merged `propose` IS the authoring "
+                     "lifecycle. Detection keeps its own spelling, `skill "
+                     "candidates`, against the same handler: capability preserved, "
+                     "invocation moved. This parent is the validation + the ledger "
+                     "write it delegates to `_propose_author`.",
+    },
+})
+
 # Pinned by the suite. Growing this set requires editing BOTH this table and the
 # test that asserts it, which is the point: a deferral must be argued for, never
 # accumulated.

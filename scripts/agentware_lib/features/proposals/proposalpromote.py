@@ -350,6 +350,13 @@ def _register_skill_lifecycle(skill_sub, fmt_parent):
         "propose", parents=[fmt_parent],
         help="create-or-increment an agent-PROPOSED skill under skills-proposed/ "
              "(recall-only candidate; graduates to always-on via `skill promote`)")
+    # REQUIRED, and deliberately so. `skill propose` carries two lifecycles' FLAGS
+    # on one node per the union fixture, but the fixture is DERIVED from both
+    # trees' parsers and its adjudication table only fires where BOTH sides
+    # declare an action — `--slug` is donor-only, so there is no sanctioned hook to
+    # relax it and the promotion gate hard-requires it. The other tree's
+    # argument-less skill-CANDIDATE detection therefore keeps its own spelling,
+    # `skill candidates`; the capability is preserved, only the invocation moved.
     p_sk_prop.add_argument("--slug", required=True,
                            help="stable lowercase kebab-case slug (the proposal id)")
     p_sk_prop.add_argument("--ref", required=True,
