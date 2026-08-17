@@ -26,6 +26,11 @@ import os
 import re
 
 from agentware_lib.core import frontmatter
+# The WORK-scope corpus moved to its own module with its cache and its plan-status
+# weighting (task 55): it grows without bound, needs a stat-digest cache to stay
+# affordable, and carries a ranking multiplier the curated corpus must never see.
+# Imported LAZILY inside the re-export below — workcorpus imports this module for
+# the tokenizer, so a module-scope import here would close the cycle.
 
 
 # Fixed, documented tokenizer: lowercase, split on non-alphanumeric runs, no
@@ -91,74 +96,6 @@ def build_corpus(kdir, data):
         if not isinstance(e, dict):
             continue
         corpus.append((e, _entry_doc_text(kdir, e)))
-    return corpus
-
-
-def build_work_corpus(kdir):
-    """Build a synthetic corpus from work/*.md files for --scope work.
-
-    Returns [(pseudo_entry, doc_text), ...] where pseudo_entry has the same
-    dict shape as index entries (id, title, summary, tags, path, category,
-    created) but is EPHEMERAL — never written to index.json.
-
-    Determinism: `created` comes from the feature dir's YYMMDD prefix (stable),
-    NEVER filesystem mtime. Ordering is id-sorted for reproducibility.
-    """
-    import re as _re
-    work_dir = os.path.join(kdir, "work")
-    if not os.path.isdir(work_dir):
-        return []
-    corpus = []
-    for feature_dir in sorted(os.listdir(work_dir)):
-        fpath = os.path.join(work_dir, feature_dir)
-        if not os.path.isdir(fpath):
-            continue
-        # Extract created date from YYMMDD prefix (e.g. 260630-feature-name)
-        date_match = _re.match(r"(\d{6})", feature_dir)
-        created = ""
-        if date_match:
-            d = date_match.group(1)
-            created = "20%s-%s-%s" % (d[:2], d[2:4], d[4:6])
-        for fname in sorted(os.listdir(fpath)):
-            if not fname.endswith(".md"):
-                continue
-            md_path = os.path.join(fpath, fname)
-            if not os.path.isfile(md_path):
-                continue
-            rel_path = "work/%s/%s" % (feature_dir, fname)
-            entry_id = "%s/%s" % (feature_dir, fname.replace(".md", ""))
-            # Extract title from first heading
-            title = ""
-            try:
-                with open(md_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("#"):
-                            title = _re.sub(r"^#+\s*", "", line)
-                            break
-            except (IOError, UnicodeDecodeError):
-                continue
-            # Read full body. Strip any leading machine frontmatter block so the
-            # work-scope BM25 corpus sees only the human body — mirrors the curated
-            # path (_read_entry_body) and keeps --scope work recall byte-identical
-            # to the pre-frontmatter corpus (the constant team/origin tokens would
-            # otherwise pollute every work doc and skew ranking; see INV-1).
-            try:
-                with open(md_path, "r", encoding="utf-8") as f:
-                    body = frontmatter.strip_frontmatter(f.read())
-            except (IOError, UnicodeDecodeError):
-                body = ""
-            pseudo_entry = {
-                "id": entry_id,
-                "title": title,
-                "summary": "",
-                "tags": ["work"],
-                "path": rel_path,
-                "category": "work",
-                "created": created,
-            }
-            doc_text = "\n".join([title, "", body])
-            corpus.append((pseudo_entry, doc_text))
     return corpus
 
 
@@ -235,3 +172,14 @@ _EXPORTS = [
     "eval_corpus_fingerprint",
     "retrieve_tag",
 ]
+
+
+def build_work_corpus(kdir):
+    """Re-export of `retrieval.workcorpus.build_work_corpus`.
+
+    Kept here BY NAME so every pre-split caller and monkeypatch target resolves
+    unchanged. Lazy import, because `workcorpus` imports this module for the
+    tokenizer and estimator — a module-scope import would close the cycle.
+    """
+    from agentware_lib.retrieval.workcorpus import build_work_corpus as _impl
+    return _impl(kdir)

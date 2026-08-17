@@ -108,7 +108,7 @@ def _mcp_tool_definitions():
                         "description": "max entries to return before budgeting",
                     },
                     "token_budget": {
-                        "type": "integer", "minimum": 0, "default": 10000,
+                        "type": "integer", "minimum": 0, "default": 1500,
                         "description": "trim so cumulative est. tokens <= budget",
                     },
                     "category": {
@@ -173,7 +173,11 @@ def _mcp_tool_recall(kdir, data, arguments):
     if not isinstance(query, str):
         raise _McpInvalidParams("'query' is required and must be a string")
     top_k = _mcp_require_int(arguments, "top_k", 5)
-    token_budget = _mcp_require_int(arguments, "token_budget", 10000)
+    # 1500, matching the CLI default (surface-union adjudication, winner local).
+    # The two surfaces are asserted BYTE-IDENTICAL by test_mcp_server's parity
+    # test, so a different default here is not a smaller divergence than a
+    # different field — it is the same divergence, in the value instead of the key.
+    token_budget = _mcp_require_int(arguments, "token_budget", 1500)
     category = _mcp_require_str(arguments, "category")
     strategy = _mcp_require_str(arguments, "strategy")
     if strategy is not None and strategy not in MCP_RECALL_STRATEGIES:
@@ -232,6 +236,14 @@ def _mcp_tool_query(kdir, data, arguments):
     if not isinstance(value, str):
         raise _McpInvalidParams("%r must be a string" % selector)
     results = _mcp_query_lookup(data, selector, value)
+    # Same freshness surface the CLI's `query` emits, through the SAME helper.
+    # These two are asserted byte-identical, so a field present on one and absent
+    # on the other is not a smaller divergence than a different value — and the
+    # LIVE-anchored abs_path is the one a caller most needs, since an MCP client
+    # does not share this process's cwd at all.
+    from agentware_lib.knowledge.graph import _entry_with_freshness
+    results = [_entry_with_freshness(e, kdir, dates._today())
+               for e in results]
     return json.dumps(results, ensure_ascii=False, indent=2)
 
 

@@ -242,6 +242,11 @@ def cmd_recall(args):
         else:
             query_tokens = _corpus.tokenize(args.query)
             scored = _bm25.bm25_scores(work_corpus, query_tokens)
+            # Plan-status BM25 multiplier (feature 260710): superseded/cancelled
+            # ×0.3, done ×0.7, draft/ready/running/MISSING ×1.0. Siblings inherit
+            # their feature's plan multiplier via the pseudo_entry. --scope work
+            # ONLY — the default/curated path is byte-unchanged (gold-fixture gate).
+            scored = [(e, s * e.get("status_mult", 1.0)) for (e, s) in scored]
             # Sort: score desc -> created desc -> id asc
             scored.sort(key=lambda es: es[0].get("id") or "")
             scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)
@@ -414,8 +419,16 @@ def register_recall(sub, fmt_parent):
     p_recall.add_argument("--team", default=None,
                           help="restrict recall to a single team's entries "
                                "('shared' selects org-shared entries).")
-    p_recall.add_argument("--all-teams", action="store_true", dest="all_teams",
-                          help="recall across EVERY team + shared (fleet-wide).")
+    # `--all-teams` is DELIBERATELY ABSENT (parity-manifest exclusion
+    # `surface-flag:recall:--all-teams`, operator-approved). Fleet-wide recall
+    # needs either an org-root-spanning index rebuild or an N-index merge, and
+    # BM25 scores are NOT comparable across shards — df and avgdl are computed
+    # per corpus, so merging ranked lists from several indexes produces an order
+    # that looks authoritative and is arithmetically meaningless. Carrying the
+    # flag across would not give a wrong ERROR, it would give a wrong ANSWER,
+    # silently. The scoping FUNCTION still supports all_teams for callers that
+    # have one corpus (see retrieval.skillpin.scope_entries_for_team); what is
+    # withheld is the CLI promise that this can be done correctly today.
     p_recall.add_argument("--include-shared", action="store_true",
                           dest="include_shared",
                           help="add ALL org-shared knowledge (not just shared "

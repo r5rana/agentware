@@ -155,6 +155,8 @@ PORTED_VERBS = frozenset({
     "whereami",
     "profile",
     "query",
+    "recall",
+    "mcp",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

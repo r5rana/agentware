@@ -8,13 +8,13 @@
  },
  "counts": {
   "legacy": 229,
-  "lib": 516,
+  "lib": 519,
   "legacy_only": 248,
-  "shared": 214,
+  "shared": 217,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 15,
+  "unresolved_max": 12,
   "undecided_max": 4
  },
  "multi_literal": {
@@ -32,7 +32,7 @@
   ],
   "_EXPORTS": [
    0,
-   185
+   186
   ]
  },
  "legacy_only": [
@@ -1749,8 +1749,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/retrieval/workcorpus.py"
+   ]
   },
   {
    "name": "WORK_CORPUS_CACHE_VERSION",
@@ -1758,8 +1761,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/retrieval/workcorpus.py"
+   ]
   },
   {
    "name": "_CHECKPOINT_POLICIES",
@@ -2952,8 +2958,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 49"
+   "status": "resolved",
+   "follow_up": "task 49",
+   "lib_sites": [
+    "scripts/agentware_lib/retrieval/workcorpus.py"
+   ]
   },
   {
    "name": "_WRITE_SET_WHOLE_REPO",

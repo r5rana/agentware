@@ -622,6 +622,17 @@
           "value": 34
         }
       ]
+    },
+    {
+      "owner": "task 67",
+      "reason": "The work-scope corpus builder, ported by task 55 alongside recall's promotion. 17 branches here, 17 in the pre-port monolith — the move added none. Its branches are the per-file guards over a directory that grows without bound and is written by humans: an unreadable file, a missing plan, a file with no heading, a non-.md sibling, a feature dir with no date prefix. Every one is a skip-this-file-and-continue arm, and collapsing them would make one malformed worklog able to empty the whole work-scope corpus — a silent zero-result recall over a directory that is visibly full of documents. Owned by task 67.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/workcorpus.py::_build_work_corpus_uncached",
+          "value": 17
+        }
+      ]
     }
   ]
 }

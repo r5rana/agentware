@@ -180,20 +180,70 @@ class LiveTreeTests(unittest.TestCase):
                    if lr.credited_by(h, verbs) is None]
         self.assertEqual([], orphans)
 
-    def test_the_silent_loss_class_helpers_are_actually_recorded(self):
-        """The plan's named no-CLI-surface symbols must be under the ratchet."""
+    #: The plan's named no-CLI-surface symbols — the "silent loss" class. Each has
+    #: no verb, no flag and no distinguishing node id, so nothing but this check
+    #: would notice it disappearing.
+    SILENT_LOSS_CLASS = (
+        "_apply_skill_pin",     # the 0.85 stage-1 skill pin
+        "_freshness_fields",    # the read-time trust surface
+        "trust_signals",
+        "staleness_factor",     # the supersede/staleness downweight
+        "scan_worklog",         # the R-SI-03 marker scanner
+    )
+
+    def test_the_silent_loss_class_helpers_still_EXIST_somewhere(self):
+        """Each named symbol must be in the monolith OR ported into the lib.
+
+        `high_water.legacy_defs` tracks the CURRENT monolith and only shrinks, so
+        a symbol correctly leaves it the moment it is ported — asserting presence
+        there would turn a successful port into a failure, and (worse) would
+        push the next person to satisfy the check by NOT porting it.
+
+        The guarantee that actually matters is that the symbol did not VANISH.
+        So: still in the monolith, or resolvable in the lib. Both are fine; one
+        of them must hold.
+        """
         defs = set(lr.load_fixture()["high_water"]["legacy_defs"])
-        for name in ("_apply_skill_pin",     # the 0.85 stage-1 skill pin
-                     "_freshness_fields",    # the read-time trust surface
-                     "trust_signals",
-                     "staleness_factor",     # the supersede/staleness downweight
-                     "scan_worklog"):        # the R-SI-03 marker scanner
-            self.assertIn(name, defs)
+        lib_names = _lib_def_names()
+        for name in self.SILENT_LOSS_CLASS:
+            self.assertTrue(
+                name in defs or name in lib_names,
+                "%r is in NEITHER the monolith nor the lib — a silent-loss-class "
+                "symbol disappeared, which is exactly what this ratchet exists "
+                "to catch" % name)
 
 
 # ---------------------------------------------------------------------------
 # 2. IT BITES — every mark, independently
 # ---------------------------------------------------------------------------
+
+def _lib_def_names():
+    """Every module-scope def name defined anywhere under `scripts/agentware_lib`.
+
+    Walked from DISK rather than from `sys.modules`, for the same reason
+    `ported_module_paths` is: an import-order-dependent scan makes a gate that
+    passes alone and fails in company.
+    """
+    import ast as _ast
+    import os as _os
+    root = _os.path.join(lr.REPO_ROOT if hasattr(lr, "REPO_ROOT") else
+                         _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+                         "scripts", "agentware_lib")
+    names = set()
+    for base, dirs, files in _os.walk(root):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for f in files:
+            if not f.endswith(".py"):
+                continue
+            try:
+                tree = _ast.parse(open(_os.path.join(base, f), encoding="utf-8").read())
+            except SyntaxError:
+                continue
+            for n in tree.body:
+                if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                    names.add(n.name)
+    return names
+
 
 class RatchetBitesTests(_ScratchCase):
 
