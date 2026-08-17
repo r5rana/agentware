@@ -164,6 +164,7 @@ PORTED_VERBS = frozenset({
     "dashboard",
     "metrics",
     "audit",
+    "attach",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

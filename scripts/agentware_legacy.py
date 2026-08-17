@@ -455,6 +455,8 @@ from agentware_lib.ops.metricscmd import (   # noqa: F401  (re-export)
     cmd_metrics)
 from agentware_lib.ops.audit import (   # noqa: F401  (re-export)
     cmd_audit)
+from agentware_lib.knowledge.attach import (   # noqa: F401  (re-export)
+    cmd_attach)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -4161,32 +4163,6 @@ def _attach_migrate_structure(path):
             with open(roster, "w", encoding="utf-8") as f:
                 f.write("# %s\n\n_Index of %s._\n" % (sub.capitalize(), sub))
     return created
-
-
-def cmd_attach(args):
-    """Validate (and optionally migrate) a candidate repo for adoption as the KB.
-
-    `--migrate` first fills missing STRUCTURE idempotently (never clobbers data),
-    then re-validates. Exit 0 iff conformant. Read-only without `--migrate`.
-    """
-    path = os.path.abspath(os.path.expanduser(args.path))
-    migrated = []
-    if getattr(args, "migrate", False):
-        migrated = _attach_migrate_structure(path)
-    ok, report = attach_conformance_report(path)
-    report["migrated_dirs"] = migrated
-    if getattr(args, "format", "text") == "json":
-        json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        if ok:
-            print("ATTACH OK: %s" % report["summary"])
-        else:
-            print("ATTACH REFUSED: %s" % report["summary"])
-            if not getattr(args, "migrate", False) and report["missing_dirs"]:
-                print("  hint: re-run with --migrate to fill missing structure "
-                      "(idempotent; never clobbers data).")
-    return 0 if ok else 1
 
 
 # --- Declared-edge knowledge graph (deterministic, read-only) ----------------
