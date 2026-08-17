@@ -441,6 +441,12 @@ from agentware_lib.ops.steering import (   # noqa: F401  (re-export)
     cmd_steering_lint)
 from agentware_lib.ops.releasegate import (   # noqa: F401  (re-export)
     cmd_gate_release)
+from agentware_lib.retrieval.bench.benchcmd import (   # noqa: F401  (re-export)
+    cmd_bench)
+from agentware_lib.retrieval.bench.benchledger import (   # noqa: F401  (re-export)
+    cmd_bench_redact)
+from agentware_lib.retrieval.bench.benchswe import (   # noqa: F401  (re-export)
+    cmd_bench_swe)
 from agentware_lib.ops.sessionparse.minerfolds import (   # noqa: F401  (re-export)
     MINER_RECURRENCE_CUE_REQUIRED, MINER_RECURRENCE_CUE_REQUIRED_KEY,
     MINER_RECURRENCE_MIN_LEN, MINER_RECURRENCE_MIN_LEN_KEY,
@@ -8477,17 +8483,6 @@ def write_scorecard(kdir):
     return path, len(rows)
 
 
-def cmd_bench(args):
-    """`bench scorecard` regenerates benchmarks/SCORECARD.md from history.jsonl."""
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    path, n = write_scorecard(kdir)
-    print("bench scorecard: wrote %s (%d ledger row%s)" % (
-        path, n, "" if n == 1 else "s"))
-    return 0
-
-
 def redact_ledger_gold_paths(ledger_path):
     """The ONLY sanctioned mutation of the append-only ledger (`:3556` exception):
     rewrite ONLY the `gold_path` field of each row to its RELATIVE, PII-free form
@@ -8532,39 +8527,6 @@ def redact_ledger_gold_paths(ledger_path):
     with open(ledger_path, "w", encoding="utf-8") as f:
         f.writelines(out)
     return (total, changed)
-
-
-def cmd_bench_redact(args):
-    """`bench redact` scrubs operator personal data (R-LOC-03) from the committed
-    benchmark ledger: it rewrites ONLY the leaking `gold_path` field to its
-    relative form, preserving every metric byte-for-byte and row order, then
-    regenerates the derived SCORECARD.md beside the ledger.
-
-    Defaults to the live knowledge dir's `benchmarks/history.jsonl`; pass an
-    explicit ledger PATH (e.g. the repo's committed `benchmarks/history.jsonl`)
-    to scrub that file instead. This is the ONLY sanctioned mutation of the
-    append-only ledger and it may touch ONLY `gold_path`.
-    """
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    ledger = getattr(args, "path", None) or os.path.join(kdir, HISTORY_REL)
-    if not os.path.isfile(ledger):
-        print("bench redact: no ledger at %s (nothing to scrub)" % ledger)
-        return 0
-    total, changed = redact_ledger_gold_paths(ledger)
-    # Regenerate the derived scorecard VIEW beside the scrubbed ledger.
-    scorecard = os.path.join(
-        os.path.dirname(ledger) or ".", os.path.basename(SCORECARD_REL))
-    rows = _read_ledger(ledger)
-    parent = os.path.dirname(scorecard)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    with open(scorecard, "w", encoding="utf-8") as f:
-        f.write(render_scorecard(rows))
-    print("bench redact: scrubbed %d/%d row gold_path(s) in %s; "
-          "regenerated %s" % (changed, total, ledger, scorecard))
-    return 0
 
 
 # --- SWE-task benchmark: frozen hidden-unit-test coding suite -----------------
@@ -8869,127 +8831,6 @@ def swe_build_ledger_row(run_ts, git_meta, suite_dir, arms_results, seeds):
         "arms": arm_stats,
         "delta": delta,
     }
-
-
-def cmd_bench_swe(args):
-    """`bench swe` -- SWE-task behavioral benchmark runner."""
-    suite_dir = args.suite
-    seeds = args.seeds
-    arms = [a.strip() for a in args.arms.split(",") if a.strip()]
-    fmt = getattr(args, "format", "text")
-
-    if not arms:
-        print("bench swe: --arms must specify at least one arm",
-              file=sys.stderr)
-        return 1
-
-    if not os.path.isdir(suite_dir):
-        print("bench swe: suite directory not found: %s" % suite_dir,
-              file=sys.stderr)
-        return 1
-
-    try:
-        swe_load_suite(suite_dir)
-    except (ValueError, IOError, OSError) as e:
-        print("bench swe: invalid suite: %s" % e, file=sys.stderr)
-        return 1
-
-    if args.dry_run:
-        plan = swe_build_dry_run_plan(suite_dir, seeds, arms)
-        if fmt == "json":
-            print(json.dumps(plan, indent=2, ensure_ascii=False))
-        else:
-            print("bench swe [dry-run]: %d tasks x %d seeds x %d arms = %d runs"
-                  % (len(plan["tasks"]), seeds, len(arms), plan["total_runs"]))
-            for t in plan["tasks"]:
-                print("  - %s (kind=%s, timeout=%s, mutation=%s)"
-                      % (t["id"], t["kind"], t["timeout"],
-                         t["expected_mutation"]))
-            print("  arms: %s" % ", ".join(arms))
-        return 0
-
-    # Live run: spawn agents per task x seed x arm
-    import tempfile as _tf
-    suite = swe_load_suite(suite_dir)
-    arms_results = {}
-    for arm in arms:
-        arm_pass_rates = []
-        total_turns = 0
-        total_tokens = 0
-        run_count = 0
-        for seed in range(seeds):
-            seed_passed = 0
-            seed_total = 0
-            for task_id in suite["tasks"]:
-                task_dir_path = os.path.join(suite_dir, task_id)
-                meta = swe_load_task_meta(suite_dir, task_id)
-                scratch = _tf.mkdtemp(prefix="swe-run-%s-%d-" % (task_id, seed))
-                try:
-                    scratch_repo = os.path.join(scratch, "repo")
-                    shutil.copytree(os.path.join(task_dir_path, "repo"),
-                                    scratch_repo)
-                    with open(os.path.join(task_dir_path, "task.md"),
-                              encoding="utf-8") as f:
-                        task_prompt = f.read()
-                    agent_cmd = [
-                        "claude", "-p", task_prompt,
-                        "--agent", "agentware-execution",
-                        "--dangerously-bypass-approvals-and-sandbox",
-                    ]
-                    env = dict(os.environ)
-                    if arm == "no-context":
-                        env.pop("AGENTWARE_KNOWLEDGE_DIR", None)
-                    try:
-                        proc = subprocess.run(
-                            agent_cmd, cwd=scratch_repo,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            universal_newlines=True,
-                            timeout=meta.get("timeout", 120),
-                            env=env)
-                        turns = 1
-                        tokens = len(proc.stdout) // 4
-                    except (subprocess.TimeoutExpired, OSError):
-                        turns = 0
-                        tokens = 0
-                    result = swe_score_task(task_dir_path, scratch_repo)
-                    task_pass = swe_task_passed(result, meta)
-                    seed_total += 1
-                    if task_pass:
-                        seed_passed += 1
-                    total_turns += turns
-                    total_tokens += tokens
-                    run_count += 1
-                finally:
-                    shutil.rmtree(scratch, ignore_errors=True)
-            rate = seed_passed / seed_total if seed_total else 0.0
-            arm_pass_rates.append(rate)
-        arms_results[arm] = {
-            "pass_rates": arm_pass_rates,
-            "turns_mean": total_turns / run_count if run_count else 0,
-            "tokens_mean": total_tokens / run_count if run_count else 0,
-        }
-
-    run_ts = utc_now_iso()
-    g_meta = git_info()
-    row = swe_build_ledger_row(run_ts, g_meta, suite_dir, arms_results, seeds)
-
-    kdir = resolve_knowledge_dir()
-    if kdir:
-        ledger_path = os.path.join(kdir, HISTORY_REL)
-        os.makedirs(os.path.dirname(ledger_path), exist_ok=True)
-        append_ledger_row(ledger_path, row)
-
-    if fmt == "json":
-        print(json.dumps(row, indent=2, ensure_ascii=False))
-    else:
-        print("bench swe: completed %d tasks x %d seeds x %d arms"
-              % (len(suite["tasks"]), seeds, len(arms)))
-        for arm, stats in row.get("arms", {}).items():
-            print("  %s: pass_rate mean=%.2f (min=%.2f max=%.2f)"
-                  % (arm, stats["mean"], stats["min"], stats["max"]))
-        if row.get("delta") is not None:
-            print("  delta: %+.4f" % row["delta"])
-    return 0
 
 
 def _ok(flag):
