@@ -10,6 +10,7 @@ Task 3 covers the idle-gate + concurrency-lock primitives. Later tasks extend
 this module (the full cycle, --dry-run, journal, the destructive-op guard).
 """
 
+import io
 import json
 import os
 import shutil
@@ -220,6 +221,18 @@ class _GuardedEnv:
              "AGENTWARE_DREAM_SCHEDULE", "HOME", "AGENTWARE_KB_AUTOCOMMIT",
              "AGENTWARE_KB_MODE", "AGENTWARE_USER_HANDLE")
 
+    # NAMESPACED, and the reason is a bug this mixin actually had. A mixin and
+    # the class mixing it in share ONE instance namespace, so a plain
+    # `self._saved_cfg` here collided with the identically-named save in
+    # `DreamSchedulerTests.setUp`, which layers a SECOND config redirect on top
+    # of this one. The subclass's assignment ran last and won, so the LIFO
+    # cleanups restored the inner value twice: the outer `_restore_env` wrote
+    # back the mixin's own temp path instead of the operator's real one, and
+    # then deleted the directory that path names. Every later test in the
+    # process inherited a `HOME_CONFIG` pointing at a removed temp dir, and the
+    # `_ConfigMirrorModule` write-through (which matches consumers on the
+    # PREVIOUS value) desynced permanently from there.
+
     def _save_env(self):
         self._env = {k: os.environ.get(k) for k in self._KEYS}
         os.environ["AGENTWARE_NESTED_UNITTEST"] = "1"
@@ -229,7 +242,8 @@ class _GuardedEnv:
         self._mod = load_cli()
         self._cfgdir = tempfile.mkdtemp(prefix="agentware-dream-cfg-")
         cfg = os.path.join(self._cfgdir, "config.env")
-        self._saved_cfg = (self._mod.HOME_CONFIG, self._mod.CONFIG_PATHS)
+        self._guardedenv_saved_cfg = (self._mod.HOME_CONFIG,
+                                      self._mod.CONFIG_PATHS)
         self._mod.HOME_CONFIG = cfg
         self._mod.CONFIG_PATHS = (cfg,)
 
@@ -252,7 +266,8 @@ class _GuardedEnv:
             f.write("AGENTWARE_KNOWLEDGE_DIR=%s\n" % kdir)
 
     def _restore_env(self):
-        self._mod.HOME_CONFIG, self._mod.CONFIG_PATHS = self._saved_cfg
+        self._mod.HOME_CONFIG, self._mod.CONFIG_PATHS = \
+            self._guardedenv_saved_cfg
         shutil.rmtree(self._cfgdir, ignore_errors=True)
         for k, v in self._env.items():
             if v is None:
@@ -565,12 +580,19 @@ class DreamSchedulerTests(unittest.TestCase, _GuardedEnv):
         # a temp config inside the patched HOME so resolve_dream*/config reads are
         # fully hermetic and never see the operator's real config (R-LOC-03).
         mod = load_cli()
-        self._saved_cfg = (mod.HOME_CONFIG, mod.CONFIG_PATHS)
+        # Named for THIS class, not `_saved_cfg`: `_GuardedEnv._save_env` above
+        # already redirected the config once and stashed the pre-redirect value
+        # in the shared instance namespace. The two saves used to share a name,
+        # the later one won, and the outer restore then wrote the INNER temp
+        # path back as if it were the operator's real config -- see the note on
+        # `_GuardedEnv._KEYS`. This save is the mixin's temp path, and restoring
+        # it is correct; the mixin restores the real one after.
+        self._scheduler_saved_cfg = (mod.HOME_CONFIG, mod.CONFIG_PATHS)
         cfg = os.path.join(self.home, ".agentware", "config.env")
         mod.HOME_CONFIG, mod.CONFIG_PATHS = cfg, (cfg,)
 
         def _restore_cfg():
-            mod.HOME_CONFIG, mod.CONFIG_PATHS = self._saved_cfg
+            mod.HOME_CONFIG, mod.CONFIG_PATHS = self._scheduler_saved_cfg
         self.addCleanup(_restore_cfg)
 
     def _installed_path(self):
@@ -613,6 +635,111 @@ class DreamSchedulerTests(unittest.TestCase, _GuardedEnv):
                                  "json"], self.kdir)
         self.assertEqual(code2, 0, e2)
         self.assertFalse(json.loads(o2)["removed"])
+
+
+class GuardedEnvLeavesNothingBehindTest(unittest.TestCase):
+    """The isolation guard must restore what it found, on the OWNER too.
+
+    Feature 260813 task 94. `_GuardedEnv` and `DreamSchedulerTests.setUp` each
+    stashed the pre-redirect config under `self._saved_cfg` -- one instance
+    namespace, one name, two writers. The subclass's save ran last, so the
+    mixin's LIFO restore wrote the INNER temp path back as the "original" and
+    then `rmtree`'d the directory it named. From that point every test in the
+    process ran with `HOME_CONFIG` pointing at a deleted directory.
+
+    That is the shape the mixin exists to prevent, inverted -- a guard whose
+    own restore installs a wrong value is worse than no guard, because the
+    tests after it believe they are isolated. It reddened
+    `test_preserved_gates.MirroredNamesReachConsumersNotOnlyTheOwnerTest`
+    ~60 modules later, and nothing in between said a word.
+
+    Asserted on the OWNER (`agentware_lib.core.config`) and a CONSUMER, not
+    just on the CLI module: a restore that reaches the CLI dict and stops there
+    leaves the implementation reading the stale path, which is exactly the
+    class of silent failure `_ConfigMirrorModule` was written for.
+    """
+
+    def _run_one(self, name):
+        suite = unittest.TestLoader().loadTestsFromName(
+            "%s.DreamSchedulerTests.%s" % (__name__, name))
+        result = unittest.TextTestRunner(
+            verbosity=0, stream=io.StringIO()).run(suite)
+        self.assertTrue(result.wasSuccessful(),
+                        result.failures or result.errors)
+
+    def test_the_nested_guards_restore_every_binding_they_found(self):
+        import agentware_lib.core.config as libconfig
+        import agentware_lib.features.skilllock as skilllock
+        mod = load_cli()
+        before = (mod.HOME_CONFIG, mod.CONFIG_PATHS,
+                  libconfig.HOME_CONFIG, skilllock.HOME_CONFIG)
+        self._run_one("test_install_requires_dream_on")
+        after = (mod.HOME_CONFIG, mod.CONFIG_PATHS,
+                 libconfig.HOME_CONFIG, skilllock.HOME_CONFIG)
+        self.assertEqual(after, before,
+                         "the guard left a redirect behind; every later test "
+                         "in this process now resolves config from it")
+
+    def test_the_restored_path_is_not_a_directory_the_guard_deleted(self):
+        """The discriminator: equality alone would pass on a shared stale value.
+
+        If BOTH saves were wrong in the same direction the tuple compare above
+        would still match. What cannot be faked is that the restored config
+        directory still exists -- the guard `rmtree`s its own temp dir, so a
+        restored path under it is provably dead.
+        """
+        mod = load_cli()
+        self._run_one("test_install_requires_dream_on")
+        self.assertTrue(os.path.isdir(os.path.dirname(mod.HOME_CONFIG)),
+                        "HOME_CONFIG restored to a deleted directory: %s"
+                        % mod.HOME_CONFIG)
+
+    def test_no_attribute_is_written_by_BOTH_the_mixin_and_the_subclass(self):
+        """The root cause as an INVARIANT, over the AST rather than the text.
+
+        Not "these two names differ" -- that is satisfiable by renaming one and
+        colliding somewhere else. The property is that the mixin and the class
+        mixing it in never write the same instance attribute, which is what
+        makes their LIFO restores independent.
+
+        Read from the AST, per `learn-assert-a-terminal-state-over-the-ast-not-
+        the-source-text`: a source-text check reddens on the comments that
+        EXPLAIN the collision, and the cheapest fix for that is to delete the
+        explanation.
+        """
+        import ast
+        import inspect
+        import textwrap
+
+        def written_attrs(source):
+            names = set()
+            for node in ast.walk(ast.parse(textwrap.dedent(source))):
+                if not isinstance(node, (ast.Assign, ast.AugAssign,
+                                         ast.AnnAssign)):
+                    continue
+                targets = (node.targets if isinstance(node, ast.Assign)
+                           else [node.target])
+                stack = list(targets)
+                while stack:
+                    t = stack.pop()
+                    if isinstance(t, (ast.Tuple, ast.List)):
+                        stack.extend(t.elts)
+                    elif (isinstance(t, ast.Attribute)
+                          and isinstance(t.value, ast.Name)
+                          and t.value.id == "self"):
+                        names.add(t.attr)
+            return names
+
+        mixin = written_attrs(inspect.getsource(_GuardedEnv))
+        subclass = written_attrs(inspect.getsource(DreamSchedulerTests))
+        shared = mixin & subclass
+        self.assertEqual(shared, set(),
+                         "%s writes attribute(s) %s that _GuardedEnv also "
+                         "writes; one instance namespace, two owners, and the "
+                         "LIFO restores stop being independent"
+                         % (DreamSchedulerTests.__name__, sorted(shared)))
+        self.assertIn("_guardedenv_saved_cfg", mixin, "the mixin still saves")
+        self.assertIn("_scheduler_saved_cfg", subclass, "the class still saves")
 
 
 # ============================================================================
