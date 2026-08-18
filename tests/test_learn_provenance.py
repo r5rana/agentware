@@ -10,6 +10,8 @@ Hermetic: synthetic KB in a tempdir via the shared fixtures (R-LOC-03).
 """
 
 import os
+import shutil
+import tempfile
 import unittest
 
 from tests._fixtures import SyntheticKBTestCase, load_cli
@@ -24,6 +26,36 @@ def _read_frontmatter(kdir, rel):
 
 
 class LearnProvenanceTests(SyntheticKBTestCase):
+    """A test that asserts a DEFAULT must own what the default resolves FROM.
+
+    `SyntheticKBTestCase` isolates the KNOWLEDGE BASE, not the machine config.
+    `learn`'s author default is `resolve_user_handle()` -- env, then
+    `~/.agentware/config.env`, then `None` so the writer falls back to
+    `_operator_handle(kdir)`. This class clears the env key but used to leave the
+    CONFIG file alone, so on any machine whose operator has set a handle the verb
+    stamped the REAL one while the assertion expected the synthetic KB's
+    placeholder. Operator-dependent, and an R-LOC-03 read of live state.
+
+    It passed in full runs for the wrong reason: `test_dream` left `HOME_CONFIG`
+    pointing at a directory it had already deleted, so the config read found
+    nothing. Repairing that guard (task 94) removed the accident and exposed
+    this. A test that only passes because an earlier module corrupted global
+    state is not a passing test.
+    """
+
+    def setUp(self):
+        super().setUp()
+        mod = load_cli()
+        cfgdir = tempfile.mkdtemp(prefix="agentware-learnprov-cfg-")
+        self.addCleanup(shutil.rmtree, cfgdir, True)
+        cfg = os.path.join(cfgdir, "config.env")
+        saved = (mod.HOME_CONFIG, mod.CONFIG_PATHS)
+
+        def _restore():
+            mod.HOME_CONFIG, mod.CONFIG_PATHS = saved
+        self.addCleanup(_restore)
+        mod.HOME_CONFIG, mod.CONFIG_PATHS = cfg, (cfg,)
+
     def _learn(self, topic, extra=None, env=None):
         argv = ["learn", "--topic", topic, "--summary", "S for %s" % topic,
                 "--tags", "alpha,beta", "--content", "Body text for %s." % topic]
