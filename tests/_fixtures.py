@@ -368,6 +368,7 @@ def load_cli():
         # real home, and mirroring that would clobber a redirect an outer test had
         # already installed on the lib.
         mod.__class__ = _ConfigMirrorModule
+        _populate_lib_names(mod)
         _CLI_MODULE = mod
     _rebind_tick_registry(_CLI_MODULE)
     return _CLI_MODULE
@@ -388,6 +389,47 @@ def attach_lib_resolver(mod):
     """
     mod.__class__ = _ConfigMirrorModule
     return mod
+
+def _populate_lib_names(mod):
+    """Bind every already-imported lib name onto the CLI module, as the exec did.
+
+    `mock.patch.object` reads `target.__dict__[name]` DIRECTLY to decide whether
+    the attribute is local. A name reachable only through `__getattr__` is not in
+    that dict, so mock takes its non-local path and, on exit, DELETES the
+    attribute instead of restoring it -- and the write-through in `__setattr__`
+    never sees a restore, so the owning lib module keeps the mock for the rest of
+    the process. That is unbounded cross-test pollution: the 6 package suites went
+    from 62 passing to 12 failing purely on that, all of them passing alone.
+
+    Binding the names up front reproduces exactly what the monolith's `exec` gave
+    this module, so mock takes the local path it has always taken. Only names
+    ALREADY imported are bound -- importing the whole package eagerly is what
+    caused an earlier round of order-dependent failures, and importing
+    `agentware_lib.cli` (which the facade does) already pulls in nearly all of it.
+    `__getattr__` remains the fallback for the remainder.
+
+    Never OVERWRITES a name the module already defines: the facade's own bindings
+    and, while it exists, the exec'd monolith's, both win.
+
+    The package IS walked here, unlike the resolver's lazy path: binding has to
+    happen BEFORE a test patches, and `agentware_lib.cli` alone does not reach
+    every module (`features.pkgapply` among them). The walk is imports only --
+    the thing that made an earlier eager version harmful was that it also ran at
+    a point where module-level side effects had somewhere to leak; tick-job
+    registration is explicit now, so this is binding, not behaviour.
+    """
+    _import_all_lib_modules()
+    for modname in sorted(m for m in sys.modules
+                          if isinstance(m, str) and m.startswith("agentware_lib")):
+        m = sys.modules.get(modname)
+        if m is None:
+            continue
+        for name, val in list(vars(m).items()):
+            if name.startswith("__") or name in mod.__dict__:
+                continue
+            if getattr(val, "__module__", None) == modname or not callable(val):
+                types.ModuleType.__setattr__(mod, name, val)
+
 
 def _rebind_tick_registry(mod):
     """Point the lib's tick-job registry at THIS module's callables.
