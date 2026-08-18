@@ -37,8 +37,10 @@ import tempfile
 import unittest
 
 try:
+    from tests import _fixtures
     from tests._fixtures import REPO_ROOT, build_synthetic_kb, run_cli, attach_lib_resolver
 except ImportError:
+    import _fixtures
     from _fixtures import REPO_ROOT, build_synthetic_kb, run_cli, attach_lib_resolver
 
 
@@ -120,7 +122,14 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "cmd_index_add": "cmd_index_add",
     "cmd_index_remove": "cmd_index_remove",
     "cmd_index_sync": "cmd_index_sync",
-    "rebuild_kb": None,                           # the primitive itself
+    # `rebuild_kb` itself is NOT a static row any more: its monolith copy held
+    # the `save_index` call inline, while the lib's copy acquires the index lock
+    # and hands the body to `_rebuild_kb_locked` below (SAME primitive
+    # classification), so the write sits one frame down. It is added back by
+    # `_expected_index_writer_defs()` for exactly as long as the monolith
+    # exists, and its retirement is enforced by `_RETIRED_INTO` rather than
+    # taken on the word "decomposed".
+    #
     # `rebuild_kb`'s body with the index lock already HELD, split out so the
     # acquisition is one unmissable line at the single entry point. Same
     # classification as its caller — a primitive, not a dispatch command — and
@@ -153,7 +162,13 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "kb_git_push_once": "cmd_kb_git_commit",     # git-sync rebuild-before-commit
     "kb_git_merge_continue": "cmd_kb_git_merge_continue",
     "_mq_integrate_kb": "cmd_fanout_merge_queue",
-    "_dream_step_kb_pull": "cmd_dream",
+    # `_dream_step_kb_pull` was here until the monolith was deleted. It is NOT a
+    # capability that went away: the lib's copy delegates its whole derived
+    # reconcile to `_dream_pull_resolve_derived` (classified below, SAME owning
+    # command), so the write moved one frame down and the scan follows it there.
+    # The monolith's copy performed the rebuild INLINE, so while that file stood
+    # its name was discovered too and the row was load-bearing. Retiring it is
+    # enforced, not assumed -- see _RETIRED_INTO below.
     "_dream_step_index_rebuild": "cmd_dream",
     # --- task 54 (the `skill` port) ------------------------------------------
     # cmd_skill_add / cmd_skill_remove / cmd_skill_propose no longer appear here
@@ -182,6 +197,49 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "_scaffold_team_dir": "cmd_team",              # team create|register
     "_dream_pull_resolve_derived": "cmd_dream",    # kb-pull step's derived reconcile
 }
+
+#: Rows retired when the monolith was deleted -> the def the write moved INTO.
+#:
+#: A row leaves `_EXPECTED_INDEX_WRITER_DEFS` for one of two reasons, and they
+#: are opposites: the function stopped writing the index (retire it), or the
+#: function still causes the write but through a callee (follow it). Only the
+#: second is what happened here, and "decomposed" is the rationale that most
+#: easily launders the first into the second -- a writer that quietly stopped
+#: being policed reads exactly like a writer that moved.
+#:
+#: So the claim is CHECKED rather than narrated. For each row below the gate
+#: proves, from the source: the retired def still EXISTS, it still CALLS its
+#: named successor, the successor IS in the expectation map, and it carries the
+#: SAME classification (owning command, or primitive) the retired row had. A
+#: rename that silently drops the write out of the gate's sight cannot satisfy
+#: that; only an actual delegation can.
+_RETIRED_INTO = {
+    # the lock acquisition stayed at the entry point, the body moved down
+    "rebuild_kb": "_rebuild_kb_locked",
+    # the kb-pull step delegates its whole derived reconcile
+    "_dream_step_kb_pull": "_dream_pull_resolve_derived",
+}
+
+
+def _expected_index_writer_defs():
+    """The expectation for the tree AS IT CURRENTLY STANDS.
+
+    TERMINAL-AWARE, the shape tasks 92 and 93 settled on for this wave. While
+    `scripts/agentware_legacy.py` exists the scan reads BOTH implementations,
+    and the monolith's copies of the `_RETIRED_INTO` keys perform the index
+    write INLINE -- so those names really are discovered and really must be
+    classified. Once the file is gone only the lib's delegating copies remain
+    and the same names must NOT be expected.
+
+    Deriving this from the file's existence rather than pinning one of the two
+    answers is what lets the gate pass in both states across the deletion
+    commit, without a window in which it is switched off.
+    """
+    expected = dict(_EXPECTED_INDEX_WRITER_DEFS)
+    if os.path.isfile(_fixtures.LEGACY_PATH):
+        expected["rebuild_kb"] = None
+        expected["_dream_step_kb_pull"] = "cmd_dream"
+    return expected
 # Commands that legitimately rewrite the index but are EXEMPT from the schema gate
 # for the CURRENT schema (documented DECISION in the worklog): git-sync / merge
 # rebuilds regenerate only {entries,tags} from migration-001-invariant frontmatter
@@ -386,22 +444,85 @@ class SchemaGuardTest(unittest.TestCase):
             if re.search(r"\b(save_index|rebuild_kb)\(", l) and \
                     not re.match(r"^def (save_index|rebuild_kb)\(", l):
                 discovered.add(enclosing(i + 1))
+        expected = _expected_index_writer_defs()
         self.assertEqual(
-            discovered, set(_EXPECTED_INDEX_WRITER_DEFS),
+            discovered, set(expected),
             "structured-index writer functions changed — classify the new/removed "
             "one (register its command or add a documented exemption): missing=%s "
             "unexpected=%s" % (
-                sorted(set(_EXPECTED_INDEX_WRITER_DEFS) - discovered),
-                sorted(discovered - set(_EXPECTED_INDEX_WRITER_DEFS))))
+                sorted(set(expected) - discovered),
+                sorted(discovered - set(expected))))
 
         registered = self._registry()
-        for wdef, command in _EXPECTED_INDEX_WRITER_DEFS.items():
+        for wdef, command in expected.items():
             if command is None:
                 continue
             self.assertTrue(
                 command in registered or command in _INDEX_WRITER_EXEMPT_COMMANDS,
                 "index-writer '%s' -> command '%s' is neither schema-guarded nor a "
                 "documented exemption" % (wdef, command))
+
+    def test_schemaguard_a_retired_writer_row_MOVED_it_did_not_vanish(self):
+        """Every `_RETIRED_INTO` row is a delegation, proven from the source.
+
+        Deleting the monolith removed two names from the discovered set --
+        `rebuild_kb` and `_dream_step_kb_pull` -- because the monolith's copies
+        performed the index write INLINE while the lib's copies hand it to a
+        callee. Updating the expectation to match a smaller discovered set is
+        the move that quietly turns this completeness gate into a record of
+        whatever the scan last happened to find, so the shrink is justified
+        HERE, mechanically, instead of in a comment.
+
+        The obligation is no-capability-loss, the same question task 92's
+        `is_terminal()` asks of the ratchet: the write must still happen and
+        must still be classified the same way. A row that merely disappeared --
+        a writer renamed out of the scan's sight, or one that stopped being
+        policed -- cannot satisfy this, because there would be no delegation
+        edge to find.
+        """
+        import ast
+        try:
+            from tests._fixtures import cli_source
+        except ImportError:
+            from _fixtures import cli_source
+        tree = ast.parse(cli_source())
+        bodies = {n.name: n for n in ast.walk(tree)
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+        for retired, successor in _RETIRED_INTO.items():
+            self.assertNotIn(retired, _EXPECTED_INDEX_WRITER_DEFS,
+                             "%s is retired; it must not also be expected"
+                             % retired)
+            # (1) the retired def still exists -- this is a MOVE, not a removal
+            self.assertIn(retired, bodies,
+                          "%s is gone entirely: that is a capability question, "
+                          "not a decomposition" % retired)
+            # (2) ...and still calls the successor it delegated to
+            called = {c.func.id for c in ast.walk(bodies[retired])
+                      if isinstance(c, ast.Call)
+                      and isinstance(c.func, ast.Name)}
+            called |= {c.func.attr for c in ast.walk(bodies[retired])
+                       if isinstance(c, ast.Call)
+                       and isinstance(c.func, ast.Attribute)}
+            self.assertIn(successor, called,
+                          "%s no longer calls %s -- the write did not move "
+                          "there, so retiring its row drops coverage"
+                          % (retired, successor))
+            # (3) the successor is policed, with the SAME classification
+            self.assertIn(successor, _EXPECTED_INDEX_WRITER_DEFS,
+                          "%s delegates to %s, which nothing classifies"
+                          % (retired, successor))
+
+        # Non-vacuity: the map is not empty and its successors really are the
+        # rows the scan discovers, so a future edit cannot satisfy this by
+        # emptying `_RETIRED_INTO`.
+        self.assertTrue(_RETIRED_INTO)
+        self.assertEqual(_EXPECTED_INDEX_WRITER_DEFS["_rebuild_kb_locked"], None,
+                         "rebuild_kb was a primitive; its successor must be too")
+        self.assertEqual(_EXPECTED_INDEX_WRITER_DEFS["_dream_pull_resolve_derived"],
+                         "cmd_dream",
+                         "_dream_step_kb_pull was owned by cmd_dream; so is its "
+                         "successor")
 
     # --- newer-.schema refusal for EVERY writer (older CLI on newer KB) ------
     def test_schemaguard_all_writers_refuse_on_newer_kb(self):
