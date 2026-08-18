@@ -240,7 +240,14 @@ class RefutationTest(unittest.TestCase):
         tree[row["name"]] = [(rel, body) for rel, body in tree[row["name"]]
                              if rel != row["host"]]
         report = bd.check(self.fx, tree)
-        self._assert_named(report, "donor_longer", row["name"])
+        # The column a violation lands in is decided by the row's WINNER, not by
+        # the mutation. This asserted "donor_longer" outright, which held only
+        # while the first decomposed row happened to be donor-winning; task 56
+        # added seventeen rows and the first is now local-winning, so the test
+        # failed on the row ordering rather than on the invariant. Assert the
+        # column the row's own winner implies.
+        column = "local_longer" if row["winner"] == "local" else "donor_longer"
+        self._assert_named(report, column, row["name"])
 
     def test_a_superseded_row_still_ratchets(self):
         """`superseded` lowers the floor to the decision -- it does not remove it."""
