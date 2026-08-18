@@ -215,6 +215,51 @@ class StaleProposeBlockedTest(_DreamStepBase):
         self.assertFalse(m.get("deferred"))
         self.assertEqual(m.get("proposed"), "-")
 
+    def test_a_blocked_step_is_not_byte_identical_to_a_clean_no_op(self):
+        """The PROPERTY the field list exists for, asserted as a property.
+
+        `_DREAM_METRIC_STEP_FIELDS` is a tuple, and a test that restates its
+        contents passes for any tuple someone writes down -- including the
+        six-field-shorter one the lib port shipped, had the expectation been
+        edited to match it. What the fields are FOR is that the durable record
+        in logs/metrics.jsonl can tell two outcomes apart the morning after.
+
+        So this compares two steps that differ ONLY in outcome. Drop the
+        outcome fields and both render to the same bytes: a permanent block
+        becomes indistinguishable from a clean no-op, which is precisely the
+        failure the monolith's own comment on these fields names.
+        """
+        base = {"step": "s", "status": "ok", "duration_s": 0.1}
+        blocked = CLI._dream_metric_step(dict(
+            base, proposed="-", deferred=False, blocked=True,
+            reason="blocked: emitter refused (rc=1)"))
+        clean = CLI._dream_metric_step(dict(
+            base, proposed=0, deferred=False, blocked=False, clean=True))
+        self.assertNotEqual(
+            json.dumps(blocked, sort_keys=True),
+            json.dumps(clean, sort_keys=True),
+            "a blocked step and a clean no-op serialise identically -- the "
+            "durable metric cannot tell them apart")
+        # ...and the discriminating fields are the reason it differs, not the
+        # base fields, which are equal by construction here.
+        for field in ("blocked", "reason", "clean"):
+            self.assertTrue(field in blocked or field in clean,
+                            "%s never reaches the metric record" % field)
+
+    def test_the_skill_propose_step_keeps_its_three_outcomes_apart(self):
+        """Step k's half: an emit, an extend-note and a clean no-op differ."""
+        base = {"step": "k", "status": "ok", "duration_s": 0.1}
+        emit = CLI._dream_metric_step(dict(base, proposed=1, extended=0,
+                                           clean=False))
+        extend = CLI._dream_metric_step(dict(base, proposed=0, extended=1,
+                                             clean=False))
+        noop = CLI._dream_metric_step(dict(base, proposed=0, extended=0,
+                                           clean=True))
+        rendered = [json.dumps(x, sort_keys=True) for x in (emit, extend, noop)]
+        self.assertEqual(len(set(rendered)), 3,
+                         "step k's three outcomes must not collapse: %s"
+                         % rendered)
+
 
 if __name__ == "__main__":
     import unittest

@@ -102,7 +102,15 @@ def _dream_write_journal(kdir, cycle):
 
 
 _DREAM_METRIC_STEP_FIELDS = ("failed_checks", "failed_tests", "tests_failed",
-                             "tests_ran")
+                             "tests_ran",
+                             # stale-propose (step s): carry the emit outcome into
+                             # the durable metric so a permanent `blocked` is not
+                             # byte-identical to a clean no-op in logs/metrics.jsonl.
+                             "proposed", "deferred", "blocked", "reason",
+                             # skill-propose (step k): its emit counts (extended /
+                             # clean) so the durable metric distinguishes an emit
+                             # from an extend-note from a clean no-op.
+                             "extended", "clean")
 
 
 def _dream_metric_step(r):
