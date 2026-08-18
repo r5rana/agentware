@@ -232,6 +232,8 @@ def _scan_imported_for(name):
         if m is None or name not in vars(m):
             continue
         val = vars(m)[name]
+        if isinstance(val, types.ModuleType):
+            continue          # a submodule named like the symbol, not the symbol
         if getattr(val, "__module__", None) == modname:
             return m, val
         if fallback is None:
@@ -426,6 +428,14 @@ def _populate_lib_names(mod):
             continue
         for name, val in list(vars(m).items()):
             if name.startswith("__") or name in mod.__dict__:
+                continue
+            # NEVER bind a submodule reference. `agentware_lib.retrieval` holds an
+            # attribute `acr` pointing at the SUBMODULE, while the function the
+            # suite wants is `acr` INSIDE it -- binding the package attribute made
+            # `CLI.acr(...)` raise "module object is not callable" in 16 tests. The
+            # monolith bound no submodules either, so excluding them reproduces the
+            # namespace this is standing in for.
+            if isinstance(val, types.ModuleType):
                 continue
             if getattr(val, "__module__", None) == modname or not callable(val):
                 types.ModuleType.__setattr__(mod, name, val)
