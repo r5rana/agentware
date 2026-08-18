@@ -78,8 +78,44 @@ DECLARED = {
                   "replaces the comment (features/proposals.py) was cleaned by "
                   "task 20 in the same change, so the fix is already staged; "
                   "task 56 deletes the monolith and this row with it.",
+        # RETIRES WITH THE FILE (task 94). The reason above ends "task 56
+        # deletes the monolith and this row with it" -- so once the monolith is
+        # gone the row must stop being in force, or the ledger's own staleness
+        # check reddens on a row that is doing exactly what it promised. The
+        # row is not DELETED, because deleting it while the file still exists
+        # would silently un-declare three live hits; it is conditioned on the
+        # file, and `active_rows` is where the two states are told apart.
+        "terminal_with": "scripts/agentware_legacy.py",
+        # The IDENTITY ANCHOR, and the reason this is not just a presence
+        # check. A row keyed by PATH is inherited by whatever lands at that
+        # path next -- task 93 found exactly that shape in the dream-package
+        # exemption, where a resurrection at the retired path would have been
+        # granted the exemption SILENTLY. Here the inheritance would grant an
+        # impostor up to three unexplained plan-artifact citations. So the row
+        # also declares the exact hits it covers: re-activation admits only
+        # these, and any other citation at the same path is undeclared.
+        "hits": (("private plan document", "Plan A"),) * 3,
     },
 }
+
+
+def active_rows(root=None):
+    """The ledger rows IN FORCE for this tree.
+
+    A row carrying `terminal_with` is in force only while that file exists. Its
+    absence is a state the ledger must name, not a state it may fail on: the
+    monolith's deletion is what the row's own reason nominates as its retirement
+    trigger, and a gate that reddens when its subject is removed teaches the
+    reviewer to delete the gate.
+    """
+    root = REPO_ROOT if root is None else root
+    live = {}
+    for path, row in DECLARED.items():
+        terminal = row.get("terminal_with")
+        if terminal and not os.path.exists(os.path.join(root, terminal)):
+            continue
+        live[path] = row
+    return live
 
 #: Extensions worth scanning: everything a human or an agent reads.
 SCANNED_EXTS = (".py", ".sh", ".md", ".json", ".txt", ".yml", ".yaml", "")
@@ -184,8 +220,9 @@ class ThisRepoTest(unittest.TestCase):
         self.assertGreater(len(tracked_files(REPO_ROOT)), 50)
 
     def test_no_undeclared_file_cites_a_private_plan_artifact(self):
+        live = active_rows()
         undeclared = [h for h in scan_tree(REPO_ROOT)
-                      if h[0].rsplit(":", 1)[0] not in DECLARED]
+                      if h[0].rsplit(":", 1)[0] not in live]
         self.assertEqual(undeclared, [],
                          "\n".join("%s  %s  %r" % h for h in undeclared))
 
@@ -194,7 +231,7 @@ class ThisRepoTest(unittest.TestCase):
         for location, _, _ in scan_tree(REPO_ROOT):
             path = location.rsplit(":", 1)[0]
             counts[path] = counts.get(path, 0) + 1
-        for path, row in DECLARED.items():
+        for path, row in active_rows().items():
             self.assertIn(path, counts,
                           "stale row: %s no longer cites a plan artifact; "
                           "delete the row" % path)
@@ -207,6 +244,72 @@ class ThisRepoTest(unittest.TestCase):
             self.assertTrue(row["owner"].startswith("task "), path)
             self.assertGreater(len(row["reason"]), 80, path)
             self.assertGreater(row["count"], 0, path)
+
+    # --- the terminal state, asserted rather than tolerated (task 94) -------
+    def test_a_terminal_row_is_IN_FORCE_exactly_while_its_file_exists(self):
+        """Both states named, so neither is silent.
+
+        The whole hazard of a terminal row is that "retired" and "never
+        mattered" look identical from the outside. Assert the mapping in both
+        directions against a scratch root, so the row's retirement is a
+        property of the FILE's absence and not of the scan happening to find
+        nothing.
+        """
+        import shutil
+        import tempfile
+        for path, row in DECLARED.items():
+            terminal = row.get("terminal_with")
+            if not terminal:
+                continue
+            root = tempfile.mkdtemp(prefix="plan-artifact-terminal-")
+            self.addCleanup(shutil.rmtree, root, True)
+            target = os.path.join(root, terminal)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            self.assertNotIn(path, active_rows(root),
+                             "%s must retire when %s is absent" % (path, terminal))
+            with open(target, "w", encoding="utf-8") as handle:
+                handle.write("# placeholder\n")
+            self.assertIn(path, active_rows(root),
+                          "%s must be in force while %s exists" % (path, terminal))
+
+    def test_a_retired_row_leaves_NO_unscanned_hit_behind(self):
+        """Retiring the row may not retire the coverage.
+
+        A row conditioned on a file is only safe because that file's hits go
+        away with it. If the tree still produced citations at that path while
+        the row was retired, they would be silently unowned -- so prove the
+        undeclared scan is what catches them, in the state where the row is
+        no longer in force.
+        """
+        for path, row in DECLARED.items():
+            if not row.get("terminal_with"):
+                continue
+            if path in active_rows():
+                continue
+            live_hits = [h for h in scan_tree(REPO_ROOT)
+                         if h[0].rsplit(":", 1)[0] == path]
+            self.assertEqual(live_hits, [],
+                             "%s is retired but still cites plan artifacts: %s"
+                             % (path, live_hits))
+
+    def test_a_reactivated_row_admits_ONLY_the_hits_it_declared(self):
+        """The impostor state: a path-keyed row is inherited by its successor.
+
+        Task 93 found this exact shape in the dream-package exemption, where a
+        module landing at the retired path would have inherited the exemption
+        with nothing said. Here the inheritance would grant a NEW file at
+        `scripts/agentware_legacy.py` up to three unexplained citations. The
+        declared `hits` are the anchor: whatever is in force, only these
+        (label, text) pairs are covered.
+        """
+        for path, row in active_rows().items():
+            declared = sorted(row["hits"])
+            found = sorted((h[1], h[2]) for h in scan_tree(REPO_ROOT)
+                           if h[0].rsplit(":", 1)[0] == path)
+            self.assertEqual(found, declared,
+                             "%s cites something the row does not declare; a "
+                             "row keyed by PATH may not cover a successor's "
+                             "own leak" % path)
 
     def test_this_module_is_exempt_from_its_own_content_scan(self):
         body = _read(os.path.abspath(__file__))
