@@ -141,10 +141,48 @@ class G1HardenTest(unittest.TestCase):
         self.assertTrue(self.m._target_hits_kernel("." + os.sep),
                         "'./' (== CWD, inside the repo when run there) must refuse")
 
+    def _dotdot_into_repo(self):
+        """A `..`-traversal token that normalizes into THIS package, derived.
+
+        The literal `../agentware/scripts` this used to assert was not a
+        property of the guard at all — it was a property of the CHECKOUT being
+        named `agentware` and the process running from it. In any other
+        checkout (a worktree, a scratch clone, CI's `work/` dir) the token
+        resolves to a sibling that is not the package, the guard CORRECTLY
+        returns False, and the test reddens on the directory name rather than
+        on the behaviour. Same shape as the task-92 finding where
+        `assertIn("agentware", stdout)` was satisfied by the checkout name.
+
+        Derived from the live tree instead: '..' plus the path from the CWD's
+        parent back down to REPO_ROOT always starts with '..' and always
+        normalizes back into the package, whatever the checkout is called.
+        """
+        up = os.path.dirname(os.path.realpath(os.getcwd()))
+        return os.path.join(os.pardir, os.path.relpath(self.repo, up), "scripts")
+
     def test_g1harden_text_dotdot_traversal_refused(self):
+        tok = self._dotdot_into_repo()
+        # Token-free, so a True verdict can only come from the traversal
+        # resolution branch and not from the substring/segment loop.
+        self._no_kernel_token(tok)
         self.assertTrue(
-            self.m._text_hits_kernel_path("apply the patch under ../agentware/scripts"),
+            self.m._text_hits_kernel_path("apply the patch under " + tok),
             "a `..`-traversal token resolving into the package must refuse")
+
+    def test_g1harden_text_dotdot_traversal_OUTSIDE_still_emits(self):
+        """The discriminator: `..` alone must not be the whole verdict.
+
+        Without this, "refuse anything starting with '..'" passes the test
+        above while over-blocking every legitimate sibling path an operator
+        writes into a plan. What earns the refusal is RESOLVING INTO the
+        package, so a traversal landing anywhere else must still emit.
+        """
+        outside = os.path.join(os.pardir, "definitely-not-the-package-xyz",
+                               "notes.md")
+        self._no_kernel_token(outside)
+        self.assertFalse(
+            self.m._text_hits_kernel_path("see " + outside),
+            "a `..`-traversal resolving OUTSIDE the package must still emit")
 
     def test_g1harden_text_tokenizer_punctuation_robust(self):
         # Trailing sentence punctuation and wrapping brackets must not defeat the
