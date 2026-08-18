@@ -321,8 +321,19 @@ class CaptureScopeTest(unittest.TestCase):
     def test_the_local_side_excludes_the_lib(self):
         rels = {rel for rel, _ in bd.iter_sources(
             REPO, excludes=bd.LOCAL_EXCLUDE_PREFIXES)}
+        # The invariant is the EXCLUSION -- the local side must never contain the
+        # lib, or the diff is against itself. That holds in both states.
         self.assertFalse([r for r in rels if r.startswith("scripts/agentware_lib")])
-        self.assertIn("scripts/agentware_legacy.py", rels)
+        # The monolith is in the local capture only while it exists; task 56
+        # deletes it, and the capture is then the facade plus the sidecars. Asserted
+        # as a biconditional so this keeps its meaning across the retirement rather
+        # than pinning the side of it we happen to be on.
+        legacy = os.path.join(REPO, "scripts", "agentware_legacy.py")
+        if os.path.isfile(legacy):
+            self.assertIn("scripts/agentware_legacy.py", rels)
+        else:
+            self.assertNotIn("scripts/agentware_legacy.py", rels)
+            self.assertTrue(rels, "the local capture collapsed to nothing")
 
     def test_the_merged_side_includes_the_lib_and_the_facade(self):
         rels = {rel for rel, _ in bd.iter_sources(REPO, extra=(bd.FACADE,))}
