@@ -117,58 +117,13 @@ def _dream_render_markers_section(markers):
 DREAM_PLAN_ONLY_MIN_AGE_HOURS = 48  # step e flags plan.md w/ no worklog.md older than this
 
 
-def _render_stale_section(report):
-    """`## Stale entries` — sorted by id so the body is byte-stable."""
-    stale = sorted(report.get("stale") or [], key=lambda s: (s.get("id") or ""))
-    out = ["## Stale entries (%d)" % len(stale), "",
-           "> last_verified older than %d day(s) in %s"
-           % (report.get("max_age_days", 0),
-              ", ".join(report.get("volatile_categories") or [])), ""]
-    for s in stale:
-        out.append("- %s [%s] last_verified=%s age=%dd  (%s)"
-                   % (s.get("id"), s.get("category"), s.get("last_verified"),
-                      s.get("age_days") or 0, s.get("path")))
-    if not stale:
-        out.append("_none_")
-    out.append("")
-    return out
 
 
-def _render_conflicts_section(report):
-    """`## Possible duplicate / conflict pairs` — sorted by the (a, b) pair."""
-    conflicts = sorted(report.get("conflicts") or [],
-                       key=lambda c: (c.get("a") or "", c.get("b") or ""))
-    out = ["## Possible duplicate / conflict pairs (%d)" % len(conflicts), ""]
-    for c in conflicts:
-        out.append("- %s <-> %s [%s] jaccard=%.4f"
-                   % (c.get("a"), c.get("b"), c.get("category"),
-                      c.get("jaccard") or 0.0))
-    if not conflicts:
-        out.append("_none_")
-    out.append("")
-    return out
 
 
-def _render_markers_section(markers):
-    """`## Unpromoted worklog markers`, grouped per feature and sorted by line."""
-    out = ["## Unpromoted worklog markers (%d)" % len(markers), ""]
-    if not markers:
-        return out + ["_none_", ""]
-    by_feat = {}
-    for m in markers:
-        by_feat.setdefault(m["feature"], []).append(m)
-    for feat in sorted(by_feat):
-        items = sorted(by_feat[feat], key=lambda m: m["line"])
-        out.append("### %s (%d)" % (feat, len(items)))
-        out.append("")
-        for m in items:
-            out.append("- %s:%d [%s] %s"
-                       % (m["rel"], m["line"], m["kind"], m["text"]))
-        out.append("")
-    return out
 
 
-def _render_plan_only_section(plan_only):
+def _dream_render_plan_only_section(plan_only):
     """`## Plan-only work dirs` — a planned feature that produced no worklog."""
     plan_only = sorted(plan_only or [], key=lambda p: (p.get("rel") or ""))
     out = ["## Plan-only work dirs (%d)" % len(plan_only), "",
@@ -183,7 +138,7 @@ def _render_plan_only_section(plan_only):
     return out
 
 
-def _render_drift_section(drift):
+def _dream_render_drift_section(drift):
     """`## Drift` (feature 260710): report-only; NO acting worker (P3)."""
     drift = sorted(drift or [], key=lambda d: (d.get("rel") or ""))
     out = ["## Drift — stalled / stale-draft (%d)" % len(drift), "",
@@ -224,11 +179,11 @@ def _dream_render_detect_report(report, markers, plan_only=None, drift=None):
         "> via logs/. Overwritten each cycle; byte-stable for unchanged inputs.",
         "",
     ]
-    lines += _render_stale_section(report)
-    lines += _render_conflicts_section(report)
-    lines += _render_markers_section(markers)
-    lines += _render_plan_only_section(plan_only)
-    lines += _render_drift_section(drift)
+    lines += _dream_render_stale_section(report)
+    lines += _dream_render_conflicts_section(report)
+    lines += _dream_render_markers_section(markers)
+    lines += _dream_render_plan_only_section(plan_only)
+    lines += _dream_render_drift_section(drift)
     return "\n".join(lines).rstrip("\n") + "\n"
 
 

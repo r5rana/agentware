@@ -94,7 +94,9 @@ from agentware_lib.features.dreamsteps.stepevalrecord import (
 from agentware_lib.features.dreamsteps.stepdetectreport import (
     _dream_render_conflicts_section,
     _dream_render_detect_report,
+    _dream_render_drift_section,
     _dream_render_markers_section,
+    _dream_render_plan_only_section,
     _dream_render_stale_section,
     _dream_step_detect_report,
     _dream_write_detect_report,
