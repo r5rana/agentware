@@ -35,9 +35,9 @@ import tempfile
 import unittest
 
 try:
-    from tests._fixtures import REPO_ROOT
+    from tests._fixtures import REPO_ROOT, attach_lib_resolver
 except ImportError:  # discover -s tests puts tests/ on sys.path
-    from _fixtures import REPO_ROOT
+    from _fixtures import REPO_ROOT, attach_lib_resolver
 
 
 def _load_cli():
@@ -47,7 +47,9 @@ def _load_cli():
     m = importlib.util.module_from_spec(
         importlib.util.spec_from_loader("aw_g1harden", ld))
     ld.exec_module(m)
-    return m
+    # Task 56: with the monolith deleted this namespace has no legacy symbols
+    # of its own; resolve them from the lib (one definition, in _fixtures).
+    return attach_lib_resolver(m)
 
 
 # Every str.splitlines() boundary (Python docs) — the FULL set g2 must collapse.

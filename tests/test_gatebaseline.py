@@ -26,9 +26,9 @@ import os
 import unittest
 
 try:
-    from tests._fixtures import REPO_ROOT
+    from tests._fixtures import REPO_ROOT, attach_lib_resolver
 except ImportError:
-    from _fixtures import REPO_ROOT
+    from _fixtures import REPO_ROOT, attach_lib_resolver
 
 
 def _load():
@@ -37,7 +37,7 @@ def _load():
     m = importlib.util.module_from_spec(
         importlib.util.spec_from_loader("aw_gatebaseline", ld))
     ld.exec_module(m)
-    return m
+    return attach_lib_resolver(m)
 
 
 class GateBaselineTest(unittest.TestCase):

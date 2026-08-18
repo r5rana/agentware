@@ -37,9 +37,9 @@ import tempfile
 import unittest
 
 try:
-    from tests._fixtures import REPO_ROOT, build_synthetic_kb, run_cli
+    from tests._fixtures import REPO_ROOT, build_synthetic_kb, run_cli, attach_lib_resolver
 except ImportError:
-    from _fixtures import REPO_ROOT, build_synthetic_kb, run_cli
+    from _fixtures import REPO_ROOT, build_synthetic_kb, run_cli, attach_lib_resolver
 
 
 def _load():
@@ -48,7 +48,7 @@ def _load():
     m = importlib.util.module_from_spec(
         importlib.util.spec_from_loader("aw_schemaguard", ld))
     ld.exec_module(m)
-    return m
+    return attach_lib_resolver(m)
 
 
 def _migrate_mod():

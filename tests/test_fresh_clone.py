@@ -45,6 +45,11 @@ import sys
 import tempfile
 import unittest
 
+try:
+    from tests._fixtures import attach_lib_resolver
+except ImportError:  # discover -s tests
+    from _fixtures import attach_lib_resolver
+
 # Repo root = parent of tests/. The CLI is a no-extension python script. Mirror
 # the resolution in tests/_fixtures.py rather than importing it, so this module
 # stays self-contained for the subprocess seam it exercises.
@@ -72,7 +77,7 @@ def _load_cli():
     spec = importlib.util.spec_from_loader("agentware_cli_smoke", loader)
     mod = importlib.util.module_from_spec(spec)
     loader.exec_module(mod)
-    return mod
+    return attach_lib_resolver(mod)
 
 
 def _hermetic_env(tmp_home, tmp_kb):

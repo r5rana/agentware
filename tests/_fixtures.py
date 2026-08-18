@@ -168,6 +168,58 @@ def _same_symbol_two_copies(name, cur, previous):
         return False
 
 
+def _import_all_lib_modules():
+    """Import every `agentware_lib` submodule once, so name resolution is TOTAL.
+
+    `_lib_owner_of` searches `sys.modules`, which holds only what something
+    happened to import. Without this walk the answer to "which module owns this
+    name" would depend on which tests ran first — found in one session, missing in
+    another. That is the worst possible property for a harness, so the walk makes
+    it order-independent. Failures are skipped: an optional-dependency module that
+    cannot import is not a reason to fail every test.
+
+    `scripts/` goes on sys.path here as well as in the facade, because this runs
+    BEFORE the facade is exec'd.
+    """
+    import pkgutil
+    scripts_dir = os.path.dirname(os.path.abspath(CLI_PATH))
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    try:
+        import agentware_lib
+    except Exception:                       # pragma: no cover - no lib present
+        return
+    for info in pkgutil.walk_packages(agentware_lib.__path__,
+                                      prefix="agentware_lib."):
+        try:
+            importlib.import_module(info.name)
+        except Exception:                   # pragma: no cover - optional deps
+            continue
+
+
+def _lib_owner_of(name):
+    """The lib module that DEFINES `name`, else the first that RE-EXPORTS it.
+
+    Prefers the definer (`value.__module__ == modname`) over a re-exporter,
+    because `_ConfigMirrorModule.__setattr__` forwards a patch to every binding
+    and the patch must reach the definition rather than one of its copies.
+    Deterministic: candidates are considered in sorted module order, so two
+    modules re-exporting the same name always resolve the same way.
+    """
+    fallback = None
+    for modname in sorted(m for m in sys.modules
+                          if isinstance(m, str) and m.startswith("agentware_lib")):
+        m = sys.modules.get(modname)
+        if m is None or name not in vars(m):
+            continue
+        val = vars(m)[name]
+        if getattr(val, "__module__", None) == modname:
+            return m, val
+        if fallback is None:
+            fallback = (m, val)
+    return fallback if fallback else (None, None)
+
+
 class _ConfigMirrorModule(types.ModuleType):
     """CLI module type that MIRRORS config-redirect writes onto the lib.
 
@@ -239,6 +291,35 @@ class _ConfigMirrorModule(types.ModuleType):
                 continue
         return out
 
+
+    def __getattr__(self, name):
+        """Resolve a name the CLI module does not define from `agentware_lib`.
+
+        TASK 56. While the monolith exists this never fires: it is `exec`'d into
+        the module's globals, so every legacy symbol is already in the module dict
+        and normal lookup wins. Once the monolith is DELETED it carries the whole
+        suite — 2,273 of the 2,411 failures in the deletion probe were this single
+        AttributeError, ~3,000 reads of `CLI.<name>` with nothing to hit.
+
+        Resolving here rather than repointing every call site is deliberate, and
+        it is not the shim rebuilt in the harness: the value is fetched from the
+        module that OWNS it and CACHED in this module's dict, which is what keeps
+        the write-through in `__setattr__` working. That forwarding keys on the
+        PREVIOUS value, so a name never read would have no previous value and a
+        patch on it would forward nowhere — read-then-patch is the dominant shape
+        in this suite, so caching on read is what keeps patches honest rather
+        than silently vacuous.
+        """
+        if name.startswith("__") and name.endswith("__"):
+            raise AttributeError(name)
+        owner, val = _lib_owner_of(name)
+        if owner is None:
+            raise AttributeError(
+                "module %r has no attribute %r, and no agentware_lib module "
+                "defines it either" % (self.__name__, name))
+        types.ModuleType.__setattr__(self, name, val)
+        return val
+
     def __setattr__(self, name, value):
         previous = self.__dict__.get(name)
         types.ModuleType.__setattr__(self, name, value)
@@ -260,6 +341,7 @@ def load_cli():
     """Import scripts/agentware as a module (cached). Stdlib importlib only."""
     global _CLI_MODULE
     if _CLI_MODULE is None:
+        _import_all_lib_modules()
         loader = SourceFileLoader("agentware_cli", CLI_PATH)
         spec = importlib.util.spec_from_loader("agentware_cli", loader)
         mod = importlib.util.module_from_spec(spec)
@@ -272,6 +354,23 @@ def load_cli():
     _rebind_tick_registry(_CLI_MODULE)
     return _CLI_MODULE
 
+
+
+def attach_lib_resolver(mod):
+    """Give ANY separately-loaded CLI module the same lib name resolution.
+
+    Four suites load `scripts/agentware` under their own module names
+    (`aw_g1harden`, `aw_schemaguard`, `aw_gatebaseline`, `agentware_cli_smoke`)
+    to get an isolated namespace. They build plain module objects, so they miss
+    `_ConfigMirrorModule` entirely — and with the monolith deleted every legacy
+    read through them raises. Applying the class here rather than copying the
+    resolver into each keeps ONE definition of "where does this name live".
+
+    Returns `mod` so it can wrap a loader call directly.
+    """
+    _import_all_lib_modules()
+    mod.__class__ = _ConfigMirrorModule
+    return mod
 
 def _rebind_tick_registry(mod):
     """Point the lib's tick-job registry at THIS module's callables.

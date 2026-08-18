@@ -86,8 +86,79 @@ def get_cli():
     if _CLI_MODULE is None:
         loader = SourceFileLoader("agentware_cli", CLI_PATH)
         mod = loader.load_module()  # noqa: DUO (trusted local file)
-        _CLI_MODULE = mod
+        _CLI_MODULE = _LibResolving(mod)
     return _CLI_MODULE
+
+
+class _LibResolving(object):
+    """The CLI entrypoint, with unknown names resolved from `agentware_lib`.
+
+    TRANSITIONAL ADAPTER (task 56; retires with the dashboard's decomposition at
+    task 69). This module reads 35 toolkit functions off the CLI entrypoint,
+    which used to work because the preserved monolith was `exec`'d into that
+    module's globals. Task 56 deletes the monolith, so the entrypoint now defines
+    little more than `main` — and every one of those 35 reads would raise
+    AttributeError, taking the whole JSON API to HTTP 500.
+
+    All 35 exist in `agentware_lib`; this resolves each from the module that owns
+    it, on first use, and caches. Deliberately a lookup ADAPTER and not a
+    re-exporting shim: it holds no values of its own, so it cannot drift from the
+    lib, and every name it serves is one the dashboard already names explicitly.
+    """
+
+    def __init__(self, entry):
+        object.__setattr__(self, "_entry", entry)
+        object.__setattr__(self, "_cache", {})
+
+    def __getattr__(self, name):
+        cache = object.__getattribute__(self, "_cache")
+        if name in cache:
+            return cache[name]
+        entry = object.__getattribute__(self, "_entry")
+        try:
+            val = getattr(entry, name)
+        except AttributeError:
+            val = _lib_lookup(name)
+        cache[name] = val
+        return val
+
+    def __setattr__(self, name, value):
+        # Tests rebind read functions here to inject fixtures; keep that working
+        # by shadowing in the cache rather than writing into the lib.
+        object.__getattribute__(self, "_cache")[name] = value
+
+
+def _lib_lookup(name):
+    """Find `name` in the agentware_lib module that DEFINES it."""
+    import agentware_lib                       # noqa: F401  (ensures the package)
+    import pkgutil
+    import importlib
+    fallback = _MISSING = object()
+    for modname in sorted(m for m in sys.modules
+                          if isinstance(m, str) and m.startswith("agentware_lib")):
+        m = sys.modules.get(modname)
+        if m is None or name not in vars(m):
+            continue
+        val = vars(m)[name]
+        if getattr(val, "__module__", None) == modname:
+            return val
+        if fallback is _MISSING:
+            fallback = val
+    if fallback is not _MISSING:
+        return fallback
+    # Not yet imported: walk the package once, then retry.
+    for info in pkgutil.walk_packages(agentware_lib.__path__,
+                                      prefix="agentware_lib."):
+        try:
+            importlib.import_module(info.name)
+        except Exception:
+            continue
+    for modname in sorted(m for m in sys.modules
+                          if isinstance(m, str) and m.startswith("agentware_lib")):
+        m = sys.modules.get(modname)
+        if m is not None and name in vars(m):
+            return vars(m)[name]
+    raise AttributeError("agentware_lib defines no %r" % name)
 
 
 def _safe_static_path(dist_root, url_path):
