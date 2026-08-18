@@ -155,8 +155,14 @@ def probe(root):
 
 # --- the verdict (PURE) -------------------------------------------------------
 
-def verdict(result, sentinel=CANARY_SENTINEL, symbol=CANARY_SYMBOL):
-    """PURE: probe result -> sorted violations. Empty means the seam is live.
+def verdict(result, sentinel=CANARY_SENTINEL, symbol=CANARY_SYMBOL,
+            expect_live_seam=True):
+    """PURE: probe result -> sorted violations. Empty means the seam is as expected.
+
+    `expect_live_seam` selects WHICH invariant is asserted: True (the migration
+    window) demands that a facade rebind reaches the dispatch; False (once the
+    probed verb is ported) demands the opposite, plus that the command still
+    answers. See `probe_verb_is_ported`.
 
     Kept free of I/O so every failure mode can be asserted on a synthetic dict
     instead of only through a multi-second real load.
@@ -177,14 +183,54 @@ def verdict(result, sentinel=CANARY_SENTINEL, symbol=CANARY_SYMBOL):
     if not before:
         out.append("CANARY: the unpatched command printed nothing -- the probe "
                    "observes no output and could not detect a change")
-    if before == after:
-        out.append("CANARY: rebinding %s did not change the dispatched output "
-                   "-- the WRITE seam is dead (namespace copy?), so every "
-                   "monkeypatching test in the suite is vacuous" % symbol)
-    elif sentinel not in (after or ""):
-        out.append("CANARY: output changed but the patched value never reached "
-                   "stdout -- %s is not the symbol the dispatch reads" % symbol)
+    if expect_live_seam:
+        if before == after:
+            out.append("CANARY: rebinding %s did not change the dispatched output "
+                       "-- the WRITE seam is dead (namespace copy?), so every "
+                       "monkeypatching test in the suite is vacuous" % symbol)
+        elif sentinel not in (after or ""):
+            out.append("CANARY: output changed but the patched value never reached "
+                       "stdout -- %s is not the symbol the dispatch reads" % symbol)
+        return sorted(out)
+    # TERMINAL: the probed verb is ported, so the facade rebind SHOULD NOT reach
+    # the dispatch. Assert that directly -- and keep asserting that the command
+    # still answers, so a dead seam is never confused with a dead command.
+    if before != after:
+        out.append("CANARY: the probed verb is PORTED, yet rebinding %s on the "
+                   "facade still changed the dispatched output -- the modular "
+                   "handler is reading through the shim" % symbol)
+    if sentinel in (after or ""):
+        out.append("CANARY: the patched facade value reached stdout from a "
+                   "PORTED verb -- the shim is still in the dispatch path")
     return sorted(out)
+
+
+def probe_verb_is_ported(root=None):
+    """True once the probed VERB dispatches to the modular core.
+
+    The probe pair is (`resolve_knowledge_dir`, `config --knowledge-dir-only`),
+    chosen because `cmd_config` lived in the legacy body and reached the symbol
+    through a plain global lookup — so a rebind on the facade could only reach
+    stdout if the executed body's globals really were the facade's module dict.
+
+    Task 54 ported `config`. Its handler now lives in the lib and calls
+    `config.resolve_knowledge_dir()` through its OWN module, so rebinding the
+    facade attribute cannot reach it — by construction, not by breakage. The
+    canary therefore flips: while the probed verb is legacy-dispatched the write
+    seam MUST be live; once it is ported the seam is correctly dead for it, and
+    what must still hold is that the dispatch keeps producing the CORRECT answer.
+    Distinguishing those two is the whole point — "dead seam" and "broken
+    dispatch" print the same nothing.
+    """
+    try:
+        here = os.path.dirname(os.path.realpath(__file__))
+        sys.path.insert(0, os.path.join(
+            root or os.path.dirname(here), "scripts"))
+        from agentware_lib.strangler import PORTED_VERBS
+    except Exception:          # pragma: no cover - pre-strangler tree
+        return False
+    return CANARY_ARGV[0] in PORTED_VERBS
+
 
 
 # --- the synthesizer (proves the canary bites) --------------------------------

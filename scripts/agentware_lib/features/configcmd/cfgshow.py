@@ -38,6 +38,7 @@ import agentware_lib.core.config as config
 import agentware_lib.core.routing as routing
 import agentware_lib.retrieval.vectorcache as _vectorcache
 from agentware_lib.core.kblayout import SENTINEL_REL
+import agentware_lib.ops.skillcluster as _skillcluster
 
 
 def _resolve_view():
@@ -53,13 +54,24 @@ def _resolve_view():
     dream = routing.resolve_dream()
     dream_schedule = routing.resolve_dream_schedule()
     dream_max_runtime = routing.resolve_dream_max_runtime()
+    # The auto skill-promotion family. Reported here for the same reason every
+    # other setting is: `config` is where an operator checks what is actually in
+    # effect, and a setting that is real, resolved on every dream cycle and
+    # ABSENT from this view is one the operator has no way to confirm.
+    skill_promote = config.resolve_skill_promote()
+    skill_promote_cap = config.resolve_skill_promote_cap()
+    skill_promote_thresholds = _skillcluster.resolve_skill_promote_thresholds()
     initialized = bool(kdir) and os.path.isfile(os.path.join(kdir, SENTINEL_REL))
     return {"kdir": kdir, "autocommit": autocommit, "kb_push": kb_push,
             "retrieval_mode": retrieval_mode, "eff_mode": eff_mode,
             "mode_fell_back": mode_fell_back, "kb_mode": kb_mode, "cli": cli,
             "user_handle": user_handle, "dream": dream,
             "dream_schedule": dream_schedule,
-            "dream_max_runtime": dream_max_runtime, "initialized": initialized}
+            "dream_max_runtime": dream_max_runtime,
+            "skill_promote": skill_promote,
+            "skill_promote_cap": skill_promote_cap,
+            "skill_promote_thresholds": skill_promote_thresholds,
+            "initialized": initialized}
 
 
 def _render_json(v):
@@ -72,6 +84,9 @@ def _render_json(v):
                "user_handle": v["user_handle"],
                "dream": v["dream"], "dream_schedule": v["dream_schedule"],
                "dream_max_runtime": v["dream_max_runtime"],
+               "skill_promote": v["skill_promote"],
+               "skill_promote_cap": v["skill_promote_cap"],
+               "skill_promote_thresholds": v["skill_promote_thresholds"],
                "embedder_backend": routing.resolve_embedder_backend(),
                "embed_model": routing.resolve_embed_model(),
                "semantic_embedder_available": _vectorcache.semantic_embedder_available(),

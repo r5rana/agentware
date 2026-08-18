@@ -8,13 +8,13 @@
  },
  "counts": {
   "legacy": 227,
-  "lib": 526,
+  "lib": 528,
   "legacy_only": 248,
-  "shared": 222,
+  "shared": 223,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 5,
+  "unresolved_max": 4,
   "undecided_max": 2
  },
  "multi_literal": {
@@ -32,7 +32,7 @@
   ],
   "_EXPORTS": [
    0,
-   187
+   188
   ]
  },
  "legacy_only": [
@@ -282,8 +282,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 35"
+   "status": "resolved",
+   "follow_up": "task 35",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/gitguards.py"
+   ]
   },
   {
    "name": "GRAPH_BLOCK_SUBTREE",

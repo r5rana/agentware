@@ -341,13 +341,21 @@ class BothArmsLiveTests(unittest.TestCase):
         reason unrelated to the invariant it names.
         """
         cli, ported = _cli(), pg.ported_verbs()
-        checked = 0
-        for verb in sorted(pg.local_verbs_of(LOCAL) - ported):
+        unported = sorted(pg.local_verbs_of(LOCAL) - ported)
+        for verb in unported:
             with self.subTest(verb=verb):
                 self.assertEqual([], pg.promotion_violations(
                     verb, cli, LOCAL["nodes"]))
-            checked += 1
-        self.assertGreater(checked, 0, "no unported verb left to measure")
+        if unported:
+            return
+        # TERMINAL STATE (task 54 complete): every local verb is ported, so the
+        # unported arm has nothing left to measure. That is the goal, not a gap —
+        # but "no verbs to check" must not be allowed to look like "checked".
+        # Assert the condition that MAKES it empty, so this still fails if the
+        # allowlist ever shrinks back below the local surface.
+        self.assertEqual(set(), pg.local_verbs_of(LOCAL) - ported,
+                         "a local verb left the allowlist — the unported arm is "
+                         "empty for the wrong reason")
 
 
 class NodePresenceTests(unittest.TestCase):
@@ -498,6 +506,15 @@ class Task56SurvivalTests(unittest.TestCase):
                          "no unported LOCAL verb, so nothing to capture")
 
     def test_the_entrypoint_parser_IS_captured_while_verbs_are_unported(self):
+        """The effective-parser capture happens IFF something is still unported.
+
+        The name says "while verbs are unported" and that window has now closed
+        (task 54 ported the last one), so the assertion is stated as the
+        biconditional it always was: capture exactly when there is an unported arm
+        to capture FOR, and not otherwise. Written this way it keeps its meaning
+        on both sides of the transition instead of pinning one side of it.
+        """
+        expect_capture = bool(pg.local_verbs_of(LOCAL) - pg.ported_verbs())
         calls = []
         original = pg.capture_effective
         pg.capture_effective = lambda: calls.append(1) or original()
@@ -505,7 +522,7 @@ class Task56SurvivalTests(unittest.TestCase):
             self.assertEqual(0, pg.check())
         finally:
             pg.capture_effective = original
-        self.assertEqual([1], calls)
+        self.assertEqual([1] if expect_capture else [], calls)
 
 
 class ReadinessTests(unittest.TestCase):

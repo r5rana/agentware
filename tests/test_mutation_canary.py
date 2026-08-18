@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _mutation_canary import (  # noqa: E402
     CANARY_SENTINEL, CANARY_SYMBOL, FACADE_EXEC_ANCHOR, FACADE_KINDS,
-    probe, synthesize_facade, verdict)
+    probe, synthesize_facade, verdict, probe_verb_is_ported)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -87,15 +87,37 @@ class LiveCanaryTest(unittest.TestCase):
     def setUpClass(cls):
         cls.result = probe(REPO)
 
+    # RESIDUAL GAP, recorded rather than papered over (task 54 -> task 56):
+    # with the probed verb ported, the LIVE arm can no longer distinguish "the
+    # write seam is dead because `config` is ported" from "the write seam is dead
+    # because someone replaced the passthrough with a namespace COPY". The
+    # MUTATION arm below still proves the detection LOGIC bites (it runs against
+    # synthetic trees with expect_live_seam=True), and the `reachable` check still
+    # catches an outright removed passthrough — but the namespace-copy mutation is
+    # no longer detectable against the real tree through this probe. No other
+    # legacy-dispatched command prints deterministically (`mcp` is a stdio
+    # server), so there is no replacement probe to move to. Task 56 deletes the
+    # shim, which retires the question entirely.
+
     def test_the_shipped_facade_passes_the_canary(self):
-        self.assertEqual(verdict(self.result), [],
-                         "the facade write seam is broken: %r" % (self.result,))
+        self.assertEqual(
+            verdict(self.result, expect_live_seam=not probe_verb_is_ported()), [],
+            "the facade write seam is not as expected: %r" % (self.result,))
 
     def test_the_probe_actually_observed_output_on_both_sides(self):
         """Non-vacuity: a canary comparing two empty strings 'passes' forever."""
         self.assertTrue(self.result["before"])
-        self.assertNotEqual(self.result["before"], self.result["after"])
-        self.assertEqual(self.result["after"], CANARY_SENTINEL)
+        if not probe_verb_is_ported():
+            self.assertNotEqual(self.result["before"], self.result["after"])
+            self.assertEqual(self.result["after"], CANARY_SENTINEL)
+            return
+        # TERMINAL (task 54): the probed verb is ported, so the rebind must NOT
+        # reach the dispatch. Non-vacuity still has to be earned — the command
+        # must have printed a real answer BOTH times, otherwise "unchanged"
+        # would be two empty strings agreeing about nothing.
+        self.assertEqual(self.result["before"], self.result["after"])
+        self.assertNotIn(CANARY_SENTINEL, self.result["after"] or "")
+        self.assertTrue(self.result["after"])
 
     def test_the_canary_probes_the_file_the_whole_suite_loads(self):
         """A canary aimed at a different entrypoint than `load_cli` uses would
@@ -129,7 +151,9 @@ class MutatedFacadeTest(unittest.TestCase):
     def test_the_unmutated_synthetic_tree_is_a_passing_control(self):
         """Without this, a mutation could 'redden' because the scratch tree is
         broken rather than because the mutation was detected."""
-        self.assertEqual(verdict(self._probe_kind("exec")), [])
+        self.assertEqual(
+            verdict(self._probe_kind("exec"),
+                    expect_live_seam=not probe_verb_is_ported()), [])
 
     def test_removing_the_passthrough_reddens_the_canary(self):
         out = verdict(self._probe_kind("absent"))

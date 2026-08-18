@@ -176,6 +176,7 @@ PORTED_VERBS = frozenset({
     "index",
     "fanout",
     "skill",
+    "config",
 })
 
 #: TOP-LEVEL options and how many VALUES each consumes, so the scan can step over an

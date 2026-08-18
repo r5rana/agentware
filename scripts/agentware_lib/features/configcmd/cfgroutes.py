@@ -59,6 +59,19 @@ from .cfgkbgit import (
     _set_autocommit,
     _set_push,
 )
+from .cfgsettings import (
+    _checkup_only,
+    _install_guards,
+    _set_checkup,
+    _set_skill_promote,
+    _set_skill_promote_cap,
+    _set_skill_promote_threshold,
+    _set_updater,
+    _skill_promote_only,
+    _skill_promote_threshold_triggered,
+    _uninstall_guards,
+    _updater_only,
+)
 from .cfgorg import _handle_org, _kb_mode_only, _org_triggered, _set_kb_mode
 from .cfgphases import _handle_phase, _phase_triggered
 from .cfgretrieval import (
@@ -117,6 +130,20 @@ CONFIG_ROUTES = (
     (_flag("retrieval_mode_only"), _retrieval_mode_only),
     (_flag("kb_autocommit_only"), _kb_autocommit_only),
     (_flag("kb_push_only"), _kb_push_only),
+    # --- task 54: the flags cfgports registered and nothing routed ------
+    # Setters first, then the readers, so `--set-x --x-only` in one call
+    # still performs the write and then reports the NEW value — the same
+    # ordering contract the rest of this table keeps.
+    (_opt("set_updater"), _set_updater),
+    (_opt("set_checkup"), _set_checkup),
+    (_opt("set_skill_promote"), _set_skill_promote),
+    (_opt("set_skill_promote_cap"), _set_skill_promote_cap),
+    (_skill_promote_threshold_triggered, _set_skill_promote_threshold),
+    (_flag("install_git_guards"), _install_guards),
+    (_flag("uninstall_git_guards"), _uninstall_guards),
+    (_flag("updater_only"), _updater_only),
+    (_flag("checkup_only"), _checkup_only),
+    (_flag("skill_promote_only"), _skill_promote_only),
 )
 
 
