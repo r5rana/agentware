@@ -86,13 +86,16 @@ class GateGreenTest(unittest.TestCase):
         self.assertEqual(fixture, committed)
 
     def test_the_ratchet_records_todays_debt_rather_than_zero(self):
-        # 248 constants are owed to the port wave. Recording the real number is
-        # what lets a LATER port shrink it; recording 0 would be a lie that
-        # reddens on the first honest run.
+        # The invariant is that the ratchet equals TODAY'S debt -- recording a
+        # number the tree does not have is a lie in either direction. It used to
+        # also assert the count was positive, which held while constants were
+        # still owed to the port wave; task 56 ported the last four, so the honest
+        # number is now 0 and demanding a positive one would force the fixture to
+        # overstate. The shrink-only direction is enforced by the ratchet itself.
         fx = cd.load_fixture()
         report = cd.check(fx, cd.legacy_tree(), cd.lib_tree())
         self.assertEqual(len(report["unresolved"]), fx["ratchet"]["unresolved_max"])
-        self.assertGreater(fx["ratchet"]["unresolved_max"], 0)
+        self.assertGreaterEqual(fx["ratchet"]["unresolved_max"], 0)
 
 
 class GeneratorRatchetTest(unittest.TestCase):
@@ -373,9 +376,25 @@ class ExhaustiveRefutationTest(unittest.TestCase):
         self.assertEqual(sorted(unpoliced), expected)
 
     def test_no_row_is_satisfied_by_an_empty_tree(self):
+        """Non-vacuity: every row must still be ACCOUNTED FOR against empty trees.
+
+        An empty legacy tree is task 56's terminal state, so the six `equivalent`
+        rows are discharged there rather than reported lost -- with no monolith
+        there is no monolith side for an equivalence to disagree with. That is a
+        deliberate narrowing, so the assertion is stated as total accounting
+        instead of "everything is lost": no row may simply fall out of the report,
+        which is what this test exists to prevent.
+        """
         report = cd.check(self.fx, {}, {})
-        self.assertEqual(len(_named(report, "lost")),
-                         len(self.fx["legacy_only"]) + len(self.fx["divergent"]))
+        total = len(self.fx["legacy_only"]) + len(self.fx["divergent"])
+        equivalent = [r for r in self.fx["divergent"]
+                      if r.get("decision") == "equivalent"]
+        self.assertEqual(len(_named(report, "lost")), total - len(equivalent))
+        self.assertEqual(len(report["equivalent"]), len(equivalent))
+        # And the discharge is TERMINAL-ONLY: with a live monolith the same rows
+        # are still policed, so the guard cannot be used to silence a real loss.
+        live = cd.check(self.fx, cd.legacy_tree(), cd.lib_tree())
+        self.assertEqual(set(), _named(live, "lost"))
 
 
 class RuntimeProbeTest(unittest.TestCase):

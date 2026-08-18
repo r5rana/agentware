@@ -244,7 +244,70 @@ def _review_normalize_fix(raw, index=None):
     return fix
 
 
+# --- ported at task 56 -------------------------------------------------------
+# These three existed ONLY in the preserved monolith. Nothing in the lib read
+# them, which is exactly why they survived every earlier port unnoticed — an
+# unread constant produces no failure when it goes missing. They are the
+# review contract's PUBLIC shape (the full field tuple, its JSON-Schema form,
+# and the gate step names), so losing them with the shim would have silently
+# narrowed a documented schema to whatever its consumers happened to use.
+# --- Adversarial-review gate: dimension registry + findings schema -----------
+# Feature 260713-adversarial-review-gate. This block is the SINGLE SOURCE OF
+# TRUTH for the self-healing adversarial-review gate that fires at the END of a
+# self-extension run: `scripts/agentware review` (audit fan-out) and
+# `scripts/agentware remediate` (auto-fix + re-audit) both consume it. Pure data
+# — no index write path, no I/O — so it is safe to import anywhere.
+#
+# The gate spawns ONE reviewer subprocess per dimension (Q7 "nothing-skipped":
+# a FIXED comprehensive set, never a model-chosen subset), each on Claude Opus
+# at max effort. A reviewer is READ-ONLY: it reads the shipped diff against the
+# plan's acceptance criteria, CONSTRUCTS hostile/novel inputs, tries to REFUTE
+# each claim, and returns STRUCTURED findings (never edits code). The `focus`
+# text is injected verbatim into that dimension's reviewer prompt.
+REVIEW_FINDING_FIELDS = REVIEW_FINDING_REQUIRED_FIELDS + REVIEW_FINDING_OPTIONAL_FIELDS
+
+
+# JSON-Schema (draft-07 subset) form of a single finding — emitted to the report
+# and usable by a schema validator. Kept in lockstep with the tuples above.
+REVIEW_FINDING_SCHEMA = {
+    "type": "object",
+    "required": list(REVIEW_FINDING_REQUIRED_FIELDS),
+    "additionalProperties": False,
+    "properties": {
+        "dimension": {"type": "string", "enum": list(REVIEW_DIMENSION_KEYS)},
+        "severity": {"type": "string", "enum": list(REVIEW_SEVERITIES)},
+        "file": {"type": "string"},
+        "line": {"type": ["integer", "null"]},
+        "summary": {"type": "string"},
+        "failure_scenario": {"type": "string"},
+        "verdict": {"type": "string", "enum": list(REVIEW_VERDICTS)},
+        "verdict_rationale": {"type": "string"},
+        "suggested_fix": {"type": "string"},
+    },
+}
+
+
+# --- Task 4: remediation (auto-fix + gate re-run) — the self-healing core ----
+# Given the CONFIRMED-blocking findings from an audit round, spawn ONE fixer over
+# the SAME subprocess seam as the audit (persona agentware-execution, Opus/max —
+# Q2/Q3) and require, per finding, a FIX that carries a regression test which
+# FAILS-before / PASSES-after (the human-fix-pass discipline). An unverified fix
+# (claims fixed but names no regression test) is REFUSED — marked unfixable, never
+# auto-applied — so the loop can only PROCEED on a fix it can re-run. After the
+# fixes land, re-run the gate chain (regression/affected tests + `steering lint` +
+# `gate release`) through a single monkeypatchable seam. The fixer edits package
+# code (already this run's self-extension context) but is RE-AUDITED by a FRESH
+# fan-out in task 5, so a fix that introduces a new defect is caught before the
+# done-stamp. R-SEC-02: finding text is only ever FENCED as analyzed data in the
+# fixer prompt or written to a JSON/worklog report — never argv of a shell/eval,
+# a --target, or a Verify line. No test spawns a real Opus or a real gate: both
+# `_review_invoke_agent` and `_review_run_gate_chain` are monkeypatched.
+REVIEW_GATE_STEP_NAMES = ("tests", "steering-lint", "gate-release")
+
+
 _EXPORTS = [
+    "REVIEW_FINDING_FIELDS", "REVIEW_FINDING_SCHEMA",
+    "REVIEW_GATE_STEP_NAMES",
     "REVIEW_SEVERITIES",
     "REVIEW_BLOCKING_SEVERITIES",
     "REVIEW_VERDICTS",

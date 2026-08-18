@@ -8,13 +8,13 @@
  },
  "counts": {
   "legacy": 227,
-  "lib": 528,
+  "lib": 532,
   "legacy_only": 248,
-  "shared": 223,
+  "shared": 227,
   "divergent": 17
  },
  "ratchet": {
-  "unresolved_max": 4,
+  "unresolved_max": 0,
   "undecided_max": 2
  },
  "multi_literal": {
@@ -1194,8 +1194,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_FINDING_OPTIONAL_FIELDS",
@@ -1227,8 +1230,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_FIXER_PERSONA",
@@ -1260,8 +1266,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 47"
+   "status": "resolved",
+   "follow_up": "task 47",
+   "lib_sites": [
+    "scripts/agentware_lib/ops/reviewschema.py"
+   ]
   },
   {
    "name": "REVIEW_MODEL_RANK",
@@ -2913,8 +2922,11 @@
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
-   "status": "pending",
-   "follow_up": "task 54"
+   "status": "resolved",
+   "follow_up": "task 54",
+   "lib_sites": [
+    "scripts/agentware_lib/retrieval/bench/benchswe.py"
+   ]
   },
   {
    "name": "_TICK_JOB_REGISTRY",

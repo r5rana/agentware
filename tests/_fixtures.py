@@ -168,8 +168,17 @@ def _same_symbol_two_copies(name, cur, previous):
         return False
 
 
+_LIB_WALKED = [False]
+
+
 def _import_all_lib_modules():
     """Import every `agentware_lib` submodule once, so name resolution is TOTAL.
+
+    LAZY and memoized: called only when a name cannot be found among the modules
+    already imported. Doing it eagerly at `load_cli()` changed the import state of
+    every test in the suite -- ~217 extra modules imported before anything ran --
+    and produced 13 order-dependent failures that all passed in isolation. While
+    the monolith exists this never runs at all, because `__getattr__` never fires.
 
     `_lib_owner_of` searches `sys.modules`, which holds only what something
     happened to import. Without this walk the answer to "which module owns this
@@ -206,6 +215,16 @@ def _lib_owner_of(name):
     Deterministic: candidates are considered in sorted module order, so two
     modules re-exporting the same name always resolve the same way.
     """
+    hit = _scan_imported_for(name)
+    if hit[0] is not None:
+        return hit
+    # Not among the modules imported so far -- walk the package once, then retry.
+    _import_all_lib_modules()
+    return _scan_imported_for(name)
+
+
+def _scan_imported_for(name):
+    """`_lib_owner_of` over the ALREADY-imported lib modules only."""
     fallback = None
     for modname in sorted(m for m in sys.modules
                           if isinstance(m, str) and m.startswith("agentware_lib")):
@@ -341,7 +360,6 @@ def load_cli():
     """Import scripts/agentware as a module (cached). Stdlib importlib only."""
     global _CLI_MODULE
     if _CLI_MODULE is None:
-        _import_all_lib_modules()
         loader = SourceFileLoader("agentware_cli", CLI_PATH)
         spec = importlib.util.spec_from_loader("agentware_cli", loader)
         mod = importlib.util.module_from_spec(spec)
@@ -368,7 +386,6 @@ def attach_lib_resolver(mod):
 
     Returns `mod` so it can wrap a loader call directly.
     """
-    _import_all_lib_modules()
     mod.__class__ = _ConfigMirrorModule
     return mod
 

@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "fad2728c089f"
+      "git_head": "6a0cf4da8153"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -1828,7 +1828,7 @@
           },
           {
             "file": "scripts/agentware_lib/retrieval/bench/benchswe.py",
-            "line": 351,
+            "line": 414,
             "lang": "python",
             "form": "pop()",
             "default": null,

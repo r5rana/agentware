@@ -77,6 +77,55 @@ def swe_load_task_meta(suite_dir, task_id):
         return json.load(f)
 
 
+_SWE_HIDDEN_TEST_RUNNER = '''\
+import importlib.util, sys, types, traceback
+
+# Minimal, dependency-free stand-in for the tiny slice of pytest the hidden
+# graders use (only pytest.raises). Installed before the test module executes so
+# an in-test `import pytest` resolves to this shim rather than failing.
+class _Raises:
+    def __init__(self, exc):
+        self.exc = exc
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            raise AssertionError("DID NOT RAISE %r" % (self.exc,))
+        return isinstance(exc, self.exc)
+
+_pytest = types.ModuleType("pytest")
+_pytest.raises = lambda exc, *a, **k: _Raises(exc)
+sys.modules["pytest"] = _pytest
+
+_test_path = sys.argv[1]
+_spec = importlib.util.spec_from_file_location("hidden_test", _test_path)
+_module = importlib.util.module_from_spec(_spec)
+sys.modules["hidden_test"] = _module
+try:
+    _spec.loader.exec_module(_module)
+except Exception:
+    traceback.print_exc()
+    sys.exit(1)
+
+_tests = [getattr(_module, _n) for _n in dir(_module)
+          if _n.startswith("test") and callable(getattr(_module, _n))]
+if not _tests:
+    print("no tests collected")
+    sys.exit(1)
+
+_failures = 0
+for _fn in _tests:
+    try:
+        _fn()
+        print("PASS " + _fn.__name__)
+    except Exception:
+        _failures += 1
+        print("FAIL " + _fn.__name__)
+        traceback.print_exc()
+sys.exit(1 if _failures else 0)
+'''
+
+
 def swe_score_task(task_dir, post_edit_repo_path):
     """Run test_hidden.py against a post-edit repo copy. Pure scorer.
 
@@ -98,9 +147,23 @@ def swe_score_task(task_dir, post_edit_repo_path):
         test_src = os.path.join(task_dir, "test_hidden.py")
         test_dst = os.path.join(scratch, "test_hidden.py")
         shutil.copy2(test_src, test_dst)
+        # Prefer pytest when it is importable; otherwise run the hidden tests with
+        # a dependency-free fallback runner. Both execute in an isolated subprocess
+        # (cwd=scratch) under a 120s timeout and exit non-zero on any failure.
+        #
+        # The fallback is the point: a grader environment is not guaranteed to have
+        # pytest, and this tree's copy ran `python -m pytest` unconditionally — so a
+        # missing pytest scored every hidden test as FAILED rather than reporting
+        # that it could not run them, which reads as a broken solution instead of a
+        # broken harness.
+        import importlib.util as _ilu
+        if _ilu.find_spec("pytest") is not None:
+            _cmd = [sys.executable, "-m", "pytest", test_dst, "-q", "--tb=short"]
+        else:
+            _cmd = [sys.executable, "-c", _SWE_HIDDEN_TEST_RUNNER, test_dst]
         try:
             proc = subprocess.run(
-                [sys.executable, "-m", "pytest", test_dst, "-q", "--tb=short"],
+                _cmd,
                 cwd=scratch,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 universal_newlines=True, timeout=120)
@@ -111,7 +174,7 @@ def swe_score_task(task_dir, post_edit_repo_path):
             output = "TIMEOUT: test execution exceeded 120s"
         except OSError as e:
             passed = False
-            output = "OSError running pytest: %s" % e
+            output = "OSError running hidden tests: %s" % e
         original_repo = os.path.join(task_dir, "repo")
         mutated = not _dirs_identical(original_repo, post_edit_repo_path)
         return {"passed": passed, "test_output": output, "mutated": mutated}

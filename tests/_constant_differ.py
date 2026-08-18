@@ -422,16 +422,33 @@ REPORT_KINDS = ("lost", "literal_mismatch", "legacy_drift", "decision_mismatch",
 
 
 def check(fixture, legacy, lib):
-    """Compare the live trees against the baseline. Pure; no I/O."""
+    """Compare the live trees against the baseline. Pure; no I/O.
+
+    An EMPTY legacy tree is task 56's terminal state, not a finding. Once the
+    monolith is deleted there is no monolith side for an `equivalent` row to be
+    compared against and no second literal for a `multi_literal` row to disagree
+    with, so those two checks are discharged rather than reported — the same
+    shape as the legacy ratchet, which scores an absent monolith as zero rather
+    than special-casing its own retirement.
+
+    Keyed on the WHOLE tree being empty, deliberately, and never on an individual
+    name going missing: one constant vanishing while the monolith still stands is
+    exactly the silent loss this differ exists to catch, and it stays a failure.
+    """
     report = {k: [] for k in REPORT_KINDS}
     report.update({"checked": len(fixture["legacy_only"]) + len(fixture["divergent"]),
                    "unresolved": [], "landed": [], "undecided": [],
                    "equivalent": []})
     for row in fixture["legacy_only"]:
         check_legacy_only(row, legacy, lib, report)
+    terminal = not legacy
     for row in fixture["divergent"]:
+        if terminal and row.get("decision") == "equivalent":
+            report["equivalent"].append(row["name"])
+            continue
         check_divergent(row, legacy, lib, report)
-    check_multi(fixture, legacy, lib, report)
+    if not terminal:
+        check_multi(fixture, legacy, lib, report)
     check_ratchet(fixture, report)
     return report
 
