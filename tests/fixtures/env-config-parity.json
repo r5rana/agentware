@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "bb921eff0d1e"
+      "git_head": "fad2728c089f"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -2617,7 +2617,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/tickcmd.py",
-            "line": 208,
+            "line": 210,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2625,7 +2625,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/tickcmd.py",
-            "line": 247,
+            "line": 249,
             "lang": "python",
             "form": "get()",
             "default": null,

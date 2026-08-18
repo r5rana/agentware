@@ -30,7 +30,7 @@ import agentware_lib.retrieval.ledger as _ledger
 from agentware_lib.retrieval.acrgate import ACR_GATE_ALPHA, ACR_GATE_MARGIN
 from agentware_lib.retrieval.ledger import HISTORY_REL
 
-from .dreamcapture import _dream_capture
+from .dreamcapture import _dream_change_gate_skip, _dream_capture
 from .stepbenchredact import _dream_step_bench_redact
 
 
@@ -42,6 +42,12 @@ def _dream_step_eval_record(kdir, dry_run):
                 "would": "eval --strategy bm25 --record, then bench redact"}
     if not os.path.isfile(gold):
         return {"status": "skipped", "reason": "no gold set"}
+    # Change-gate (Task 8): SKIP the ~76s eval-record on a CLEAN unchanged tree;
+    # a DIRTY tree or any doubt RUNS (fail-open). Same fp as step c (both AFTER
+    # step a) so they agree with the metric-recorded value.
+    gate = _dream_change_gate_skip(kdir)
+    if gate:
+        return {"status": "skipped", "reason": gate}
     ledger = os.path.join(kdir, HISTORY_REL)
     before = len(_ledger._read_ledger(ledger)) if os.path.isfile(ledger) else 0
     ns = argparse.Namespace(

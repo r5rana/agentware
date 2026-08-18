@@ -51,7 +51,64 @@ def _dream_file_fp(path):
         return None
 
 
+# --- Task 8: the CHANGE GATE (affordability guard #2, the ~98% cost) -------
+# Ported at task 56. Neither function existed in the modular core, so the two
+# steps it guards -- the ~150s audit and the ~76s eval-record -- ran on EVERY
+# cycle regardless of whether anything had changed, and `_dream_emit_metric`
+# never stamped the fingerprint the gate compares against, so the gate could
+# not have engaged even if it had been called. ~226s per cycle, every cycle.
+def _dream_change_fp(kdir):
+    """The committed-state change fingerprint = '<pkg HEAD sha>:<sha256(index.json)>'.
+    Uses the index CONTENT hash (via _dream_file_fp), NOT mtime — step a rebuilds
+    the index every cycle so mtime always moves, but the deterministic rebuild
+    leaves CONTENT byte-stable when the KB is unchanged (F2). Returns None when
+    either component cannot be computed, so the caller FAILS-OPEN (runs)."""
+    from agentware_lib.core.gitio import _git_head
+    from agentware_lib.core.paths import REPO_ROOT
+    head = _git_head(REPO_ROOT)
+    if not head:
+        return None
+    idxfp = _dream_file_fp(os.path.join(kdir, "index.json"))
+    if not idxfp:
+        return None
+    return "%s:%s" % (head, idxfp)
+
+
+def _dream_change_gate_skip(kdir):
+    """Task 8 (affordability guard #2 — the ~98% cost). Shared decision for the
+    audit (step c) + eval-record (step d) change-gate: return a SKIP reason when a
+    CLEAN tree has NOT changed since the last cycle, else None (RUN).
+
+    A DIRTY working tree ALWAYS runs (checked FIRST, before any fp compare): a 0/1
+    dirty bit folded into the fp would collapse two DISTINCT dirty states and skip
+    the second, masking a mid-development regression (F2) — so dirtiness gates the
+    DECISION, never the fp VALUE. FAIL-OPEN: a dirty tree, no prior cycle, a prior
+    cycle with no stored fp, or any error computing the fp all RUN."""
+    try:
+        # Function-local: `features.dream` and `features.pkgapply` both import
+        # this package, so a module-scope edge back to either would close a cycle.
+        from agentware_lib.features.dream import _dream_last_cycle
+        from agentware_lib.features.pkgapply import _pkg_working_tree_dirty
+        if _pkg_working_tree_dirty():
+            return None                       # dirty -> always run
+        last = _dream_last_cycle(kdir)
+        if not last:
+            return None                       # no prior cycle -> run
+        prev = last.get("change_fp")
+        if not prev:
+            return None                       # prior cycle predates the fp -> run
+        cur = _dream_change_fp(kdir)
+        if cur is None:
+            return None                       # cannot compute -> run (fail-open)
+        if cur == prev:
+            return "clean tree, no pkg/kb change since last cycle"
+        return None
+    except Exception:
+        return None                           # any error -> run (fail-open)
+
+
 _EXPORTS = [
+    "_dream_change_fp", "_dream_change_gate_skip",
     "DREAM_REPORT_REL",
     "_dream_perf",
     "_dream_file_fp",

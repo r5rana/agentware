@@ -133,6 +133,15 @@ def _dream_emit_metric(kdir, cycle):
         if cycle.get("timed_out"):
             rec["timed_out"] = True
             rec["timeout_reason"] = cycle["timeout_reason"]
+        # Stamp the committed-state change fingerprint (Task 8) so the NEXT
+        # cycle's change-gate (steps c/d) can compare. Stamped EVEN on a dirty
+        # run (records the committed fp). Best-effort: only when computable.
+        # Without this the gate has nothing to compare against and can never
+        # engage, so the two expensive steps it guards run on every cycle.
+        from .dreamsteps.dreamcapture import _dream_change_fp
+        fp = _dream_change_fp(kdir)
+        if fp:
+            rec["change_fp"] = fp
         logs = os.path.join(kdir, "logs")
         os.makedirs(logs, exist_ok=True)
         with open(os.path.join(logs, "metrics.jsonl"), "a",

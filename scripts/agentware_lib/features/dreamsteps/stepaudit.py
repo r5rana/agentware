@@ -26,7 +26,7 @@ import os
 
 import agentware_lib.ops.audit as _audit
 
-from .dreamcapture import _dream_capture
+from .dreamcapture import _dream_change_gate_skip, _dream_capture
 
 
 def _dream_audit_unittest_counts(payload):
@@ -75,6 +75,12 @@ def _dream_step_audit(kdir, dry_run):
     if dry_run:
         return {"status": "planned",
                 "would": "audit%s" % (" --with-tests" if with_tests else "")}
+    # Change-gate (Task 8): SKIP the ~150s audit on a CLEAN tree unchanged since
+    # the last cycle; a DIRTY tree or any doubt RUNS (fail-open). Computed AFTER
+    # step a so its fp agrees with the metric-recorded value.
+    gate = _dream_change_gate_skip(kdir)
+    if gate:
+        return {"status": "skipped", "reason": gate}
     ns = argparse.Namespace(format="json", with_tests=with_tests, stale=False,
                             max_age_days=120)
     rc, out = _dream_capture(_audit.cmd_audit, ns)
