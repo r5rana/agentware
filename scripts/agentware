@@ -1,55 +1,34 @@
 #!/usr/bin/env python3
 """agentware — deterministic CLI toolkit for an agentware workspace.
 
-THIN ENTRYPOINT (strangler facade, feature 260813-modular-core-adoption task 25).
+THIN ENTRYPOINT (feature 260813-modular-core-adoption, task 96).
 
-The domain code is being migrated out of the 34,792-line monolith into the
-``agentware_lib`` package (``scripts/agentware_lib/``, module router in
-``catalog/modules.json`` and ``scripts/agentware_lib/README.md``). The migration
-is a STRANGLER FIG with a LEGACY DEFAULT: the modular core lands ALONGSIDE the
-monolith and takes over one verb at a time, only after that verb's surface is
-proven a superset of the union fixture. Until a verb is promoted it is served by
-the untouched monolith, so behaviour is byte-identical to ``aw-pre-merge``.
+The domain code lives in the ``agentware_lib`` package
+(``scripts/agentware_lib/``, module router in ``catalog/modules.json`` and
+``scripts/agentware_lib/README.md``). The strangler-fig migration that produced
+it is FINISHED: every verb is served by the lib, the preserved monolith is
+deleted, and there is no LEGACY arm left to fall back to.
 
-This file is therefore only three things:
+This file is therefore only two things:
 
   * the ``scripts/`` sys.path bootstrap, so ``import agentware_lib...`` resolves
-    under direct exec, under the ``tests/_fixtures.load_cli`` SourceFileLoader
-    and under the dashboard sidecar;
+    in ALL load modes — direct exec, the ``tests/_fixtures.load_cli``
+    SourceFileLoader, and the dashboard sidecar;
 
-  * the LEGACY PASSTHROUGH — the preserved monolith (``agentware_legacy.py``,
-    byte-identical to ``aw-pre-merge:scripts/agentware``) is executed INTO THIS
-    MODULE'S NAMESPACE. That is deliberate and is not the same as importing it:
-    every legacy function's ``__globals__`` becomes THIS module dict, so
-    ``load_cli()`` reaches every symbol as ``CLI.<name>`` and, critically,
-    monkeypatching ``CLI.<name>`` still rebinds the name the legacy callers
-    actually resolve. An ``import`` would give a namespace COPY, and patching a
-    copy is a silent no-op — the exact "green means nothing" seam task 28 gates
-    with its mutation canary.
+  * the DISPATCH TAIL, which hands argv to ``agentware_lib.cli.main``. The
+    ``__main__`` guard is NON-NEGOTIABLE: ``load_cli()`` exec_module()s this
+    file, so an unguarded ``sys.exit(...)`` would run ``main()`` at import time
+    and raise SystemExit inside every test.
 
-  * the POST-EXEC WIRING — the one place a lib repair can reach the still-legacy
-    implementation of a verb that is not yet ported (task 26's layout-aware A/B
-    HEAD extraction);
+``agentware_lib.strangler`` is still imported here BY NAME. It is no longer a
+router with two arms to choose between — every verb is ported, so its allowlist
+is a completeness statement rather than a branch — but the routing tests reach
+``CLI._strangler`` to assert exactly that, and a name they can no longer resolve
+would turn a behavioural check into an import error.
 
-  * the DISPATCH TAIL, which hands argv to ``agentware_lib.strangler.dispatch``:
-    a verb in the (currently EMPTY) ported allowlist goes to the lib, everything
-    else to the legacy ``main`` exec'd above — LEGACY-DEFAULT, so an
-    unported verb can never be served by a thinner modular implementation. The
-    guard is NON-NEGOTIABLE: ``load_cli()`` exec_module()s this file, so an
-    unguarded ``sys.exit(...)`` would run ``main()`` at import time and raise
-    SystemExit inside every test. It is
-    carried HERE rather than left at the end of the exec'd legacy body because
-    the exec runs to completion before anything after it: leaving the guard
-    inside would dispatch and ``sys.exit`` before the wiring above ever ran —
-    and would do so ONLY under the real CLI, never under ``load_cli()``'s
-    non-``__main__`` load. Tests would be green on wiring production never had.
-
-Nothing of substance is defined here, and nothing here may grow: the ported
-surface belongs in ``agentware_lib``, never in this file — including the task-29
-routing ALLOWLIST and the argv scan that finds the verb past a global ``--format``,
-which live in ``agentware_lib.strangler`` so both are testable in-process rather
-than only through a subprocess. The legacy module, that allowlist and this
-passthrough are deleted together in task 56, leaving the pure lib facade.
+Nothing of substance is defined here, and nothing here may grow: the whole
+surface belongs in ``agentware_lib``, never in this file. That is now enforced
+for the WHOLE tree rather than exempting a monolith.
 
 EXECUTABLE BIT: this file MUST stay mode 0755. ``agentware.sh`` guards eleven
 call sites on ``[[ -x scripts/agentware ]]`` and every one of them FAILS OPEN —
@@ -62,57 +41,24 @@ import os
 import sys
 
 # --- agentware_lib package bootstrap -----------------------------------------
-# Put scripts/ (the dir holding THIS file) on sys.path so `agentware_lib` and
-# `agentware_legacy` resolve in ALL load modes. Idempotent; inserted at
-# sys.path[0] only when absent.
+# Put scripts/ (the dir holding THIS file) on sys.path so `agentware_lib`
+# resolves in ALL load modes. Idempotent; inserted at sys.path[0] only when
+# absent.
 _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-# --- legacy passthrough -------------------------------------------------------
-# Read + compile + exec, NOT import: see the module docstring. The compile
-# filename is the legacy path, so tracebacks and inspect.getsource() point at the
-# real source line. `__file__` is left as THIS file's, which is what the legacy
-# body's REPO_ROOT derivation expects (same directory, same parent).
-_LEGACY_PATH = os.path.join(_SCRIPTS_DIR, "agentware_legacy.py")
-if not os.path.isfile(_LEGACY_PATH):  # pragma: no cover - install integrity
-    sys.stderr.write("agentware: missing legacy module %s\n" % _LEGACY_PATH)
-    raise SystemExit(2)
+# --- the modular entrypoint ---------------------------------------------------
+# Task 96: the legacy passthrough is GONE. There is no body to exec, no
+# post-exec rebinding (task 26's A/B repair now lives on the LIVE path in
+# `agentware_lib.retrieval.regressiongate.abgate`, where the `eval` verb
+# actually reaches it), and no LEGACY arm to fall back to.
+import agentware_lib.cli as _cli  # noqa: E402
+# Kept BY NAME: the routing tests reach `CLI._strangler` to assert which tree
+# owns a verb, and with every verb ported the router is what is left to assert.
+from agentware_lib import strangler as _strangler  # noqa: E402,F401
 
-with open(_LEGACY_PATH, encoding="utf-8") as _legacy_fh:
-    _LEGACY_SOURCE = _legacy_fh.read()
-
-# Split legacy's own dispatch tail off the body so the post-exec wiring below is
-# reachable under the real CLI (see the docstring). The split is by EXACT text
-# and fails loud: a legacy tail that ever changes shape must stop the CLI, not
-# silently skip the wiring. Line numbers in the body are untouched, so
-# tracebacks and inspect.getsource() still point at the real legacy source line.
-_LEGACY_TAIL = '\nif __name__ == "__main__":\n    sys.exit(main())\n'
-_LEGACY_BODY, _FOUND, _AFTER = _LEGACY_SOURCE.rpartition(_LEGACY_TAIL)
-if not _FOUND or _AFTER.strip():
-    sys.stderr.write("agentware: legacy dispatch tail not found in %s\n"
-                     % _LEGACY_PATH)
-    raise SystemExit(2)
-
-# Everything below this line is defined by the exec: the whole legacy namespace.
-exec(compile(_LEGACY_BODY, _LEGACY_PATH, "exec"), globals())
-
-# --- post-exec wiring ---------------------------------------------------------
-# Layout-aware clean-HEAD A/B extraction (task 26). The legacy `eval --ab` arm
-# extracts a single flat `HEAD:scripts/agentware` blob and runs it — which under
-# THIS layout is the facade above, with no agentware_lib and no agentware_legacy
-# behind it. The arm cannot start, scores nothing, and reports
-# `available: False, passed: True`: the R-PKG-05 gate passing without comparing
-# anything. The lib owns the repair; this rebinds the A/B family in the namespace
-# the legacy body was exec'd into. Retired with the passthrough at task 56.
-from agentware_lib.retrieval import regressiongate as _regressiongate  # noqa: E402
-
-_regressiongate.install_ab_extraction(globals())
-
-# --- dispatch tail (legacy's own guard, carried here verbatim) ----------------
-# LEGACY-DEFAULT routing (task 29): the router owns the allowlist and the scan
-# past global flags; `main` here is the legacy one the exec above defined.
-from agentware_lib import strangler as _strangler  # noqa: E402
+main = _cli.main
 
 if __name__ == "__main__":
-    sys.exit(_strangler.dispatch(sys.argv[1:], main))
+    sys.exit(main(sys.argv[1:]))
