@@ -15,7 +15,7 @@
  },
  "ratchet": {
   "unresolved_max": 0,
-  "undecided_max": 2
+  "undecided_max": 1
  },
  "multi_literal": {
   "DREAM_STEP_FUNCS": [
@@ -3237,7 +3237,7 @@
   {
    "name": "_DREAM_METRIC_STEP_FIELDS",
    "legacy_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran', 'proposed', 'deferred', 'blocked', 'reason', 'extended', 'clean')",
-   "lib_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran')",
+   "lib_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran', 'proposed', 'deferred', 'blocked', 'reason', 'extended', 'clean')",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
@@ -3248,8 +3248,7 @@
    "rationale": "the metric fields the four dropped steps report (proposed, deferred, blocked, reason, extended, clean). Restoring the steps without these leaves them running and unmeasured, which is the same silence one level down.",
    "decision": "legacy",
    "decided_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran', 'proposed', 'deferred', 'blocked', 'reason', 'extended', 'clean')",
-   "landed": false,
-   "pending_literal": "('failed_checks', 'failed_tests', 'tests_failed', 'tests_ran')"
+   "landed": true
   },
   {
    "name": "_TERMINAL_OUTCOMES",
