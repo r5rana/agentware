@@ -17,6 +17,7 @@ redact`) — added in the PII task block lower down.
 Stdlib `unittest` only. Never touches the real KB.
 """
 
+import ast
 import copy
 import json
 import os
@@ -435,9 +436,50 @@ class ABInstallSeamTest(unittest.TestCase):
         of the exec'd legacy body would `sys.exit(main())` before any post-exec
         statement ran — while `load_cli()`'s non-`__main__` load would run them
         all. Green tests, unwired production.
+
+        TERMINAL STATE (task 96). This whole hazard is a property of EXEC: it
+        exists only because the facade runs a legacy body in its own globals and
+        then wires over it. With the passthrough gone there is no exec, no
+        post-exec statement to be skipped, and no legacy tail to split off — so
+        the ordering has nothing to order. Assert the ABSENCE rather than
+        deleting the coverage: no exec seam, no installer call, no legacy file.
+        The A/B family still resolving to the lib is `test_facade_ab_family_is_
+        the_lib_one`, and the behaviour the installer used to add now lives in
+        `run_ab_gate` itself (`ABAssemblerParityTest` below).
         """
         with open(CLI_PATH, encoding="utf-8") as f:
             facade = f.read()
+        if not os.path.isfile(LEGACY_PATH):
+            # Assert over the AST, not the source text. The facade's prose and
+            # its sys.path comment still narrate the passthrough it used to
+            # carry, and rewriting that narration is task 96's job — a gate that
+            # reddens on a comment is a gate that gets edited to shut it up.
+            # What must be terminal is the BEHAVIOUR: no exec seam, no installer
+            # call, no code path naming the deleted module.
+            tree = ast.parse(facade)
+            names, strings, calls = set(), [], set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name):
+                    names.add(node.id)
+                elif isinstance(node, ast.Attribute):
+                    names.add(node.attr)
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    strings.append(node.value)
+                elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    calls.add(node.func.id)
+                elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                    names.update(a.name for a in node.names)
+                    names.add(getattr(node, "module", None) or "")
+            self.assertNotIn("exec", calls, "the facade still exec's a body")
+            self.assertNotIn("compile", calls)
+            self.assertNotIn("install_ab_extraction", names)
+            self.assertFalse([n for n in names if "agentware_legacy" in n],
+                             "the facade still binds the deleted monolith")
+            # The docstring is strings[0]; every OTHER literal is live code.
+            self.assertFalse(
+                [s for s in strings[1:] if "agentware_legacy" in s],
+                "the facade still names the deleted monolith in code")
+            return
         install_at = facade.index("install_ab_extraction(globals())")
         guard_at = facade.rindex('if __name__ == "__main__":')
         self.assertLess(install_at, guard_at)
@@ -446,6 +488,87 @@ class ABInstallSeamTest(unittest.TestCase):
         # The facade must still be splitting off a tail that actually exists.
         self.assertIn('\nif __name__ == "__main__":\n    sys.exit(main())\n',
                       legacy)
+
+
+class ABAssemblerParityTest(unittest.TestCase):
+    """The task-26 repair must live on the LIVE path, not only the facade's.
+
+    `retrieval.evalcmd` reaches `run_ab_gate` by attribute on the module — no
+    namespace, no installer. For two commits that call site resolved to an
+    assembler that did NOT catch `HeadExtractionError`, because the repair had
+    been written into `_run_ab_gate_ns` alone; `eval --ab` therefore raised out
+    of `cmd_eval` instead of returning the RED verdict, and `_print_ab`'s
+    broken-arm branch was unreachable from production. The A/B tests could not
+    see it — they read `CLI.run_ab_gate`, which the facade's post-exec install
+    had rebound to the namespace copy.
+
+    So these address `AB.run_ab_gate` — the OWNING module's own function, the
+    one `evalcmd` calls — and are independent of whether the monolith exists.
+    """
+
+    def _result(self):
+        return {"metrics": {"recall_at_k": 0.8}, "strategy": "bm25",
+                "top_k": 5, "as_of": "2026-06-26"}
+
+    def _with_extract(self, fn):
+        real = AB._extract_head_cli
+        AB._extract_head_cli = fn
+        self.addCleanup(setattr, AB, "_extract_head_cli", real)
+
+    def test_live_path_reddens_on_an_incomplete_extraction(self):
+        def _boom():
+            raise AB.HeadExtractionError(["scripts/agentware_lib/cli.py"])
+
+        self._with_extract(_boom)
+        result = self._result()
+        ab = AB.run_ab_gate(_ABArgs(), "/tmp/kdir", result, "/tmp/gold.json")
+        self.assertFalse(ab["passed"], ab)
+        self.assertFalse(ab["available"], ab)
+        self.assertIn("scripts/agentware_lib/cli.py", ab["error"])
+        self.assertEqual(ab["missing"], ["scripts/agentware_lib/cli.py"])
+        self.assertIs(result["ab"], ab)
+        # A BROKEN arm must move the exit code; an ABSENT one must not.
+        self.assertEqual(CLI._gate_exit(None, ab), 1)
+
+    def test_live_path_still_PASSES_on_an_absent_arm(self):
+        """The discriminator: unavailable-because-absent stays green."""
+        self._with_extract(lambda: (None, None))
+        ab = AB.run_ab_gate(_ABArgs(), "/tmp/kdir", self._result(),
+                            "/tmp/gold.json")
+        self.assertFalse(ab["available"], ab)
+        self.assertTrue(ab["passed"], ab)
+        self.assertNotIn("missing", ab)
+        self.assertEqual(CLI._gate_exit(None, ab), 0)
+
+    def test_both_assemblers_agree_verdict_for_verdict(self):
+        """One body, reached two ways — so they cannot drift apart again.
+
+        Runs the SAME three states through the bare-name path and the
+        namespace-resolved one and requires byte-equal verdicts. This is the
+        test that could not fail while there were two bodies: the facade copy
+        was the only one the suite ever called.
+        """
+        states = {
+            "broken": lambda: (_ for _ in ()).throw(
+                AB.HeadExtractionError(["scripts/agentware_lib/cli.py"])),
+            "absent": lambda: (None, None),
+            "scored": lambda: ("/nonexistent/head.py", "deadbee"),
+        }
+        for label, extract in states.items():
+            with self.subTest(state=label):
+                ns = {"_extract_head_cli": extract,
+                      "_ab_head_recall": lambda *a, **k: 0.8,
+                      "_ab_verdict": AB._ab_verdict,
+                      "_today": lambda: "2026-06-26"}
+                self._with_extract(extract)
+                real_recall = AB._ab_head_recall
+                AB._ab_head_recall = lambda *a, **k: 0.8
+                self.addCleanup(setattr, AB, "_ab_head_recall", real_recall)
+                bare = AB.run_ab_gate(_ABArgs(), "/tmp/kdir", self._result(),
+                                      "/tmp/gold.json")
+                via_ns = AB._run_ab_gate_ns(ns, _ABArgs(), "/tmp/kdir",
+                                            self._result(), "/tmp/gold.json")
+                self.assertEqual(bare, via_ns)
 
 
 class GoldFixtureSuiteTest(SyntheticKBTestCase):

@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "6a0cf4da8153"
+      "git_head": "e45368ce444d"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -1836,7 +1836,7 @@
           },
           {
             "file": "scripts/agentware_lib/retrieval/regressiongate/abgate.py",
-            "line": 258,
+            "line": 260,
             "lang": "python",
             "form": "environ[]",
             "default": null,

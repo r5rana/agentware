@@ -12,10 +12,12 @@ _extract_head_scripts / _synthesize_head_marker) and its guarded temp-dir cleanu
 (_cleanup_head_cli); the extraction's COMPLETENESS contract — the HEAD listing that is
 its authority (_head_scripts_listing), the pure check against it
 (_verify_head_extraction) and the named failure it raises (HeadExtractionError); the
-HEAD-CLI subprocess recall scorer (_ab_head_recall); the assembler (run_ab_gate) and
-its printer (_print_ab). AND, transitionally while the strangler facade stands, the
-namespace-resolved assembler + installer that put this layout-aware extraction in
-front of the preserved monolith's flat-blob one (_run_ab_gate_ns /
+HEAD-CLI subprocess recall scorer (_ab_head_recall); the SINGLE assembler (run_ab_gate
+-- ONE body serving both the live bare-name path and the transitional namespace-resolved
+one through its `ns` parameter, because two bodies is exactly how the task-26 repair came
+to be missing from the live path) and its printer (_print_ab). AND, transitionally while
+the strangler facade stands, the namespace ADAPTER + installer that put this layout-aware
+extraction in front of the preserved monolith's flat-blob one (_run_ab_gate_ns /
 install_ab_extraction, feature 260813 task 26 — both deleted with the passthrough at
 task 56).
 
@@ -275,75 +277,47 @@ def _ab_head_recall(head_path, kdir, strategy, top_k, as_of, gold_path):
     recall = (payload.get("metrics") or {}).get("recall_at_k")
     return recall if isinstance(recall, (int, float)) else None
 
-def run_ab_gate(args, kdir, result, gold_path):
+def run_ab_gate(args, kdir, result, gold_path, ns=None):
     """Clean-HEAD vs working-tree A/B over the SAME corpus (read-only).
 
     Attaches `result["ab"]` and returns it. PASS iff working >= head - tolerance.
     An unavailable HEAD/git (or a HEAD run that yields no recall) PASSES with
-    available=False — it cannot prove this diff caused a regression.
+    available=False — it cannot prove this diff caused a regression. A HEAD that
+    git DID list but whose extraction came back INCOMPLETE is the opposite case:
+    a BROKEN arm, which goes RED naming the missing modules (`error` / `missing`)
+    rather than reporting the absent arm's silent `available: False, passed: True`.
+
+    ONE body, two collaborator resolutions (`ns`):
+
+      * `ns is None` — the LIVE path (`retrieval.evalcmd` -> here by attribute).
+        `_extract_head_cli` / `_ab_head_recall` / `_ab_verdict` resolve out of
+        THIS module's globals at call time, so patching `abgate.<name>` (the
+        owning module, per this module's docstring) still reaches them.
+      * `ns` given — the transitional facade path (`_run_ab_gate_ns` below).
+
+    Why the resolution is a parameter instead of a second function: it WAS a
+    second function, and the two bodies diverged. The HeadExtractionError arm —
+    the entire task-26 repair — was written into the namespace-resolved copy only,
+    so the copy the `eval` verb actually calls raised the exception out of
+    `cmd_eval` instead of returning the RED verdict, and `_print_ab`'s broken-arm
+    rendering was unreachable from the live path. The A/B tests could not see it:
+    they read `CLI.run_ab_gate`, which the facade's post-exec install had rebound
+    to the namespace copy. Two bodies for one behaviour is what made that
+    survivable, so there is one body now.
     """
+    if ns is None:
+        _resolve, today = globals().__getitem__, dates._today
+    else:
+        _resolve, today = ns.__getitem__, ns["_today"]
     working = (result.get("metrics") or {}).get("recall_at_k")
     tolerance = args.tolerance
     strategy = result.get("strategy") or getattr(args, "strategy", "bm25")
     top_k = result.get("top_k") or args.top_k
-    as_of = result.get("as_of") or dates._today()
-    head_path, head_commit = _extract_head_cli()
-    if head_path is None:
-        ab = {"available": False, "passed": True,
-              "reason": "git HEAD scripts/agentware unavailable",
-              "working": working, "head": None, "delta": None,
-              "tolerance": tolerance, "head_commit": None, "strategy": strategy}
-        result["ab"] = ab
-        return ab
-    try:
-        head = _ab_head_recall(head_path, kdir, strategy, top_k, as_of, gold_path)
-    finally:
-        _cleanup_head_cli(head_path)
-    if head is None or working is None:
-        ab = {"available": False, "passed": True,
-              "reason": "HEAD eval produced no recall score",
-              "working": working, "head": head, "delta": None,
-              "tolerance": tolerance, "head_commit": head_commit,
-              "strategy": strategy}
-        result["ab"] = ab
-        return ab
-    passed, delta = _ab_verdict(working, head, tolerance)
-    ab = {"available": True, "passed": passed,
-          "working": working, "head": head, "delta": delta,
-          "tolerance": tolerance, "head_commit": head_commit,
-          "strategy": strategy}
-    result["ab"] = ab
-    return ab
-
-def _run_ab_gate_ns(ns, args, kdir, result, gold_path):
-    """`run_ab_gate` with every collaborator resolved from a CONSUMER namespace.
-
-    TRANSITIONAL (feature 260813 task 26); retired with the legacy passthrough at
-    task 56, when `eval` is served from this module directly and run_ab_gate is
-    reached by name again.
-
-    Two differences from run_ab_gate, both load-bearing:
-
-      * `_extract_head_cli` / `_ab_head_recall` / `_ab_verdict` are looked up in
-        `ns` AT CALL TIME rather than as bare names in THIS module's globals. A
-        function installed into the entrypoint facade still carries the LIB
-        module dict as its `__globals__`, so a bare-name form would ignore a
-        `CLI.<name> = ...` monkeypatch and the existing A/B unit tests would go
-        on passing while exercising nothing — the write-seam failure recorded at
-        task 25. Resolving through `ns` keeps the patch seam honest.
-
-      * a HeadExtractionError becomes a RED verdict naming the missing modules,
-        never a silent `available: False, passed: True`.
-    """
-    working = (result.get("metrics") or {}).get("recall_at_k")
-    tolerance = args.tolerance
-    strategy = result.get("strategy") or getattr(args, "strategy", "bm25")
-    top_k = result.get("top_k") or args.top_k
-    as_of = result.get("as_of") or ns["_today"]()
+    as_of = result.get("as_of") or today()
     base = {"working": working, "head": None, "delta": None,
             "tolerance": tolerance, "head_commit": None, "strategy": strategy}
     try:
-        head_path, head_commit = ns["_extract_head_cli"]()
+        head_path, head_commit = _resolve("_extract_head_cli")()
     except HeadExtractionError as exc:
         ab = dict(base, available=False, passed=False, reason=str(exc),
                   error=str(exc), missing=list(exc.missing))
@@ -355,8 +329,8 @@ def _run_ab_gate_ns(ns, args, kdir, result, gold_path):
         result["ab"] = ab
         return ab
     try:
-        head = ns["_ab_head_recall"](head_path, kdir, strategy, top_k, as_of,
-                                     gold_path)
+        head = _resolve("_ab_head_recall")(head_path, kdir, strategy, top_k,
+                                           as_of, gold_path)
     finally:
         _cleanup_head_cli(head_path)
     base["head_commit"] = head_commit
@@ -365,10 +339,27 @@ def _run_ab_gate_ns(ns, args, kdir, result, gold_path):
                   reason="HEAD eval produced no recall score")
         result["ab"] = ab
         return ab
-    passed, delta = ns["_ab_verdict"](working, head, tolerance)
+    passed, delta = _resolve("_ab_verdict")(working, head, tolerance)
     ab = dict(base, available=True, passed=passed, head=head, delta=delta)
     result["ab"] = ab
     return ab
+
+def _run_ab_gate_ns(ns, args, kdir, result, gold_path):
+    """`run_ab_gate` with every collaborator resolved from a CONSUMER namespace.
+
+    TRANSITIONAL (feature 260813 task 26); retired with the legacy passthrough at
+    task 56, when `eval` is served from this module directly and run_ab_gate is
+    reached by name again.
+
+    A thin adapter, deliberately: it used to be a SECOND COPY of the assembler,
+    and the copy is what let the task-26 repair miss the live path (see
+    `run_ab_gate`). The reason the namespace resolution exists at all is
+    unchanged — a function installed into the entrypoint facade still carries the
+    LIB module dict as its `__globals__`, so a bare-name form would ignore a
+    `CLI.<name> = ...` monkeypatch and the existing A/B unit tests would go on
+    passing while exercising nothing (the write-seam failure recorded at task 25).
+    """
+    return run_ab_gate(args, kdir, result, gold_path, ns=ns)
 
 def install_ab_extraction(ns):
     """Install the LAYOUT-AWARE A/B HEAD extraction over a legacy namespace.
