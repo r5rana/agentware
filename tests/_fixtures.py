@@ -33,6 +33,11 @@ LEGACY_PATH = os.path.join(REPO_ROOT, "scripts", "agentware_legacy.py")
 
 _CLI_MODULE = None
 
+#: `sys.modules` key holding the ONE CLI module object the suite may have. Not a
+#: real import path -- nothing can reach it with an `import` statement -- and
+#: deliberately outside the `agentware_lib` namespace the write-through scans.
+_CLI_SYS_KEY = "agentware_cli"
+
 
 def first_party_modules():
     """Top-level module names that SHIP IN THIS REPO under `scripts/`.
@@ -463,19 +468,48 @@ class _ConfigMirrorModule(types.ModuleType):
 
 
 def load_cli():
-    """Import scripts/agentware as a module (cached). Stdlib importlib only."""
+    """Import scripts/agentware as a module (cached). Stdlib importlib only.
+
+    Cached in `sys.modules`, not only in this module's global, and that is not
+    belt-and-braces (task 95). Under `discover -s tests -t .` BOTH `tests/` and
+    the `tests` package are importable, and the suite uses both spellings --
+    ~144 files say `import _fixtures`, ~164 say `from tests._fixtures import`.
+    Python treats those as two DIFFERENT modules, so this file was executed
+    twice, each copy holding its own `_CLI_MODULE` and its own
+    `_ConfigMirrorModule` class object.
+
+    Two CLI modules is not a compatibility seam, it is a coin flip. Writes
+    through one still reach the lib OWNER (so the product sees a patch), but
+    the other copy's dict keeps the pre-patch value -- so a test reading
+    `CLI.<name>` to capture "the current value", and restoring it afterwards,
+    can write a stale value back over a live redirect. That is the same silent
+    shape the mirror exists to prevent, one level up.
+
+    A single `sys.modules` entry makes the seam single-instance whichever
+    spelling a test imports. The key is not importable as a package path, so
+    nothing acquires it by accident, and it does not begin with
+    `agentware_lib`, so the write-through scan never mistakes it for an owner.
+    """
     global _CLI_MODULE
     if _CLI_MODULE is None:
-        loader = SourceFileLoader("agentware_cli", CLI_PATH)
-        spec = importlib.util.spec_from_loader("agentware_cli", loader)
-        mod = importlib.util.module_from_spec(spec)
-        loader.exec_module(mod)
-        # Applied AFTER exec: the module body itself assigns HOME_CONFIG to the
-        # real home, and mirroring that would clobber a redirect an outer test had
-        # already installed on the lib.
-        mod.__class__ = _ConfigMirrorModule
-        _populate_lib_names(mod)
-        _CLI_MODULE = mod
+        shared = sys.modules.get(_CLI_SYS_KEY)
+        # Duck-typed, NOT isinstance: the whole point is that the other copy of
+        # this file has its own `_ConfigMirrorModule` class object, so an
+        # isinstance check would reject exactly the module we are adopting.
+        if shared is not None and type(shared).__name__ == "_ConfigMirrorModule":
+            _CLI_MODULE = shared
+        else:
+            loader = SourceFileLoader(_CLI_SYS_KEY, CLI_PATH)
+            spec = importlib.util.spec_from_loader(_CLI_SYS_KEY, loader)
+            mod = importlib.util.module_from_spec(spec)
+            loader.exec_module(mod)
+            # Applied AFTER exec: the module body itself assigns HOME_CONFIG to
+            # the real home, and mirroring that would clobber a redirect an
+            # outer test had already installed on the lib.
+            mod.__class__ = _ConfigMirrorModule
+            _populate_lib_names(mod)
+            sys.modules[_CLI_SYS_KEY] = mod
+            _CLI_MODULE = mod
     _rebind_tick_registry(_CLI_MODULE)
     return _CLI_MODULE
 

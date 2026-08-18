@@ -8,6 +8,7 @@ runs real `unittest` discovery.
 Stdlib `unittest` only. Never touches the real knowledge base.
 """
 
+import importlib.util
 import json
 import os
 import shutil
@@ -701,6 +702,94 @@ class MirroredNamesReachConsumersNotOnlyTheOwnerTest(unittest.TestCase):
         finally:
             libconfig.HOME_CONFIG = original
             self.mod.HOME_CONFIG = original
+
+
+class TheSeamIsSingleInstanceTest(unittest.TestCase):
+    """Task 95: ONE CLI module object, whichever spelling imported it.
+
+    `discover -s tests -t .` puts BOTH `tests/` and the `tests` package on the
+    path, and the suite uses both spellings of this file -- `import _fixtures`
+    and `from tests._fixtures import ...`. Python executes it twice, and each
+    copy used to build its OWN CLI module with its OWN mirror class.
+
+    Two instances defeat the seam without failing anything: a write through one
+    reaches the lib owner, so the product sees the patch, while the other
+    copy's dict keeps the pre-patch value. A test that reads `CLI.<name>` to
+    save "the current value" and writes it back in a cleanup then restores a
+    STALE value over a live redirect -- the same silent shape the mirror exists
+    to prevent, one level up.
+    """
+
+    def setUp(self):
+        import _fixtures
+        self.mod = _fixtures.load_cli()
+
+    def test_both_import_spellings_yield_the_SAME_cli_module(self):
+        import _fixtures as flat
+        from tests import _fixtures as pkg
+        self.assertIsNot(flat, pkg,
+                         "premise: the suite really does hold two copies of "
+                         "_fixtures; if this ever stops being true the "
+                         "single-instance rule below is untested, not safe")
+        self.assertIs(flat.load_cli(), pkg.load_cli())
+
+    def test_a_write_through_one_spelling_is_VISIBLE_through_the_other(self):
+        """The observable, not just object identity.
+
+        Identity alone would still pass if a future refactor handed out
+        equal-but-separate namespaces, so assert what the tests actually
+        depend on: the value moves.
+        """
+        import _fixtures as flat
+        from tests import _fixtures as pkg
+        a, b = flat.load_cli(), pkg.load_cli()
+        original = a.HOME_CONFIG
+        redirected = os.path.join(os.sep, "tmp", "aw95-one-seam",
+                                  ".agentware", "config.env")
+        try:
+            a.HOME_CONFIG = redirected
+            self.assertEqual(b.HOME_CONFIG, redirected)
+        finally:
+            a.HOME_CONFIG = original
+        self.assertEqual(b.HOME_CONFIG, original)
+
+    def test_mock_patch_object_round_trips_through_the_seam(self):
+        """The dominant real shape, and the one that fails SILENTLY.
+
+        `mock.patch.object` reads `target.__dict__[name]` to decide whether the
+        attribute is local. For a name reachable only through `__getattr__` it
+        takes the non-local path and DELETES the attribute on exit instead of
+        restoring it -- so the owning lib module keeps the mock for the rest of
+        the process and every later test grades against it. `_populate_lib_names`
+        exists to stop that; this asserts the outcome rather than the mechanism,
+        on the OWNING module, in all three phases.
+        """
+        from unittest import mock
+        import agentware_lib.features.reviewagent as reviewagent
+        before = reviewagent._review_spawn_once
+        sentinel = lambda *a, **k: {"aw95": True}
+        with mock.patch.object(self.mod, "_review_spawn_once", sentinel):
+            self.assertIs(reviewagent._review_spawn_once, sentinel,
+                          "the patch never reached the owning module")
+        self.assertIs(reviewagent._review_spawn_once, before,
+                      "the owning module kept the mock after the patch exited")
+        self.assertIn("_review_spawn_once", vars(self.mod),
+                      "the name was deleted from the CLI module instead of "
+                      "restored, which is how the leak starts")
+
+    def test_the_shared_key_is_not_reachable_by_an_import_statement(self):
+        """It may be a `sys.modules` key without being an import path.
+
+        A key something could `import` would be acquired by accident, and a key
+        under `agentware_lib` would be scanned by the write-through as if it
+        OWNED every name it re-exports.
+        """
+        import _fixtures as flat
+        self.assertFalse(flat._CLI_SYS_KEY.startswith("agentware_lib"))
+        self.assertIsNone(
+            importlib.util.find_spec(flat._CLI_SYS_KEY)
+            if flat._CLI_SYS_KEY not in sys.modules else None)
+        self.assertIs(sys.modules.get(flat._CLI_SYS_KEY), flat.load_cli())
 
 
 if __name__ == "__main__":
