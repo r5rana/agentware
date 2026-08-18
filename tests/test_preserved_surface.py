@@ -96,11 +96,30 @@ class FixtureShapeTest(unittest.TestCase):
         self.assertEqual(pending | landed, donor - local)
 
     def test_cli_symbol_count_and_pending_set(self):
+        """The CLI backlog is shrink-only, and at task 56 it has DRAINED.
+
+        This used to assert the backlog was NON-EMPTY, which was the right
+        non-vacuity pin while donor symbols were still unported: an empty list
+        would have meant the ratchet was measuring nothing. It is the wrong pin
+        now. The five rows it held (`proposal_count`,
+        `proposal_integrity_errors`, `roster_is_injectable`,
+        `skill_promotion_ids`, `write_ripe_proposals_report`) all landed in
+        `agentware_lib` during the port wave, and `diff_symbols` DEMANDS a
+        pending symbol that starts resolving be dropped -- so keeping them would
+        redden the gate to satisfy a shape assertion. Empty is the terminal
+        state `_preserved_freeze`'s module docstring names ("task 79 can simply
+        require it to be empty"), reached by the ratchet doing its job.
+
+        Non-vacuity moves to where it still bites: the count floor below, and
+        the live probe's own pins in `tests/test_preserved_gates.py`
+        (`test_the_cli_symbol_gate_is_not_measuring_an_empty_set` and
+        `TerminalStateSymbolProbeTest`), which prove the probe can still say NO.
+        """
         syms = self.fx["cli_symbols"]
         self.assertEqual(syms["count"], CLI_SYMBOLS)
         self.assertEqual(len(syms["by_symbol"]), CLI_SYMBOLS)
         pending = set(syms["pending_in_destination"])
-        self.assertTrue(pending)
+        self.assertEqual(pending, set())
         for name in pending:
             self.assertEqual(syms["by_symbol"][name]["sides"], ["donor"],
                              "%s is pending but locally read" % name)

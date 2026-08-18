@@ -23,6 +23,7 @@ Stdlib `unittest` only (no pytest, no new deps). Never touches the real KB.
 
 import json
 import os
+import subprocess
 import sys
 import unittest
 
@@ -139,7 +140,20 @@ class StdlibOnlyTest(unittest.TestCase):
         # not guarding the CLI. Require the legacy body AND a substantial slice
         # of the package, so a future narrowing cannot pass as a rename.
         guarded = set(policy.guarded_corpus(_CORPUS))
-        self.assertIn("scripts/agentware_legacy.py", guarded)
+        # The monolith is guarded only while it exists; the shim retirement
+        # deletes it. Asserted as a BICONDITIONAL rather than pinning the side of
+        # the retirement we happen to be on — `assertIn` would redden on a tree
+        # where the deletion is exactly right, and dropping the line would stop
+        # noticing a monolith that came back ungoverned.
+        legacy = policy.LEGACY_REL
+        if os.path.isfile(os.path.join(REPO_ROOT, legacy)):
+            self.assertIn(legacy, guarded)
+        else:
+            self.assertNotIn(legacy, guarded)
+        # The load-bearing half, and the one that holds in BOTH states: the CLI
+        # body is the package, and guarding the 110-line facade is not guarding
+        # it. Independent of the monolith entirely.
+        self.assertIn("scripts/agentware", guarded)
         lib = sorted(p for p in guarded
                      if p.startswith("scripts/agentware_lib/"))
         self.assertGreater(
@@ -183,6 +197,97 @@ class SecurityPolicyCoverageTest(unittest.TestCase):
             dead, [],
             "policy classes claiming zero files (renamed or deleted paths?): %s"
             % dead)
+
+    def test_the_only_retired_class_is_the_monoliths_and_only_once_it_is_gone(self):
+        # The retirement, stated as a biconditional so it keeps its meaning on
+        # both sides of the deletion. While the monolith exists NOTHING is
+        # retired — a terminal declaration must not buy an early exemption —
+        # and once it is gone `cli-legacy` is the only class the removal may
+        # empty. A second name showing up here is a rule that stopped guarding
+        # for a reason nobody declared.
+        retired = policy.retired_policies(_CORPUS)
+        if os.path.isfile(os.path.join(REPO_ROOT, policy.LEGACY_REL)):
+            self.assertEqual(retired, [],
+                             "a class retired while its subject still exists")
+        else:
+            self.assertEqual(retired, ["cli-legacy"])
+
+    def test_a_retired_class_is_INERT_not_merely_unused(self):
+        # "Harmless because its file is gone" is a claim about what would change
+        # if the row were deleted — so delete it and compare, rather than argue
+        # it. All three corpora must be byte-identical without the row, which is
+        # what makes the deletion at the end of the retirement a no-op the gate
+        # has already proved rather than one it will discover.
+        live = (policy.unclaimed(_CORPUS), policy.guarded_corpus(_CORPUS),
+                policy.network_free_corpus(_CORPUS))
+        for name in policy.retired_policies(_CORPUS):
+            self.assertEqual(policy.corpora_without(name, _CORPUS), live,
+                             "retired class %s still moves a corpus — it is "
+                             "not inert and cannot simply be deleted" % name)
+
+    def test_an_empty_class_that_would_EXEMPT_is_reported_however_it_emptied(self):
+        # The safety property that lets a retired row be tolerated at all: an
+        # empty row is harmless only when every rule it carries is the strictest
+        # available, so a file reappearing at its path is scanned no more weakly
+        # than it is today. An empty row that LOOSENS is the opposite — a hole
+        # waiting for its path to come back — and no other check here reports it,
+        # because `dead_policies` deliberately excuses a declared retirement.
+        self.assertEqual(policy.masking_policies(_CORPUS), [])
+        # Measured, not asserted: a permissive row that claims nothing IS caught.
+        hole = policy.Policy(
+            "probe-hole", ("scripts/_never_exists_probe.py",), False, False,
+            "synthetic", terminal_with="scripts/_never_exists_probe.py")
+        original = policy.POLICIES
+        policy.POLICIES = original + (hole,)
+        try:
+            self.assertIn("probe-hole", policy.masking_policies(_CORPUS))
+            # ...and it is NOT laundered by the terminal declaration.
+            self.assertIn("probe-hole", policy.retired_policies(_CORPUS))
+            self.assertNotIn("probe-hole", policy.dead_policies(_CORPUS))
+        finally:
+            policy.POLICIES = original
+
+    def test_a_terminal_class_shadowed_while_its_subject_LIVES_is_still_dead(self):
+        # The declaration buys an exception for exactly one state. A terminal row
+        # whose subject is still on disk but which claims nothing anyway (an
+        # earlier row shadows it, its pattern rotted) must fall straight through
+        # to the dead-class report, or `terminal_with` becomes a way to silence
+        # a genuinely broken rule years before its subject ever goes away.
+        subject = "tests/__init__.py"                 # claimed by `test-support`
+        self.assertTrue(os.path.isfile(os.path.join(REPO_ROOT, subject)))
+        shadowed = policy.Policy("probe-shadowed", (subject,), True, True,
+                                 "synthetic", terminal_with=subject)
+        original = policy.POLICIES
+        policy.POLICIES = original + (shadowed,)      # LAST — always shadowed
+        try:
+            self.assertEqual(policy.classify(subject).name, "test-support")
+            self.assertIn("probe-shadowed", policy.dead_policies(_CORPUS))
+            self.assertNotIn("probe-shadowed", policy.retired_policies(_CORPUS))
+        finally:
+            policy.POLICIES = original
+
+    def test_every_file_is_claimed_by_exactly_one_EFFECTIVE_class(self):
+        # `classify` is first-match-wins, so an overlap resolves silently and the
+        # row ORDER is the entire answer. Every overlap in the table is a
+        # deliberate specific-before-general pair; pinning the set means a NEW
+        # ambiguity has to be argued for instead of being absorbed by whichever
+        # row happens to sort first — which is how a fully-exempt class would
+        # come to claim a test file without one pattern changing.
+        declared = {
+            ("test-fixture-corpus", "tests"),
+            ("test-loopback-client", "tests"),
+            ("test-optional-backend", "tests"),
+        }
+        seen = {}
+        for path, names in policy.overlaps(_CORPUS):
+            seen.setdefault(tuple(names), []).append(path)
+        self.assertEqual(set(seen), declared,
+                         "undeclared policy-class ambiguity: %s" % sorted(
+                             set(seen) - declared))
+        for names, paths in seen.items():
+            # The specialisation must WIN, or the general row silently governs.
+            for path in paths:
+                self.assertEqual(policy.classify(path).name, names[0], path)
 
     def test_a_new_unclaimed_file_under_scripts_reddens_coverage(self):
         # The gate's discriminating power, measured rather than asserted: drop a
@@ -288,17 +393,27 @@ class DeterministicRankingTest(SyntheticKBTestCase):
     def test_recall_makes_no_subprocess_call(self):
         # No model service / shell-out is reachable from the ranking path: patch
         # subprocess.run to detonate and confirm recall still succeeds.
-        orig = CLI.subprocess.run
+        #
+        # Patched on the STDLIB module rather than through `CLI.subprocess`. That
+        # read used to resolve because the monolith was exec'd into the CLI
+        # module's globals, so `subprocess` was a name in its dict — and setting
+        # `.run` on it mutated the one shared module object anyway. `load_cli()`
+        # deliberately never forwards module objects (a submodule named like a
+        # symbol is not the symbol), so with the monolith gone the read has
+        # nowhere to land. Same object, same process-wide detonation, named
+        # directly: the patch now reaches every caller in every module, which is
+        # what "the ranking path shells out NOWHERE" actually requires.
+        orig = subprocess.run
 
         def _boom(*a, **k):
             raise AssertionError("recall must not shell out (INV-1)")
 
-        CLI.subprocess.run = _boom
+        subprocess.run = _boom
         try:
             code, out, err = self.run_cli(
                 ["recall", "geofence arrive reminders", "--format", "json"])
         finally:
-            CLI.subprocess.run = orig
+            subprocess.run = orig
         self.assertEqual(code, 0, err)
         self.assertTrue(json.loads(out)["results"])
 

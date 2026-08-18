@@ -201,6 +201,22 @@ def lib_tree(root=REPO_ROOT):
     return collect_tree(root, LIB_REL)
 
 
+def legacy_absent(root=REPO_ROOT):
+    """True when the monolith FILE is gone — task 56's terminal state.
+
+    Keyed on the file, never on an empty capture. Those are different worlds and
+    conflating them is a hole, not a shortcut: an empty capture from a monolith
+    that STILL STANDS is the truncation this differ exists to catch (measured —
+    with the terminal state inferred from the capture, emptying the file scored
+    `OK - no constant lost, drifted or overruled`, rc=0, over all 227 of them),
+    while an empty capture with no file is simply the migration finishing. Same
+    shape as the dream gate's `impostor` state: name the in-between rather than
+    letting "there is nothing to compare" and "there is nothing to compare TO"
+    share one answer.
+    """
+    return not os.path.isfile(os.path.join(root, LEGACY_REL))
+
+
 def representative(sites):
     """The longest literal among a name's sites; ties broken lexicographically."""
     return max((lit for _, lit in sites), key=lambda s: (len(s), s))
@@ -289,9 +305,42 @@ def _tracked(live_names, previous, key):
     return sorted(set(live_names) | {r["name"] for r in previous.get(key, [])})
 
 
+def _prev_count(previous, key, live, terminal):
+    """A monolith-derived count: live while it stands, pinned once it is gone."""
+    if terminal and previous.get("counts", {}).get(key) is not None:
+        return previous["counts"][key]
+    return live
+
+
+def _multi_table(legacy, lib, previous, terminal):
+    """The multi-definition table, with the monolith component PINNED once gone.
+
+    Re-derived live while the monolith stands. Once it is deleted its component
+    can only ever re-derive to zero, so it is carried from the previous baseline
+    instead — the same rule `_pinned_literal` applies per row, applied to the one
+    aggregate that is not a row. Without it the first `--write` after the
+    deletion silently drops the monolith's forward-declared names from the
+    record, and the table stops being a description of the migration.
+    """
+    live = {n: [distinct(legacy.get(n, [])), distinct(lib.get(n, []))]
+            for n in sorted(set(legacy) | set(lib))
+            if distinct(legacy.get(n, [])) > 1 or distinct(lib.get(n, [])) > 1}
+    if not terminal:
+        return live
+    pinned = previous.get("multi_literal", {})
+    out = {}
+    for name in sorted(set(live) | set(pinned)):
+        was = (pinned.get(name) or [0, 0])[0]
+        now = distinct(lib.get(name, []))
+        if was > 1 or now > 1:
+            out[name] = [was, now]
+    return out
+
+
 def build_fixture(root, adjudications, previous=None):
     legacy, lib = legacy_tree(root), lib_tree(root)
     previous = previous if previous is not None else _previous(root)
+    terminal = legacy_absent(root)
     shared = sorted(set(legacy) & set(lib))
     live_divergent = [n for n in shared
                       if representative(legacy[n]) != representative(lib[n])]
@@ -302,9 +351,7 @@ def build_fixture(root, adjudications, previous=None):
     divergent = _tracked(live_divergent, previous, "divergent")
     pins = {key: {r["name"]: r for r in previous.get(key, [])}
             for key in ("legacy_only", "divergent")}
-    multi = {n: [distinct(legacy.get(n, [])), distinct(lib.get(n, []))]
-             for n in sorted(set(legacy) | set(lib))
-             if distinct(legacy.get(n, [])) > 1 or distinct(lib.get(n, [])) > 1}
+    multi = _multi_table(legacy, lib, previous, terminal)
     rows = [_legacy_only_row(n, legacy, lib, adjudications,
                              pins["legacy_only"].get(n)) for n in only]
     drows = [_divergent_row(n, legacy, lib, adjudications,
@@ -315,9 +362,15 @@ def build_fixture(root, adjudications, previous=None):
         "normalisation": NORMALISATION,
         "scope": {"legacy": LEGACY_REL.replace(os.sep, "/"),
                   "lib": LIB_REL.replace(os.sep, "/") + "/**.py"},
+        # The two monolith-derived counts are PINNED once the file is gone, for
+        # the reason `_multi_table` spells out: re-deriving them can only ever
+        # write zero, and a baseline that forgets how large the monolith side was
+        # is no longer a record of what this migration had to preserve.
         "counts": {
-            "legacy": len(legacy), "lib": len(lib), "legacy_only": len(only),
-            "shared": len(shared), "divergent": len(divergent),
+            "legacy": _prev_count(previous, "legacy", len(legacy), terminal),
+            "lib": len(lib), "legacy_only": len(only),
+            "shared": _prev_count(previous, "shared", len(shared), terminal),
+            "divergent": len(divergent),
         },
         "ratchet": {
             "unresolved_max": sum(1 for r in rows if r["status"] == "pending"),
@@ -359,8 +412,13 @@ def check_legacy_only(row, legacy, lib, report):
         _fail(report, "legacy_drift", name, "monolith literal changed while pending")
 
 
-def check_divergent(row, legacy, lib, report):
-    """One value-divergence against its recorded decision."""
+def check_divergent(row, legacy, lib, report, terminal=False):
+    """One value-divergence against its recorded decision.
+
+    `terminal` suspends the MONOLITH-SIDE obligations only. The lib side of an
+    equivalence is still observable once the monolith is gone, so it is still
+    checked — see `check` for why discharging the whole row was wrong.
+    """
     name = row["name"]
     if name not in lib:
         _fail(report, "lost", name, "divergent constant vanished from the lib")
@@ -368,7 +426,7 @@ def check_divergent(row, legacy, lib, report):
     live = representative(lib[name])
     if row["decision"] == "equivalent":
         report["equivalent"].append(name)
-        if name not in legacy:
+        if not terminal and name not in legacy:
             _fail(report, "lost", name, "equivalence lost its monolith side")
             return
         # An equivalence is discharged at RUNTIME, but pin both spellings
@@ -377,7 +435,7 @@ def check_divergent(row, legacy, lib, report):
         # the same silence this differ exists to break. Re-spelling either side
         # is legitimate -- it just has to go through `--write`, where a reviewer
         # sees it.
-        if representative(legacy[name]) != row["legacy_literal"]:
+        if not terminal and representative(legacy[name]) != row["legacy_literal"]:
             _fail(report, "legacy_drift", name, "equivalence re-spelt in the monolith")
         if live != row["lib_literal"]:
             _fail(report, "decision_mismatch", name, "equivalence re-spelt in the lib")
@@ -405,50 +463,67 @@ def check_ratchet(fixture, report):
               "%d > %d" % (len(report["undecided"]), limits["undecided_max"]))
 
 
-def check_multi(fixture, legacy, lib, report):
-    """A constant may not escape the gate by gaining a second definition."""
+def check_multi(fixture, legacy, lib, report, terminal=False):
+    """A constant may not escape the gate by gaining a second definition.
+
+    In the terminal state the monolith component is unobservable, so ONLY it is
+    dropped: the lib component still has an answer, and a lib constant gaining
+    or shedding a definition is precisely what this check is for. Skipping the
+    whole check once the monolith went (the first shape of the terminal guard)
+    freed every lib-side multi-definition — measured: collapsing
+    `INJECTION_MARKERS` from 2 lib spellings to 1 reddened `multi_literal` with
+    the monolith present and reported NOTHING without it.
+    """
     live = {n: [distinct(legacy.get(n, [])), distinct(lib.get(n, []))]
             for n in sorted(set(legacy) | set(lib))
             if distinct(legacy.get(n, [])) > 1 or distinct(lib.get(n, [])) > 1}
     pinned = fixture["multi_literal"]
     for name in sorted(set(live) | set(pinned)):
-        if live.get(name) != pinned.get(name):
-            _fail(report, "multi_literal", name,
-                  "pinned %s, live %s" % (pinned.get(name), live.get(name)))
+        if terminal:
+            got = distinct(lib.get(name, []))
+            want = (pinned.get(name) or [0, 0])[1]
+            detail = "lib side pinned %s, live %s" % (want, got)
+        else:
+            got, want = live.get(name), pinned.get(name)
+            detail = "pinned %s, live %s" % (want, got)
+        if got != want:
+            _fail(report, "multi_literal", name, detail)
 
 
 REPORT_KINDS = ("lost", "literal_mismatch", "legacy_drift", "decision_mismatch",
                 "excluded_present", "multi_literal", "ratchet", "runtime")
 
 
-def check(fixture, legacy, lib):
+def check(fixture, legacy, lib, terminal=False):
     """Compare the live trees against the baseline. Pure; no I/O.
 
-    An EMPTY legacy tree is task 56's terminal state, not a finding. Once the
-    monolith is deleted there is no monolith side for an `equivalent` row to be
-    compared against and no second literal for a `multi_literal` row to disagree
-    with, so those two checks are discharged rather than reported — the same
-    shape as the legacy ratchet, which scores an absent monolith as zero rather
-    than special-casing its own retirement.
+    `terminal` is task 56's end state — the monolith DELETED — and callers derive
+    it from `legacy_absent()`, never from the capture being empty. It suspends
+    exactly one thing: the obligations whose subject is the monolith. An
+    `equivalent` row loses the side it was equivalent TO, and a `multi_literal`
+    row loses its monolith component. Everything those rows say about the LIB is
+    still observable and stays enforced.
 
-    Keyed on the WHOLE tree being empty, deliberately, and never on an individual
-    name going missing: one constant vanishing while the monolith still stands is
-    exactly the silent loss this differ exists to catch, and it stays a failure.
+    That narrowing is the whole point. The first version of this guard skipped
+    the equivalence row and the multi check ENTIRELY, which handed six decided
+    values and every lib-side multi-definition a free pass the moment the
+    monolith went — a gate retiring more than its subject's absence forces. An
+    absent monolith removes evidence; it does not remove obligations that never
+    depended on it.
+
+    Terminal is never inferred from `not legacy`: a monolith that still stands
+    but has been emptied captures identically, and that is the silent loss this
+    differ exists to catch. See `legacy_absent`.
     """
     report = {k: [] for k in REPORT_KINDS}
     report.update({"checked": len(fixture["legacy_only"]) + len(fixture["divergent"]),
                    "unresolved": [], "landed": [], "undecided": [],
-                   "equivalent": []})
+                   "equivalent": [], "terminal": bool(terminal)})
     for row in fixture["legacy_only"]:
         check_legacy_only(row, legacy, lib, report)
-    terminal = not legacy
     for row in fixture["divergent"]:
-        if terminal and row.get("decision") == "equivalent":
-            report["equivalent"].append(row["name"])
-            continue
-        check_divergent(row, legacy, lib, report)
-    if not terminal:
-        check_multi(fixture, legacy, lib, report)
+        check_divergent(row, legacy, lib, report, terminal)
+    check_multi(fixture, legacy, lib, report, terminal)
     check_ratchet(fixture, report)
     return report
 
@@ -467,10 +542,18 @@ def load_fixture(path=FIXTURE):
 # --------------------------------------------------------------------------
 
 def _render(report):
-    lines = ["constant-differ: %d rows checked" % report["checked"],
+    lines = ["constant-differ: %d rows checked%s"
+             % (report["checked"],
+                "  [TERMINAL: monolith deleted]" if report.get("terminal") else ""),
              "  unresolved: %d   landed: %d   undecided: %d   equivalent: %d"
              % (len(report["unresolved"]), len(report["landed"]),
                 len(report["undecided"]), len(report["equivalent"]))]
+    # A degraded check must SAY it is degraded. In the terminal state the runtime
+    # probe can only resolve the lib side, and a report that reads identically to
+    # a full comparison is the silence this gate exists to break.
+    if report.get("runtime_resolved"):
+        lines.append("  runtime: %d resolve-only (no monolith side to compare)"
+                     % len(report["runtime_resolved"]))
     for kind in REPORT_KINDS:
         if report[kind]:
             lines.append("  %s: %d" % (kind, len(report[kind])))
@@ -509,7 +592,8 @@ def main(argv=None):
     if not args.check:
         ap.error("one of --write / --check is required")
     fixture = load_fixture(args.fixture)
-    report = check(fixture, legacy_tree(args.root), lib_tree(args.root))
+    report = check(fixture, legacy_tree(args.root), lib_tree(args.root),
+                   legacy_absent(args.root))
     if args.probe:
         sys.path.insert(0, HERE)
         import _constant_probe as probe

@@ -388,6 +388,39 @@ def _verify_collisions(fx, sets):
 # the gate
 # --------------------------------------------------------------------------
 
+#: TERMINAL STATE (task 56). While the monolith stands it is `exec`'d into the
+#: facade's globals, so every frozen symbol is already in that module's
+#: `__dict__` and a plain `hasattr` finds it. Once it is DELETED the facade is
+#: the pure lib entrypoint: the frozen names still EXIST -- all 359 required ones
+#: are owned by an `agentware_lib` module -- but the module OBJECT they land on
+#: has moved from the exec'd namespace into the package. A `hasattr` on the
+#: facade alone then reports 358 of them UNREACHABLE, which is a true statement
+#: about a namespace and a false one about the tree.
+#:
+#: So the probe resolves through the suite's ONE definition of where a legacy
+#: name lives -- `_fixtures._ConfigMirrorModule.__getattr__`, applied by
+#: `attach_lib_resolver` -- in BOTH states, rather than branching on whether the
+#: monolith happens to be present. Branching was tried first and is wrong: it
+#: makes the two states disagree about the five donor symbols that landed in the
+#: lib during the port wave, so ONE frozen fixture cannot satisfy both, and the
+#: shrink-only ratchet has no single answer to shrink toward.
+#:
+#: Reusing the harness resolver rather than writing a second walk here is
+#: deliberate: `CLI.<name>` is how ~3,000 call sites reach these symbols, so the
+#: resolver IS the tree's answer to "does this name resolve", and one definition
+#: cannot drift from itself. It also means task 95's decision about `load_cli()`
+#: propagates to this gate automatically instead of silently.
+#:
+#: This does NOT retire the freeze's strangler-window job. The question it asks
+#: is whether the TREE still carries the name, so a symbol deleted from the
+#: monolith and absent from the lib is still LOST -- while a symbol deleted from
+#: the monolith BECAUSE it was ported is correctly not a loss, which is the one
+#: verdict a facade-only probe got backwards.
+#:
+#: NOT a blanket yes: `__getattr__` raises for a name no lib module defines (and
+#: refuses submodule REFERENCES on purpose), so a genuinely lost symbol stays
+#: LOST. `test_the_cli_symbol_gate_is_not_measuring_an_empty_set` and
+#: `TerminalStateSymbolProbeTest` pin that floor from the other side.
 _PROBE = (
     "import json,os,sys,tempfile\n"
     "root=%r\n"
@@ -397,14 +430,20 @@ _PROBE = (
     "os.environ['AGENTWARE_CONFIG_HOME']=os.path.join(t,'cfg')\n"
     "os.makedirs(os.environ['AGENTWARE_KNOWLEDGE_DIR'], exist_ok=True)\n"
     "sys.path.insert(0, os.path.join(root,'scripts')); sys.path.insert(0, root)\n"
+    "sys.path.insert(0, os.path.join(root,'tests'))\n"
     "from importlib.machinery import SourceFileLoader\n"
     "m=SourceFileLoader('agentware_cli', os.path.join(root,'scripts','agentware')).load_module()\n"
+    "import _fixtures\n"
+    "_fixtures.attach_lib_resolver(m)\n"
     "sys.stdout.write(json.dumps(sorted(n for n in json.loads(sys.argv[1]) if hasattr(m,n))))\n"
 )
 
 
 def reachable_symbols(root, names):
-    """Which of `names` resolve on the CLI module at `root` (subprocess)."""
+    """Which of `names` resolve on the CLI module at `root` (subprocess).
+
+    Monolith-aware in the terminal state -- see `_PROBE`.
+    """
     proc = subprocess.run([sys.executable, "-c", _PROBE % os.path.realpath(root),
                            json.dumps(sorted(names))],
                           capture_output=True, text=True, timeout=300)

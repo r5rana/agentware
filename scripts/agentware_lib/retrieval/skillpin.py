@@ -1,6 +1,6 @@
 """agentware_lib.retrieval.skillpin - skill pinning + team scoping + the shared ranked-recall core (layer: retrieval).
 
-Owns: the R-RET-03 stage-1 skill-pin precedence (the default-OFF SKILL_PIN_FLOOR
+Owns: the R-RET-03 stage-1 skill-pin precedence (the SKILL_PIN_FLOOR
 threshold + _apply_skill_pin, applied in the shared ranking core so both recall and
 the eval/gate path exercise it), the org recall-scoping filter (_entry_is_shared /
 scope_entries_for_team - the org recall-scoping contract: caller-team
@@ -27,8 +27,11 @@ Fan-in: 3 (modules that import this; see catalog/modules.json depended_on_by; re
 
 INV-1: ranking is deterministic + stdlib-only - the skill pin, team scoping and
 tie-break are pure functions of (entries, query, scores, as_of); at a FIXED as_of the
-ordering is byte-identical across runs. SKILL_PIN_FLOOR defaults to None (OFF) so
-ranking is byte-unchanged from pre-pin until a later gated flip. INV-2: read-only -
+ordering is byte-identical across runs. SKILL_PIN_FLOOR is ENABLED at 0.85 -
+the flip shipped with feature 260713-p4 behind a gold-fixture Recall@5
+no-regression check, and this module RE-EXPORTS it from `pinpolicy`, which owns
+the value (the pre-flip "defaults to None (OFF)" wording survived the port here
+while the owner already said ENABLED; corrected task 94). INV-2: read-only -
 recall_ranked/retrieve never mutate the entry, index.json or the KB. The skill pin
 only RE-ORDERS an already-scored list (learnings are never evicted); the acr / embed
 multipliers are bounded so they re-order the positive-BM25 set, never inject a

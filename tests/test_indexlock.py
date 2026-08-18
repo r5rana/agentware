@@ -135,8 +135,13 @@ class DegradeTest(IndexLockTestCase):
     def test_indexlock_degrades_without_fcntl(self):
         # Where fcntl is unavailable the RLock still serializes threads and the
         # lock never crashes.
-        real = CLI._fcntl
-        CLI._fcntl = None
+        # Patch the OWNING module, not the CLI facade. `_index_lock` reads
+        # `_fcntl` out of `indexlock`'s own globals, so rebinding the facade's
+        # copy never reached it -- the harness now refuses that rebind outright
+        # rather than letting the test pass while proving nothing.
+        import agentware_lib.knowledge.index.indexlock as _indexlock
+        real = _indexlock._fcntl
+        _indexlock._fcntl = None
         try:
             with CLI._index_lock(self.kdir):
                 data, err = CLI.load_index(self.kdir)
@@ -148,7 +153,7 @@ class DegradeTest(IndexLockTestCase):
                 self.kdir)
             self.assertEqual(code, 0, err)
         finally:
-            CLI._fcntl = real
+            _indexlock._fcntl = real
         self.assertTrue(any(e["id"] == "learn-nofcntl"
                             for e in self._read_index()["entries"]))
 

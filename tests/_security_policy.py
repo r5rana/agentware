@@ -56,6 +56,12 @@ SKIP_DIRS = frozenset({
 })
 
 
+#: The preserved monolith. Named ONCE here because two rules key on it: the
+#: `cli-legacy` class claims it, and that class declares it as the subject whose
+#: retirement retires the class.
+LEGACY_REL = "scripts/agentware_legacy.py"
+
+
 class Policy(object):
     """One path class and the invariants that hold over it.
 
@@ -66,16 +72,35 @@ class Policy(object):
     unclaimed, which the coverage assertion would then report.
     """
 
-    __slots__ = ("name", "patterns", "stdlib_only", "no_network", "allow", "why")
+    __slots__ = ("name", "patterns", "stdlib_only", "no_network", "allow",
+                 "why", "terminal_with")
 
     def __init__(self, name, patterns, stdlib_only, no_network, why,
-                 allow=frozenset()):
+                 allow=frozenset(), terminal_with=None):
         self.name = name
         self.patterns = tuple(patterns)
         self.stdlib_only = stdlib_only
         self.no_network = no_network
         self.allow = frozenset(allow)
         self.why = why
+        #: A path whose RETIREMENT retires this whole class. A row declaring one
+        #: is allowed to claim zero files once that path is gone -- and ONLY
+        #: then. Without it, "this rule guards nothing because its subject was
+        #: deliberately deleted" and "this rule guards nothing because someone
+        #: renamed a directory" are the same silent state, which is the failure
+        #: `dead_policies` exists to prevent.
+        self.terminal_with = terminal_with
+
+    def grants_exemption(self):
+        """True when this class LOOSENS something relative to the CLI contract.
+
+        The safety property for a retired row: a class that only ever tightened
+        cannot mask a finding if its path reappears, because every rule it
+        carries is the strictest one available. A class that exempts (a sidecar,
+        a fixture corpus, an `allow` entry) is the opposite -- were it to go
+        dead and its path return, the return would be silently un-scanned.
+        """
+        return not (self.stdlib_only and self.no_network) or bool(self.allow)
 
     def matches(self, rel_path):
         return any(fnmatch.fnmatch(rel_path, p) for p in self.patterns)
@@ -94,9 +119,16 @@ POLICIES = (
         "the installed entrypoint: INV-6 says a clone runs with a stock "
         "python3 and INV-1 says ranking never reaches the network."),
     Policy(
-        "cli-legacy", ("scripts/agentware_legacy.py",), True, True,
-        "the preserved monolith the facade execs — it IS the CLI body until "
-        "task 56 deletes it, so it carries the entrypoint's rules verbatim."),
+        "cli-legacy", (LEGACY_REL,), True, True,
+        "the preserved monolith the facade execs — while it exists it IS the "
+        "CLI body, so it carries the entrypoint's rules verbatim. TERMINAL: the "
+        "shim retirement deletes it, and this row then claims nothing. That is "
+        "declared rather than discovered (`terminal_with`) and it is INERT "
+        "rather than merely unused — the row carries the two strictest rules "
+        "and grants no `allow`, so deleting it changes no corpus and a file "
+        "reappearing at this path would be scanned by exactly these rules "
+        "anyway. `test_invariants` executes both halves of that claim.",
+        terminal_with=LEGACY_REL),
     Policy(
         "cli-lib", ("scripts/agentware_lib/*.py",), True, True,
         "the decomposed CLI body: a dependency or a socket added to any module "
@@ -222,15 +254,103 @@ def unclaimed(rel_paths):
     return sorted(p for p in rel_paths if classify(p) is None)
 
 
-def dead_policies(rel_paths):
-    """Policy names claiming nothing — a rename or a deletion left a rule that
-    guards an empty set, which reads as a pass at every surface."""
+def claimed_policy_names(rel_paths):
+    """Names of the classes that actually claim at least one file."""
     claimed = set()
     for path in rel_paths:
         policy = classify(path)
         if policy is not None:
             claimed.add(policy.name)
-    return sorted(p.name for p in POLICIES if p.name not in claimed)
+    return claimed
+
+
+def retired_policies(rel_paths):
+    """Terminal classes whose declared subject is GONE from the corpus.
+
+    Distinguished from `dead_policies` on purpose. Both describe a rule guarding
+    an empty set, but they are different events: a retired class is empty
+    because the file it was written for was deliberately deleted, which is the
+    plan landing; a dead class is empty because a path moved underneath it,
+    which is the gate quietly ceasing to check. Only the second is a failure,
+    and separating them is the only way to say so.
+
+    A terminal class whose subject still EXISTS is not retired, so if it claims
+    nothing anyway (an earlier row shadowed it, the pattern rotted) it falls
+    through to `dead_policies` and is reported — the declaration buys an
+    exception for exactly one state, not a blanket one.
+    """
+    present = set(rel_paths)
+    claimed = claimed_policy_names(rel_paths)
+    return sorted(p.name for p in POLICIES
+                  if p.terminal_with is not None
+                  and p.terminal_with not in present
+                  and p.name not in claimed)
+
+
+def dead_policies(rel_paths):
+    """Policy names claiming nothing — a rename or a deletion left a rule that
+    guards an empty set, which reads as a pass at every surface.
+
+    Excludes classes RETIRED by their declared terminal subject's removal (see
+    `retired_policies`); those are checked separately, and for inertness rather
+    than for emptiness.
+    """
+    claimed = claimed_policy_names(rel_paths)
+    retired = set(retired_policies(rel_paths))
+    return sorted(p.name for p in POLICIES
+                  if p.name not in claimed and p.name not in retired)
+
+
+def masking_policies(rel_paths):
+    """Empty classes that would LOOSEN a rule — the one unsafe kind.
+
+    The teeth behind tolerating a retired row at all. An empty row is only
+    harmless if a file reappearing at its path would be governed no more weakly
+    than it is now; a row that exempts something and claims nothing is a hole
+    waiting for its path to come back, and nothing else in this module would
+    report it. Must be empty in EVERY state, retired or not.
+    """
+    claimed = claimed_policy_names(rel_paths)
+    return sorted(p.name for p in POLICIES
+                  if p.name not in claimed and p.grants_exemption())
+
+
+def overlaps(rel_paths):
+    """`[(path, [class names in order])]` for files more than one class matches.
+
+    `classify` is first-match-wins, so an overlap is resolved silently and the
+    ORDER is the whole answer: `tests/fixtures/swe_tasks/x.py` is claimed by the
+    fixture corpus only because that row precedes `tests/*/test_*.py`, whose `*`
+    crosses `/`. Reordering those two rows would hand a fully-exempt class to
+    the suite without changing a single pattern. Enumerating the overlaps lets a
+    test pin the declared set, so a NEW ambiguity has to be argued for rather
+    than absorbed by whichever row happens to sort first.
+    """
+    out = []
+    for path in rel_paths:
+        names = [p.name for p in POLICIES if p.matches(path)]
+        if len(names) > 1:
+            out.append((path, names))
+    return out
+
+
+def corpora_without(name, rel_paths):
+    """The three corpora recomputed with class `name` removed — the INERTNESS
+    probe, executed rather than argued.
+
+    "This retired row is harmless" is a claim about what would change if it were
+    deleted, so the honest way to check it is to delete it and compare. Returns
+    `(unclaimed, guarded, network_free)` for the table minus that row; a caller
+    asserts the triple is identical to the live one.
+    """
+    global POLICIES
+    original = POLICIES
+    try:
+        POLICIES = tuple(p for p in original if p.name != name)
+        return (unclaimed(rel_paths), guarded_corpus(rel_paths),
+                network_free_corpus(rel_paths))
+    finally:
+        POLICIES = original
 
 
 def imported_top_modules_from_source(source, filename="<source>"):

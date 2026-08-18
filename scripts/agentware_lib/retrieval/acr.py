@@ -5,17 +5,23 @@ freshness multipliers (ACR_SOURCE_WEIGHTS / ACR_DEFAULT_SOURCE_WEIGHT /
 ACR_HALF_LIFE_DAYS / ACR_FRESHNESS_FLOOR), the pure priors source_weight /
 freshness / acr, the age helpers date_age_days / answer_age_days (used by the
 age-stratified ACR win gate), and the ACR-reranked BM25 retriever
-retrieve_bm25_acr (final = bm25_relevance x acr(entry, as_of)).
+retrieve_bm25_acr (final = bm25_relevance x acr(entry, as_of) x
+staleness_factor(entry, ...)).
 Does NOT own: BM25 scoring + the postings cache (agentware_lib.retrieval.bm25,
 reached via the _bm25 module alias for retrieve_bm25_acr); the ACR WIN GATE +
 default-flip ledger (a later retrieval.evaluate seam - a DISTINCT domain from this
-prior); entry_last_verified, read from the knowledge system of record
-(agentware_lib.knowledge.index, imported LAZILY inside acr/answer_age_days so
-retrieval -> knowledge stays lazy); the date validators _today/_is_valid_date
-(agentware_lib.core.dates).
+prior); the staleness/supersede downweight itself (superseded_ids /
+staleness_factor live in agentware_lib.knowledge.freshsignals - this module only
+APPLIES the multiplier alongside its own prior); entry_last_verified, read from
+the knowledge system of record (agentware_lib.knowledge.index, imported LAZILY
+inside acr/answer_age_days so retrieval -> knowledge stays lazy); the date
+validators _today/_is_valid_date (agentware_lib.core.dates).
 Layer deps: retrieval -> core (agentware_lib.core.dates, eager) + the retrieval
-sibling bm25 (module alias) + knowledge lazily (agentware_lib.knowledge.index,
-function-local). Nothing above retrieval; nothing in core/ or knowledge/ imports here.
+sibling bm25 (module alias) + knowledge lazily (agentware_lib.knowledge.index in
+acr/answer_age_days, agentware_lib.knowledge.freshsignals in retrieve_bm25_acr;
+both function-local - freshsignals imports date_age_days FROM here, so an eager
+import back would be a cycle). Nothing above retrieval; nothing in core/ or
+knowledge/ imports here.
 Fan-in: 3 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 
 INV-1: acr is a PURE function of (entry, as_of) - no LLM/RNG/network/wall-clock -
@@ -128,18 +134,31 @@ def answer_age_days(entries_by_id, expected_ids, as_of):
 
 
 def retrieve_bm25_acr(kdir, data, query, as_of, top_k=None):
-    """ACR-reranked BM25: `final = bm25_relevance × acr(entry, as_of)`.
+    """ACR-reranked BM25: `final = bm25_relevance × acr(entry, as_of) ×
+    staleness_factor(entry, ...)`.
 
     Surfaces the EXACT same set as `retrieve_bm25` — relevance gates: only
-    positive-BM25 entries enter, and the acr multiplier is bounded in (0, 1] so it
+    positive-BM25 entries enter, and both multipliers are bounded in (0, 1] so they
     can never lift a zero-score (non-matching) entry into the result (C-3). The
-    surfaced set is merely RE-ORDERED by the ACR-weighted score under the SAME
-    deterministic tie-break (score desc -> created desc -> id asc). acr is a pure
-    function of `(entry, as_of)`, so at a FIXED `as_of` the ordering is
-    byte-identical across runs (INV-1). Read-only (INV-2); stdlib only, no
-    network/LLM/embeddings.
+    surfaced set is merely RE-ORDERED by the weighted score under the SAME
+    deterministic tie-break (score desc -> created desc -> id asc). `staleness_factor`
+    downweights a stale/superseded entry (1.0 for fresh/non-superseded, so their
+    score stays byte-identical to acr-only); `superseded_ids` is computed ONCE here,
+    never per entry. Both multipliers are pure functions of `(entry, as_of)`, so at
+    a FIXED `as_of` the ordering is byte-identical across runs (INV-1). Read-only
+    (INV-2); stdlib only, no network/LLM/embeddings. Plain `bm25` is untouched.
+
+    `knowledge.freshsignals` is imported FUNCTION-LOCAL, not at module scope: it
+    eagerly imports `date_age_days` from THIS module, so an eager import here is a
+    genuine cycle — and the lazy form is what this module's layer contract already
+    mandates for every `retrieval -> knowledge` reach. The MODULE ALIAS (rather
+    than `from ... import staleness_factor`) is load-bearing: the name is resolved
+    per call, so a test patching the owning module still reaches this call site
+    instead of a stale copy captured at import time.
     """
-    scored = [(e, s * acr(e, as_of))
+    from agentware_lib.knowledge import freshsignals as _fresh
+    superseded = _fresh.superseded_ids(data)
+    scored = [(e, s * acr(e, as_of) * _fresh.staleness_factor(e, superseded, as_of))
               for (e, s) in _bm25.bm25_positive_scores(kdir, data, query)]
     # Stable multi-pass sort: lowest priority first, highest priority last.
     scored.sort(key=lambda es: es[0].get("id") or "")                       # id asc

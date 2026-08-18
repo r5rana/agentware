@@ -48,16 +48,36 @@ def _normalize_phase(phase):
 
 def list_loop_features(kdir):
     """Sorted feature dirs under <kdir>/work carrying a plan.md or a .loop/ — the
-    unit the loop operates on (read-only directory listing; [] when absent)."""
+    unit the loop operates on (read-only directory listing; [] when absent).
+
+    The `auto/` lane (feature 260710) is a CONTAINER, not a feature: workorders
+    live at `work/auto/<slug>/`, so descend one level there and namespace the id
+    as `auto/<slug>`. Without the descent every workorder is invisible to the
+    loop-analytics fold, `ops.alerts` and `ops.loophealth` — an undercount that
+    reports cleanly rather than failing.
+    """
     work = os.path.join(kdir, "work")
     out = []
+
+    def _is_feature(d):
+        return os.path.isfile(os.path.join(d, "plan.md")) or \
+            os.path.isdir(os.path.join(d, ".loop"))
+
     try:
         for name in sorted(os.listdir(work)):
             fdir = os.path.join(work, name)
             if not os.path.isdir(fdir):
                 continue
-            if os.path.isfile(os.path.join(fdir, "plan.md")) or \
-                    os.path.isdir(os.path.join(fdir, ".loop")):
+            if name == "auto":
+                try:
+                    for sub in sorted(os.listdir(fdir)):
+                        sp = os.path.join(fdir, sub)
+                        if os.path.isdir(sp) and _is_feature(sp):
+                            out.append("auto/" + sub)
+                except OSError:
+                    pass
+                continue
+            if _is_feature(fdir):
                 out.append(name)
     except OSError:
         return []

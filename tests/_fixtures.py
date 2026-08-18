@@ -223,6 +223,46 @@ def _lib_owner_of(name):
     return _scan_imported_for(name)
 
 
+class _Absent:
+    """Sentinel for "this name had no previous value on the mirror".
+
+    A plain `None` cannot carry that meaning: `SOME_FLOOR = None` is a real,
+    common patch (turn the feature OFF), and a dict `.get()` returning None for
+    both cases makes the two indistinguishable. Every place that has to decide
+    "is there a previous value to key the write-through on" asks `is _ABSENT`.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self):  # pragma: no cover - diagnostics only
+        return "<absent>"
+
+
+_ABSENT = _Absent()
+
+
+def _is_lib_submodule_ref(val):
+    """True iff `val` is a reference to an `agentware_lib` SUBMODULE.
+
+    THE EXCLUSION RULE, NARROWED (task 94). b6a9de6 skipped EVERY `ModuleType`
+    value, which fixed the real collision it was written for -- a package
+    attribute (`agentware_lib.retrieval.acr`, the submodule) shadowing the
+    function of the same name defined inside it -- but over-reached. The
+    monolith opens with `import subprocess`, `import time`, `import os`,
+    `import json` and a dozen more, so those STDLIB module objects genuinely
+    WERE in the namespace this shim stands in for; only `agentware_lib`
+    submodules never were (the monolith reaches the lib through `from ...
+    import <symbol>`, never by binding a package attribute).
+
+    Keeping the narrow rule is also what makes an external module a HONEST
+    patch seam: `sys.modules` holds one object per module, so a test that
+    stubs `CLI.subprocess.run` is mutating the very object the lib
+    implementation reads. There is no copy to go vacuous against.
+    """
+    return (isinstance(val, types.ModuleType)
+            and getattr(val, "__name__", "").startswith("agentware_lib"))
+
+
 def _scan_imported_for(name):
     """`_lib_owner_of` over the ALREADY-imported lib modules only."""
     fallback = None
@@ -232,7 +272,7 @@ def _scan_imported_for(name):
         if m is None or name not in vars(m):
             continue
         val = vars(m)[name]
-        if isinstance(val, types.ModuleType):
+        if _is_lib_submodule_ref(val):
             continue          # a submodule named like the symbol, not the symbol
         if getattr(val, "__module__", None) == modname:
             return m, val
@@ -275,6 +315,9 @@ class _ConfigMirrorModule(types.ModuleType):
     def _lib_bindings(self, name, previous):
         """Every lib module binding `name` to the value being REPLACED.
 
+        `previous` is `_ABSENT` when the mirror held no prior value at all —
+        distinct from a prior value that genuinely WAS None (see below).
+
         Matched on NAME plus value, not on identity alone. Identity is too strict:
         `CLI.REPO_ROOT` and `core.paths.REPO_ROOT` are computed independently, so
         they are EQUAL but not the same object, and an identity-only sweep would
@@ -286,14 +329,27 @@ class _ConfigMirrorModule(types.ModuleType):
         value also makes restore work for free — after a patch those modules hold
         the mock, so `mock.patch` undoing itself finds exactly the same bindings.
         """
-        # Only None is excluded. Interning was the original worry — which is why
-        # numbers were skipped at first — but the match below is on NAME *and*
-        # value, and the name is discriminator enough: a lib module binding the
-        # same NAME to the same value is the same constant. Excluding ints meant
-        # every numeric THRESHOLD a test patches (checkup's corpus cap, the
-        # worktree cap, the p50 budget) silently failed to forward, so the probe
-        # graded against the shipped default while the test believed otherwise.
-        if previous is None:
+        # NOTHING is excluded by VALUE any more (task 94). Interning was the
+        # original worry — which is why numbers were skipped at first — but the
+        # match below is on NAME *and* value, and the name is discriminator
+        # enough: a lib module binding the same NAME to the same value is the
+        # same constant. Excluding ints meant every numeric THRESHOLD a test
+        # patches (checkup's corpus cap, the worktree cap, the p50 budget)
+        # silently failed to forward, so the probe graded against the shipped
+        # default while the test believed otherwise.
+        #
+        # `None` was the last value still excluded, and it was excluded for a
+        # reason that is NOT about the value at all: `self.__dict__.get(name)`
+        # returned None both for "the previous value WAS None" and for "there is
+        # no previous value", and only the second may forward nowhere. The two
+        # are now told apart by the `_ABSENT` sentinel at the call site, so a
+        # genuine None forwards like any other value. Conflating them cost a
+        # PERMANENT hole: a test setting a constant to None (the ubiquitous
+        # "disable this feature" patch) left every lib copy stuck at None, and
+        # because the NEXT write then had `previous is None` too, it forwarded
+        # nowhere either — the mirror alone took the new value while the product
+        # kept reading None for the rest of the process, across test modules.
+        if previous is _ABSENT:
             return []
         out = []
         for modname, m in list(sys.modules.items()):
@@ -342,7 +398,34 @@ class _ConfigMirrorModule(types.ModuleType):
         return val
 
     def __setattr__(self, name, value):
-        previous = self.__dict__.get(name)
+        # `_ABSENT`, not None: "no previous value" and "the previous value was
+        # None" are DIFFERENT facts and only the first may forward nowhere.
+        previous = self.__dict__.get(name, _ABSENT)
+        if isinstance(previous, types.ModuleType):
+            # REFUSE a wholesale MODULE rebind, loudly (task 94).
+            #
+            # `CLI.subprocess` / `CLI.os` / `CLI.time` are the stdlib module
+            # OBJECTS the monolith imported at its head, and the suite patches
+            # them the only way that works: mutating an attribute ON the shared
+            # object (`CLI.subprocess.run = fake`), which every importer sees
+            # because `sys.modules` holds ONE instance.
+            #
+            # A wholesale rebind has no honest handling. Forwarding it would
+            # swap the module out of every lib module that imports it -- 144
+            # for `os`, 113 for `json`, 34 for `subprocess`, measured -- a
+            # process-wide swap whose restore depends entirely on the reverse
+            # forward finding all of them again. NOT forwarding is worse: the
+            # rebind lands on this module alone, the implementation keeps
+            # reading the real module, and the test passes while patching
+            # nothing. Both are silent, so neither is allowed; the seam that
+            # does work is named instead.
+            raise AttributeError(
+                "refusing to rebind module attribute %r on %r: patch the "
+                "attribute ON the module instead (e.g. `%s.%s = fake`), which "
+                "reaches every reader through sys.modules. A wholesale rebind "
+                "either forwards into every lib module that imports it or "
+                "silently patches nothing." % (
+                    name, self.__name__, name, "<attr>"))
         types.ModuleType.__setattr__(self, name, value)
         if name in self._MIRRORED:
             try:
@@ -429,13 +512,18 @@ def _populate_lib_names(mod):
         for name, val in list(vars(m).items()):
             if name.startswith("__") or name in mod.__dict__:
                 continue
-            # NEVER bind a submodule reference. `agentware_lib.retrieval` holds an
-            # attribute `acr` pointing at the SUBMODULE, while the function the
-            # suite wants is `acr` INSIDE it -- binding the package attribute made
-            # `CLI.acr(...)` raise "module object is not callable" in 16 tests. The
-            # monolith bound no submodules either, so excluding them reproduces the
-            # namespace this is standing in for.
+            # NEVER bind an agentware_lib SUBMODULE reference.
+            # `agentware_lib.retrieval` holds an attribute `acr` pointing at the
+            # SUBMODULE, while the function the suite wants is `acr` INSIDE it --
+            # binding the package attribute made `CLI.acr(...)` raise "module
+            # object is not callable" in 16 tests. An EXTERNAL module (stdlib and
+            # friends) is the opposite case: the monolith imports `subprocess`,
+            # `time`, `os`, `json` at its head, so those names really were in the
+            # namespace this reproduces. See `_is_lib_submodule_ref`.
+            if _is_lib_submodule_ref(val):
+                continue
             if isinstance(val, types.ModuleType):
+                types.ModuleType.__setattr__(mod, name, val)
                 continue
             if getattr(val, "__module__", None) == modname or not callable(val):
                 types.ModuleType.__setattr__(mod, name, val)

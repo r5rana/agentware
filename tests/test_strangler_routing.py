@@ -2,11 +2,18 @@
 
 Three claims, deliberately separated because they fail for different reasons:
 
-  1. THE ALLOWLIST IS EMPTY AND REAL. `PORTED_VERBS` exists, is empty at this
-     commit, and is immutable. An empty allowlist is a dangerous thing to ship
-     untested — every routing test would pass against a router whose LIB branch
-     was a syntax error nobody ever ran — so the LIB branch is exercised
-     directly with a substituted allowlist. Empty by POLICY, not by accident.
+  1. THE ALLOWLIST IS REAL. `PORTED_VERBS` exists, holds only genuine top-level
+     union verbs, and is immutable. It started EMPTY at task 29 (empty by
+     POLICY, not by accident) and by task 54 holds all 44, so the arm at risk of
+     shipping untested has INVERTED: the LIB branch is now exercised by every
+     live verb, and it is the LEGACY branch that no real verb reaches. Both are
+     asserted — the lib arm by a `dispatch` probe with a substituted allowlist,
+     the legacy arm by a token that is not a verb in either tree.
+
+     Task 92 note: the tests here must hold in BOTH monolith states, because
+     the retirement measures itself by deleting `scripts/agentware_legacy.py`
+     in a throwaway worktree. Anything that can only be true while the monolith
+     stands belongs in a terminal-state assertion, not in a passing test.
 
   2. THE SCAN FINDS THE VERB, not the value of the global option in front of it.
      `agentware --format json recall "x"` has `--format` at argv[1] and `json`
@@ -67,7 +74,15 @@ def _union():
 
 
 class AllowlistTest(unittest.TestCase):
-    """Claim 1 — the allowlist exists, is empty, and its LIB branch is live."""
+    """Claim 1 — the allowlist exists, is REAL, and its LIB branch is live.
+
+    It said "is empty" until task 92. That was true at task 29 and false from
+    task 37 on, and by task 54 it was the exact inverse of the tree: all 44
+    union verbs are allowlisted and it is the LEGACY arm that no real verb
+    reaches. A docstring stating the opposite of the tree is not cosmetic — the
+    two harness bugs this same task fixed both survived for as long as they did
+    because a stale rationale explained away the wrong answer.
+    """
 
     def test_the_allowlist_holds_only_PROMOTED_verbs(self):
         # Written as the INVARIANT, not as the day's value: this started EMPTY at
@@ -102,10 +117,15 @@ class AllowlistTest(unittest.TestCase):
         # promote an unproven implementation with no gate and no diff.
         self.assertIsInstance(SR.PORTED_VERBS, frozenset)
 
-    def test_the_lib_branch_is_live_despite_the_empty_allowlist(self):
-        # The anti-vacuity pin. With an empty allowlist every other test in this
-        # file exercises ONLY the legacy arm, so the lib arm is asserted here by
-        # substituting an allowlist — the same mechanism a real port uses.
+    def test_dispatch_really_CALLS_the_lib_for_an_allowlisted_verb(self):
+        # Was `test_the_lib_branch_is_live_despite_the_empty_allowlist`, whose
+        # rationale ("with an empty allowlist every other test exercises ONLY
+        # the legacy arm") stopped being true at task 37. The test is kept
+        # because what it proves was never the allowlist's emptiness: the live
+        # routing tests assert `route`, which returns a LABEL, and only this one
+        # asserts that `dispatch` then actually CALLS `agentware_lib.cli.main`
+        # with the argv it routed. A router that labels correctly and calls the
+        # wrong arm passes every other test in this file.
         seen = {}
 
         def fake_lib_main(argv):
@@ -221,10 +241,58 @@ class UnionSurfaceRoutingTest(unittest.TestCase):
     def test_every_UNPORTED_union_verb_still_routes_to_legacy(self):
         # LEGACY-DEFAULT, stated as the invariant it is: everything not written
         # down in the allowlist falls to the monolith.
-        for verb in self.union["top_level_verbs"]:
-            if verb in SR.PORTED_VERBS:
-                continue
+        unported = [v for v in self.union["top_level_verbs"]
+                    if v not in SR.PORTED_VERBS]
+        for verb in unported:
             self.assertEqual(SR.route([verb]), SR.LEGACY, verb)
+        if unported:
+            return
+        # TERMINAL STATE (task 54 complete, task 92): every union verb is
+        # allowlisted, so this loop has nothing left to walk. That is the goal,
+        # not a gap — but "no verbs to check" must not be allowed to look like
+        # "checked". Assert the condition that MAKES it empty, so the loop going
+        # quiet still reddens if the allowlist ever shrinks back below the union.
+        self.assertEqual(
+            set(self.union["top_level_verbs"]) - set(SR.PORTED_VERBS), set(),
+            "a union verb left the allowlist — this loop is empty for the "
+            "wrong reason")
+        # The LEGACY-DEFAULT rule itself is what survives the wave, and it is
+        # still live: an unknown token has no allowlist row and falls to the
+        # monolith arm. Proven here rather than only in DispatchTest so this
+        # test never becomes a no-op.
+        self.assertEqual(SR.route(["no-such-verb-x9"]), SR.LEGACY)
+
+    def test_the_LEGACY_arm_can_never_serve_a_VERB(self):
+        """UNREACHABLE, not merely unused — the distinction task 92 asks for.
+
+        "Unused" would be a fact about today's traffic. The claim here is a
+        PARTITION over the whole input space, so it cannot quietly become false:
+
+          * every one of the 44 union verbs routes to the LIB, so no verb's
+            behaviour can come from the monolith; and
+          * the tokens that DO still select the legacy arm are exactly the
+            tokens that are not union verbs — and argparse rejects those by
+            name on whichever arm receives them, in both trees.
+
+        So the legacy arm is reachable only by inputs that no implementation
+        serves. That is what makes the file deletable at task 96, and it is a
+        stronger statement than "PORTED_VERBS is full": it stays true by
+        construction if a verb is ever ADDED to the union without being
+        allowlisted, because this test reddens on that verb.
+        """
+        verbs = self.union["top_level_verbs"]
+        self.assertEqual(len(verbs), UNION_VERBS)
+        legacy_served = [v for v in verbs if SR.route([v]) is not SR.LIB]
+        self.assertEqual(
+            [], legacy_served,
+            "these union verbs are still served by the monolith, so the legacy "
+            "arm is reachable and the shim cannot be deleted: %s" % legacy_served)
+        # ...and the arm itself is still WIRED — selected by a non-verb, which
+        # is the only thing left that can reach it. A router that had lost the
+        # legacy branch entirely would pass the assertion above vacuously.
+        for token in ("no-such-verb-x9", "json", "--", "-"):
+            self.assertNotIn(token, verbs)
+            self.assertEqual(SR.route([token]), SR.LEGACY, token)
 
     def test_every_DONOR_ONLY_verb_routes_to_the_LIB(self):
         """Task 52. While these six were unported they routed to legacy — a tree
@@ -352,18 +420,58 @@ class FacadeWiringTest(unittest.TestCase):
                 return node
         return None
 
-    def test_the_main_guard_dispatches_through_the_router(self):
+    def test_the_main_guard_CALLS_something_and_names_the_router(self):
+        """The textual half of claim 3, stated so it survives the retirement.
+
+        This used to require the literal token `dispatch` in the tail, on the
+        rationale that "a tail that calls legacy main() directly makes every
+        ported verb unreachable". That rationale is sound only while a legacy
+        main EXISTS to be called by mistake. At the terminal state (task 96) the
+        tail calls `agentware_lib.cli.main` directly and correctly, and the old
+        assertion would red on the CORRECT tail while staying blind to the
+        failure it was written to catch.
+
+        So the text is asked only for what text can honestly answer — the guard
+        is present and calls something — and the real claim moves next door, to
+        the behavioural probe that runs a verb only the LIB can serve. The
+        router import is still required by name: task 96 keeps `_strangler`
+        precisely so the routing tests above have a module to address.
+        """
         guard = self._main_guard()
         self.assertIsNotNone(guard, "the entrypoint lost its __main__ guard")
         body = ast.get_source_segment(self.source, guard) or ""
-        self.assertIn(
-            "dispatch", body,
-            "the __main__ tail no longer routes through the strangler router; "
-            "a tail that calls legacy main() directly makes every ported verb "
-            "unreachable from the real CLI while the suite stays green:\n"
+        self.assertTrue(
+            any(isinstance(n, ast.Call) for n in ast.walk(guard)),
+            "the __main__ tail calls nothing, so the entrypoint does nothing:\n"
             + body)
         self.assertIn("strangler", self.source,
                       "the entrypoint does not import the router at all")
+
+    def test_the_entrypoint_really_reaches_the_LIB_for_a_verb_only_it_can_serve(self):
+        """The behavioural half of claim 3 — one rule in BOTH monolith states.
+
+        A donor-only verb is the exemplar because the monolith has no handler
+        for it at all (`grep -c 'def cmd_team' agentware_legacy.py` is 0). If it
+        exits 0 through the REAL entrypoint, the tail reached `agentware_lib` —
+        whether via `_strangler.dispatch`'s LIB arm while the passthrough stands
+        or via the direct call once it is gone. Nothing here depends on which
+        state the tree is in, which is the property the AST assertion above lost
+        and the reason it was demoted rather than deleted.
+        """
+        donor_only = _union()["donor_only_verbs"]
+        self.assertTrue(donor_only, "the union fixture lost its donor-only set")
+        verb = sorted(donor_only)[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, AGENTWARE_KNOWLEDGE_DIR=tmp)
+            proc = subprocess.run(
+                [sys.executable, CLI_PATH, verb, "--help"],
+                capture_output=True, text=True, env=env, timeout=120)
+        self.assertEqual(
+            proc.returncode, 0,
+            "%r is donor-only, so a nonzero exit means the entrypoint never "
+            "reached the lib: stdout=%r stderr=%r"
+            % (verb, proc.stdout, proc.stderr))
+        self.assertIn(verb, proc.stdout)
 
     def test_the_facade_stays_within_its_ceiling(self):
         n = len(self.source.splitlines())
@@ -379,20 +487,73 @@ class FacadeWiringTest(unittest.TestCase):
         self.assertTrue(os.access(CLI_PATH, os.X_OK),
                         "scripts/agentware lost its executable bit")
 
-    def test_a_global_flag_before_the_verb_reaches_the_right_verb_end_to_end(self):
-        # The whole claim through the REAL entrypoint: parse, route, run.
+    def _run(self, argv):
         # whereami is read-only and touches no knowledge base; the scratch
         # AGENTWARE_KNOWLEDGE_DIR is belt-and-braces so nothing can reach the
         # operator's live KB.
         with tempfile.TemporaryDirectory() as tmp:
             env = dict(os.environ, AGENTWARE_KNOWLEDGE_DIR=tmp)
             proc = subprocess.run(
-                [sys.executable, CLI_PATH, "--format", "json", "whereami",
-                 "--dir", REPO_ROOT],
+                [sys.executable, CLI_PATH] + argv,
                 capture_output=True, text=True, env=env, timeout=120)
-            self.assertEqual(proc.returncode, 0,
-                             "stdout=%r stderr=%r" % (proc.stdout, proc.stderr))
-            self.assertIn("agentware", proc.stdout)
+        self.assertEqual(proc.returncode, 0,
+                         "argv=%r stdout=%r stderr=%r"
+                         % (argv, proc.stdout, proc.stderr))
+        return proc.stdout
+
+    def test_a_global_flag_before_the_verb_REACHES_THE_RIGHT_VERB_end_to_end(self):
+        """The routing claim through the REAL entrypoint: parse, route, run.
+
+        The assertion used to be `assertIn("agentware", stdout)`, which is
+        satisfied by the CHECKOUT DIRECTORY NAME appearing in whereami's output.
+        It passes in a directory called `agentware` and reds in every other one
+        — it went red the moment this suite was run in the monolith-free probe
+        worktree — and it never once depended on the routing it was named for.
+        So it asserts the resolution instead: the verb ran, and it resolved the
+        directory it was ASKED about rather than some other one.
+        """
+        out = self._run(["--format", "json", "whereami", "--dir", REPO_ROOT])
+        self.assertIn("repo_root", out)
+        self.assertIn(REPO_ROOT, out)
+        # ...and it is really `whereami` answering, not a verb the scan
+        # misrouted to. `json` is the VALUE of the global option; a router that
+        # read it as the verb would exit nonzero on an invalid choice.
+        self.assertNotIn("invalid choice", out)
+
+    def test_a_global_flag_before_the_verb_does_NOT_reach_it_AS_A_VALUE(self):
+        """CHARACTERIZATION PIN — a real defect, deliberately not fixed here.
+
+        `--format` is declared on the top-level parser AND, via the shared
+        `fmt_parent`, on all 94 subparsers. argparse's `_SubParsersAction`
+        parses the subcommand into a FRESH namespace and copies every key back
+        over the parent's, so the subparser's `default="text"` OVERWRITES the
+        `json` the top-level parser already resolved. `agentware --format json
+        whereami` therefore prints TEXT, and so does every other verb.
+
+        Scope: this is a pre-existing product defect, byte-identical in the
+        monolith (`agentware_legacy.py` builds the same shared-parent parser at
+        line ~15331) and in `agentware_lib.cli.assemble_parser`. It is not
+        caused by the port, not caused by the shim retirement, and no call site
+        in the repo hits it — `agentware.sh`, `scripts/loop/*`, `scripts/hooks/*`
+        and every skill put `--format` AFTER the verb. Every clean fix either
+        churns the binding union fixture (setting `default=SUPPRESS` on the
+        shared action changes the recorded `default` of 94 nodes) or duplicates
+        the router's arity scan in a second place, so it belongs to its own plan
+        rather than to a gate-fixing task.
+
+        This pin exists so the defect cannot be forgotten and cannot be
+        "fixed" silently: it reddens the day the behaviour changes, in either
+        direction, and points at the follow-up.
+        """
+        pre = self._run(["--format", "json", "whereami", "--dir", REPO_ROOT])
+        post = self._run(["whereami", "--dir", REPO_ROOT, "--format", "json"])
+        self.assertTrue(post.lstrip().startswith("{"),
+                        "the POST-verb --format must still produce JSON: %r" % post)
+        self.assertFalse(
+            pre.lstrip().startswith("{"),
+            "the PRE-verb --format now reaches the verb — the defect this pin "
+            "characterizes is FIXED. Delete this test and record the follow-up "
+            "as done; do not weaken it. Got: %r" % pre)
 
 
 if __name__ == "__main__":

@@ -47,6 +47,13 @@ except ImportError:  # allow `python3 -m unittest tests.test_constant_differ`
 REPO = cd.REPO_ROOT
 SENTINEL = "'constant-differ-sentinel'"
 
+#: Task 56's end state: the monolith FILE is gone. Every live-tree assertion
+#: below states which world it is in explicitly, rather than letting the gate
+#: infer it from an empty capture — a monolith that still stands but has been
+#: emptied captures identically, and telling those two apart is the whole point
+#: of `cd.legacy_absent`.
+TERMINAL = cd.legacy_absent()
+
 
 def _tree(**pairs):
     """A synthetic capture: name -> [(relpath, literal)]."""
@@ -76,7 +83,8 @@ class GateGreenTest(unittest.TestCase):
     """The gate passes over the tree it ships with, and regenerates cleanly."""
 
     def test_the_live_tree_is_green(self):
-        report = cd.check(cd.load_fixture(), cd.legacy_tree(), cd.lib_tree())
+        report = cd.check(cd.load_fixture(), cd.legacy_tree(), cd.lib_tree(),
+                          TERMINAL)
         self.assertEqual(cd.violations(report), [])
 
     def test_the_baseline_is_byte_identical_on_a_second_write(self):
@@ -93,7 +101,7 @@ class GateGreenTest(unittest.TestCase):
         # number is now 0 and demanding a positive one would force the fixture to
         # overstate. The shrink-only direction is enforced by the ratchet itself.
         fx = cd.load_fixture()
-        report = cd.check(fx, cd.legacy_tree(), cd.lib_tree())
+        report = cd.check(fx, cd.legacy_tree(), cd.lib_tree(), TERMINAL)
         self.assertEqual(len(report["unresolved"]), fx["ratchet"]["unresolved_max"])
         self.assertGreaterEqual(fx["ratchet"]["unresolved_max"], 0)
 
@@ -324,7 +332,7 @@ class ExhaustiveRefutationTest(unittest.TestCase):
             if row["status"] != "pending":
                 continue
             legacy = self._mutated(self.legacy, row["name"], SENTINEL)
-            report = cd.check(self.fx, legacy, self.lib)
+            report = cd.check(self.fx, legacy, self.lib, TERMINAL)
             if row["name"] not in _named(report, "legacy_drift"):
                 inert.append(row["name"])
         self.assertEqual(inert, [], "rows the gate does not actually police")
@@ -335,7 +343,8 @@ class ExhaustiveRefutationTest(unittest.TestCase):
             if row["status"] != "pending":
                 continue
             legacy = {k: v for k, v in self.legacy.items() if k != row["name"]}
-            if row["name"] not in _named(cd.check(self.fx, legacy, self.lib), "lost"):
+            if row["name"] not in _named(
+                    cd.check(self.fx, legacy, self.lib, TERMINAL), "lost"):
                 inert.append(row["name"])
         self.assertEqual(inert, [])
 
@@ -346,7 +355,7 @@ class ExhaustiveRefutationTest(unittest.TestCase):
                 continue
             lib = dict(self.lib)
             lib[row["name"]] = [("scripts/agentware_lib/x.py", SENTINEL)]
-            report = cd.check(self.fx, self.legacy, lib)
+            report = cd.check(self.fx, self.legacy, lib, TERMINAL)
             if row["name"] not in _named(report, "literal_mismatch"):
                 inert.append(row["name"])
         self.assertEqual(inert, [])
@@ -355,7 +364,7 @@ class ExhaustiveRefutationTest(unittest.TestCase):
         inert = []
         for row in self.fx["divergent"]:
             lib = self._mutated(self.lib, row["name"], SENTINEL)
-            report = cd.check(self.fx, self.legacy, lib)
+            report = cd.check(self.fx, self.legacy, lib, TERMINAL)
             if row["name"] not in _named(report, "decision_mismatch"):
                 inert.append(row["name"])
         self.assertEqual(inert, [])
@@ -365,10 +374,20 @@ class ExhaustiveRefutationTest(unittest.TestCase):
         # is the one being replaced, so editing it is not a regression. Assert
         # that the exception set is exactly the decisions that license it,
         # rather than letting rows drop out silently.
+        if TERMINAL:
+            # There is no monolith value left to edit, so this refutation has no
+            # subject at all. Assert THAT -- the whole file is gone, not one row
+            # missing from a capture -- so the disappearance is attributable, and
+            # let the sibling lib-side refutation carry the policing (it bites
+            # all 17 rows in BOTH states, which is the point of the narrowing in
+            # `cd.check`).
+            self.assertEqual(self.legacy, {})
+            self.assertFalse(os.path.exists(os.path.join(REPO, cd.LEGACY_REL)))
+            return
         unpoliced = []
         for row in self.fx["divergent"]:
             legacy = self._mutated(self.legacy, row["name"], SENTINEL)
-            report = cd.check(self.fx, legacy, self.lib)
+            report = cd.check(self.fx, legacy, self.lib, TERMINAL)
             if row["name"] not in _named(report, "legacy_drift"):
                 unpoliced.append(row["name"])
         expected = sorted(r["name"] for r in self.fx["divergent"]
@@ -376,25 +395,91 @@ class ExhaustiveRefutationTest(unittest.TestCase):
         self.assertEqual(sorted(unpoliced), expected)
 
     def test_no_row_is_satisfied_by_an_empty_tree(self):
-        """Non-vacuity: every row must still be ACCOUNTED FOR against empty trees.
+        """Non-vacuity: EVERY row reddens against empty trees.
 
-        An empty legacy tree is task 56's terminal state, so the six `equivalent`
-        rows are discharged there rather than reported lost -- with no monolith
-        there is no monolith side for an equivalence to disagree with. That is a
-        deliberate narrowing, so the assertion is stated as total accounting
-        instead of "everything is lost": no row may simply fall out of the report,
-        which is what this test exists to prevent.
+        Stated as "everything is lost", with no exception carved out. The
+        terminal state suspends the monolith-SIDE obligations, not rows: an
+        `equivalent` row whose lib side has vanished is still a loss whether or
+        not the monolith is there to compare it to, and the earlier form of this
+        test (total accounting, six rows discharged) was written around a guard
+        that discharged the row wholesale.
+
+        Passing `terminal=False` here is deliberate and is the second half of the
+        claim: these empty trees stand for a monolith that was EMPTIED, not one
+        that was deleted, and that must never read as the terminal state.
         """
-        report = cd.check(self.fx, {}, {})
+        report = cd.check(self.fx, {}, {}, terminal=False)
         total = len(self.fx["legacy_only"]) + len(self.fx["divergent"])
-        equivalent = [r for r in self.fx["divergent"]
-                      if r.get("decision") == "equivalent"]
-        self.assertEqual(len(_named(report, "lost")), total - len(equivalent))
-        self.assertEqual(len(report["equivalent"]), len(equivalent))
-        # And the discharge is TERMINAL-ONLY: with a live monolith the same rows
-        # are still policed, so the guard cannot be used to silence a real loss.
-        live = cd.check(self.fx, cd.legacy_tree(), cd.lib_tree())
+        self.assertEqual(len(_named(report, "lost")), total)
+        # And the loss is reported in the terminal state too, where only the
+        # monolith side is excused: the lib side going empty is still a loss.
+        terminal = cd.check(self.fx, {}, {}, terminal=True)
+        self.assertEqual(len(_named(terminal, "lost")), total)
+        # ...while the tree as it SHIPS is green in whichever state it is in, so
+        # the guard cannot be used to silence a real loss.
+        live = cd.check(self.fx, cd.legacy_tree(), cd.lib_tree(), TERMINAL)
         self.assertEqual(set(), _named(live, "lost"))
+
+    def test_an_emptied_monolith_is_not_the_terminal_state(self):
+        """A monolith that still STANDS but holds nothing must redden.
+
+        Measured before the fix, with the terminal state inferred from the
+        capture: truncating `scripts/agentware_legacy.py` to zero bytes scored
+        `OK - no constant lost, drifted or overruled`, rc=0 — every one of the
+        227 monolith constants gone, reported as success by the gate whose only
+        job is to notice that. The two states are told apart by the FILE now, so
+        the same capture reddens when the file is still there.
+        """
+        emptied = cd.check(self.fx, {}, self.lib, terminal=False)
+        self.assertTrue(cd.violations(emptied),
+                        "an emptied monolith reported nothing")
+        self.assertTrue(_named(emptied, "lost") or _named(emptied, "multi_literal"))
+
+    def test_the_terminal_state_is_keyed_on_the_file_not_on_the_capture(self):
+        self.assertEqual(cd.legacy_absent(REPO),
+                         not os.path.isfile(os.path.join(REPO, cd.LEGACY_REL)))
+        with tempfile.TemporaryDirectory(prefix="aw-const-term-") as tmp:
+            os.makedirs(os.path.join(tmp, "scripts"))
+            self.assertTrue(cd.legacy_absent(tmp))
+            open(os.path.join(tmp, cd.LEGACY_REL), "w").close()   # empty, present
+            self.assertFalse(cd.legacy_absent(tmp))
+
+    def test_the_lib_side_of_an_equivalence_is_policed_in_BOTH_states(self):
+        """The narrowing that motivated it: terminal excuses the monolith only.
+
+        The first terminal guard skipped an `equivalent` row entirely, which
+        freed all six decided lib values the moment the monolith went — measured
+        red with the monolith present and SILENT without it.
+        """
+        equivalences = [r for r in self.fx["divergent"]
+                        if r.get("decision") == "equivalent"]
+        self.assertTrue(equivalences)
+        for row in equivalences:
+            name = row["name"]
+            lib = self._mutated(self.lib, name, SENTINEL)
+            for terminal in (True, False):
+                # The non-terminal leg needs a monolith side to be non-terminal
+                # ABOUT; supply the pinned spelling when the real one is already
+                # gone, so this test asks the same question in both checkouts.
+                legacy = dict(self.legacy)
+                if not terminal:
+                    legacy.setdefault(name, [(cd.LEGACY_REL.replace(os.sep, "/"),
+                                              row["legacy_literal"])])
+                report = cd.check(self.fx, legacy, lib, terminal)
+                self.assertIn(name, _named(report, "decision_mismatch"),
+                              "equivalence unpoliced with terminal=%s" % terminal)
+
+    def test_the_lib_side_of_a_multi_definition_is_policed_in_BOTH_states(self):
+        """Same narrowing, second surface: a lib constant may not shed a spelling."""
+        pinned = {n: v for n, v in self.fx["multi_literal"].items() if v[1] > 1}
+        self.assertTrue(pinned, "no lib-side multi-definition row to prove")
+        for name in pinned:
+            lib = dict(self.lib)
+            lib[name] = [("scripts/agentware_lib/x.py", "1")]   # collapsed to one
+            for terminal in (True, False):
+                report = cd.check(self.fx, self.legacy, lib, terminal)
+                self.assertIn(name, _named(report, "multi_literal"),
+                              "multi row unpoliced with terminal=%s" % terminal)
 
 
 class RuntimeProbeTest(unittest.TestCase):
@@ -420,8 +505,32 @@ class RuntimeProbeTest(unittest.TestCase):
     def test_the_live_objects_agree(self):
         results = cp.run_probe(self.targets)
         self.assertEqual(sorted(results), sorted(n for n, _ in self.targets))
-        differ = [n for n, r in results.items() if not r.get("equal")]
-        self.assertEqual(differ, [], "equivalences that stopped being equal")
+        expected = "resolve" if TERMINAL else "compare"
+        self.assertEqual({r.get("mode") for r in results.values()}, {expected})
+        # In COMPARE mode the two live objects must be equal; in RESOLVE mode
+        # there is no second object, and the surviving obligation is that the
+        # lib side still imports and still carries the name. A row that answered
+        # neither question is a violation in both — never a pass.
+        key = "equal" if expected == "compare" else "resolved"
+        unanswered = sorted(n for n, r in results.items() if not r.get(key))
+        self.assertEqual(unanswered, [], "probe rows that did not answer")
+
+    def test_the_terminal_probe_still_reddens_on_an_unresolvable_constant(self):
+        """The degradation must keep its bite: resolve-only is not a free pass."""
+        report = {k: [] for k in cd.REPORT_KINDS}
+        cp.apply_probe(report, {"X": {"mode": "resolve", "resolved": False}}, cd._fail)
+        self.assertIn("X", _named(report, "runtime"))
+
+    def test_a_resolve_only_row_is_NAMED_rather_than_silently_passing(self):
+        """A degraded run must not read like a full comparison."""
+        report = {k: [] for k in cd.REPORT_KINDS}
+        cp.apply_probe(report, {"X": {"mode": "resolve", "resolved": True,
+                                      "digests": ["aa"]}}, cd._fail)
+        self.assertEqual(_named(report, "runtime"), set())
+        self.assertEqual(report["runtime_resolved"], ["X"])
+        self.assertIn("resolve-only", cd._render(dict(
+            report, checked=1, unresolved=[], landed=[], undecided=[],
+            equivalent=[], terminal=True)))
 
     def test_the_probe_compares_digests_and_never_the_value_itself(self):
         # REPO_ROOT resolves to an absolute path under the operator's home. The

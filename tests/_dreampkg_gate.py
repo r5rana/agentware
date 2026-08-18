@@ -112,10 +112,28 @@ MUTATING_GIT_ARGS = (("reset", "--hard"), ("pull",), ("merge",), ("rebase",))
 #: Files whose JOB is to name the retired step, exempt from the literal scan and
 #: listed BY NAME so the exemption is reviewable rather than a silent regex hole.
 #: `tests/` is exempt wholesale for the same reason: a proof of absence must be
-#: allowed to say what is absent. The legacy shim is the preserved monolith,
-#: which carries the retirement note verbatim; it is deleted at plan task 56.
+#: allowed to say what is absent.
+#:
+#: `{relative path: identity anchor}` — the exemption is bound to the FILE'S
+#: IDENTITY, never to its PATH alone. Unlike a policy row that only TIGHTENS,
+#: this table is pure EXEMPTION: an entry makes a file invisible to check 3, so
+#: a path-keyed entry outliving its file is a pre-authorised blind spot, and
+#: anything landing at that path later is un-scanned by inheritance. Requiring
+#: the anchor closes that: the sole entry is the preserved monolith, exempt
+#: because it carries the RETIREMENT NOTE verbatim, so the note itself is what
+#: earns the exemption and a file that does not carry it is simply scanned.
+#:
+#: Three states, each with its own name so none of them is silent:
+#: `stale_exemptions` (the path is gone — the retirement landed, inert),
+#: `impostor_exemptions` (a DIFFERENT file sits at the path — not exempt, and
+#: scanned like any other published file), and `unused_exemptions` (the file is
+#: the right one but no longer carries a retired token — an exemption that
+#: stopped being earned, which is the one shape that hides live code).
 SCAN_EXEMPT_DIRS = ("tests",)
-SCAN_EXEMPT_FILES = (os.path.join("scripts", "agentware_legacy.py"),)
+SCAN_EXEMPT_FILES = {
+    os.path.join("scripts", "agentware_legacy.py"):
+        "RETIRED (feature 260712-scheduler-updater, Task 13)",
+}
 
 SCAN_SKIP_DIRS = (".git", "__pycache__", ".venv", "node_modules", ".mypy_cache",
                   ".cache", "logs")
@@ -295,6 +313,32 @@ def check_retired_callables(tree):
     return sorted(set(problems))
 
 
+def _read(path):
+    """The file's text, or None when it is absent or unreadable."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _exempt_by_identity(tree, rel):
+    """True when `rel` is listed AND is still the file the exemption was written
+    for — the whole difference between exempting a FILE and exempting a PATH.
+
+    A path-keyed exemption grants itself to whatever occupies the path next, so
+    it survives its subject and turns into a standing invitation. Checking the
+    anchor makes the exemption non-transferable: the monolith carries the
+    retirement note it is exempt FOR, and anything else at that path — a
+    resurrection, a stub, a rewrite — is scanned like every other published file.
+    """
+    anchor = SCAN_EXEMPT_FILES.get(rel)
+    if anchor is None:
+        return False
+    body = _read(os.path.join(tree, rel))
+    return body is not None and anchor in body
+
+
 def _scannable(tree):
     """Every published file the literal scan covers, with its exemptions."""
     for base, dirs, names in os.walk(tree):
@@ -307,7 +351,7 @@ def _scannable(tree):
         for name in sorted(names):
             path = os.path.join(base, name)
             rel = os.path.relpath(path, tree)
-            if os.path.islink(path) or rel in SCAN_EXEMPT_FILES:
+            if os.path.islink(path) or _exempt_by_identity(tree, rel):
                 continue
             yield rel, path
 
@@ -330,6 +374,58 @@ def scan_hits(tree, needle):
     return hits
 
 
+def stale_exemptions(tree):
+    """Listed exempt files that DO NOT EXIST in `tree` — retired, so inert.
+
+    Not a problem in itself: the whole point of the shim retirement is that this
+    file goes away. Split out as its own answer so "the exemption retired with
+    its file" is a state the gate can NAME, rather than one it silently shares
+    with "the exemption is still hiding something". Inert is now a PROPERTY and
+    not a hope: with the anchor required, a stale entry cannot be inherited by
+    whatever lands at the path next (see `impostor_exemptions`).
+    """
+    return sorted(rel for rel in SCAN_EXEMPT_FILES
+                  if not os.path.isfile(os.path.join(tree, rel)))
+
+
+def impostor_exemptions(tree):
+    """Listed paths occupied by a file that is NOT the one exempted.
+
+    Reported, not punished: the file is scanned like any other, so it hides
+    nothing and check 3 speaks for it if it names the retired step. Named
+    because the alternative is the silent state this whole table exists to
+    avoid — an entry that looks like it is exempting something while the thing
+    it was written for is long gone.
+    """
+    out = []
+    for rel in SCAN_EXEMPT_FILES:
+        if not os.path.isfile(os.path.join(tree, rel)):
+            continue
+        if not _exempt_by_identity(tree, rel):
+            out.append(rel)
+    return sorted(out)
+
+
+def unused_exemptions(tree):
+    """Exempted files that carry NO retired token — dead weight.
+
+    An exemption is only defensible while it is EARNED. A file kept on this list
+    after the text that needed exempting is edited out is an un-argued blind
+    spot over live, shipped code — the one shape of this table that can mask a
+    real finding, and the one nothing else would report. Scoped to files that
+    are genuinely exempt: an impostor is already being scanned, so calling its
+    entry a blind spot would be false.
+    """
+    out = []
+    for rel in SCAN_EXEMPT_FILES:
+        if not _exempt_by_identity(tree, rel):
+            continue
+        body = (_read(os.path.join(tree, rel)) or "").lower()
+        if not any(tok.lower() in body for tok in RETIRED_TOKENS):
+            out.append(rel)
+    return sorted(out)
+
+
 def check_no_hits(tree):
     """Check 3: the retired step's names have zero hits in published files."""
     problems = []
@@ -338,6 +434,10 @@ def check_no_hits(tree):
         if hits:
             problems.append("%d file(s) still name the retired step: %s"
                             % (len(hits), ", ".join(hits[:8])))
+    for rel in unused_exemptions(tree):
+        problems.append("%s is scan-exempt but carries no retired token — an "
+                        "exemption that is not earned is a blind spot over "
+                        "live code; drop it from SCAN_EXEMPT_FILES" % rel)
     return problems
 
 

@@ -89,6 +89,19 @@ BOTH absences are terminal states, not errors: an absent monolith scores zero on
 every ceiling and an empty name set, and an absent strangler module scores an
 empty allowlist. The gate reports the retirement instead of raising.
 
+``--record`` needs its own terminal rule, and did not have one. The incremental
+coupling check asks which verb was appended to the allowlist IN THIS COMMIT to
+pay for a handler's departure. The whole-file deletion cannot answer it: the
+handlers still standing at the end are exactly the ones whose verbs were promoted
+in an EARLIER commit and whose dead legacy bodies were never swept, so the
+"newly ported this commit" set is empty by construction and the record is refused
+forever. So the terminal branch (``is_terminal``) asks the same question of the
+LIVE allowlist instead of this commit's delta: every handler in the file being
+deleted must map to a verb ``strangler.PORTED_VERBS`` already serves from the
+lib. Deletion with an unported handler is still refused — that is capability
+loss either way — and once the terminal marks are recorded (zeros and empty name
+sets) ``compare`` forbids the monolith's resurrection by every mark it has.
+
 Usage:
     python3 tests/_legacy_ratchet.py                  # check (shrink-only)
     python3 tests/_legacy_ratchet.py --strict         # also assert tightness
@@ -152,7 +165,13 @@ def measure_legacy(path=None):
     tree = ast.parse(source)
     is_def = (ast.FunctionDef, ast.AsyncFunctionDef)
     return {
-        "legacy_lines": source.count("\n") + (0 if source.endswith("\n") else 1),
+        # An EMPTY file has zero lines, not one: the trailing-newline correction
+        # below counts the final unterminated line, and "" has no line to count.
+        # Only `is_terminal` can tell the difference, and it is exactly the
+        # difference between "emptied to nothing" and "one line left".
+        "legacy_lines": (0 if not source else
+                         source.count("\n")
+                         + (0 if source.endswith("\n") else 1)),
         # Whitespace-insensitive size: the one mark that cannot be satisfied by
         # reflowing the file or by relocating code into a class.
         "legacy_bytes": len("".join(source.split())),
@@ -212,6 +231,20 @@ def credited_by(handler, verbs):
         if handler == prefix or handler.startswith(prefix + "_"):
             return verb
     return None
+
+
+def is_terminal(current):
+    """Does the monolith contribute NOTHING — deleted, or emptied to the same?
+
+    Measurement-derived on purpose. ``measure_legacy`` already scores an absent
+    file as zero-and-empty, so asking the marks rather than the filesystem keeps
+    ONE answer to "is there any legacy code left" and lets a caller reach the
+    terminal branch with ``--root`` pointed at a scratch tree.
+    """
+    return (current["legacy_lines"] == 0
+            and current["legacy_bytes"] == 0
+            and not current["legacy_defs"]
+            and not current["legacy_handlers"])
 
 
 def load_fixture(path=None):
@@ -294,6 +327,33 @@ def record_errors(current, ported, fixture, verbs=None):
     problems = list(compare(current, ported, fixture, verbs))
     high = fixture["high_water"]
     gone = sorted(set(high["legacy_handlers"]) - set(current["legacy_handlers"]))
+    if not gone:
+        return problems
+    if is_terminal(current):
+        # THE TERMINAL DELETION (task 92/96). The incremental rule below asks
+        # which verb was ported IN THIS COMMIT to pay for a handler's departure.
+        # That question has no answer when the whole file goes at once: the last
+        # handlers standing are the ones whose verbs were promoted EARLIER and
+        # whose dead legacy bodies were simply never swept, so `newly ported this
+        # commit` is empty by construction and the terminal state is unreachable
+        # — an invariant that can only ever refuse. The claim that actually
+        # matters is unchanged (no handler leaves without a live port to serve
+        # its verb), so it is asked of the LIVE allowlist rather than of this
+        # commit's delta: every handler in the file being deleted must map to a
+        # verb the router already sends to the lib.
+        live = set(ported) & verbs
+        orphans = [h for h in gone if credited_by(h, live) is None]
+        if orphans:
+            problems.append(
+                f"refusing to record the TERMINAL deletion: {len(orphans)} "
+                f"handler(s) ({', '.join(orphans[:6])}"
+                + (" ..." if len(orphans) > 6 else "")
+                + f") map to no verb in strangler.PORTED_VERBS. Deleting the "
+                f"monolith is the LAST HALF OF THE LAST PORT: every handler it "
+                f"still carries must name a verb the router already serves from "
+                f"the lib, or the capability is simply lost. There is no flag to "
+                f"skip this check.")
+        return problems
     # Only verbs that are BOTH new to the allowlist and real can pay for a
     # deletion; see the module docstring on why membership alone is not enough.
     paid = (set(ported) - set(fixture["floor"]["ported_verbs"])) & verbs

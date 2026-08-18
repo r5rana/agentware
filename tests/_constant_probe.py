@@ -19,6 +19,13 @@ shape — the lib reaches the same object by a different expression
 tell "refactored" from "changed". Importing both and asking is the only thing
 that can.
 
+What happens when the monolith goes
+-----------------------------------
+Once the monolith is deleted (task 56) the comparison has no left-hand side and
+the probe degrades to `mode: "resolve"` — the lib side must still import and
+still carry the name. See `apply_probe` for why that is not the same as
+returning nothing.
+
 Why it reports DIGESTS rather than values
 -----------------------------------------
 These constants resolve to absolute paths under the operator's home directory.
@@ -48,14 +55,21 @@ _PROBE_SRC = r"""
 import hashlib, importlib, json, sys
 sys.path.insert(0, sys.argv[1])
 out = {}
-legacy = importlib.import_module("agentware_legacy")
+try:
+    legacy = importlib.import_module("agentware_legacy")
+except ModuleNotFoundError:
+    legacy = None                              # task 56 terminal state -- see below
 for name, modpath in json.loads(sys.argv[2]):
-    row = {}
+    row = {"mode": "compare" if legacy is not None else "resolve"}
     try:
         mod = importlib.import_module(modpath)
-        pair = [repr(getattr(legacy, name)), repr(getattr(mod, name))]
-        row["equal"] = pair[0] == pair[1]
-        row["digests"] = [hashlib.sha256(p.encode()).hexdigest()[:12] for p in pair]
+        vals = [repr(getattr(mod, name))]
+        if legacy is not None:
+            vals.insert(0, repr(getattr(legacy, name)))
+            row["equal"] = vals[0] == vals[1]
+        else:
+            row["resolved"] = True
+        row["digests"] = [hashlib.sha256(v.encode()).hexdigest()[:12] for v in vals]
     except Exception as exc:                   # noqa: BLE001 - reported, not raised
         row["error"] = "%s: %s" % (type(exc).__name__, exc)
     out[name] = row
@@ -111,11 +125,26 @@ def apply_probe(report, results, fail):
     attribute means the probe could not answer, and "could not answer" must
     never read the same as "agreed" -- that is the exact silence this whole
     gate exists to break.
+
+    TERMINAL (`mode == "resolve"`): once the monolith is deleted there is no
+    left-hand side, so the comparison is genuinely impossible. What is NOT
+    impossible is asking whether the lib side still resolves -- the constant is
+    still expected to exist, in that module, importable. So the probe degrades
+    to the half that still has an answer rather than to nothing, and the rows it
+    could only resolve are named in the report so a degraded run never reads
+    like a full one. Returning an empty result set on an absent monolith would
+    have been the same "could not answer looks like agreed" that the paragraph
+    above forbids, one level up.
     """
     for name in sorted(results):
         row = results[name]
         if row.get("error"):
             fail(report, "runtime", name, row["error"])
+        elif row.get("mode") == "resolve":
+            if not row.get("resolved"):
+                fail(report, "runtime", name, "lib side did not resolve")
+            else:
+                report.setdefault("runtime_resolved", []).append(name)
         elif not row.get("equal"):
             fail(report, "runtime", name,
                  "live values differ (%s)" % " vs ".join(row.get("digests", [])))

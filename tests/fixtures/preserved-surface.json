@@ -6052,13 +6052,7 @@
         ]
       }
     },
-    "pending_in_destination": [
-      "proposal_count",
-      "proposal_integrity_errors",
-      "roster_is_injectable",
-      "skill_promotion_ids",
-      "write_ripe_proposals_report"
-    ]
+    "pending_in_destination": []
   },
   "executables": {
     "scripts/agentware": {

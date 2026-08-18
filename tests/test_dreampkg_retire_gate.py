@@ -204,8 +204,12 @@ class MutationTest(unittest.TestCase):
         # exemption must be a named list, never a pattern that could hide a
         # reintroduction in shipped code.
         self.assertEqual(gate.SCAN_EXEMPT_DIRS, ("tests",))
-        self.assertEqual(gate.SCAN_EXEMPT_FILES,
-                         (os.path.join("scripts", "agentware_legacy.py"),))
+        self.assertEqual(sorted(gate.SCAN_EXEMPT_FILES),
+                         [os.path.join("scripts", "agentware_legacy.py")])
+        # ...and every entry is keyed by a NON-EMPTY identity anchor, so no
+        # exemption can be granted on the strength of a path alone.
+        for rel, anchor in gate.SCAN_EXEMPT_FILES.items():
+            self.assertTrue(anchor, "%s is exempted by path, not identity" % rel)
         tree = self.synth("exempt").steps(_registry_source(_GOOD_ROWS))
         tree.file(os.path.join("tests", "test_x.py"),
                   "RETIRED = %r\n" % gate.RETIRED_STEP_LABEL)
@@ -213,6 +217,125 @@ class MutationTest(unittest.TestCase):
         tree.file(os.path.join("scripts", "hooks", "x.sh"),
                   "# %s\n" % gate.RETIRED_STEP_LABEL)
         self.assertTrue(gate.check_no_hits(tree.root))
+
+    def test_dreampkg_the_monolith_exemption_retires_with_the_monolith(self):
+        # `SCAN_EXEMPT_DIRS` is a standing rule; the one FILE entry is coupled to
+        # a file the shim retirement deletes. Asserted as a biconditional so this
+        # keeps its meaning on both sides of the deletion: while the monolith
+        # exists the entry must be EARNED (it carries the retirement note
+        # verbatim, which is the only reason it is exempt), and once the monolith
+        # is gone the entry must read as retired rather than as an exemption
+        # still in force over something.
+        legacy = os.path.join("scripts", "agentware_legacy.py")
+        self.assertIn(legacy, gate.SCAN_EXEMPT_FILES)
+        if os.path.isfile(os.path.join(REPO, legacy)):
+            self.assertEqual(gate.stale_exemptions(REPO), [])
+            self.assertEqual(gate.impostor_exemptions(REPO), [],
+                             "the file at the exempt path is not the monolith")
+            self.assertEqual(
+                gate.unused_exemptions(REPO), [],
+                "the monolith no longer carries a retired token, so its "
+                "exemption is unearned dead weight over live code")
+        else:
+            self.assertEqual(gate.stale_exemptions(REPO), [legacy])
+            self.assertEqual(gate.impostor_exemptions(REPO), [])
+            self.assertEqual(gate.unused_exemptions(REPO), [])
+
+    def test_dreampkg_a_retired_exemption_masks_NOTHING_in_this_tree(self):
+        # Inertness executed rather than argued: for an exemption whose file is
+        # gone, running check 3 WITHOUT the entry must give the identical answer.
+        # That is the difference between "we assume it is safe to delete" and
+        # "the gate has already proved the deletion is a no-op" — and while the
+        # monolith is still here the same comparison proves the opposite, that
+        # the entry is genuinely load-bearing and may not simply be dropped.
+        stale = gate.stale_exemptions(REPO)
+        original = gate.SCAN_EXEMPT_FILES
+        with_entries = gate.check_no_hits(REPO)
+        gate.SCAN_EXEMPT_FILES = dict(
+            (r, a) for r, a in original.items() if r not in stale)
+        try:
+            without_stale = gate.check_no_hits(REPO)
+        finally:
+            gate.SCAN_EXEMPT_FILES = original
+        self.assertEqual(without_stale, with_entries,
+                         "a retired exemption still changes the scan result")
+        if not stale:
+            # The live half: dropping a LOAD-BEARING entry must change the answer,
+            # or the exemption was never doing anything and the comparison above
+            # would pass for a reason unrelated to inertness.
+            gate.SCAN_EXEMPT_FILES = {}
+            try:
+                self.assertTrue(
+                    gate.check_no_hits(REPO),
+                    "no exemption is load-bearing — this comparison is vacuous")
+            finally:
+                gate.SCAN_EXEMPT_FILES = original
+
+    def test_dreampkg_an_UNEARNED_exemption_is_reported_as_a_blind_spot(self):
+        # The teeth: an entry kept after the text that justified it is edited out
+        # is an un-argued hole over live code. Nothing else reports it — check 3
+        # by construction cannot see inside an exempt file.
+        tree = self.synth("unearned").steps(_registry_source(_GOOD_ROWS))
+        rel = os.path.join("scripts", "innocent.py")
+        anchor = "PROBE-IDENTITY-ANCHOR"
+        tree.file(rel, "# nothing retired here\n# %s\n" % anchor)
+        original = gate.SCAN_EXEMPT_FILES
+        probe = dict(original)
+        probe[rel] = anchor
+        gate.SCAN_EXEMPT_FILES = probe
+        try:
+            self.assertEqual(gate.stale_exemptions(tree.root), sorted(original))
+            self.assertEqual(gate.impostor_exemptions(tree.root), [])
+            self.assertEqual(gate.unused_exemptions(tree.root), [rel])
+            problems = gate.check_no_hits(tree.root)
+            self.assertTrue(problems, "an unearned exemption passed")
+            self.assertIn("blind spot", "\n".join(problems))
+        finally:
+            gate.SCAN_EXEMPT_FILES = original
+
+    def test_dreampkg_an_IMPOSTOR_at_the_exempt_path_is_SCANNED_not_inherited(self):
+        # The hole a path-keyed exemption leaves, closed and measured. Once the
+        # monolith is deleted its entry is stale forever (the biconditional test
+        # above pins the entry in place), so a file arriving at that exact path
+        # later would inherit an exemption written for something else — and it
+        # would inherit it SILENTLY, since check 3 cannot see inside an exempt
+        # file and `unused_exemptions` only looks at files that are exempt.
+        # Binding the entry to the retirement note makes the exemption
+        # non-transferable: no anchor, no exemption, so the resurrection is
+        # scanned and check 3 reports it like any other published file.
+        tree = self.synth("impostor").steps(_registry_source(_GOOD_ROWS))
+        rel = sorted(gate.SCAN_EXEMPT_FILES)[0]
+        self.assertEqual(gate.stale_exemptions(tree.root),
+                         sorted(gate.SCAN_EXEMPT_FILES))
+        tree.file(rel, "STEP = %r  # a resurrection, not the monolith\n"
+                       % gate.RETIRED_STEP_LABEL)
+        self.assertEqual(gate.stale_exemptions(tree.root), [])
+        self.assertEqual(gate.impostor_exemptions(tree.root), [rel])
+        problems = gate.check_no_hits(tree.root)
+        self.assertTrue(problems, "an impostor inherited the exemption")
+        self.assertIn(rel, "\n".join(problems))
+        # ...and the genuine article at the same path IS exempt, or the check
+        # above would pass merely because nothing is ever exempt any more.
+        tree.file(rel, "# %s: dream step-0 %s\n"
+                       % (gate.SCAN_EXEMPT_FILES[rel], gate.RETIRED_TOKENS[0]))
+        self.assertEqual(gate.impostor_exemptions(tree.root), [])
+        self.assertEqual(gate.unused_exemptions(tree.root), [])
+        self.assertEqual(gate.check_no_hits(tree.root), [])
+
+    def test_dreampkg_a_reintroduction_still_reddens_with_the_monolith_GONE(self):
+        # The exemption list must never be the reason the scan is quiet. Proved
+        # against a tree that carries NO monolith at all, so the entry is stale
+        # exactly as it will be after the retirement: a reintroduction in shipped
+        # code must still be found.
+        tree = self.synth("regone").steps(_registry_source(_GOOD_ROWS))
+        self.assertEqual(gate.stale_exemptions(tree.root),
+                         sorted(gate.SCAN_EXEMPT_FILES))
+        self.assertEqual(gate.check_no_hits(tree.root), [])
+        tree.file(os.path.join("scripts", "agentware_lib", "resurrect.py"),
+                  "STEP = %r\n" % gate.RETIRED_STEP_LABEL)
+        problems = gate.check_no_hits(tree.root)
+        self.assertTrue(problems, "a reintroduction passed with the shim gone")
+        self.assertIn("resurrect.py", "\n".join(problems))
 
     def test_dreampkg_a_step_reaching_the_package_root_reddens(self):
         body = ("def _dream_step_repo(kdir, dry_run):\n"
