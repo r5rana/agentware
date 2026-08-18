@@ -608,5 +608,100 @@ class MirrorNoneIsAValueNotAnAbsenceTest(unittest.TestCase):
         self.assertEqual(pinpolicy.SKILL_PIN_FLOOR, 0.85)
 
 
+class MirroredNamesReachConsumersNotOnlyTheOwnerTest(unittest.TestCase):
+    """Task 94: the two `_MIRRORED` config globals must reach CONSUMERS too.
+
+    `__setattr__` special-cases `HOME_CONFIG` / `CONFIG_PATHS`: it writes them
+    to `agentware_lib.core.config` -- the OWNER -- and used to `return` there.
+    A lib module that does `from agentware_lib.core.config import HOME_CONFIG`
+    binds the VALUE at import, not the module, so the owner write never reached
+    it and it kept the operator's REAL `~/.agentware` for the whole process.
+
+    That is the failure this class exists to PREVENT, inverted. The mirror was
+    written because a test rebinding `CLI.HOME_CONFIG` would otherwise fall
+    back to live state -- "not a failing test, a dangerous passing one" -- and
+    for import-by-value consumers the mirror did exactly that.
+
+    The monolith hid it completely: `CLI._skill_lock_path` resolved to the
+    monolith's copy, whose `__globals__` IS the CLI module dict, so it read the
+    rebind straight back and no consumer was ever consulted. Deleting the
+    monolith is what made `features.skilllock` resolve instead, and
+    `test_lock_path_default_outside_kb` fail against the real home path.
+    """
+
+    def setUp(self):
+        import _fixtures
+        self.fx = _fixtures
+        self.mod = _fixtures.load_cli()
+
+    def test_a_mirrored_name_reaches_an_import_by_value_consumer(self):
+        """The live instance, asserted on the consumer's own module global."""
+        import agentware_lib.core.config as libconfig
+        import agentware_lib.features.skilllock as skilllock
+        original = self.mod.HOME_CONFIG
+        redirected = os.path.join(os.sep, "tmp", "aw94-mirror-probe",
+                                  ".agentware", "config.env")
+        try:
+            self.mod.HOME_CONFIG = redirected
+            self.assertEqual(libconfig.HOME_CONFIG, redirected,
+                             "the OWNER lost its write")
+            self.assertEqual(skilllock.HOME_CONFIG, redirected,
+                             "the CONSUMER kept the real home")
+        finally:
+            self.mod.HOME_CONFIG = original
+        # The restore must reach the consumer too, or the next test in this
+        # process resolves a lockfile path under /tmp.
+        self.assertEqual(skilllock.HOME_CONFIG, original)
+        self.assertEqual(libconfig.HOME_CONFIG, original)
+
+    def test_the_consumer_is_what_the_BEHAVIOUR_reads(self):
+        """Not just the global: the function's answer has to move with it.
+
+        Asserting the module attribute alone would still pass if
+        `_skill_lock_path` had been rewritten to read the owner directly, which
+        is a different repair with different consequences. This pins the
+        observable the failing test actually asserted.
+        """
+        import agentware_lib.features.skilllock as skilllock
+        prev_env = os.environ.pop("AGENTWARE_SKILLS_LOCK_PATH", None)
+        original = self.mod.HOME_CONFIG
+        root = os.path.join(os.sep, "tmp", "aw94-mirror-probe2")
+        try:
+            self.mod.HOME_CONFIG = os.path.join(root, ".agentware",
+                                                "config.env")
+            self.assertEqual(
+                skilllock._skill_lock_path(),
+                os.path.join(root, ".agentware", "skills.lock.json"))
+        finally:
+            self.mod.HOME_CONFIG = original
+            if prev_env is not None:
+                os.environ["AGENTWARE_SKILLS_LOCK_PATH"] = prev_env
+        self.assertNotIn("aw94-mirror-probe2", skilllock._skill_lock_path())
+
+    def test_the_owner_is_still_written_with_NO_previous_value(self):
+        """The unconditional half, kept: `_lib_bindings` forwards an absent
+        previous NOWHERE, but the owner write may not depend on it.
+
+        `load_cli` applies this class only AFTER exec so the module body's own
+        assignment of the real home cannot clobber a redirect an outer test
+        installed on the lib -- an ordering that is only safe while the owner
+        write is unconditional.
+        """
+        import agentware_lib.core.config as libconfig
+        probe = types.ModuleType("aw94_mirror_absent_probe")
+        probe.__class__ = self.fx._ConfigMirrorModule
+        self.assertEqual(
+            self.fx._ConfigMirrorModule._lib_bindings(
+                probe, "HOME_CONFIG", self.fx._ABSENT), [])
+        original = libconfig.HOME_CONFIG
+        try:
+            probe.HOME_CONFIG = "/tmp/aw94-absent-owner/.agentware/config.env"
+            self.assertEqual(libconfig.HOME_CONFIG,
+                             "/tmp/aw94-absent-owner/.agentware/config.env")
+        finally:
+            libconfig.HOME_CONFIG = original
+            self.mod.HOME_CONFIG = original
+
+
 if __name__ == "__main__":
     unittest.main()

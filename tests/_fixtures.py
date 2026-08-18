@@ -427,14 +427,35 @@ class _ConfigMirrorModule(types.ModuleType):
                 "silently patches nothing." % (
                     name, self.__name__, name, "<attr>"))
         types.ModuleType.__setattr__(self, name, value)
+        # Resolved BEFORE any forward: `_lib_bindings` matches on the PREVIOUS
+        # value, so writing to one target first would stop the rest matching.
+        targets = self._lib_bindings(name, previous)
         if name in self._MIRRORED:
+            # The OWNER is mirrored unconditionally -- including when there is no
+            # previous value at all, which `_lib_bindings` deliberately forwards
+            # nowhere. `load_cli` applies this class only AFTER exec precisely so
+            # the module body's own assignment of the real home does not clobber
+            # a redirect an outer test already installed on the lib, and that
+            # ordering is only safe while the owner write is unconditional.
             try:
                 import agentware_lib.core.config as _libconfig
-                setattr(_libconfig, name, value)
+                if _libconfig not in targets:
+                    targets.append(_libconfig)
             except Exception:
                 pass
-            return
-        for m in self._lib_bindings(name, previous):
+        # The CONSUMERS are forwarded too, and this is not a refinement (task 94).
+        # `_MIRRORED` used to `return` after writing the owner, so a lib module
+        # that did `from agentware_lib.core.config import HOME_CONFIG` -- binding
+        # the VALUE at import, not the module -- kept the operator's REAL home for
+        # the whole process. That is the exact failure this class exists to
+        # prevent, inverted: the test rebinds, believes it is hermetic, and the
+        # implementation reads `~/.agentware`. It stayed invisible while the
+        # monolith stood because `CLI.<name>` then resolved to the monolith's own
+        # copy, whose `__globals__` IS this module dict, so the rebind was read
+        # back directly and no consumer was consulted. `features.skilllock` is the
+        # live instance -- `_skill_lock_path()` resolved the real lockfile path
+        # under a redirected HOME.
+        for m in targets:
             try:
                 setattr(m, name, value)
             except Exception:
