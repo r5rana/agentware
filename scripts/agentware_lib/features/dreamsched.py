@@ -221,7 +221,38 @@ def _dream_uninstall_schedule(as_json):
     return 0
 
 
+def _dream_cadence_due(kdir, now):
+    """Due when >= DREAM_CADENCE_INTERVAL_SEC (~6h) since the last dream cycle.
+    Always-due when never run — sleep-proof: keyed off the last-cycle WALL-CLOCK,
+    NOT the tick cadence, so a scheduler that slept through several ticks
+    self-corrects (still due) on the next wake (mirrors _pkg_updater_due)."""
+    # Function-local: `features.dream` imports THIS module for the schedule
+    # install/uninstall, so a module-scope edge back to it would close the cycle.
+    from agentware_lib.features.dream import (
+        DREAM_CADENCE_INTERVAL_SEC, _dream_last_cycle_ts)
+    from agentware_lib.features.pkgupdater import _pkg_iso_to_epoch
+    last = _pkg_iso_to_epoch(_dream_last_cycle_ts(kdir))
+    if last is None:
+        return True
+    return (now - last) >= DREAM_CADENCE_INTERVAL_SEC
+
+
+def _dream_cadence_run(kdir, now):
+    """Dispatch ONE dream cycle at force=False (the in-CLI idle-gate + min-interval
+    floor + concurrency lock decide whether it actually runs). Output captured via
+    _dream_capture; returns a compact status dict for the tick result list."""
+    import argparse
+    from agentware_lib.core.capture import _dream_capture
+    from agentware_lib.features.dream import cmd_dream
+    ns = argparse.Namespace(format="json", dry_run=False, force=False, steps=None,
+                            install_schedule=False, uninstall_schedule=False)
+    rc, _out = _dream_capture(cmd_dream, ns)
+    return {"status": "ok" if rc == 0 else "error", "rc": rc,
+            "detail": "dream-cadence dispatched cmd_dream(force=False) rc=%d" % rc}
+
+
 _EXPORTS = [
+    "_dream_cadence_due", "_dream_cadence_run",
     "DREAM_LAUNCHD_LABEL",
     "DREAM_CRON_REL",
     "DREAM_NICE",

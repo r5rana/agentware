@@ -135,6 +135,8 @@ def _tick_jobs():
       {key, enabled: ()->bool, due: (kdir, now)->bool, run: (kdir, now)->dict}.
     Task 8 registers the dedicated-updater job; the P2c dream-cadence job is purely
     additive (append another entry — the dispatcher makes NO per-job assumptions)."""
+    if not _TICK_JOB_REGISTRY:
+        register_builtin_tick_jobs()
     return list(_TICK_JOB_REGISTRY)
 
 
@@ -281,6 +283,62 @@ def _tick_uninstall_schedule(as_json):
     return 0
 
 
+def register_builtin_tick_jobs():
+    """Register the three shipped tick jobs, in their pre-split ORDER.
+
+    EXPLICIT, and deliberately not an import side effect. The monolith registered
+    these by executing three `_tick_register_job({...})` calls at module scope, so
+    the registry was populated only because something happened to import the
+    monolith — and every job's `enabled`/`due`/`run` closed over THAT exec's
+    namespace. Deleting the shim (task 56) would therefore have silently
+    unregistered the updater, the dream cadence and the checkup: three scheduled
+    capabilities, gone, with no error and no failing test, because an empty
+    registry dispatches cleanly and reports nothing to run.
+
+    Called from `_tick_jobs()`, so the registry is populated on first read no
+    matter which entry point got here. `_tick_register_job` replaces by key, so
+    calling this repeatedly is a no-op rather than an accumulation.
+
+    ORDER IS PRESERVED (updater, dream-cadence, checkup): `_tick_dispatch` makes
+    no per-job assumptions, but the order is what the tick's output has always
+    listed and a reordering would be a visible, unexplained change.
+    """
+    from agentware_lib.features.pkgupdater import (
+        _pkg_updater_due, _pkg_updater_run, resolve_updater)
+    from agentware_lib.features.dreamsched import (
+        _dream_cadence_due, _dream_cadence_run)
+    from agentware_lib.core.routing import resolve_dream as _resolve_dream
+    from agentware_lib.ops.checkupconfig import _checkup_due, resolve_checkup
+    from agentware_lib.ops.checkupcmd import _checkup_run
+
+    # Gated on resolve_updater()==1 so it SKIPS when OFF — a runtime kill switch
+    # that does NOT require uninstalling the shared tick.
+    _tick_register_job({
+        "key": "updater",
+        "enabled": lambda: resolve_updater() == "1",
+        "due": _pkg_updater_due,
+        "run": _pkg_updater_run,
+    })
+    # Purely additive. Gated on resolve_dream()==1 so it is INERT until the
+    # operator enables dream (config --set-dream on). run() dispatches
+    # cmd_dream(force=False), so the idle-gate + min-interval floor + single-writer
+    # lock all still apply (defence in depth).
+    _tick_register_job({
+        "key": "dream-cadence",
+        "enabled": lambda: _resolve_dream() == "1",
+        "due": _dream_cadence_due,
+        "run": _dream_cadence_run,
+    })
+    # Gated on resolve_checkup()==1 so it is INERT until the operator enables it
+    # (config --set-checkup on).
+    _tick_register_job({
+        "key": "checkup",
+        "enabled": lambda: resolve_checkup() == "1",
+        "due": _checkup_due,
+        "run": _checkup_run,
+    })
+
+
 def _tick_dispatch(kdir, now=None, jobs=None):
     """Walk the job-agnostic registry and run each ENABLED + DUE job. Makes NO
     updater-only assumptions. Returns a per-job result list. A job that raises is
@@ -381,6 +439,7 @@ _EXPORTS = [
     "_tick_jobs",
     "_TICK_JOB_REGISTRY",
     "_tick_register_job",
+    "register_builtin_tick_jobs",
     "_tick_any_job_enabled",
     "_tick_install_schedule",
     "_tick_uninstall_schedule",
