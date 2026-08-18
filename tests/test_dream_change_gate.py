@@ -143,6 +143,35 @@ class ChangeGateTests(unittest.TestCase):
         self.assertIn("no gold set", d["reason"],
                       "dirty tree runs past the change-gate to the gold check")
 
+    def test_the_gold_check_cannot_PRECEDE_the_change_gate(self):
+        """The discriminator the probe above silently needs (task 94).
+
+        `test_step_eval_runs_past_change_gate_when_changed` reads "no gold set"
+        as evidence that the run got PAST the change gate. That inference is
+        only valid while the gate is consulted FIRST -- and the lib port had the
+        two checks the other way round, which made the probe unreachable-by-
+        construction: "no gold set" came back whether the gate admitted the run
+        or wrongly skipped it, so the test passed either way and the change
+        gate had no coverage at all.
+
+        Both orders skip, so no status assertion can separate them. The one
+        observable that can is the REASON on the input where the two checks
+        DISAGREE: a clean, unchanged tree that also has no gold set. Gate-first
+        answers "clean tree"; gold-first answers "no gold set".
+        """
+        self._seed_cycle(_FP)
+        gold = os.path.join(self.kdir, "benchmarks", "recall-gold.json")
+        self.assertFalse(os.path.isfile(gold), "fixture must have no gold set")
+        with mock.patch.object(self.mod, "_pkg_working_tree_dirty",
+                               return_value=False), \
+             mock.patch.object(self.mod, "_dream_change_fp", return_value=_FP):
+            d = self.mod._dream_step_eval_record(self.kdir, dry_run=False)
+        self.assertEqual(d["status"], "skipped")
+        self.assertIn("clean tree", d["reason"],
+                      "the change gate must be consulted BEFORE the gold check, "
+                      "or 'no gold set' stops being evidence of passing it")
+        self.assertNotIn("no gold set", d["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

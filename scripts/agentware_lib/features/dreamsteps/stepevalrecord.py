@@ -40,14 +40,24 @@ def _dream_step_eval_record(kdir, dry_run):
     if dry_run:
         return {"status": "planned",
                 "would": "eval --strategy bm25 --record, then bench redact"}
-    if not os.path.isfile(gold):
-        return {"status": "skipped", "reason": "no gold set"}
     # Change-gate (Task 8): SKIP the ~76s eval-record on a CLEAN unchanged tree;
     # a DIRTY tree or any doubt RUNS (fail-open). Same fp as step c (both AFTER
     # step a) so they agree with the metric-recorded value.
+    #
+    # ORDER IS LOAD-BEARING and this is the monolith's (feature 260813 task 94).
+    # The port had the gold-set check first. Both orders skip, so the only
+    # visible difference is the REASON -- which is exactly the problem: the
+    # suite uses "no gold set" as the PROBE that a run got PAST this gate
+    # (test_step_eval_runs_past_change_gate_when_changed says so in as many
+    # words). Returning "no gold set" before the gate is consulted makes that
+    # probe unreachable-by-construction, so the test passes whether the gate
+    # admits the run or wrongly skips it. Gate first keeps the two reasons
+    # distinguishable, which is what makes either of them evidence.
     gate = _dream_change_gate_skip(kdir)
     if gate:
         return {"status": "skipped", "reason": gate}
+    if not os.path.isfile(gold):
+        return {"status": "skipped", "reason": "no gold set"}
     ledger = os.path.join(kdir, HISTORY_REL)
     before = len(_ledger._read_ledger(ledger)) if os.path.isfile(ledger) else 0
     ns = argparse.Namespace(
