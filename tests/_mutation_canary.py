@@ -235,6 +235,26 @@ def probe_verb_is_ported(root=None):
 
 # --- the synthesizer (proves the canary bites) --------------------------------
 
+
+def facade_has_passthrough(repo=None):
+    """True while the facade still `exec`s the monolith into its own globals.
+
+    Task 56 removes that line, and with it everything this canary measures: there
+    is no passthrough to remove, no namespace to copy, and no write seam to keep
+    live. The MUTATION arm is therefore a migration-window instrument, and this is
+    how it knows the window has closed -- reported as a state, not discovered as a
+    SystemExit from the synthesizer refusing a facade it cannot mutate.
+    """
+    if repo is None:
+        here = os.path.dirname(os.path.realpath(__file__))
+        repo = os.path.dirname(here)
+    try:
+        with open(os.path.join(repo, "scripts", "agentware"), encoding="utf-8") as fh:
+            return fh.read().count(FACADE_EXEC_ANCHOR) == 1
+    except OSError:                      # pragma: no cover - no facade at all
+        return False
+
+
 def synthesize_facade(dest, kind, repo):
     """Build a scratch tree at `dest` whose facade carries mutation `kind`.
 

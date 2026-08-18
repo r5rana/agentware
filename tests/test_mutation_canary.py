@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _mutation_canary import (  # noqa: E402
     CANARY_SENTINEL, CANARY_SYMBOL, FACADE_EXEC_ANCHOR, FACADE_KINDS,
-    probe, synthesize_facade, verdict, probe_verb_is_ported)
+    probe, synthesize_facade, verdict, probe_verb_is_ported, facade_has_passthrough)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -80,6 +80,9 @@ class VerdictTest(unittest.TestCase):
         self.assertTrue(any("KeyError" in v for v in out), out)
 
 
+@unittest.skipUnless(facade_has_passthrough(REPO),
+                     "task 56: the facade no longer execs the monolith, so the "
+                     "probed symbol is not on it at all -- see FacadeRetiredTest")
 class LiveCanaryTest(unittest.TestCase):
     """The real facade at HEAD, loaded and mutated for real."""
 
@@ -139,6 +142,10 @@ class LiveCanaryTest(unittest.TestCase):
             self.assertIn("def %s" % CANARY_SYMBOL, fh.read())
 
 
+@unittest.skipUnless(facade_has_passthrough(REPO),
+                     "task 56: the facade no longer execs the monolith, so there "
+                     "is no passthrough to mutate -- the whole MUTATION arm is a "
+                     "migration-window instrument and its window has closed")
 class MutatedFacadeTest(unittest.TestCase):
     """Proof the canary bites. Each mutation is one line off the shipped file."""
 
@@ -202,3 +209,37 @@ def _rmtree(path):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FacadeRetiredTest(unittest.TestCase):
+    """What must hold once the passthrough is GONE (task 56's terminal state).
+
+    The canary above measures a WRITE SEAM that only exists while the monolith is
+    `exec`'d into the facade's globals. Deleting it does not weaken anything —
+    there is no seam to keep live, no namespace to copy, and no legacy body for a
+    rebind to reach. But "the canary no longer applies" must not be the same
+    observable as "the canary was quietly dropped", so the retired state gets its
+    own assertions: the passthrough is really gone, the monolith is really absent,
+    and the CLI still dispatches without either.
+    """
+
+    @unittest.skipIf(facade_has_passthrough(REPO),
+                     "the passthrough is still present; LiveCanaryTest owns this")
+    def test_the_passthrough_and_the_monolith_are_both_gone(self):
+        with open(os.path.join(REPO, "scripts", "agentware"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertNotIn(FACADE_EXEC_ANCHOR, text)
+        self.assertFalse(
+            os.path.isfile(os.path.join(REPO, "scripts", "agentware_legacy.py")),
+            "the facade stopped exec'ing the monolith but the file is still here")
+
+    @unittest.skipIf(facade_has_passthrough(REPO),
+                     "the passthrough is still present; LiveCanaryTest owns this")
+    def test_the_cli_still_dispatches_without_the_shim(self):
+        """A dead seam must not be confused with a dead CLI."""
+        result = probe(REPO)
+        self.assertTrue(result["loaded"], result.get("error"))
+        self.assertTrue(result["dispatched"], result.get("error"))
+        self.assertTrue(result["before"],
+                        "the probed command printed nothing without the shim")
+        self.assertNotIn(CANARY_SENTINEL, result["before"] or "")
