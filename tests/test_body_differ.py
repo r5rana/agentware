@@ -232,22 +232,100 @@ class RefutationTest(unittest.TestCase):
                       report["absorber_missing"])
         self.assertTrue(bd.violations(report))
 
-    def test_absorbers_pay_only_at_their_declared_host(self):
-        """A legacy handler's bulk may not pay for a lib split it never had."""
-        row = [r for r in self.fx["rows"]
-               if r["adjudication"] == "decomposed"][0]
+    # A site path no real tree can contain, so the decoy below can never
+    # collide with a genuine absorber reference.
+    DECOY = "scripts/agentware_lib/_absorber_decoy.py"
+
+    def _decomposed_row_with_absorbers(self):
+        """The first decomposed row whose floors leave room for a decoy.
+
+        The decoy is sized one char UNDER the row's floor, so it must also sit
+        at or above `floor_chars` -- otherwise the paired discriminator below
+        would trip the separate host-floor obligation and stop isolating the
+        absorber rule.
+        """
+        for row in self.fx["rows"]:
+            if row["adjudication"] != "decomposed" or not row.get("absorbs"):
+                continue
+            if bd.required_chars(row) - 1 >= row["floor_chars"]:
+                return row
+        self.fail("fixture carries no decomposed row with absorbers")
+
+    def _decoy_for(self, row, host):
+        """`(fixture, tree)` with the row's host site swapped for a decoy body
+        and `host` declared as the host.
+
+        The decoy is one char under the row's floor, so it clears that floor
+        ONLY if the absorbers are credited to it. Which of the two calls is
+        correct is decided purely by what `host` names -- the bodies are
+        identical in both.
+        """
+        # The decoy REPLACES every site, not just the host. Removing the host
+        # alone leaves whatever else carries the name -- with the monolith
+        # standing that is its own full-length copy, which clears the floor by
+        # itself and hides the very crediting this test is here to observe. Owning
+        # the whole site list is what makes the pair read the same in both states.
         tree = copy.deepcopy(self.tree)
-        tree[row["name"]] = [(rel, body) for rel, body in tree[row["name"]]
-                             if rel != row["host"]]
-        report = bd.check(self.fx, tree)
-        # The column a violation lands in is decided by the row's WINNER, not by
-        # the mutation. This asserted "donor_longer" outright, which held only
-        # while the first decomposed row happened to be donor-winning; task 56
-        # added seventeen rows and the first is now local-winning, so the test
-        # failed on the row ordering rather than on the invariant. Assert the
-        # column the row's own winner implies.
+        tree[row["name"]] = [(self.DECOY,
+                              "x" * (bd.required_chars(row) - 1))]
+        fx = copy.deepcopy(self.fx)
+        [r for r in fx["rows"] if r["name"] == row["name"]][0]["host"] = host
+        return fx, tree
+
+    def test_absorbers_pay_only_at_their_declared_host(self):
+        """Absorber bulk may not be credited to a site that is not the host.
+
+        Topology-independent BY CONSTRUCTION, and that is the repair. This used
+        to delete the host site and lean on whatever OTHER site happened to
+        carry the name -- which, while the monolith stood, was always its copy:
+        22 of the 35 decomposed rows had one. With the monolith deleted only
+        ONE does, so for this row the mutation left ZERO sites and the test
+        stopped exercising the absorber rule altogether (it raised out of
+        `check()`, and had it been naively guarded it would have degenerated
+        into `test_a_deleted_definition_reddens_as_missing`). The invariant is
+        about WHERE absorber bulk may be added, so the non-host site is now
+        SYNTHESISED and sized so that crediting it would be observable.
+        """
+        row = self._decomposed_row_with_absorbers()
+        fx, tree = self._decoy_for(row, row["host"])
+        report = bd.check(fx, tree)
         column = "local_longer" if row["winner"] == "local" else "donor_longer"
-        self._assert_named(report, column, row["name"])
+        hits = [h for h in report[column]
+                if h["name"] == row["name"] and h["check"] == "floor"]
+        # The floor obligation specifically: the row also reddens on host-floor
+        # here, and asserting merely "the row is named" would pass even with the
+        # absorber rule broken.
+        self.assertEqual(1, len(hits))
+        self.assertEqual(bd.required_chars(row) - 1, hits[0]["have"])
+
+    def test_the_same_decoy_body_pays_once_it_IS_the_declared_host(self):
+        """The discriminator: same tree, same bodies, only the HOST differs.
+
+        Without this, the test above would be satisfied by a gate that never
+        credits absorbers anywhere -- including at the host, where they must.
+        """
+        row = self._decomposed_row_with_absorbers()
+        fx, tree = self._decoy_for(row, self.DECOY)
+        self.assertEqual([], bd.violations(bd.check(fx, tree)))
+
+    def test_a_row_whose_every_site_is_gone_reddens_instead_of_raising(self):
+        """The terminal shape, locked: a name bound to an EMPTY site list.
+
+        `check()` guards `name not in tree`, but not a name present with no
+        sites -- `available_chars` returned None and the floor comparison
+        raised TypeError. A gate that raises where it should report leaves its
+        verdict to whoever reads the traceback.
+        """
+        row = self._decomposed_row_with_absorbers()
+        tree = copy.deepcopy(self.tree)
+        tree[row["name"]] = []
+        report = bd.check(self.fx, tree)
+        column = "local_longer" if row["winner"] == "local" else "donor_longer"
+        hits = [h for h in report[column]
+                if h["name"] == row["name"] and h["check"] == "floor"]
+        self.assertEqual(1, len(hits))
+        self.assertEqual(0, hits[0]["have"])
+        self.assertTrue(bd.violations(report))
 
     def test_a_superseded_row_still_ratchets(self):
         """`superseded` lowers the floor to the decision -- it does not remove it."""

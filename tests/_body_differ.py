@@ -304,7 +304,15 @@ def available_chars(tree, row):
     """
     lengths = _site_lengths(tree, row["name"])
     if not lengths:
-        return None, []
+        # A name present in the tree with ZERO sites offers nothing, so the
+        # floor comparison must REDDEN -- it must not crash. This returned
+        # `None` and `check()` compared it unguarded, which raised TypeError
+        # instead of reporting a violation. Unreachable from `merged_tree`
+        # (which only creates a key when a site exists), so the state arrives
+        # from a caller holding a mutated tree -- exactly what the refutation
+        # pass does. A gate that raises where it should report is a gate whose
+        # verdict is decided by the traceback reader.
+        return 0, []
     best = max(lengths.values())
     missing = []
     if row.get("absorbs"):
