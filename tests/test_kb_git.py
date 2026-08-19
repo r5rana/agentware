@@ -7,10 +7,13 @@ Conflict/merge scenarios use throwaway clones of a temp bare remote.
 If `git` is not on PATH the git-dependent tests skip cleanly.
 """
 
+import contextlib
+import io
 import os
 import shutil
 import subprocess
 import tempfile
+import types
 import unittest
 
 try:  # works both as `tests.test_kb_git` and under `discover -s tests`
@@ -811,6 +814,128 @@ class KbNothingLostGateTest(unittest.TestCase):
             self.cli.kb_git_push_once = saved
         self.assertEqual(calls["n"], 1)          # no retry on a non-race failure
         self.assertEqual(rc, 1)
+
+
+@unittest.skipUnless(HAVE_GIT, "git not available")
+class KbCommitSubjectContractTest(unittest.TestCase):
+    """The subject derivation extracted out of the handler (task 57).
+
+    `cmd_kb_git_commit` grew past both the line and the branch cap, so its
+    densest branch cluster -- subject derivation, a pure function of (args,
+    changed paths) -- moved to `_kb_commit_subject`. That makes it a
+    `decomposed` row in the body-adjudication fixture, and a `decomposed`
+    rationale is a BEHAVIOURAL CLAIM rather than a bookkeeping note: the body
+    gate can only see that the characters still exist SOMEWHERE in the host plus
+    its absorbers, never that the capability survived the move.
+
+    The four DERIVATION branches were already covered end-to-end by the sibling
+    tests above, and those are left untouched -- re-asserting them here would
+    prove nothing the pre-existing tests do not. What the extraction ADDED, and
+    what nothing covered, is a new inter-function contract: the refusal is now
+    signalled by RETURNING None, and the handler must translate that None into
+    "exit 1 and commit nothing".
+
+    That branch is unreachable from the CLI -- `--type` is
+    `choices=("feat", "chore")`, `_sanitize_commit_tag` cannot emit an invalid
+    tag (it falls back to `kb`), and the message is never empty (C-2) -- so it
+    is a defensive guard, which is precisely the kind of thing a refactor drops
+    with no test noticing and no gate able to tell.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="agentware-test-kbsubj-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.cli = load_cli()
+
+    def _mk(self, name):
+        return os.path.join(self.tmp, name)
+
+    @staticmethod
+    def _ns(**kw):
+        base = dict(path=None, tag="msgfix", type="chore", message=None)
+        base.update(kw)
+        return types.SimpleNamespace(**base)
+
+    def test_subject_refusal_returns_none_rather_than_a_malformed_subject(self):
+        """A subject failing the conventional-commit shape yields None, loudly."""
+        from agentware_lib.ops import staging
+        # `wip` is not in (feat|chore), so the assembled subject cannot match
+        # COMMIT_MSG_RE. Reached directly, because the parser makes the CLI
+        # route to it impossible by design.
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            subject = staging._kb_commit_subject(
+                self._ns(type="wip", message="a real summary"),
+                ["learnings/a.md"])
+        self.assertIsNone(subject, "a malformed subject was returned, not refused")
+        self.assertIn("refusing", err.getvalue())
+        # The refusal NAMES the offending subject, so the operator sees why.
+        self.assertIn("wip(msgfix): a real summary", err.getvalue())
+
+    def test_subject_refusal_makes_the_handler_exit_1_and_commit_nothing(self):
+        """The handler HONOURS the None -- the half of the contract it owns.
+
+        Locks the WIRING, not the derivation: with the helper forced to refuse,
+        a handler that ignored the None would commit a malformed subject or
+        crash on it. Reddens if the `if subject is None: return 1` arm is
+        dropped, or if the helper is ever changed to fall back to a default
+        subject instead of refusing.
+        """
+        from unittest import mock
+        from agentware_lib.ops import staging
+        repo = _init_repo(self._mk("refuse"))
+        os.makedirs(os.path.join(repo, "learnings"))
+        with open(os.path.join(repo, "learnings", "a.md"), "w",
+                  encoding="utf-8") as f:
+            f.write("# a\n")
+        before = _commit_count(repo)
+        with mock.patch.object(staging, "_kb_commit_subject", return_value=None):
+            rc = self.cli.cmd_kb_git_commit(self._ns(path=repo))
+        self.assertEqual(rc, 1, "the handler ignored the refusal")
+        self.assertEqual(_commit_count(repo), before, "it committed anyway")
+        # Nothing staged either: derivation refuses BEFORE the staging half.
+        staged = _run(repo, "diff", "--cached", "--name-only").stdout.strip()
+        self.assertEqual(staged, "", "a refused commit left files staged")
+
+    def test_subject_helper_is_the_derivation_the_handler_actually_commits(self):
+        """Round-trip per branch: the helper's output IS the committed subject.
+
+        The extraction's real risk is a PARTIAL copy -- a helper reproducing the
+        common branch while the handler quietly keeps its own path for the rest.
+        Each case derives the subject from the SAME (args, changed) the handler
+        will see, then runs the real commit and asserts the two agree, so a
+        divergence between the two halves cannot pass unnoticed.
+        """
+        from agentware_lib.ops import staging
+        cases = [
+            ("topics", ["learnings/alpha-topic.md", "learnings/beta-topic.md"],
+             {}),                                              # default <- topics
+            ("suffix", ["learnings/gamma.md"],
+             {"message": "my feature title", "type": "feat"}),  # message + topics
+            ("dirlist", ["references/x.md"], {}),               # fallback <- dirs
+            ("verbatim", ["notes.md"],
+             {"message": "add recall learning", "type": "feat", "tag": "Recall"}),
+        ]
+        for name, rels, kw in cases:
+            with self.subTest(branch=name):
+                repo = _init_repo(self._mk(name))
+                for rel in rels:
+                    abs_p = os.path.join(repo, rel)
+                    os.makedirs(os.path.dirname(abs_p), exist_ok=True)
+                    with open(abs_p, "w", encoding="utf-8") as f:
+                        f.write("x\n")
+                _run(repo, "add", "-A")
+                ns = self._ns(path=repo, **kw)
+                # Same inputs the handler derives from, read the same way.
+                changed = self.cli.git_changed_paths(repo)
+                self.assertTrue(changed, "fixture staged nothing for %s" % name)
+                derived = staging._kb_commit_subject(ns, changed)
+                self.assertIsNotNone(derived, "branch %s refused" % name)
+                rc = self.cli.cmd_kb_git_commit(ns)
+                self.assertEqual(rc, 0, "commit failed for branch %s" % name)
+                self.assertEqual(
+                    _head_subject(repo), derived,
+                    "the handler committed a subject the helper did not derive")
 
 
 if __name__ == "__main__":

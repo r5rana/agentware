@@ -171,7 +171,38 @@ _LINT_CMD_RECEIVERS = [_PLANLINT + "::" + n for n in (
 _UPDATECMD = "scripts/agentware_lib/features/updatecmd.py"
 _UPDATE_RECEIVERS = [_UPDATECMD + "::_update_self_heal"]
 
+_STAGING = "scripts/agentware_lib/ops/staging.py"
+_KBCOMMIT_RECEIVERS = [_STAGING + "::" + n for n in (
+    "_kb_commit_subject",   # the whole conventional-commit subject derivation
+    "_git_add_batched")]    # the staging call, now argv-batched
+
 ADJUDICATIONS = {
+    "cmd_kb_git_commit": {
+        "adjudication": "decomposed",
+        "host": _STAGING,
+        "floor_chars": 2643,
+        "absorbs": list(_KBCOMMIT_RECEIVERS),
+        "rationale": "Task 57 widened the de-commit sweep from the nine derived "
+                     "artifacts to the whole declared ignore contract, which "
+                     "pushed this handler further past caps it was already over "
+                     "(the ceiling fixture named it at 20 branches). Its densest "
+                     "branch cluster was subject derivation -- a pure function of "
+                     "(args, changed paths) with no git state in it -- so that "
+                     "became `_kb_commit_subject`, and the three-statement "
+                     "`git add` tail became `_git_add_batched` when the path list "
+                     "stopped being bounded. Every statement that left the "
+                     "handler is accounted for in one of the two receivers; the "
+                     "extraction was verified statement-by-statement against the "
+                     "pre-move body, not by eye. The move CREATED a contract no "
+                     "gate can see -- the refusal is now signalled by returning "
+                     "None -- and that CLI-unreachable defensive branch is locked "
+                     "behaviourally by `KbCommitSubjectContractTest` in "
+                     "`tests/test_kb_git.py`, whose three cases were each proven "
+                     "to redden (drop the handler's None arm; make the helper "
+                     "fall back instead of refusing; give the handler its own "
+                     "diverging copy of one branch). The four derivation branches "
+                     "keep their pre-existing end-to-end coverage, untouched.",
+    },
     "cmd_update": {
         "adjudication": "decomposed",
         "host": _UPDATECMD,

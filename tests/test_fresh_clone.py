@@ -61,7 +61,20 @@ CLI_PATH = os.path.join(REPO_ROOT, "scripts", "agentware")
 KNOWLEDGE_SUBDIRS = ("learnings", "projects", "configurations", "prompts",
                      "references", "skills")
 NON_INDEXED_DIRS = ("work", "logs", os.path.join("logs", "sessions"))
-GITIGNORE_REQUIRED = ("logs", ".loop")  # subset the plan pins; .cache also added live
+# The FULL ignore contract a fresh `init` must scaffold, stated INDEPENDENTLY of
+# `core.kblayout` (this file deliberately re-declares its seams rather than
+# importing them, so the assertion is a contract, not a tautology). Task 57: the
+# donor's contract stopped at the three run-state dirs and left the NINE derived
+# artifacts tracked, so every clone conflicted on them on every push. Directory
+# rules are listed bare here and normalized (trailing `/` stripped) at the
+# comparison; `.index.lock` is a FILE rule and must NOT carry one.
+GITIGNORE_DIR_RULES = ("logs", ".loop", ".cache")
+GITIGNORE_DERIVED_RULES = ("index.json", "FEATURES.md") + tuple(
+    "%s/index.md" % sub for sub in
+    ("learnings", "decisions", "projects", "configurations", "prompts",
+     "references", "skills"))
+GITIGNORE_REQUIRED = GITIGNORE_DIR_RULES + GITIGNORE_DERIVED_RULES + (
+    ".index.lock",)
 
 
 def _load_cli():
@@ -195,12 +208,41 @@ class TestFreshClone(unittest.TestCase):
                 for fn in os.listdir(os.path.join(self.tmp_kb, "templates"))),
             "no *.md templates installed")
 
-        # KB .gitignore ignores logs/ and .loop/.
-        with open(os.path.join(self.tmp_kb, ".gitignore"), encoding="utf-8") as f:
-            present = set(ln.strip().rstrip("/") for ln in f.read().splitlines())
+        # KB .gitignore carries the FULL required set: the three run-state dirs,
+        # the nine DERIVED artifacts and the `.index.lock` sidecar (task 57). A
+        # fresh init that scaffolds only a subset leaves the derived files
+        # trackable, which is the state that conflicts on every push.
+        gi_path = os.path.join(self.tmp_kb, ".gitignore")
+        with open(gi_path, encoding="utf-8") as f:
+            raw_lines = f.read().splitlines()
+        # Only ACTIVE rules count: a comment mentioning a pattern is documentation,
+        # not an ignore rule, and reading comments as rules is how the first draft
+        # of this assertion failed on kblayout's own "never a **/index.md glob"
+        # warning comment.
+        rules = set(ln.strip() for ln in raw_lines
+                    if ln.strip() and not ln.strip().startswith("#"))
+        present = set(r.rstrip("/") for r in rules)
         for rule in GITIGNORE_REQUIRED:
             self.assertIn(rule, present,
-                          ".gitignore missing required rule: %s/" % rule)
+                          ".gitignore missing required rule: %s" % rule)
+        # Canonical FORM, not just presence: a DIRECTORY rule carries a trailing
+        # slash so it can only ever match a directory, and a FILE rule must not —
+        # `.index.lock/` would ignore a directory that never exists and leave the
+        # real sidecar tracked (the failure mode is silent).
+        for rule in GITIGNORE_DIR_RULES:
+            self.assertIn(rule + "/", rules,
+                          "directory rule lacks its trailing slash: %s" % rule)
+        for rule in GITIGNORE_DERIVED_RULES + (".index.lock",):
+            self.assertIn(rule, rules,
+                          "file rule missing or not in canonical form: %s" % rule)
+            self.assertNotIn(rule + "/", rules,
+                             "file rule wrongly written as a directory: %s" % rule)
+        # The DATA-LOSS trap the anchored per-category list exists to avoid: a
+        # `**/index.md` or `*index.md` glob would untrack per-project CONTENT
+        # (`projects/<name>/index.md`) and any learning whose stem ends `-index.md`.
+        for rule in rules:
+            self.assertNotIn("**/index.md", rule)
+            self.assertNotEqual(rule, "*index.md")
 
         # init must NOT write the .initialized sentinel (onboarding does that).
         self.assertFalse(

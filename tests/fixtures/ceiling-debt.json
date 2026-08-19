@@ -272,7 +272,7 @@
         {
           "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/ops/staging.py::cmd_kb_git_commit",
-          "value": 20
+          "value": 17
         },
         {
           "kind": "function_over_branch_cap",

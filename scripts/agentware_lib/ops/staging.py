@@ -58,9 +58,11 @@ from agentware_lib.ops.kbstage import (   # noqa: F401  (re-export)
     kb_rel_prefix,
 )
 import agentware_lib.knowledge.index as index
-from agentware_lib.core.gitio import _git, _git_head, _git_noninteractive_env
+from agentware_lib.core.gitio import (
+    _git, _git_head, _git_noninteractive_env, git_pathspec_batches)
 from agentware_lib.core.kblayout import (
-    KB_DERIVED_GITIGNORE_RELS, _ensure_kb_gitignore)
+    KB_DERIVED_GITIGNORE_RELS, KB_GITIGNORE_DIR_RULES, KB_INDEX_LOCK_REL,
+    _ensure_kb_gitignore)
 from agentware_lib.ops.kbgit import git_tracked_paths
 # Bound BY NAME because the ported pull path is the preserved monolith's body
 # verbatim and calls these bare. The two POST-PULL RECONCILIATIONS it restores
@@ -142,13 +144,32 @@ def _truncate_subject(subject, limit=COMMIT_SUBJECT_MAX):
 
 
 def _decommit_derived(target):
-    """Untrack derived artifacts a pre-de-commit history still tracks.
+    """Untrack everything the KB ignore contract declares, that history still tracks.
 
     `git rm --cached` stages the removal but PRESERVES the local file, and the
-    derived rules are ensured in .gitignore FIRST so the staging that follows
+    ignore rules are ensured in .gitignore FIRST so the staging that follows
     cannot re-add them. Returns the paths untracked (empty when already clean, so
-    an already-migrated tree is a no-op). A fresh clone recovers the files via the
-    load_index/pull auto-rebuild, so removing them from history never bricks.
+    an already-migrated tree is a no-op). A fresh clone recovers the derived files
+    via the load_index/pull auto-rebuild, so removing them never bricks; the
+    run-state paths are local-only by policy and were never meant to leave the
+    machine at all.
+
+    SCOPE IS THE DECLARED CONTRACT, NOT JUST THE NINE (task 57). A .gitignore rule
+    does NOT untrack a file git already tracks, so on any knowledge dir predating a
+    rule the rule is inert forever — and every one of those paths is rewritten by
+    ordinary local activity, which is precisely the commit-on-every-push churn this
+    exists to end. Both extensions past the nine derived paths were REPRODUCED, not
+    supposed:
+      - `.index.lock`: the sidecar rewritten on every index mutation. It is in
+        KB_GITIGNORE_REQUIRED but was absent HERE, so a legacy KB committed it in
+        every single `kb-git commit` (measured: `.index.lock | 2 +-` in the tree).
+      - the run-state dirs (`logs/`, `.loop/`, `.cache/`): worse than churn — with
+        a tracked file under an ignored dir, `git add` REFUSES the pathspec, so
+        `cmd_kb_git_commit` failed outright (rc=1) and the KB stopped committing
+        knowledge at all until someone untracked it by hand.
+    Passing a dir rule as a pathspec makes `git ls-files` enumerate what it tracks
+    beneath it, so an untracked dir contributes nothing and the sweep can never
+    reach a path outside the declared rules.
 
     UNION NOTE (task 54): this half comes from the preserved monolith and the
     SCOPED-ALLOWLIST staging in the caller comes from the donor — neither tree had
@@ -159,12 +180,119 @@ def _decommit_derived(target):
     `git_changed_paths` reports nothing and returns on exactly the tree this
     exists to migrate.
     """
-    tracked_derived = git_tracked_paths(target, KB_DERIVED_GITIGNORE_RELS)
+    tracked_derived = git_tracked_paths(target, _kb_ignored_pathspecs())
     if tracked_derived:
         _ensure_kb_gitignore(target)
-        _git(target, "rm", "--cached", "--quiet", "--ignore-unmatch",
-             *tracked_derived)
+        # BATCHED, because this list is now unbounded. While the sweep covered a
+        # fixed nine derived files it could never outgrow argv; once a DIRECTORY
+        # rule joined the contract it enumerates whatever the repo tracks beneath
+        # it, and a long-lived knowledge base tracks five figures of session
+        # transcripts. Splatting that raises `OSError: [Errno 7] Argument list too
+        # long` — reproduced at 14,000 paths — which would crash `kb-git commit`
+        # on precisely the large legacy tree this migration exists for, and crash
+        # it HARDER than the ignored-pathspec `rc=1` it was written to fix.
+        # Staging is cumulative across invocations, so N calls stage exactly what
+        # one call would have.
+        for batch in git_pathspec_batches(tracked_derived):
+            _git(target, "rm", "--cached", "--quiet", "--ignore-unmatch", *batch)
     return tracked_derived
+
+
+def _kb_ignored_pathspecs():
+    """Pathspecs for every path the KB ignore contract declares local-only.
+
+    Derived from the contract itself (`core.kblayout`) rather than re-listed here,
+    so a rule added there is swept by the de-commit without a second edit — drift
+    between two hand-maintained copies of "what is local-only" is the bug class
+    this whole task is about. Directory rules are passed BARE (`logs`, not
+    `logs/`) because `git ls-files -- logs` enumerates the tracked files beneath.
+    """
+    return tuple(KB_DERIVED_GITIGNORE_RELS) + (KB_INDEX_LOCK_REL,) + tuple(
+        KB_GITIGNORE_DIR_RULES)
+
+
+def _git_add_batched(target, abs_paths):
+    """Stage `abs_paths` in argv-sized batches. Returns an error string, or None.
+
+    Batched for the same reason `_decommit_derived` is: the path list is derived
+    from what CHANGED, which on a first commit of a large knowledge base is every
+    file, and these are ABSOLUTE paths so each costs more argv than the
+    repo-relative ones the sweep handles. Staging is cumulative across
+    invocations, so N calls stage exactly what one call would have.
+    """
+    for batch in git_pathspec_batches(abs_paths):
+        add = _git(target, "add", "--", *batch)
+        if add.returncode != 0:
+            return add.stderr.strip()
+    return None
+
+
+def _repo_relative(kdir_rels, rel_prefix):
+    """Lift KDIR-relative paths into the REPO-ROOT-relative space, as a set.
+
+    The two halves of this commit path speak DIFFERENT path spaces and both
+    spellings are correct for their own caller, which is why the mismatch is
+    invisible on a flat KB and silent on a nested one:
+
+      - `_decommit_derived` reads `git -C <kdir> ls-files`, which prints paths
+        relative to the CURRENT DIRECTORY, and feeds them straight back to
+        `git -C <kdir> rm --cached`, which resolves pathspecs the same way. Both
+        ends are kdir-relative and the sweep is self-consistent.
+      - the allowlist reads `git status --porcelain`, which is documented to print
+        paths relative to the REPOSITORY ROOT regardless of cwd.
+
+    In flat mode (`rel_prefix == ''`) the two spaces are identical, so a raw
+    set-difference between them passes every flat test while doing nothing at all
+    in org mode (`kdir == <repo>/teams/<team>`). Reproduced, not supposed: a
+    legacy org KB tracking `teams/alpha/logs/sessions/s1.md` de-commits it, the
+    unconverted filter fails to drop `teams/alpha/logs/...` from the allowlist,
+    and `git add` refuses the now-ignored pathspec — `kb-git commit` exits 1 and
+    the team stops committing knowledge. That is precisely the failure the filter
+    exists to prevent, surviving in the one mode it was never exercised in.
+    """
+    if not rel_prefix:
+        return set(kdir_rels)
+    return set(rel_prefix.rstrip("/") + "/" + rel for rel in kdir_rels)
+
+
+def _kb_commit_subject(args, changed):
+    """Derive the ENFORCED conventional-commit subject, or None to refuse.
+
+    Extracted from `cmd_kb_git_commit` rather than declared as more ceiling debt:
+    subject derivation is a pure function of (args, changed paths) with no git
+    state in it, and it was the single densest branch cluster in a handler that
+    had grown past both the line and branch caps. The anti-monolith rule is that a
+    new monolith may not hide behind an existing declared residual, so growth gets
+    decomposed at the point it is noticed.
+    """
+    tag = _sanitize_commit_tag(getattr(args, "tag", None))
+    ctype = getattr(args, "type", None) or "chore"
+    message = getattr(args, "message", None)
+    # Name WHAT knowledge changed (deterministic, from the staged diff). Used as
+    # the default summary, or appended as a compact suffix to a caller --message.
+    topics = kb_changed_knowledge_topics(changed)
+    if not message:
+        if topics:
+            # Default summary describes the changed knowledge entries...
+            message = _format_topics_label(topics)
+        else:
+            # ...else fall back to the changed top-level dir list (C-2, never empty).
+            tops = sorted({p.split("/", 1)[0] for p in changed})
+            n = len(changed)
+            message = "sync %s (%d file%s)" % (
+                ", ".join(tops), n, "" if n == 1 else "s")
+    elif topics:
+        # A caller-supplied title (e.g. the plan title from agentware.sh) gets a
+        # compact knowledge suffix so the subject names BOTH feature + knowledge.
+        message = "%s — %s" % (message, _format_topics_label(topics))
+
+    subject = _truncate_subject("%s(%s): %s" % (ctype, tag, message))
+    if not COMMIT_MSG_RE.match(subject):
+        sys.stderr.write(
+            "kb-git commit: refusing — message '%s' does not match "
+            "feat|chore(<tag>): <summary>.\n" % subject)
+        return None
+    return subject
 
 
 def cmd_kb_git_commit(args):
@@ -213,32 +341,8 @@ def cmd_kb_git_commit(args):
         print("kb-git commit: nothing to commit — work tree clean.")
         return 0
 
-    tag = _sanitize_commit_tag(getattr(args, "tag", None))
-    ctype = getattr(args, "type", None) or "chore"
-    message = getattr(args, "message", None)
-    # Name WHAT knowledge changed (deterministic, from the staged diff). Used as
-    # the default summary, or appended as a compact suffix to a caller --message.
-    topics = kb_changed_knowledge_topics(changed)
-    if not message:
-        if topics:
-            # Default summary describes the changed knowledge entries...
-            message = _format_topics_label(topics)
-        else:
-            # ...else fall back to the changed top-level dir list (C-2, never empty).
-            tops = sorted({p.split("/", 1)[0] for p in changed})
-            n = len(changed)
-            message = "sync %s (%d file%s)" % (
-                ", ".join(tops), n, "" if n == 1 else "s")
-    elif topics:
-        # A caller-supplied title (e.g. the plan title from agentware.sh) gets a
-        # compact knowledge suffix so the subject names BOTH feature + knowledge.
-        message = "%s — %s" % (message, _format_topics_label(topics))
-
-    subject = _truncate_subject("%s(%s): %s" % (ctype, tag, message))
-    if not COMMIT_MSG_RE.match(subject):
-        sys.stderr.write(
-            "kb-git commit: refusing — message '%s' does not match "
-            "feat|chore(<tag>): <summary>.\n" % subject)
+    subject = _kb_commit_subject(args, changed)
+    if subject is None:
         return 1
 
 
@@ -248,6 +352,16 @@ def cmd_kb_git_commit(args):
     # same knowledge files as before (byte-compatible), just guarded.
     rel_prefix = kb_rel_prefix(target)
     allow, rejected = kb_git_stage_allowlist(target, rel_prefix)
+    # NEVER re-add what the de-commit above just untracked. The allowlist reads
+    # `git status --porcelain`, which reports the staged `git rm --cached` as a
+    # pending change on a path that is now IGNORED — and `git add` REFUSES an
+    # ignored pathspec, failing the whole commit. The allowlist's own derived drop
+    # does not cover it: the contract is wider than the nine derived paths
+    # (`.index.lock`, `logs/`, `.loop/`, `.cache/`), and this is the only place
+    # that knows which of them were actually untracked in THIS run.
+    if tracked_derived:
+        decommitted = _repo_relative(tracked_derived, rel_prefix)
+        allow = [p for p in allow if p not in decommitted]
     for path, reason in rejected:
         sys.stderr.write("kb-git commit: skipping %s — %s\n" % (path, reason))
     if not allow and not tracked_derived:
@@ -269,9 +383,15 @@ def cmd_kb_git_commit(args):
     # unaffected.
     top = git_toplevel(target) or target
     abs_paths = [os.path.join(top, p) for p in allow]
-    add = _git(target, "add", "--", *abs_paths)
-    if add.returncode != 0:
-        sys.stderr.write("kb-git commit: git add failed: %s\n" % add.stderr.strip())
+    # BATCHED for the same reason the de-commit above is: `allow` is derived from
+    # what CHANGED, which on a first commit of a large knowledge base is every
+    # file, and absolute paths cost more per entry than the repo-relative ones the
+    # sweep handles. Not yet reachable at the operator's ~2k tracked files, but it
+    # is the identical defect one line away from the one that was reproduced, and
+    # staging is cumulative so N calls stage exactly what one call would have.
+    add_err = _git_add_batched(target, abs_paths)
+    if add_err is not None:
+        sys.stderr.write("kb-git commit: git add failed: %s\n" % add_err)
         return 1
 
     commit = _git(target, "commit", "-m", subject)
@@ -459,6 +579,8 @@ _EXPORTS = [
     "git_rebase_in_progress", "file_has_conflict_markers", "git_push", "_push_was_rejected",
     "RC_REPUSH_RACE", "git_entry_ids_at_ref", "kb_entry_ids", "KB_PUSH_MAX_RETRIES",
     "_KB_PUSH_BACKOFF_BASE", "_KB_PUSH_BACKOFF_CAP", "_kb_push_backoff_delay",
+    "_decommit_derived", "_kb_ignored_pathspecs", "_kb_commit_subject", "_git_add_batched",
+    "_repo_relative",
 ]
 
 __all__ = list(_EXPORTS)

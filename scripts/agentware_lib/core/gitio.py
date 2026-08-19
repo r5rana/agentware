@@ -210,6 +210,43 @@ def _git_timed(target, *args, **kwargs):
         return subprocess.CompletedProcess(cmd, 126, "", "OS error: %s" % exc)
 
 
+# Conservative per-invocation argv budget for a BULK pathspec call. The platform
+# ceiling (`getconf ARG_MAX`, 1 MiB on macOS) is shared with the environment block
+# and git's own leading arguments, so it is not the usable figure: a real
+# reproduction raised `OSError: [Errno 7] Argument list too long` at ~1.30 MB of
+# paths. 128 KiB leaves an order of magnitude of headroom on every platform this
+# runs on, and the cost of being wrong is asymmetric — an extra `git` exec per
+# 128 KiB is free, while overflowing is an unhandled OSError mid-migration.
+GIT_ARGV_BATCH_BYTES = 128 * 1024
+GIT_ARGV_BATCH_COUNT = 1000
+
+
+def git_pathspec_batches(paths, max_bytes=GIT_ARGV_BATCH_BYTES,
+                         max_count=GIT_ARGV_BATCH_COUNT):
+    """Split `paths` into argv-sized batches for a bulk git invocation.
+
+    Yields non-empty lists. A single path longer than `max_bytes` is still yielded
+    ALONE rather than dropped — refusing to act on it would silently skip a real
+    file, and one over-long path is a case the kernel can still take.
+
+    Exists because a pathspec list derived from what a repository TRACKS is
+    unbounded: sweeping a directory rule (`logs/`) can enumerate five figures of
+    session transcripts, where sweeping a fixed set of nine derived files never
+    could. Callers that splat such a list into argv break on the one tree that
+    matters most — the large, long-lived one the sweep exists to migrate.
+    """
+    batch, size = [], 0
+    for path in paths:
+        cost = len(str(path).encode("utf-8", "surrogateescape")) + 1
+        if batch and (size + cost > max_bytes or len(batch) >= max_count):
+            yield batch
+            batch, size = [], 0
+        batch.append(path)
+        size += cost
+    if batch:
+        yield batch
+
+
 def _pinned_ref():
     """Short git SHA of the package repo, or 'unknown' (read-only)."""
     cp = _git(REPO_ROOT, "rev-parse", "--short", "HEAD")
@@ -221,4 +258,5 @@ def _pinned_ref():
 __all__ = ["_git", "_git_capture", "_git_noninteractive_env", "_git_upstream_name",
            "git_is_work_tree", "git_has_upstream", "git_is_clean", "git_fetch",
            "_git_head", "_is_ancestor", "DREAM_PULL_TIMEOUT", "_git_timed",
-           "_pinned_ref"]
+           "_pinned_ref", "git_pathspec_batches", "GIT_ARGV_BATCH_BYTES",
+           "GIT_ARGV_BATCH_COUNT"]
