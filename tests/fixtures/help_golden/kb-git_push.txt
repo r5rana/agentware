@@ -1,0 +1,16 @@
+usage: agentware kb-git push [-h] [--path PATH]
+                             [--on-prose-conflict {abort,pause}]
+                             [--max-retries MAX_RETRIES]
+
+options:
+  -h, --help            show this help message and exit
+  --path PATH           KB repo dir to push (default: the resolved knowledge
+                        dir)
+  --on-prose-conflict {abort,pause}
+                        same-entry (non-derived) conflict disposition: 'abort'
+                        fails loud (default); 'pause' leaves the rebase in
+                        progress + lists the conflicted entry files (rc 3) for
+                        the MERGE_PROMPT
+  --max-retries MAX_RETRIES
+                        bounded pull→resolve→push retries on a re-push race
+                        before failing loud (default: 3)

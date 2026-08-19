@@ -1,0 +1,30 @@
+usage: agentware prefer [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    capture      capture a preference as a source=user, preference-tagged
+                 entry
+    digest       render the scope-filtered active-preference digest that
+                 session-start injects (read-only; global + resolved-project
+                 prefs)
+    list         list captured preferences (the injection audit surface)
+    forget       remove a captured preference by id (reversible: re-capture)
+    approve      approve a dream-proposed steering candidate by its workorder
+                 id (operator-run the workorder to activate the preference)
+    reject       reject a dream-proposed steering candidate as noise by its
+                 workorder id (flips proposed->rejected + cancels the
+                 workorder)
+    review       read-only digest of mined steering candidates awaiting you
+                 (default: proposed-but-unapproved). NOTE: reviews CANDIDATES
+                 — the top-level `review` verb audits a DIFF instead.
+    scan-queue   Stop-hook producer: queue preference-shaped human turns from
+                 prompts.log (inert candidates; watermark-idempotent)
+    seed-cursor  session-start producer seed: set a new session's queue
+                 watermark to the current prompts.log size (idempotent; bounds
+                 first-Stop cost)
+    mine         OFFLINE transcript miner: queue recurrence + error-recovery
+                 candidates from the corpus (quarantined; never auto-
+                 activated)
+
+options:
+  -h, --help     show this help message and exit

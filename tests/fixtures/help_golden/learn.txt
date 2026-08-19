@@ -1,0 +1,23 @@
+usage: agentware learn [-h] [--format {text,json}] --topic TOPIC
+                       --summary SUMMARY --tags TAGS --content CONTENT
+                       [--author AUTHOR] [--source SOURCE] [--to-shared]
+                       [--force] [--title TITLE]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --topic TOPIC         filename stem under learnings/
+  --summary SUMMARY     one-line summary
+  --tags TAGS           comma-separated tags
+  --content CONTENT     learning body, or '-' to read from stdin
+  --author AUTHOR       optional provenance author handle (default: the per-
+                        user handle if set, else the operator handle). For
+                        shared/team KBs.
+  --source SOURCE       optional provenance source: user|agent|imported
+                        (default: agent). Feeds the ACR source_weight prior.
+  --to-shared           write org-wide into shared/ (curator only, CR-gated);
+                        default writes go to the caller's team.
+  --force               record even if a near-duplicate existing learning is
+                        detected
+  --title TITLE         optional display title (default: derived from --topic
+                        via title-casing)

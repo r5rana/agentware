@@ -1,0 +1,5 @@
+usage: agentware plan target-dirs [-h] --path PATH
+
+options:
+  -h, --help   show this help message and exit
+  --path PATH  path to a plan.md

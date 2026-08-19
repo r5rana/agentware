@@ -1,0 +1,30 @@
+usage: agentware skill [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    list               list authored catalog skills
+    search             search the catalog by name/summary/tag
+    validate           validate catalog skills (frontmatter name==folder, vet
+                       clean)
+    add                vet + install a TRUSTED catalog skill into the KB (or a
+                       harness path)
+    remove             unregister + remove a KB-installed skill
+    roster-injectable  exit 0 iff a rendered roster file has >=1 real always-
+                       on entry (shared predicate the SessionStart hook +
+                       index-validate linter call)
+    sync               reconcile KB skills/ -> per-machine vetted execution
+                       cache (quarantine-on-change; --approve to install)
+    candidates         detect cohesive recurring learnings + PROPOSE tier-2
+                       skill-candidate workorders (DRAFT, never auto-started;
+                       --dry-run to rank only)
+    propose            create-or-increment an agent-PROPOSED skill under
+                       skills-proposed/ (recall-only candidate; graduates to
+                       always-on via `skill promote`)
+    proposals          list staged skill proposals + their frequency counts
+                       (--ripe filters)
+    promote            human-gated promotion of a PROPOSED skill into the
+                       always-on skills/ tier (requires --reviewed-by; runs
+                       vet_skill_dir; BLOCKS on findings)
+
+options:
+  -h, --help           show this help message and exit

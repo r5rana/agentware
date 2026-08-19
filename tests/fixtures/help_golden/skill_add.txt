@@ -1,0 +1,15 @@
+usage: agentware skill add [-h] [--format {text,json}] [--source SOURCE]
+                           [--allow-external] [--harness-path HARNESS_PATH]
+                           [name]
+
+positional arguments:
+  name                  catalog skill name (omit only with --source)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --source SOURCE       LOCAL path to a non-catalog skill (gated; never a URL)
+  --allow-external      confirm install of an external (--source) skill
+  --harness-path HARNESS_PATH
+                        install into this harness skills dir instead of the
+                        indexed external KB (e.g. .agents/skills)

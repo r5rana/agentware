@@ -1,0 +1,20 @@
+usage: agentware fleet-emit [-h] [--format {text,json}] [--outcome OUTCOME]
+                            [--feature FEATURE] [--ts TS]
+                            [--steering-sha STEERING_SHA]
+                            [--iterations-used ITERATIONS_USED] [--max MAX]
+                            [--tasks-total TASKS_TOTAL]
+                            [--tasks-done TASKS_DONE]
+                            [--promise-status PROMISE_STATUS]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --outcome OUTCOME
+  --feature FEATURE
+  --ts TS
+  --steering-sha STEERING_SHA
+  --iterations-used ITERATIONS_USED
+  --max MAX
+  --tasks-total TASKS_TOTAL
+  --tasks-done TASKS_DONE
+  --promise-status PROMISE_STATUS

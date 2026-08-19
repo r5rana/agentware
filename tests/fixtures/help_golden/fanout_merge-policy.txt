@@ -1,0 +1,6 @@
+usage: agentware fanout merge-policy [-h] [--format {text,json}] [--kb KB]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --kb KB               KB repo dir (default: the resolved knowledge dir)

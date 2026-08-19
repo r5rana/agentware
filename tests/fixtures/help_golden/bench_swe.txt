@@ -1,0 +1,12 @@
+usage: agentware bench swe [-h] --suite SUITE [--seeds SEEDS] [--arms ARMS]
+                           [--dry-run] [--format {text,json}]
+
+options:
+  -h, --help            show this help message and exit
+  --suite SUITE         path to the suite directory containing suite.json and
+                        task dirs
+  --seeds SEEDS         number of seeds per arm (default: 5)
+  --arms ARMS           comma-separated arm names (default: with-context,no-
+                        context)
+  --dry-run             print planned runs as JSON without spawning agents
+  --format {text,json}  output format (default: text)

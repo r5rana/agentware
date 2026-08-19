@@ -1,0 +1,11 @@
+usage: agentware plan verify-premises [-h] [--format {text,json}] --path PATH
+                                      [--strict]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --path PATH           path to a plan.md
+  --strict              fail-CLOSED on an unresolvable citation for a self-
+                        extension plan (used by the loop pre-hook); a
+                        reproduced falsification always exits 1 regardless of
+                        --strict

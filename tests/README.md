@@ -35,10 +35,26 @@ repo through `tests/_paths.py` (`REPO_ROOT`, `TESTS_DIR`) rather than counting
 ## Running
 
 ```sh
-python3 -m unittest discover -s tests -v                       # whole suite
+# whole suite (~8 min). The two --ignore flags are NOT optional:
+#   tests/fixtures/   holds fixture DATA, including SWE task repos with their own
+#                     `test_hidden.py` graders that are meant to be run BY a test,
+#                     never collected as one;
+#   test_eval_gold.py is a heavyweight benchmark, run deliberately, not per-change.
+python3 -m pytest tests/ -q -p no:cacheprovider \
+    --ignore=tests/fixtures --ignore=tests/test_eval_gold.py
+
 python3 -m unittest tests.integration.test_existing_cli -v      # one module
 python3 -m unittest discover -s tests/unit/retrieval -t . -v    # one tier
 ```
+
+> **Do not run `unittest discover -s tests` for the whole suite.** It collects the
+> two exclusions above, and doing so INTERMITTENTLY HANGS — observed three times,
+> each stalling for 40+ minutes at 0.0% CPU with a static log, twice wedging an
+> autonomous loop iteration that was waiting on it. A run that hangs rather than
+> fails is the worst shape a verification can take: it cannot be distinguished
+> from a slow one without checking CPU (`ps -p PID -o pcpu=,stat=`), and any wait
+> that polls only for a SUCCESS marker never returns. Tier-scoped `discover` is
+> fine; it is the whole-tree collection that is not.
 
 `tests/` and every tier are packages (`__init__.py`), and each test module
 imports fixtures with a dual `tests._fixtures` / `_fixtures` fallback.
@@ -74,6 +90,27 @@ absent suite look identical from the outside.
 | `test_preserved_gates.py` | READ seam: does every CLI symbol the tests reference still resolve, and are the frozen node ids still collected? |
 | `test_mutation_canary.py` | WRITE seam: does rebinding a symbol on the loaded CLI module still change what the dispatched command prints? `hasattr` cannot tell — it is satisfied by a photograph — so the canary patches, dispatches, and demands the output change. It is proven to bite against a facade whose passthrough is removed and one whose passthrough is an `import` + `globals().update(...)` namespace copy. |
 | `test_suite_delta.py` | Per-commit accounting: did any module's pass count rise without a new test node id? A rise nobody added a test for is a test that stopped exercising something. See `tests/baselines/README.md` for the re-stamp workflow. |
+| `test_parser_golden.py` | PROSE seam: the surface gates are deliberately help-blind (`_surface_capture.py` records `required`/`nargs`/`choices`/`default` and never reads `help=`), so every rendered `--help` string was unpinned. This is a byte golden over all 125 surfaces plus the top-level display-order pin. |
+
+### Regenerating the `--help` golden corpus
+
+`tests/fixtures/help_golden/` holds one `.txt` per parser surface, plus a
+`_meta.json` recording the interpreter and `COLUMNS` that produced them.
+Rendered help is **not** portable across interpreters (argparse changed its
+section header and its "option that takes a value" rendering) or terminal
+widths (88 of the 125 surfaces re-wrap), so the corpus is captured once, with
+`COLUMNS=80` pinned, and the byte comparison is scoped to the recorded
+interpreter — the structural pins run everywhere. Adding a verb, a sub-verb or
+a `help=` string is a genuine `--help` change:
+
+```sh
+python3 tests/_help_golden.py --write     # regenerate, pruning stale surfaces
+python3 tests/_help_golden.py --verify    # byte-diff without writing
+```
+
+A new top-level verb additionally needs `EXPECTED_VERBS` and
+`EXPECTED_SURFACES` updated in `tests/gates/test_parser_golden.py` — that
+coupling is deliberate, so a verb cannot appear without someone noticing.
 
 ## Transitional gates for the strangler migration (feature 260813 task 32)
 

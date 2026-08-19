@@ -1,0 +1,11 @@
+usage: agentware prefer mine [-h] [--format {text,json}] [--backfill]
+                             [--max-sessions MAX_SESSIONS]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --backfill            one-shot historical mining of seeded sessions (bounded
+                        by --max-sessions; run repeatedly to catch up).
+                        Default: incremental.
+  --max-sessions MAX_SESSIONS
+                        cap sessions walked this run (default: 50)

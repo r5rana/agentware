@@ -1,0 +1,11 @@
+usage: agentware plan set-status [-h] [--format {text,json}]
+                                 feature number {todo,wip,done}
+
+positional arguments:
+  feature               feature slug; dir under work/
+  number                task number to flip
+  {todo,wip,done}       new status
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

@@ -1,0 +1,8 @@
+usage: agentware graph validate [-h] [--format {text,json}] name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

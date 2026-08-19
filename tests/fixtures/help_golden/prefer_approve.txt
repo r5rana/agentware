@@ -1,0 +1,7 @@
+usage: agentware prefer approve [-h] id
+
+positional arguments:
+  id          the emitted workorder feature (auto/pref-…)
+
+options:
+  -h, --help  show this help message and exit

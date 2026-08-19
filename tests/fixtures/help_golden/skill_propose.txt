@@ -1,0 +1,20 @@
+usage: agentware skill propose [-h] [--format {text,json}] --slug SLUG
+                               --ref REF [--body BODY] [--run RUN]
+                               [--worklog-line WORKLOG_LINE] [--to-shared]
+                               [--dry-run]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --slug SLUG           stable lowercase kebab-case slug (the proposal id)
+  --ref REF             the feature/run this proposal occurred in (uniqueness
+                        key for proposal_count)
+  --body BODY           proposal SKILL.md body ('-' reads stdin); first non-
+                        empty line becomes the description
+  --run RUN             optional run id recorded in the ledger event
+  --worklog-line WORKLOG_LINE
+                        optional worklog line reference for the ledger
+  --to-shared           curator-only: propose into the shared/ root (CR-gated)
+  --dry-run             report what this proposal WOULD record (new /
+                        increment / near-duplicate refusal) without writing
+                        the ledger or index

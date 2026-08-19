@@ -1,0 +1,5 @@
+usage: agentware prefer list [-h] [--format {text,json}]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

@@ -1,0 +1,16 @@
+usage: agentware dream [-h] [--format {text,json}] [--dry-run] [--steps a,b,…]
+                       [--force] [--install-schedule] [--uninstall-schedule]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --dry-run             report the ordered step plan; mutate NOTHING
+  --steps a,b,…         run only this comma-separated subset of steps a-f (a
+                        index-rebuild, b bench-redact, c audit, d eval-record,
+                        e detect-report, f kb-git-commit)
+  --force               bypass the idle-gate for a manual run (the concurrency
+                        lock is STILL honored)
+  --install-schedule    install the nightly schedule into HOME (launchd/cron)
+                        — requires dream ON + a configured --set-dream-
+                        schedule
+  --uninstall-schedule  remove an installed nightly schedule (idempotent)

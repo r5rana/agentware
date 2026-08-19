@@ -1,0 +1,23 @@
+usage: agentware fanout merge-queue [-h] [--format {text,json}] [--repo REPO]
+                                    [--kb-repo KB_REPO]
+                                    [--integration-branch INTEGRATION_BRANCH]
+                                    [--base BASE] [--kb-base KB_BASE]
+                                    [--gate GATE] [--no-gates] [--dry-run]
+                                    [features ...]
+
+positional arguments:
+  features              lanes to integrate (default: all registered lanes)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --repo REPO           package repo (default: this agentware repo)
+  --kb-repo KB_REPO     integration KB repo (default: resolved knowledge dir)
+  --integration-branch INTEGRATION_BRANCH
+                        integration branch name (default: integration)
+  --base BASE           base ref to create the package integration branch
+  --kb-base KB_BASE     base ref to create the KB integration branch
+  --gate GATE           post-merge gate command (repeatable; overrides the
+                        default steering+eval+test gates)
+  --no-gates            skip the post-merge gates
+  --dry-run             print the plan; integrate nothing

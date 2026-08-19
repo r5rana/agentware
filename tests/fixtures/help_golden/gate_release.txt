@@ -1,0 +1,11 @@
+usage: agentware gate release [-h] [--format {text,json}] [--full]
+                              [--tolerance TOLERANCE]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --full                run heavyweight Tier-B gates (own-gold, LongMemEval,
+                        SWE-task)
+  --tolerance TOLERANCE
+                        regression tolerance for retrieval metrics (default:
+                        0.02)

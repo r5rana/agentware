@@ -1,0 +1,16 @@
+usage: agentware index [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    add                 register a new entry in index.json
+    remove              unregister an entry from index.json
+    validate            validate index.json integrity
+    sync                report (or --fix) unindexed *.md files
+    migrate-frontmatter
+                        one-time: backfill YAML frontmatter into every indexed
+                        entry file
+    rebuild             regenerate index.json + rosters + FEATURES.md from
+                        entry frontmatter
+
+options:
+  -h, --help            show this help message and exit

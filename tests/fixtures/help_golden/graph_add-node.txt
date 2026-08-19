@@ -1,0 +1,13 @@
+usage: agentware graph add-node [-h] [--format {text,json}]
+                                [--checkpoint {none,review,manual}]
+                                name feature
+
+positional arguments:
+  name                  graph name
+  feature               plan feature slug (the node)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --checkpoint {none,review,manual}
+                        checkpoint policy (default: read from the plan.md)

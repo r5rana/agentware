@@ -1,0 +1,7 @@
+usage: agentware skill proposals [-h] [--format {text,json}] [--ripe]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --ripe                show ONLY proposals ripe for promotion (proposal_count
+                        >= threshold)

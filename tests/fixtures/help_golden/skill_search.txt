@@ -1,0 +1,8 @@
+usage: agentware skill search [-h] [--format {text,json}] query
+
+positional arguments:
+  query                 case-insensitive substring query
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

@@ -1,0 +1,19 @@
+usage: agentware graph run [-h] [--format {text,json}] [--i-approve-manifest]
+                           [--concurrency CONCURRENCY]
+                           [--node-timeout NODE_TIMEOUT] [--deadline DEADLINE]
+                           [--now NOW]
+                           name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --i-approve-manifest  authorize the AUTONOMOUS non-self-extension portion
+  --concurrency CONCURRENCY
+                        override the manifest concurrency
+  --node-timeout NODE_TIMEOUT
+                        per-node wall-clock watchdog hours (default 24)
+  --deadline DEADLINE   whole-run deadline hours (default 48)
+  --now NOW             inject the clock (ISO) for byte-identical replay

@@ -1,0 +1,75 @@
+usage: agentware eval [-h] [--format {text,json}] [--gold GOLD]
+                      [--suite {longmemeval,gold-fixture}] [--dataset DATASET]
+                      [--limit LIMIT] [--top-k TOP_K]
+                      [--strategy {tag,bm25,bm25+acr,bm25+embed}] [--ablate]
+                      [--baseline {tag,bm25,bm25+acr,bm25+embed}]
+                      [--treatment {tag,bm25,bm25+acr,bm25+embed}] [--record]
+                      [--gate] [--ab] [--tolerance TOLERANCE] [--as-of AS_OF]
+                      [--acr-gate] [--acr-margin ACR_MARGIN]
+                      [--acr-alpha ACR_ALPHA]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --gold GOLD           path to gold set JSON (default:
+                        <kdir>/benchmarks/recall-gold.json)
+  --suite {longmemeval,gold-fixture}
+                        run a benchmark suite instead of the own gold set.
+                        'longmemeval' scores the requested --strategy on
+                        LongMemEval-S at SESSION granularity (Recall@k
+                        headline k=5, per-category, abstention reported
+                        separately). 'gold-fixture' scores a tiny FROZEN
+                        synthetic corpus shipped with the package (no operator
+                        data) for a DRIFT-FREE absolute gate. Strategy-
+                        agnostic.
+  --dataset DATASET     path to the LongMemEval-S JSON for --suite longmemeval
+                        (default: <kdir>/benchmarks/longmemeval/longmemeval_s_
+                        cleaned.json)
+  --limit LIMIT         score only the first N questions of a --suite run
+                        (dev/testing; default: all)
+  --top-k TOP_K         cutoff k for @k metrics (default: 5)
+  --strategy {tag,bm25,bm25+acr,bm25+embed}
+                        retrieval strategy to score (default: tag baseline;
+                        bm25+acr applies the ACR prior over BM25; bm25+embed
+                        fuses BM25 + local embeddings via RRF, falling back to
+                        bm25 with no local embedder)
+  --ablate              run the gold set through both --baseline and
+                        --treatment strategies and report the per-metric lift
+  --baseline {tag,bm25,bm25+acr,bm25+embed}
+                        baseline strategy for --ablate (default: tag). Use
+                        bm25 to ablate the ACR prior (bm25 vs bm25+acr) or the
+                        embed lift (bm25 vs bm25+embed)
+  --treatment {tag,bm25,bm25+acr,bm25+embed}
+                        treatment strategy for --ablate (default: bm25). Use
+                        bm25+acr to measure the ACR lift, or bm25+embed to
+                        measure the hybrid embedding lift over plain BM25
+  --record              append one immutable commit+UTC-date-stamped row (with
+                        a 0-100 reliability score) to
+                        <kdir>/benchmarks/history.jsonl (append-only)
+  --gate                compare this run to the best prior comparable ledger
+                        row and EXIT NON-ZERO on a regression beyond
+                        --tolerance (implies --record; seeds + passes when
+                        there is no prior history)
+  --ab                  clean-HEAD A/B gate: score the working-tree CLI and
+                        the git-HEAD CLI (extracted to a temp file via `git
+                        show HEAD:scripts/agentware`, read-only) over the SAME
+                        corpus and PASS iff working >= head - tolerance.
+                        Isolates THIS diff's recall effect from live-KB corpus
+                        drift; emits both numbers + the delta in --format
+                        json. Unavailable HEAD ⇒ passes.
+  --tolerance TOLERANCE
+                        max allowed drop per headline metric before --gate
+                        fails (default: 0.02; reliability uses x100 points)
+  --as-of AS_OF         YYYY-MM-DD date for ACR freshness decay (default:
+                        today; PINNED for reproducible benchmarks)
+  --acr-gate            run the bm25-vs-bm25+acr ablation at --as-of and apply
+                        the deterministic 5-part ACR win gate (nDCG margin +
+                        paired t-test + win-rate + no-harm guardrails + age-
+                        stratified no-regression); EXIT NON-ZERO on FAIL.
+                        Distinct from --gate.
+  --acr-margin ACR_MARGIN
+                        min mean nDCG@k lift for the ACR-gate primary check
+                        (default: 0.01)
+  --acr-alpha ACR_ALPHA
+                        paired t-test two-tailed significance level for the
+                        ACR gate (default: 0.05; table supports 0.05, 0.01)

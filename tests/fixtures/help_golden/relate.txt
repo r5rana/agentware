@@ -1,0 +1,19 @@
+usage: agentware relate [-h] [--format {text,json}] (--supersedes TARGET_ID |
+                        --depends-on TARGET_ID | --blocks TARGET_ID |
+                        --relates-to TARGET_ID)
+                        subject
+
+positional arguments:
+  subject               id of the entry that GAINS the edge
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --supersedes TARGET_ID
+                        declare SUBJECT supersedes TARGET — the high-precision
+                        declared trust signal recall consumes
+  --depends-on TARGET_ID
+                        declare SUBJECT depends-on TARGET
+  --blocks TARGET_ID    declare SUBJECT blocks TARGET
+  --relates-to TARGET_ID
+                        declare SUBJECT relates-to TARGET

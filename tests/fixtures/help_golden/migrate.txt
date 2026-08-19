@@ -1,0 +1,8 @@
+usage: agentware migrate [-h] [--format {text,json}] [--list | --apply]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --list                report pending migrations, read-only (the default)
+  --apply               apply pending additive migrations and stamp .schema
+                        (idempotent; refuses restructuring migrations)

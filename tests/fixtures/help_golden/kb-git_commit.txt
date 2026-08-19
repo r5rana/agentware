@@ -1,0 +1,12 @@
+usage: agentware kb-git commit [-h] [--path PATH] [--tag TAG]
+                               [--type {feat,chore}] [--message MESSAGE]
+
+options:
+  -h, --help           show this help message and exit
+  --path PATH          KB repo dir to commit (default: the resolved knowledge
+                       dir)
+  --tag TAG            commit scope tag (sanitized to [a-z0-9._-]; default:
+                       kb)
+  --type {feat,chore}  conventional-commit type (default: chore)
+  --message MESSAGE    commit summary (default: deterministic changed-dirs
+                       summary)

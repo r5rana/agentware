@@ -1,0 +1,17 @@
+usage: agentware audit [-h] [--format {text,json}] [--with-tests] [--stale]
+                       [--max-age-days MAX_AGE_DAYS] [--propose]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --with-tests          also run the unittest suite (tests/) and fail the
+                        audit on failure
+  --stale               report aged volatile entries + near-duplicate/conflict
+                        pairs (advisory)
+  --max-age-days MAX_AGE_DAYS
+                        staleness window in days for --stale (default: 120)
+  --propose             with --stale: emit ONE tier-2 PROPOSED review
+                        workorder (a draft work/auto/<slug>/plan.md) for the
+                        stale/superseded/conflict findings — never mutates the
+                        KB/index, never auto-marks or decrements trust; a
+                        clean report proposes nothing

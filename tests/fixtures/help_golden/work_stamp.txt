@@ -1,0 +1,10 @@
+usage: agentware work stamp [-h] [--format {text,json}] [--author AUTHOR]
+                            [--frontmatter]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --author AUTHOR       author handle override
+  --frontmatter         ALSO prepend a machine-readable YAML team: block to
+                        each artifact (future-recall-ready; the prose '>
+                        Team:' line alone is not indexer-readable)

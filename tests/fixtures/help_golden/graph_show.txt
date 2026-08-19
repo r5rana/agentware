@@ -1,0 +1,12 @@
+usage: agentware graph show [-h] [--format {text,json}]
+                            [--render {text,dot,mermaid}]
+                            name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --render {text,dot,mermaid}
+                        text renderer (default: text)

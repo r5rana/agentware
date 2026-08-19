@@ -1,0 +1,13 @@
+usage: agentware graph status [-h] [--format {text,json}]
+                              [--node-timeout NODE_TIMEOUT] [--now NOW]
+                              name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --node-timeout NODE_TIMEOUT
+                        per-node watchdog hours for the status view
+  --now NOW             inject the clock (ISO) for a pinned status render

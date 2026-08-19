@@ -1,0 +1,40 @@
+usage: agentware plan new [-h] [--format {text,json}] --title TITLE
+                          [--max-iterations MAX_ITERATIONS] [--self-extension]
+                          [--force] [--author AUTHOR] [--auto]
+                          [--generated-by GENERATED_BY] [--trigger TRIGGER]
+                          [--evidence EVIDENCE] [--target TARGET]
+                          [--context CONTEXT]
+                          feature
+
+positional arguments:
+  feature               feature slug; dir under work/
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --title TITLE         human plan title
+  --max-iterations MAX_ITERATIONS
+                        loop iteration budget
+  --self-extension      seed the R-PKG-03 self-extension warning block
+  --force               overwrite an existing plan.md
+  --author AUTHOR       provenance author handle (default: the per-user handle
+                        if set). Visible metadata only — no effect on
+                        execution or retrieval.
+  --auto                emit a WORKORDER under work/auto/<slug>/ (the emitter
+                        prepends 'auto/'); requires --generated-by and
+                        --trigger, seeds provenance headers + a knowledge-dir
+                        target, and enforces the emit-time governance guards
+                        g1/g2/g3
+  --generated-by GENERATED_BY
+                        [--auto] the tool/agent that generated this workorder
+                        (provenance)
+  --trigger TRIGGER     [--auto] the event that triggered it (provenance)
+  --evidence EVIDENCE   [--auto] optional evidence path(s) (provenance)
+  --target TARGET       [--auto] target directory (repeatable; default: the
+                        knowledge dir). Kernel paths are refused (g1).
+  --context CONTEXT     UNTRUSTED caller-supplied candidate text, quoted
+                        verbatim inside a fenced block in the Context section
+                        ONLY (never a Verify/exec line). Forged headers and
+                        fence-breakouts are neutralized; kernel-path
+                        candidates are refused (g1). The emit seam the dream
+                        classify drain uses for mined preferences.

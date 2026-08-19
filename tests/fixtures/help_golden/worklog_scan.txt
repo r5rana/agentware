@@ -1,0 +1,13 @@
+usage: agentware worklog scan [-h] [--format {text,json}] --path PATH
+                              [--also-assessment]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --path PATH           path to a worklog.md
+  --also-assessment     ADVISORY sidecar: also flag Extracted-Knowledge
+                        'Suggested ID' entries in the sibling assessment.md
+                        that never reached the live index (the POST-phase
+                        knowledge leak). Report-only — it NEVER changes the
+                        exit code, so every gate that calls `worklog scan`
+                        WITHOUT the flag is byte-for-byte unaffected.

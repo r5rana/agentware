@@ -1,0 +1,9 @@
+usage: agentware org [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    lint        enforce org invariants O1..O13 (no-op when AGENTWARE_ORG_ROOT
+                unset)
+
+options:
+  -h, --help    show this help message and exit

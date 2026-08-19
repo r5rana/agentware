@@ -1,0 +1,8 @@
+usage: agentware steering [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    lint        enforce DSF on always-loaded steering
+
+options:
+  -h, --help    show this help message and exit

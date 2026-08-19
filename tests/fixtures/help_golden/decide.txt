@@ -1,0 +1,20 @@
+usage: agentware decide [-h] [--format {text,json}] --topic TOPIC
+                        --summary SUMMARY --options OPTIONS --choice CHOICE
+                        --rationale RATIONALE --reversible REVERSIBLE
+                        [--tags TAGS] [--author AUTHOR] [--to-shared]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --topic TOPIC         hyphenated slug; filename stem under decisions/
+  --summary SUMMARY     one-line summary
+  --options OPTIONS     options that were weighed
+  --choice CHOICE       the option chosen
+  --rationale RATIONALE
+                        why this choice, in-scope per R-AUTO-01
+  --reversible REVERSIBLE
+                        how reversible the decision is
+  --tags TAGS           comma-separated extra tags ('decision' auto-added)
+  --author AUTHOR       provenance author handle (default: the per-user handle
+                        if set, else the operator handle)
+  --to-shared           write org-wide into shared/ (curator only, CR-gated)

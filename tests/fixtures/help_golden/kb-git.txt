@@ -1,0 +1,18 @@
+usage: agentware kb-git [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    status          report is_work_tree / has_upstream / is_clean for the KB
+                    repo
+    commit          stage + commit ONLY the KB repo as one feat|chore(tag):
+                    commit
+    pull            fast-forward the KB repo from upstream at a safe point
+                    (no-op when dirty / offline / no upstream)
+    push            push KB commits to upstream, auto-resolving derived-file
+                    conflicts via index rebuild (no-op when offline / no
+                    upstream)
+    merge-continue  continue a paused prose-merge rebase after the entry files
+                    were reconciled, rebuild derived files, then push
+
+options:
+  -h, --help        show this help message and exit

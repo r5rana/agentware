@@ -1,0 +1,9 @@
+usage: agentware mcp [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    serve       speak MCP (JSON-RPC 2.0) over stdio; exposes read-only
+                recall+query
+
+options:
+  -h, --help    show this help message and exit

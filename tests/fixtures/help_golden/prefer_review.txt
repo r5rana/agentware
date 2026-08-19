@@ -1,0 +1,12 @@
+usage: agentware prefer review [-h] [--format {text,json}] [--rejected]
+                               [--approved] [--all]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --rejected            also show tier-3 rejected candidates (kernel-path /
+                        gate-loosening)
+  --approved            also show already-approved candidates (awaiting their
+                        workorder run)
+  --all                 show candidates in EVERY state (incl. queued /
+                        journaled)

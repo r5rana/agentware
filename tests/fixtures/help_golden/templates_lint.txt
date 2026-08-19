@@ -1,0 +1,6 @@
+usage: agentware templates lint [-h] [--format {text,json}] [--strict]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --strict              treat org-field warnings (T3) as hard failures

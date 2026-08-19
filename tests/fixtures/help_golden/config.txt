@@ -1,0 +1,224 @@
+usage: agentware config [-h] [--format {text,json}] [--knowledge-dir-only]
+                        [--set-knowledge-dir PATH] [--set-org-root PATH]
+                        [--set-team TEAM] [--set-org-project NAME]
+                        [--set-org-package NAME] [--unset-knowledge-dir]
+                        [--kb-autocommit-only] [--set-autocommit on|off]
+                        [--kb-push-only] [--set-push on|off]
+                        [--retrieval-mode-only]
+                        [--set-mode deterministic|semantic]
+                        [--set-retrieval bm25|semantic]
+                        [--set-embedder DOTTED_NAME|PATH] [--embedder-only]
+                        [--set-embed-model MODEL_ID] [--embed-model-only]
+                        [--kb-mode-only] [--set-kb-mode power|team]
+                        [--cli-only] [--set-cli claude|codex]
+                        [--set-pre-cli claude|codex] [--pre-cli-only]
+                        [--set-pre-model MODEL_ID] [--pre-model-only]
+                        [--set-pre-local lmstudio|ollama] [--pre-local-only]
+                        [--set-main-cli claude|codex] [--main-cli-only]
+                        [--set-main-model MODEL_ID] [--main-model-only]
+                        [--set-main-local lmstudio|ollama] [--main-local-only]
+                        [--set-post-cli claude|codex] [--post-cli-only]
+                        [--set-post-model MODEL_ID] [--post-model-only]
+                        [--set-post-local lmstudio|ollama] [--post-local-only]
+                        [--user-handle-only] [--set-user-handle HANDLE]
+                        [--record-onboarding] [--skill-propose-threshold-only]
+                        [--set-skill-propose-threshold N] [--dream-only]
+                        [--set-dream on|off] [--dream-schedule-only]
+                        [--set-dream-schedule HH:MM|CRON]
+                        [--dream-max-runtime-only]
+                        [--set-dream-max-runtime N|Ns|Nm|Nh|off]
+                        [--set-updater on|off] [--updater-only]
+                        [--set-checkup on|off] [--checkup-only]
+                        [--install-git-guards] [--uninstall-git-guards]
+                        [--repo PATH] [--skill-promote-only]
+                        [--set-skill-promote propose|off]
+                        [--set-skill-promote-cap N]
+                        [--set-skill-promote-edge-min 0.0-1.0]
+                        [--set-skill-promote-density-min 0.0-1.0]
+                        [--set-skill-promote-separation-min 0.0-1.0]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --knowledge-dir-only  print only the bare path (for shell consumers)
+  --set-knowledge-dir PATH
+                        persist the external knowledge-dir pointer to
+                        ~/.agentware/config.env (normalized to an absolute
+                        path; the sanctioned way to repoint an already-
+                        onboarded operator without cmd_init's --force guard;
+                        env still overrides per-run)
+  --set-org-root PATH   persist AGENTWARE_ORG_ROOT (the org repo root holding
+                        teams/ + shared/) — engages org mode + org lint
+  --set-team TEAM       persist AGENTWARE_TEAM (resolves to <org-
+                        root>/teams/<team>)
+  --set-org-project NAME
+                        persist AGENTWARE_ORG_PROJECT — the project the org
+                        root MUST be (matched against its standard project
+                        marker files); the resolver refuses a mis-pointed org
+                        root (source-of-truth anchor)
+  --set-org-package NAME
+                        deprecated spelling of --set-org-project (persists
+                        AGENTWARE_ORG_PROJECT)
+  --unset-knowledge-dir
+                        remove the direct AGENTWARE_KNOWLEDGE_DIR pointer so
+                        ORG_ROOT+TEAM takes precedence (org-mode switch)
+  --kb-autocommit-only  print only the resolved KB-autocommit setting (1/0)
+  --set-autocommit on|off
+                        persist the KB-autocommit setting to
+                        ~/.agentware/config.env (env still overrides per-run)
+  --kb-push-only        print only the resolved KB-push setting (1/0)
+  --set-push on|off     persist the KB-push setting to ~/.agentware/config.env
+                        (env still overrides per-run)
+  --retrieval-mode-only
+                        print only the resolved EFFECTIVE retrieval mode
+                        (deterministic|semantic) for shell consumers
+  --set-mode deterministic|semantic
+                        persist the retrieval mode to ~/.agentware/config.env
+                        (Mode A deterministic / Mode B semantic; env still
+                        overrides per-run)
+  --set-retrieval bm25|semantic
+                        SETTINGS_AW alias for --set-mode (bm25=Mode A
+                        deterministic / semantic=Mode B); persisted to
+                        ~/.agentware/config.env
+  --set-embedder DOTTED_NAME|PATH
+                        persist the LOCAL embedder backend spec (dotted module
+                        name e.g. agentware_embedder_fastembed, or a path to a
+                        .py backend) to ~/.agentware/config.env
+  --embedder-only       print only the resolved embedder backend spec (empty
+                        if unset) for shell consumers
+  --set-embed-model MODEL_ID
+                        persist the embedding model id (e.g. BAAI/bge-small-
+                        en-v1.5) to ~/.agentware/config.env
+  --embed-model-only    print only the resolved embedding model id for shell
+                        consumers
+  --kb-mode-only        print only the resolved workspace KB mode (power|team)
+                        for shell consumers (onboarding)
+  --set-kb-mode power|team
+                        persist the workspace KB mode to
+                        ~/.agentware/config.env (power=solo local KB /
+                        team=shared git KB; distinct from the retrieval --set-
+                        mode; env overrides per-run)
+  --cli-only            print only the resolved runtime CLI (claude|codex) for
+                        shell consumers (the loop's run_agent adapter +
+                        onboarding alias generation)
+  --set-cli claude|codex
+                        persist the runtime CLI to ~/.agentware/config.env
+                        (claude=Claude Code / codex=OpenAI Codex; env still
+                        overrides per-run; default claude)
+  --set-pre-cli claude|codex
+                        persist the pre-phase cli to ~/.agentware/config.env
+                        (per-phase override of the global value; env still
+                        overrides per-run)
+  --pre-cli-only        print only the resolved pre-phase cli for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-pre-model MODEL_ID
+                        persist the pre-phase model to ~/.agentware/config.env
+                        (per-phase override of the global value; env still
+                        overrides per-run)
+  --pre-model-only      print only the resolved pre-phase model for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-pre-local lmstudio|ollama
+                        persist the pre-phase local to ~/.agentware/config.env
+                        (per-phase override of the global value; env still
+                        overrides per-run)
+  --pre-local-only      print only the resolved pre-phase local for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-main-cli claude|codex
+                        persist the main-phase cli to ~/.agentware/config.env
+                        (per-phase override of the global value; env still
+                        overrides per-run)
+  --main-cli-only       print only the resolved main-phase cli for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-main-model MODEL_ID
+                        persist the main-phase model to
+                        ~/.agentware/config.env (per-phase override of the
+                        global value; env still overrides per-run)
+  --main-model-only     print only the resolved main-phase model for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-main-local lmstudio|ollama
+                        persist the main-phase local to
+                        ~/.agentware/config.env (per-phase override of the
+                        global value; env still overrides per-run)
+  --main-local-only     print only the resolved main-phase local for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-post-cli claude|codex
+                        persist the post-phase cli to ~/.agentware/config.env
+                        (per-phase override of the global value; env still
+                        overrides per-run)
+  --post-cli-only       print only the resolved post-phase cli for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-post-model MODEL_ID
+                        persist the post-phase model to
+                        ~/.agentware/config.env (per-phase override of the
+                        global value; env still overrides per-run)
+  --post-model-only     print only the resolved post-phase model for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --set-post-local lmstudio|ollama
+                        persist the post-phase local to
+                        ~/.agentware/config.env (per-phase override of the
+                        global value; env still overrides per-run)
+  --post-local-only     print only the resolved post-phase local for shell
+                        consumers (the loop's per-phase run_agent adapter)
+  --user-handle-only    print only the resolved per-user provenance handle
+                        (empty if unset)
+  --set-user-handle HANDLE
+                        persist the per-user provenance handle to
+                        ~/.agentware/config.env (stamped as `author` on
+                        entries this user creates in a shared team KB)
+  --record-onboarding   append one onboarding event {mode,user_handle} to
+                        <kdir>/logs/metrics.jsonl (gitignored observability)
+  --skill-propose-threshold-only
+                        print only the resolved skill-proposal ripeness
+                        threshold (positive int, default 5) for shell
+                        consumers
+  --set-skill-propose-threshold N
+                        persist the skill-proposal ripeness threshold (a
+                        positive integer, default 5) to
+                        ~/.agentware/config.env; a proposal is 'ripe' for
+                        human-gated promotion once its unique-ref count
+                        reaches N (env still overrides per-run)
+  --dream-only          print only the resolved dream setting (on|off) for
+                        shell consumers (the scheduler installer + idle-gate)
+  --set-dream on|off    persist the dream-mode opt-in to
+                        ~/.agentware/config.env (default OFF; env still
+                        overrides per-run)
+  --dream-schedule-only
+                        print only the resolved dream schedule token (empty if
+                        unset) for shell consumers
+  --set-dream-schedule HH:MM|CRON
+                        persist the nightly dream schedule (a 24h HH:MM token
+                        or a 5-field cron expression) to
+                        ~/.agentware/config.env
+  --dream-max-runtime-only
+                        print only the resolved dream max-runtime cap in
+                        seconds (0 = disabled) for shell consumers
+  --set-dream-max-runtime N|Ns|Nm|Nh|off
+                        persist the best-effort dream wall-clock cap (seconds,
+                        or N[s|m|h]; off/0 disables) to
+                        ~/.agentware/config.env; fully offline, no network
+  --set-updater on|off  persist the automatic signed-channel updater opt-in to
+                        ~/.agentware/config.env (default OFF; env
+                        AGENTWARE_UPDATE overrides per-run)
+  --updater-only        print only the resolved updater setting (on/off)
+  --set-checkup on|off  persist the periodic self-exam (checkup) opt-in to
+                        ~/.agentware/config.env (default OFF; env
+                        AGENTWARE_CHECKUP overrides per-run)
+  --checkup-only        print only the resolved checkup setting (on/off)
+  --install-git-guards  install the KB git guard hooks into a repository
+  --uninstall-git-guards
+                        remove the KB git guard hooks from a repository
+  --repo PATH           repository the git-guard install/uninstall targets
+                        (default: the resolved knowledge dir)
+  --skill-promote-only  print only the resolved skill-promotion mode
+  --set-skill-promote propose|off
+                        persist the auto skill-promotion mode (detect +
+                        PROPOSE only; never authors or installs)
+  --set-skill-promote-cap N
+                        persist the per-run skill-candidate emission cap (0 =
+                        detect/report only)
+  --set-skill-promote-edge-min 0.0-1.0
+                        persist the cluster edge-weight threshold
+  --set-skill-promote-density-min 0.0-1.0
+                        persist the cluster density threshold
+  --set-skill-promote-separation-min 0.0-1.0
+                        persist the cluster separation margin threshold

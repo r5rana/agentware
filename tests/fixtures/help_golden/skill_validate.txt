@@ -1,0 +1,9 @@
+usage: agentware skill validate [-h] [--format {text,json}] [--name NAME]
+                                [--source SOURCE]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --name NAME           validate only this skill (default: all)
+  --source SOURCE       validate an IN-PLACE authored skill DIR directly (runs
+                        vet_skill_dir; no catalog entry needed)

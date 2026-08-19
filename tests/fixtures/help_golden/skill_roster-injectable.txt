@@ -1,0 +1,8 @@
+usage: agentware skill roster-injectable [-h] [--format {text,json}] path
+
+positional arguments:
+  path                  path to a rendered <sub>/index.md roster
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

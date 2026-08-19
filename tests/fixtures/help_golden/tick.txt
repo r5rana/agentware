@@ -1,0 +1,13 @@
+usage: agentware tick [-h] [--format {text,json}] [--install-schedule]
+                      [--uninstall-schedule] [--lock-status]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --install-schedule    install the shared tick into HOME (launchd
+                        StartInterval=1800 / cron */30) — refuses when no job
+                        is enabled
+  --uninstall-schedule  remove an installed tick schedule (idempotent; leaves
+                        dream alone)
+  --lock-status         print the updater/tick lock state (free|held|stale)
+                        and exit (read-only; used by the loop reverse-guard)

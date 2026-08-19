@@ -1,0 +1,4 @@
+usage: agentware bench scorecard [-h]
+
+options:
+  -h, --help  show this help message and exit

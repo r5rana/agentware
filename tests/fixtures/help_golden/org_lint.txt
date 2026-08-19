@@ -1,0 +1,6 @@
+usage: agentware org lint [-h] [--format {text,json}] [--strict]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --strict              treat warnings as hard failures

@@ -1,0 +1,20 @@
+usage: agentware graph checkpoint [-h] [--format {text,json}]
+                                  --verdict {proceed,hold,abort-subtree}
+                                  [--actor {loop,operator}] [--handle HANDLE]
+                                  [--host HOST] [--now NOW]
+                                  name node
+
+positional arguments:
+  name                  graph name
+  node                  node the verdict applies to
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --verdict {proceed,hold,abort-subtree}
+                        proceed|hold|abort-subtree
+  --actor {loop,operator}
+                        who records the verdict (default: operator)
+  --handle HANDLE       actor handle (optional)
+  --host HOST           actor host (optional)
+  --now NOW             inject the clock (ISO)

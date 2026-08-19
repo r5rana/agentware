@@ -1,0 +1,9 @@
+usage: agentware gate [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    release     run the multi-tier release gate (Tier-A by default, --full for
+                Tier-B)
+
+options:
+  -h, --help    show this help message and exit

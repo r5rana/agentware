@@ -1,0 +1,11 @@
+usage: agentware team [-h] [--format {text,json}] {list,create,register} ...
+
+positional arguments:
+  {list,create,register}
+    list                list teams + members from teams/registry.json
+    create              scaffold a NEW team folder + register the caller
+    register            JOIN an existing team (adds the caller)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

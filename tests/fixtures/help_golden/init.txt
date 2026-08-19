@@ -1,0 +1,9 @@
+usage: agentware init [-h] [--format {text,json}]
+                      --knowledge-dir KNOWLEDGE_DIR [--force]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --knowledge-dir KNOWLEDGE_DIR
+                        absolute or ~ path to store this operator's knowledge
+  --force               overwrite an existing HOME config pointing elsewhere

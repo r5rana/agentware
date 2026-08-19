@@ -1,0 +1,14 @@
+usage: agentware trust [-h] [--format {text,json}] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    list                list pinned publisher keys
+    pin                 trust a publisher key (onboarding / first clone)
+    rotate              trust a NEW key during an overlap window (operator-
+                        confirmed rotation)
+    verify              check trust-anchor integrity + in-tree fingerprint
+                        match
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

@@ -1,0 +1,10 @@
+usage: agentware release [-h] [--format {text,json}] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    preflight           read-only go-live readiness check (hermetic verify
+                        self-test + publisher/client readiness)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

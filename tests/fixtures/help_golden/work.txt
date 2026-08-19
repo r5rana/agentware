@@ -1,0 +1,8 @@
+usage: agentware work [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    stamp       backfill team/author headers into work/ artifacts (idempotent)
+
+options:
+  -h, --help    show this help message and exit

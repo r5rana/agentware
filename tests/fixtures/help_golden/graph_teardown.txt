@@ -1,0 +1,18 @@
+usage: agentware graph teardown [-h] [--format {text,json}] [--repo REPO]
+                                [--kb-repo KB_REPO]
+                                [--integration-branch INTEGRATION_BRANCH]
+                                [--force] [--dry-run]
+                                name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --repo REPO           package repo override
+  --kb-repo KB_REPO     KB repo override
+  --integration-branch INTEGRATION_BRANCH
+                        integration branch for the merged check
+  --force               remove even unmerged/dirty lanes (R-GIT-02 override)
+  --dry-run             print what would be removed; remove nothing

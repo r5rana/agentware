@@ -1,0 +1,6 @@
+usage: agentware index sync [-h] [--format {text,json}] [--fix]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --fix                 add missing entries instead of just reporting

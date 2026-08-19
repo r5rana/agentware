@@ -1,0 +1,8 @@
+usage: agentware fleet issues [-h] [--format {text,json}] [--since SINCE]
+                              [--team TEAM]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --since SINCE         only events on/after YYYY-MM-DD
+  --team TEAM           restrict to one team

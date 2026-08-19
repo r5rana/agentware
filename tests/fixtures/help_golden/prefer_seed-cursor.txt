@@ -1,0 +1,7 @@
+usage: agentware prefer seed-cursor [-h] [--sid SID] [--prompts PROMPTS]
+
+options:
+  -h, --help         show this help message and exit
+  --sid SID          the current session id
+  --prompts PROMPTS  prompts.log path (default: <kdir>/logs/prompts.log;
+                     overridable for tests)

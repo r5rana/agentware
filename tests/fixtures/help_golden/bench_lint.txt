@@ -1,0 +1,8 @@
+usage: agentware bench lint [-h] [--min-coverage MIN_COVERAGE]
+                            [--format {text,json}]
+
+options:
+  -h, --help            show this help message and exit
+  --min-coverage MIN_COVERAGE
+                        minimum gold-query-to-entry ratio (default: 0.25)
+  --format {text,json}  output format (default: text)

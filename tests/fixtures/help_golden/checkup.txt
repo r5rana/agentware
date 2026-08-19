@@ -1,0 +1,8 @@
+usage: agentware checkup [-h] [--format {text,json}] [--status-line]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --status-line         print the one-line SessionStart banner ONLY when a
+                        fresh report exists (read-only; byte-identical no-op
+                        when OFF/no-report)

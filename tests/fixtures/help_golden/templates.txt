@@ -1,0 +1,8 @@
+usage: agentware templates [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    lint        enforce the per-team template contract (T1..T5)
+
+options:
+  -h, --help    show this help message and exit

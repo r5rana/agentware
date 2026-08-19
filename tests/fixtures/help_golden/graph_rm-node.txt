@@ -1,0 +1,9 @@
+usage: agentware graph rm-node [-h] [--format {text,json}] name feature
+
+positional arguments:
+  name                  graph name
+  feature               node to remove
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

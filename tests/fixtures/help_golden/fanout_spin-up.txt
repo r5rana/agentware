@@ -1,0 +1,16 @@
+usage: agentware fanout spin-up [-h] [--format {text,json}] [--base BASE]
+                                [--kb-base KB_BASE] [--repo REPO]
+                                [--kb-repo KB_REPO] [--dry-run]
+                                features [features ...]
+
+positional arguments:
+  features              feature slug(s)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --base BASE           package base ref for feat/<f> (default: HEAD)
+  --kb-base KB_BASE     KB base ref for kb/<f> (default: --base)
+  --repo REPO           package repo (default: this agentware repo)
+  --kb-repo KB_REPO     KB repo (default: the resolved knowledge dir)
+  --dry-run             print the plan; write nothing

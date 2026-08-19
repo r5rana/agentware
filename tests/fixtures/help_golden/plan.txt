@@ -1,0 +1,29 @@
+usage: agentware plan [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    lint             lint a feature plan against the R1–R16 structural
+                     contract
+    verify-premises  re-verify a plan's declared `## Premises` against LIVE
+                     state (read-only; a reproduced falsification exits 1 —
+                     the loop pre-hook halts a load-bearing run before phase
+                     1)
+    new              scaffold a lint-passing plan.md (seeds the mandatory
+                     [e2e]+[kb] pair)
+    add-task         insert a task before the trailing [e2e]+[kb] pair and
+                     renumber
+    set-status       flip a task marker (todo|wip|done) in place, line-local
+    set-state        transition a plan's lifecycle state
+                     (draft|ready|running|done|superseded|cancelled) via the
+                     legal-transition matrix
+    state-backfill   stamp a derived `> Status:` on every legacy plan lacking
+                     one (migration 001; never overwrites, skips the live
+                     feature)
+    claim            loop START-edge: bring a plan to running
+                     (draft->ready->running / ready->running / running re-
+                     claim), or refuse a terminal plan
+    target-dirs      print declared target-package dirs from a plan (one per
+                     line)
+
+options:
+  -h, --help         show this help message and exit

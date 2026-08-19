@@ -1,0 +1,16 @@
+usage: agentware plan claim [-h] [--format {text,json}]
+                            [--actor {operator,loop}] [--handle HANDLE]
+                            [--host HOST] [--now NOW]
+                            feature
+
+positional arguments:
+  feature               feature slug; dir under work/
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --actor {operator,loop}
+                        requesting actor
+  --handle HANDLE       claim handle
+  --host HOST           claim host
+  --now NOW             ISO ts override (tests)

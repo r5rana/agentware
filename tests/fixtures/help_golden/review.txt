@@ -1,0 +1,20 @@
+usage: agentware review [-h] [--format {text,json}] [--adversarial]
+                        [--diff-range DIFF_RANGE] [--diff-file DIFF_FILE]
+                        [--acceptance-file ACCEPTANCE_FILE]
+                        [--worklog WORKLOG]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --adversarial         run the adversarial audit round (required)
+  --diff-range DIFF_RANGE
+                        git range to diff (e.g. HEAD~1..HEAD or a base ref)
+  --diff-file DIFF_FILE
+                        read the unified diff from a file instead of git
+  --acceptance-file ACCEPTANCE_FILE
+                        path to the feature plan.md whose acceptance criteria
+                        the reviewers audit against
+  --worklog WORKLOG     feature worklog.md path; when the Q8 escape hatch
+                        AGENTWARE_SKIP_ADVERSARIAL_REVIEW is set, a self-
+                        closing `> DECISION:` skip marker is recorded here
+                        instead of running the audit

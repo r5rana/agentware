@@ -1,0 +1,22 @@
+usage: agentware review-report [-h] [--format {text,json}]
+                               [--state-dir STATE_DIR]
+                               [--feature-dir FEATURE_DIR] [--worklog WORKLOG]
+                               [--feature FEATURE] [--outcome OUTCOME]
+                               [--no-workorders]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --state-dir STATE_DIR
+                        dir holding the per-round adversarial-review-
+                        round-N.json / adversarial-remediate-round-N.json
+                        artifacts the loop wrote
+  --feature-dir FEATURE_DIR
+                        feature work dir the adversarial-review.md report is
+                        written into
+  --worklog WORKLOG     feature worklog.md the self-closing call-out markers
+                        append to
+  --feature FEATURE     feature name for the report header
+  --outcome OUTCOME     final gate outcome for the report header (e.g. clean /
+                        blocked)
+  --no-workorders       do not emit follow-up workorders for low findings

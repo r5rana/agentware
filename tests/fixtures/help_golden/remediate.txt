@@ -1,0 +1,23 @@
+usage: agentware remediate [-h] [--format {text,json}]
+                           [--findings-file FINDINGS_FILE]
+                           [--diff-range DIFF_RANGE] [--diff-file DIFF_FILE]
+                           [--acceptance-file ACCEPTANCE_FILE]
+                           [--no-gate-chain]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --findings-file FINDINGS_FILE
+                        JSON of confirmed findings (the `review --adversarial`
+                        output, or a bare findings array); '-' or omitted
+                        reads stdin
+  --diff-range DIFF_RANGE
+                        git range the fix is applied against (echoed as
+                        new_diff_range for the task-5 re-audit)
+  --diff-file DIFF_FILE
+                        read the unified diff from a file instead of git
+  --acceptance-file ACCEPTANCE_FILE
+                        path to the feature plan.md acceptance criteria the
+                        fixer honors
+  --no-gate-chain       skip the post-fix gate-chain re-run (the task-5 re-
+                        audit still runs); used by hermetic tests

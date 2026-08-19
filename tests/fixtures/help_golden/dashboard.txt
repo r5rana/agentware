@@ -1,0 +1,7 @@
+usage: agentware dashboard [-h] [--port PORT] [--host HOST] [--no-open]
+
+options:
+  -h, --help   show this help message and exit
+  --port PORT  port to bind (default: 8765)
+  --host HOST  loopback host to bind (default: 127.0.0.1)
+  --no-open    do not open a browser window

@@ -1,0 +1,13 @@
+usage: agentware graph new [-h] [--format {text,json}]
+                           [--concurrency CONCURRENCY] [--force]
+                           name
+
+positional arguments:
+  name                  graph name (matches the fanout feature RE)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --concurrency CONCURRENCY
+                        max concurrent lanes (default 3, ceiling 16)
+  --force               overwrite an existing manifest

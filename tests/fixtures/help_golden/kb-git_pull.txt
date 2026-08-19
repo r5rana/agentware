@@ -1,0 +1,5 @@
+usage: agentware kb-git pull [-h] [--path PATH]
+
+options:
+  -h, --help   show this help message and exit
+  --path PATH  KB repo dir to pull (default: the resolved knowledge dir)

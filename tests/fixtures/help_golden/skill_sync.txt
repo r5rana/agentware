@@ -1,0 +1,21 @@
+usage: agentware skill sync [-h] [--format {text,json}]
+                            [--approve NAME[,NAME...]] [--reject NAME]
+                            [--uninstall NAME] [--reset] [--status]
+                            [--status-line] [--harness-path HARNESS_PATH]
+                            [--force-shadow] [--force-conflict]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --approve NAME[,NAME...]
+                        re-vet + install the named quarantined skill(s) into
+                        the execution cache (the ONLY install path)
+  --reject NAME         block a skill (removes an owned cache copy)
+  --uninstall NAME      remove an owned cache copy + drop its lockfile entry
+  --reset               remove ALL owned cache copies + clear the lockfile
+  --status              show the installed / pending / blocked roster
+  --status-line         read-only one-block roster for the session-start hook
+  --harness-path HARNESS_PATH
+                        execution-cache dir (default ~/.claude/skills)
+  --force-shadow        allow approving a name that shadows a PACKAGE skill
+  --force-conflict      allow approving over a FOREIGN (unowned) cache dir

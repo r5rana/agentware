@@ -1,0 +1,9 @@
+usage: agentware skill remove [-h] [--format {text,json}] [--keep-files] name
+
+positional arguments:
+  name                  skill name to remove
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --keep-files          unregister from the index but leave the files on disk

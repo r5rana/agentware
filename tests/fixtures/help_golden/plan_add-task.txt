@@ -1,0 +1,14 @@
+usage: agentware plan add-task [-h] [--format {text,json}] [--verify VERIFY]
+                               [--e2e] [--kb]
+                               feature description
+
+positional arguments:
+  feature               feature slug; dir under work/
+  description           task description
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --verify VERIFY       the *Verify:* command
+  --e2e                 tag this as an additional [e2e] task
+  --kb                  tag this as an additional [kb] task

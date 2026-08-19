@@ -1,0 +1,8 @@
+usage: agentware fleet impact [-h] [--format {text,json}] [--since SINCE]
+                              [--team TEAM]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --since SINCE         t0 as a YYYY-MM-DD date OR a steering_sha
+  --team TEAM           restrict to one team

@@ -1,0 +1,7 @@
+usage: agentware prefer digest [-h] [--project PROJECT]
+
+options:
+  -h, --help         show this help message and exit
+  --project PROJECT  the checkout signal (whereami project_name); normalized
+                     to the canonical KB slug (unknown -> GLOBAL-only, never
+                     mis-scoped)

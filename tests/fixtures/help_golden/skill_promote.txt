@@ -1,0 +1,13 @@
+usage: agentware skill promote [-h] [--format {text,json}]
+                               [--reviewed-by REVIEWED_BY]
+                               slug
+
+positional arguments:
+  slug                  proposal slug to promote
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --reviewed-by REVIEWED_BY
+                        handle of the reviewer who performed the required
+                        adversarial content-review (mandatory)

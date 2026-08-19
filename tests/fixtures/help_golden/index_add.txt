@@ -1,0 +1,18 @@
+usage: agentware index add [-h] [--format {text,json}] --id ID --title TITLE
+                           --category CATEGORY --path PATH --tags TAGS
+                           --summary SUMMARY [--created CREATED]
+                           [--last-verified LAST_VERIFIED]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --id ID               unique entry id
+  --title TITLE         human-readable title
+  --category CATEGORY   one of: learnings, decisions, projects,
+                        configurations, prompts, references, skills
+  --path PATH           knowledge-dir-relative path (must exist)
+  --tags TAGS           comma-separated tags
+  --summary SUMMARY     one-line summary
+  --created CREATED     YYYY-MM-DD (default: today)
+  --last-verified LAST_VERIFIED
+                        YYYY-MM-DD freshness date (default: == created)

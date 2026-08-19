@@ -1,0 +1,16 @@
+usage: agentware fanout [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    spin-up       provision N isolated lanes (package + KB worktrees + env
+                  file)
+    list          report each active lane's branch, KB path, and loop outcome
+    merge-policy  install the idempotent merge=union .gitattributes in the KB
+                  repo
+    merge-queue   serially integrate finished lanes onto an integration branch
+                  (gated)
+    teardown      remove merged lanes' worktrees + branches (refuses
+                  unmerged/dirty)
+
+options:
+  -h, --help      show this help message and exit

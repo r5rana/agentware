@@ -1,0 +1,20 @@
+usage: agentware update [-h] [--format {text,json}] [--check] [--catalog]
+                        [--self-heal] [--staleness-check] [--status-line]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --check               report current vs upstream + changelog, then STOP
+                        (read-only; safe for a SessionStart updates-available
+                        nudge)
+  --catalog             also show which authored skill-catalog entries the
+                        pending update would add/remove (read-only)
+  --self-heal           reconcile a crashed prior apply (re-smoke ->
+                        finalize/rollback/strand); used by the loop reverse-
+                        guard on a stale updater lock
+  --staleness-check     layer-2 on-use nudge: if the last signed-channel fetch
+                        is >24h old, read-only fetch + WARN (never applies;
+                        always exits 0)
+  --status-line         read-only, no-network one-liner for SessionStart
+                        (silent when up-to-date; surfaces a
+                        stranded/unfinalized apply)

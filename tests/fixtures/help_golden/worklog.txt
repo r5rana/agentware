@@ -1,0 +1,8 @@
+usage: agentware worklog [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    scan        find unpromoted '> LEARNED:' markers in a worklog
+
+options:
+  -h, --help    show this help message and exit

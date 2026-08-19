@@ -1,0 +1,20 @@
+usage: agentware metrics [-h] [--format {text,json}] [--session SESSION]
+                         [--feature FEATURE] [--since SINCE] [--prices PRICES]
+                         [--context-window CONTEXT_WINDOW] [--retrieval]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --session SESSION     restrict to a single session id
+  --feature FEATURE     sessions whose transcript references the feature
+  --since SINCE         only sessions starting on/after YYYY-MM-DD
+  --prices PRICES       path to a JSON price table ($ per 1M tokens, keyed by
+                        model-id substring) overriding the built-in default
+                        cost rates
+  --context-window CONTEXT_WINDOW
+                        model context-window size (tokens) the context-tax
+                        truncation-risk is measured against (default 200000)
+  --retrieval           report per-session RETRIEVAL utilization over
+                        live.jsonl (recall invoked, returned ids, read-
+                        through, corpus coverage) instead of execution-cost
+                        metrics

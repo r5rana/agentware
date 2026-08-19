@@ -1,0 +1,19 @@
+usage: agentware query [-h] [--format {text,json}] (--id ID | --path PATH |
+                       --category CATEGORY | --tag TAG |
+                       --depends-on DEPENDS_ON | --impact IMPACT |
+                       --relates RELATES) [--depth DEPTH]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --id ID               look up a single entry by id
+  --path PATH           look up a single entry by path
+  --category CATEGORY   list all entries in a category
+  --tag TAG             list all entries carrying a tag
+  --depends-on DEPENDS_ON
+                        forward closure: entries the given id depends on
+  --impact IMPACT       reverse closure: entries that depend on the given id
+  --relates RELATES     direct graph neighbors of the given id (both
+                        directions)
+  --depth DEPTH         traversal hops for graph queries (default 1; 0 = full
+                        closure)

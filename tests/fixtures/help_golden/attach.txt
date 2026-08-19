@@ -1,0 +1,8 @@
+usage: agentware attach [-h] [--format {text,json}] --path PATH [--migrate]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --path PATH           path to the candidate KB repo to validate
+  --migrate             idempotently fill missing structure first (never
+                        clobbers existing data), then validate

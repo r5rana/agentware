@@ -1,0 +1,4 @@
+usage: agentware mcp serve [-h]
+
+options:
+  -h, --help  show this help message and exit

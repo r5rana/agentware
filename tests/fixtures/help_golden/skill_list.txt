@@ -1,0 +1,6 @@
+usage: agentware skill list [-h] [--format {text,json}] [--category CATEGORY]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --category CATEGORY   filter by category (security|productivity|gap-filler)

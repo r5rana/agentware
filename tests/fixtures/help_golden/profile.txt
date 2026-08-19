@@ -1,0 +1,6 @@
+usage: agentware profile [-h] [--format {text,json}] --path HANDLE
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --path HANDLE         handle of the user whose profile path to resolve

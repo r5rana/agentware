@@ -1,0 +1,7 @@
+usage: agentware skill candidates [-h] [--format {text,json}] [--dry-run]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --dry-run             rank candidate clusters (member ids + scores) WITHOUT
+                        emitting

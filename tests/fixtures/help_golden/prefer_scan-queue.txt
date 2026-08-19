@@ -1,0 +1,10 @@
+usage: agentware prefer scan-queue [-h] [--sid SID] [--cwd CWD]
+                                   [--prompts PROMPTS]
+
+options:
+  -h, --help         show this help message and exit
+  --sid SID          the current session id (queue is scoped/watermarked per
+                     session)
+  --cwd CWD          fallback checkout dir when a record omits cwd
+  --prompts PROMPTS  prompts.log path (default: <kdir>/logs/prompts.log;
+                     overridable for tests)

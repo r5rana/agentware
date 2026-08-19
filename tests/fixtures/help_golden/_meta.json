@@ -1,0 +1,10 @@
+{
+  "columns": "80",
+  "kind": "help-golden-meta",
+  "python": "3.13.7",
+  "python_tag": "3.13",
+  "schema_version": 1,
+  "surfaces": 125,
+  "why": "--help bytes are interpreter- and width-dependent; the gate compares bytes only on python_tag and pins COLUMNS so the corpus is reproducible.",
+  "written_by": "tests/_help_golden.py --write"
+}

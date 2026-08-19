@@ -1,0 +1,7 @@
+usage: agentware whereami [-h] [--format {text,json}] [--dir DIR]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --dir DIR             directory to resolve (default: $AGENTWARE_INVOKED_FROM
+                        or $PWD)

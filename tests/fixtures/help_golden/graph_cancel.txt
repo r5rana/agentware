@@ -1,0 +1,14 @@
+usage: agentware graph cancel [-h] [--format {text,json}] [--node NODE]
+                              [--handle HANDLE] [--host HOST] [--now NOW]
+                              name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --node NODE           cancel this node + its subtree (default: all nodes)
+  --handle HANDLE       actor handle (optional)
+  --host HOST           actor host (optional)
+  --now NOW             inject the clock (ISO)

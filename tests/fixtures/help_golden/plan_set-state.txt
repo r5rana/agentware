@@ -1,0 +1,26 @@
+usage: agentware plan set-state [-h] [--format {text,json}]
+                                [--actor {operator,loop}] [--reason REASON]
+                                [--superseded-by SUPERSEDED_BY]
+                                [--handle HANDLE] [--host HOST] [--now NOW]
+                                feature
+                                {draft,ready,running,done,superseded,cancelled}
+
+positional arguments:
+  feature               feature slug; dir under work/
+  {draft,ready,running,done,superseded,cancelled}
+                        target state
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --actor {operator,loop}
+                        who is requesting the transition (worker-restricted
+                        edges refuse actor=loop)
+  --reason REASON       required for demotions / cancellations / the
+                        cancelled->draft reopen
+  --superseded-by SUPERSEDED_BY
+                        required for any X -> superseded (the replacing
+                        feature slug)
+  --handle HANDLE       claim handle (default: resolved user handle)
+  --host HOST           claim host (default: short hostname)
+  --now NOW             ISO timestamp override (determinism/testing)

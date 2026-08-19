@@ -1,0 +1,18 @@
+usage: agentware trust pin [-h] [--format {text,json}] [--principal PRINCIPAL]
+                           [--key-file KEY_FILE] [--from-repo]
+                           [--valid-after VALID_AFTER]
+                           [--valid-before VALID_BEFORE] [--comment COMMENT]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --principal PRINCIPAL
+                        signer identity (default: agentware-release)
+  --key-file KEY_FILE   path to the publisher SSH pubkey file
+  --from-repo           pin the in-tree published key (catalog/agentware-
+                        release.pub)
+  --valid-after VALID_AFTER
+                        SSH valid-after (e.g. 20260101 or 20260101000000)
+  --valid-before VALID_BEFORE
+                        SSH valid-before (overlap-window retirement)
+  --comment COMMENT     optional key comment

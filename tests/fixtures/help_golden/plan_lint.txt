@@ -1,0 +1,13 @@
+usage: agentware plan lint [-h] [--format {text,json}] --path PATH [--strict]
+                           [--readiness]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --path PATH           path to a plan.md
+  --strict              treat the R9 autonomy rule (and the R13 done-reality
+                        binding) as hard failures (used by the loop pre-hook
+                        so a non-autonomous plan aborts before the run)
+  --readiness           check ONLY the mechanical draft->ready gate: no
+                        emitter placeholder signatures remain and >=1 real
+                        acceptance checkbox exists

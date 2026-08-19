@@ -1,0 +1,26 @@
+usage: agentware graph [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    new         create an empty graph manifest
+    add-node    add a plan as a graph node (self_extension + write-set
+                computed)
+    rm-node     remove a node (and every edge touching it)
+    add-edge    add a dependency edge
+    rm-edge     remove a dependency edge
+    show        render the manifest (text/dot/mermaid/--format json)
+    validate    validate the manifest (refuses cycle/dangling/self-ext-
+                checkpoint)
+    run         run the graph (requires --i-approve-manifest)
+    resume      resume a partially-run graph (recomputation; refuses on hash
+                drift)
+    status      deterministic per-node status table (--format json for the
+                API)
+    checkpoint  record a checkpoint verdict (manual barrier is operator-only)
+    cancel      cancel a node+subtree (or the whole graph) via the state
+                machine
+    teardown    tear down the graph's lanes (delegates to the gated fanout
+                teardown)
+
+options:
+  -h, --help    show this help message and exit

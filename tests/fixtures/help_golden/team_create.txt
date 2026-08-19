@@ -1,0 +1,9 @@
+usage: agentware team create [-h] [--format {text,json}] --name NAME
+                             [--handle HANDLE] [--no-set-default]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --name NAME           team folder name
+  --handle HANDLE       caller handle (default: resolved)
+  --no-set-default      do NOT persist AGENTWARE_TEAM/ORG_ROOT to config

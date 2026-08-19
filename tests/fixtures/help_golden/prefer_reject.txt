@@ -1,0 +1,11 @@
+usage: agentware prefer reject [-h] [--format {text,json}] [--reason REASON]
+                               id
+
+positional arguments:
+  id                    the emitted workorder feature (auto/pref-…)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --reason REASON       optional rejection reason recorded on the queue record
+                        + the workorder cancel

@@ -1,0 +1,36 @@
+usage: agentware recall [-h] [--format {text,json}] [--top-k TOP_K]
+                        [--token-budget TOKEN_BUDGET] [--category CATEGORY]
+                        [--strategy {bm25,bm25+acr}] [--acr] [--as-of AS_OF]
+                        [--scope {curated,work,all,shared}] [--team TEAM]
+                        [--include-shared]
+                        query
+
+positional arguments:
+  query                 free-text query to rank KB entries against
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --top-k TOP_K         max entries to return before budgeting (default: 5)
+  --token-budget TOKEN_BUDGET
+                        trim so cumulative est. tokens <= budget (default:
+                        1500)
+  --category CATEGORY   restrict ranking to a single category
+  --strategy {bm25,bm25+acr}
+                        ranking strategy (default: the gated default —
+                        bm25+acr iff the recorded ACR win gate passed, else
+                        bm25; bm25+acr applies the ACR provenance+freshness
+                        prior over BM25)
+  --acr                 shorthand for --strategy bm25+acr (opt into the ACR
+                        re-rank; reorders within the BM25 set only)
+  --as-of AS_OF         YYYY-MM-DD date for ACR freshness decay (default:
+                        today; PIN it for reproducible runs)
+  --scope {curated,work,all,shared}
+                        corpus scope: curated (indexed entries only, default),
+                        work (plans/worklogs in work/), all (both), shared
+                        (org-shared entries only). work/ entries are ephemeral
+                        (never indexed).
+  --team TEAM           restrict recall to a single team's entries ('shared'
+                        selects org-shared entries).
+  --include-shared      add ALL org-shared knowledge (not just shared skills)
+                        to the caller-team default scope.

@@ -1,0 +1,5 @@
+usage: agentware kb-git merge-continue [-h] [--path PATH]
+
+options:
+  -h, --help   show this help message and exit
+  --path PATH  KB repo dir to continue (default: the resolved knowledge dir)

@@ -1,0 +1,8 @@
+usage: agentware bench redact [-h] [path]
+
+positional arguments:
+  path        ledger file to scrub (default: <knowledge-
+              dir>/benchmarks/history.jsonl)
+
+options:
+  -h, --help  show this help message and exit

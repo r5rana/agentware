@@ -1,0 +1,19 @@
+usage: agentware graph resume [-h] [--format {text,json}]
+                              [--concurrency CONCURRENCY]
+                              [--node-timeout NODE_TIMEOUT]
+                              [--deadline DEADLINE] [--retry] [--now NOW]
+                              name
+
+positional arguments:
+  name                  graph name
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --concurrency CONCURRENCY
+                        override the manifest concurrency
+  --node-timeout NODE_TIMEOUT
+                        per-node wall-clock watchdog hours
+  --deadline DEADLINE   whole-run deadline hours
+  --retry               re-offer a FAILED node exactly once (R-FAIL-04)
+  --now NOW             inject the clock (ISO) for byte-identical replay

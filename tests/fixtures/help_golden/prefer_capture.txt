@@ -1,0 +1,26 @@
+usage: agentware prefer capture [-h] [--format {text,json}]
+                                [--from-workorder AUTO/PREF-…] [--global |
+                                --project PROJECT] [--key KEY] [--tags TAGS]
+                                [--force]
+                                [text]
+
+positional arguments:
+  text                  the preference, one line (omit with --from-workorder)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --from-workorder AUTO/PREF-…
+                        activate the APPROVED tier-2 candidate of this
+                        workorder: read its exact text + project scope from
+                        the prefer-queue record (the loop-closing step an
+                        emitted `auto/pref-…` workorder runs; refuses a
+                        candidate that is not yet `prefer approve`d)
+  --global              capture as a GLOBAL preference (all projects)
+  --project PROJECT     scope to a KB project slug (default: auto-resolve the
+                        checkout via the canonical normalizer, else global)
+  --key KEY             explicit supersede key (default: derived from the
+                        text); a re-capture under the same key supersedes
+                        rather than stacks
+  --tags TAGS           extra comma-separated tags ('preference' auto-added)
+  --force               capture even if a near-duplicate exists

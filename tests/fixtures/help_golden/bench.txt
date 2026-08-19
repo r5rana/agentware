@@ -1,0 +1,13 @@
+usage: agentware bench [-h] <subcommand> ...
+
+positional arguments:
+  <subcommand>
+    scorecard   regenerate benchmarks/SCORECARD.md trend table from
+                history.jsonl
+    redact      scrub operator HOME from ledger gold_path (PII redaction; the
+                ONLY sanctioned mutation of the append-only ledger)
+    swe         SWE-task behavioral benchmark (hidden-unit-test coding suite)
+    lint        gold-set staleness and coverage-ratio check
+
+options:
+  -h, --help    show this help message and exit

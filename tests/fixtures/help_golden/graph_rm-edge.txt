@@ -1,0 +1,10 @@
+usage: agentware graph rm-edge [-h] [--format {text,json}] name src dst
+
+positional arguments:
+  name                  graph name
+  src                   predecessor node
+  dst                   successor node
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

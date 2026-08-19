@@ -1,0 +1,12 @@
+usage: agentware fleet [-h] [--format {text,json}] {issues,impact} ...
+
+positional arguments:
+  {issues,impact}
+    issues              top recurring failure outcomes + top learning tags
+                        across teams
+    impact              causal before/after failure-rate delta at a steering-
+                        sha|date t0
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)

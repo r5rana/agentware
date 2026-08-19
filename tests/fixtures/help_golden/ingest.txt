@@ -1,0 +1,16 @@
+usage: agentware ingest [-h] [--format {text,json}]
+                        --source {docs,github-issues} --path PATH
+                        [--tags TAGS] [--only ONLY] [--commit]
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --source {docs,github-issues}
+                        source adapter: docs | github-issues
+  --path PATH           LOCAL docs dir or github-issues JSON export (agentware
+                        NEVER fetches the network)
+  --tags TAGS           extra comma-separated tags applied to every candidate
+  --only ONLY           comma-separated topic slugs to commit (the reviewed
+                        subset; default: all valid)
+  --commit              register the selected candidates with source: imported
+                        (default: dry-run, registers nothing)
