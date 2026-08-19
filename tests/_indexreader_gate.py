@@ -165,8 +165,13 @@ RAW_READ_EXEMPT = (
      "an ingest candidate this module built"),
     ("knowledge/curation/curationingest.py", "_ingest_write_staging", "tags",
      "an ingest candidate this module built"),
-    ("retrieval/goldfixture.py", "load_gold_fixture", "tags",
-     "the gold fixture loader, strict + fail-loud by design"),
+    # The entry BUILDER, not a loaded index entry: it reads the package-shipped
+    # synthetic fixture (tests/fixtures/gold_fixture_suite.json), whose loader is
+    # strict + fail-loud by design. Moved here from load_gold_fixture when task 59
+    # split the construction out; the row follows the SITE, because a path- or
+    # name-keyed exemption left behind forgives whatever lands there next.
+    ("retrieval/goldfixture.py", "_corpus_entry", "tags",
+     "the gold fixture entry builder, strict + fail-loud by design"),
 )
 
 # The four errors `validate_index` must be able to emit. Leniency in the readers

@@ -3,7 +3,9 @@
 Owns: the DRIFT-FREE frozen gold-fixture regression suite (`eval --suite gold-fixture`) -
 the suite name constant (GOLD_FIXTURE_SUITE), the repo-relative fixture path
 (_GOLD_FIXTURE_REL) + its absolute resolver (gold_fixture_path), the fixture
-loader/validator (load_gold_fixture -> (entries, gold), full error taxonomy), and the
+loader/validator (load_gold_fixture -> (entries, gold), full error taxonomy, and the CATEGORY
+CONTRACT: every returned entry carries a `category` - declared, else _DEFAULT_CATEGORY - so the
+R-RET-03 skill pin is REACHABLE over this corpus instead of silently inert), and the
 scorer (evaluate_gold_fixture - score a strategy over the FROZEN synthetic corpus, tag
 the result as the gold-fixture suite, and assert determinism by re-scoring). Because the
 corpus ships frozen in the repo (tests/fixtures/gold_fixture_suite.json - synthetic, NO
@@ -42,19 +44,65 @@ GOLD_FIXTURE_SUITE = "gold-fixture"
 _GOLD_FIXTURE_REL = os.path.join(
     "tests", "fixtures", "gold_fixture_suite.json")
 
+# The category a corpus entry gets when the fixture declares none. `references`
+# is the codebase's own fallback (knowledge.index.indexread: an unrecognised path
+# "infers category `references` (not `skills`)"), and it is INERT for ranking:
+# only "skills" (the R-RET-03 pin in retrieval.pinpolicy) and "learnings" (the
+# pin's never-evict guarantee + freshsignals.VOLATILE_CATEGORIES) are
+# load-bearing. Defaulting HERE rather than in the frozen fixture keeps the
+# contract a property of the LOADER — a corpus entry added later without a
+# category still arrives categorised — and leaves the fixture bytes untouched.
+_DEFAULT_CATEGORY = "references"
+
 
 def gold_fixture_path():
     """Absolute path to the frozen gold-fixture file shipped with the package."""
     return os.path.join(paths.REPO_ROOT, _GOLD_FIXTURE_REL)
 
 
+def _corpus_entry(eid, raw):
+    """Build ONE index-style corpus entry from a validated fixture record.
+
+    Split out of `load_gold_fixture` so the field-defaulting lives in one named
+    place instead of inside an already branch-heavy validator: it is the single
+    point that decides what a corpus entry LOOKS like, including the category
+    contract (declared category, else `_DEFAULT_CATEGORY`, so no entry ever
+    reaches the scorer uncategorised and the skill pin stays reachable). `eid` is
+    passed in already validated; `raw` is the fixture's record. Pure.
+    """
+    return {
+        "id": eid,
+        "title": raw.get("title") or "",
+        "summary": raw.get("summary") or "",
+        "tags": list(raw.get("tags") or []),
+        "category": raw.get("category") or _DEFAULT_CATEGORY,
+    }
+
+
 def load_gold_fixture(path):
     """Load the frozen gold-fixture: returns (entries, gold). Raises ValueError.
 
-    `entries` is the synthetic corpus as index-style dicts (id/title/summary/tags)
-    ready for build_corpus; `gold` is the {query, expected_ids[]} list validated by
-    the shared load_gold rules. The file is package-shipped synthetic data with NO
-    operator content (R-LOC-03). Pure read; deterministic.
+    `entries` is the synthetic corpus as index-style dicts
+    (id/title/summary/tags/category) ready for build_corpus; `gold` is the
+    {query, expected_ids[]} list validated by the shared load_gold rules. The
+    file is package-shipped synthetic data with NO operator content (R-LOC-03).
+    Pure read; deterministic.
+
+    EVERY returned entry carries a `category` (declared, else `_DEFAULT_CATEGORY`).
+    This is load-bearing, not cosmetic: `category` is the key the R-RET-03 skill
+    pin reads (`retrieval.pinpolicy._apply_skill_pin`: `entry.get("category") ==
+    "skills"`), and this loader previously rebuilt each entry from a fixed
+    four-key whitelist that SILENTLY dropped it. The fixture's one skills
+    document therefore reached the scorer as an uncategorised entry, so the pin
+    could never fire on the gold-fixture corpus -- while `pinpolicy`'s own
+    docstring names "a self-contained gold-fixture Recall@5 no-regression check"
+    as the gate that measures the pin. The instrument was blind to the thing it
+    was documented to measure. Passing `category` through restores it.
+
+    Score-neutral by construction: `corpus._entry_doc_text` joins only
+    title+summary+tags+body, and `corpus.eval_corpus_fingerprint` hashes only
+    (id, doc_text) -- so no category value can move a BM25 score or the corpus
+    fingerprint. It changes only which POLICY branches are reachable.
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -80,12 +128,7 @@ def load_gold_fixture(path):
         if eid in seen:
             raise ValueError("gold-fixture corpus has duplicate id %r" % eid)
         seen.add(eid)
-        entries.append({
-            "id": eid,
-            "title": e.get("title") or "",
-            "summary": e.get("summary") or "",
-            "tags": list(e.get("tags") or []),
-        })
+        entries.append(_corpus_entry(eid, e))
     if not isinstance(gold_rows, list) or not gold_rows:
         raise ValueError("gold-fixture 'gold' must be a non-empty list")
     gold = []
@@ -135,6 +178,8 @@ def evaluate_gold_fixture(kdir, fixture_path, strategy, top_k, as_of=None):
 _EXPORTS = [
     "GOLD_FIXTURE_SUITE",
     "_GOLD_FIXTURE_REL",
+    "_DEFAULT_CATEGORY",
+    "_corpus_entry",
     "gold_fixture_path",
     "load_gold_fixture",
     "evaluate_gold_fixture",

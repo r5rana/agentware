@@ -4978,7 +4978,9 @@
     {
       "anchor_symbols": [
         "GOLD_FIXTURE_SUITE",
+        "_DEFAULT_CATEGORY",
         "_GOLD_FIXTURE_REL",
+        "_corpus_entry",
         "evaluate_gold_fixture",
         "gold_fixture_path",
         "load_gold_fixture"

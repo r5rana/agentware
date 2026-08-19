@@ -361,6 +361,148 @@ class EvalAblateAcrTest(SyntheticKBTestCase):
         self.assertEqual(result["treatment"], "bm25")
 
 
+
+class GoldFixtureUnionAndCategoryTest(SyntheticKBTestCase):
+    """Task 59: the gold-fixture corpus is the UNION, and the loader categorises it.
+
+    The corpus is the union of both trees: the donor ships six documents, this
+    tree ships those same six byte-identically PLUS `gf-skill-kayak-launch`, the
+    only document in a skills category. The union is therefore this tree's file,
+    and adopting it is a superset claim these tests pin.
+
+    The category half is the load-bearing half. `load_gold_fixture` used to
+    rebuild every entry from a fixed four-key whitelist (id/title/summary/tags),
+    which SILENTLY dropped `category` -- so the one skills document reached the
+    scorer uncategorised and `pinpolicy._apply_skill_pin`, which keys on
+    `entry.get("category") == "skills"`, could never fire over this corpus. That
+    matters because `pinpolicy`'s own docstring names "a self-contained
+    gold-fixture Recall@5 no-regression check" as the gate that measures the pin:
+    the measuring instrument was blind to the thing it measured.
+
+    These are the tests the curated parity row `eval:gold-fixture-superset`
+    names. Its mutation proof is "drop the skills-category document: the skills
+    query stops ranking it first and the loader returns no category for it" --
+    both halves redden here.
+    """
+
+    # The union corpus, pinned by COUNT and by the one id the superset adds.
+    UNION_DOC_COUNT = 7
+    UNION_QUERY_COUNT = 7
+    DONOR_DOC_COUNT = 6
+    SKILL_DOC_ID = "gf-skill-kayak-launch"
+    SKILL_QUERY = ("step by step checklist to time a kayak harbor departure "
+                   "launch by the tide")
+
+    def _fixture(self):
+        path = CLI.gold_fixture_path()
+        self.assertTrue(os.path.isfile(path), "gold fixture missing: %s" % path)
+        return path
+
+    def test_corpus_is_the_union_superset_of_the_donor(self):
+        """7 documents / 7 queries -- the donor's 6 plus the skills document."""
+        entries, gold = CLI.load_gold_fixture(self._fixture())
+        self.assertEqual(len(entries), self.UNION_DOC_COUNT)
+        self.assertEqual(len(gold), self.UNION_QUERY_COUNT)
+        # A strict superset: exactly one document more than the donor ships.
+        self.assertEqual(len(entries) - self.DONOR_DOC_COUNT, 1)
+        ids = [e["id"] for e in entries]
+        self.assertIn(self.SKILL_DOC_ID, ids)
+        self.assertEqual(len(set(ids)), len(ids), "duplicate corpus id")
+
+    def test_at_least_one_document_is_in_the_skills_category(self):
+        """The superset's whole point: this corpus HAS a skills document."""
+        entries, _gold = CLI.load_gold_fixture(self._fixture())
+        skills = [e for e in entries if e.get("category") == "skills"]
+        self.assertEqual([e["id"] for e in skills], [self.SKILL_DOC_ID])
+
+    def test_loader_returns_a_category_for_every_document(self):
+        """The loader's category CONTRACT -- no entry arrives uncategorised."""
+        entries, _gold = CLI.load_gold_fixture(self._fixture())
+        uncategorised = [e["id"] for e in entries if not e.get("category")]
+        self.assertEqual(uncategorised, [],
+                         "loader dropped the category for: %s" % uncategorised)
+        for e in entries:
+            self.assertIsInstance(e.get("category"), str)
+
+    def test_undeclared_category_falls_back_to_the_documented_default(self):
+        """A document declaring no category still arrives categorised.
+
+        The contract is a property of the LOADER, not of the fixture data, so a
+        corpus entry added later without a category cannot silently reintroduce
+        the uncategorised-entry bug.
+        """
+        with open(self._fixture(), encoding="utf-8") as fh:
+            raw = json.load(fh)
+        declared = {e["id"]: e.get("category") for e in raw["corpus"]}
+        undeclared = [i for i, c in declared.items() if not c]
+        self.assertTrue(undeclared, "fixture no longer exercises the default")
+        entries, _gold = CLI.load_gold_fixture(self._fixture())
+        by_id = {e["id"]: e for e in entries}
+        for eid in undeclared:
+            self.assertEqual(by_id[eid].get("category"), CLI._DEFAULT_CATEGORY,
+                             "loader returned no category for %s" % eid)
+        # The default must never be the one value the skill pin keys on.
+        self.assertNotEqual(CLI._DEFAULT_CATEGORY, "skills")
+
+    def test_evaluation_ranks_the_skills_document_first_for_its_query(self):
+        """The skills query surfaces the skills document at rank 0."""
+        result = CLI.evaluate_gold_fixture(
+            self.kdir, self._fixture(), "bm25", 5)
+        rows = [q for q in result["per_query"]
+                if self.SKILL_DOC_ID in q["expected_ids"]]
+        self.assertEqual(len(rows), 1, "expected exactly one skills query")
+        row = rows[0]
+        self.assertEqual(row["query"], self.SKILL_QUERY)
+        self.assertEqual(row["ranked"][0], self.SKILL_DOC_ID)
+        self.assertAlmostEqual(row["reciprocal_rank"], 1.0)
+
+    def test_skill_pin_is_reachable_over_the_gold_fixture_corpus(self):
+        """REGRESSION LOCK: a skills entry actually reaches the scorer.
+
+        This is the thing that was silently false. The pin selects on
+        `entry.get("category") == "skills"` over the corpus `build_corpus`
+        assembles, so the pin is only measurable if a scored entry carries that
+        category. Assert it against the SAME corpus the scorer builds, not
+        against the fixture JSON -- the bug lived strictly between the two.
+        """
+        entries, _gold = CLI.load_gold_fixture(self._fixture())
+        corpus = CLI.build_corpus(self.kdir, {"entries": entries})
+        pinnable = [e["id"] for (e, _doc) in corpus
+                    if e.get("category") == "skills"]
+        self.assertEqual(pinnable, [self.SKILL_DOC_ID])
+        # And the pin, handed that corpus, selects it rather than declining.
+        scored = [(e, 1.0) for (e, _doc) in corpus]
+        pinned = CLI._apply_skill_pin(list(scored), CLI.SKILL_PIN_FLOOR, 5)
+        self.assertEqual(pinned[0][0]["id"], self.SKILL_DOC_ID)
+
+    def test_category_moves_neither_the_fingerprint_nor_any_metric(self):
+        """Categorising the corpus is score-neutral -- so the baseline stays valid.
+
+        `corpus._entry_doc_text` joins only title+summary+tags+body and
+        `eval_corpus_fingerprint` hashes only (id, doc_text), so no category
+        value can move a BM25 score or the fingerprint. That is what lets the
+        post-merge ledger baseline be seeded once and stay comparable.
+        """
+        entries, _gold = CLI.load_gold_fixture(self._fixture())
+        with_cat = CLI.eval_corpus_fingerprint(
+            CLI.build_corpus(self.kdir, {"entries": entries}))
+        stripped = [{k: v for k, v in e.items() if k != "category"}
+                    for e in entries]
+        without_cat = CLI.eval_corpus_fingerprint(
+            CLI.build_corpus(self.kdir, {"entries": stripped}))
+        self.assertEqual(with_cat, without_cat)
+
+    def test_recall_is_perfect_over_the_union_corpus(self):
+        """The union does not regress ranking: every query still resolves."""
+        result = CLI.evaluate_gold_fixture(
+            self.kdir, self._fixture(), "bm25", 5)
+        self.assertEqual(result["corpus_size"], self.UNION_DOC_COUNT)
+        self.assertEqual(result["num_queries"], self.UNION_QUERY_COUNT)
+        self.assertAlmostEqual(result["metrics"]["recall_at_k"], 1.0)
+        self.assertAlmostEqual(result["metrics"]["mrr"], 1.0)
+        self.assertTrue(result["determinism_ok"])
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()
