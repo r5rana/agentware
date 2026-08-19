@@ -196,9 +196,18 @@ def _transcript_build_record(kdir, sid, turn_id, text, signal, cwd="",
     """Build a queue record with the IDENTICAL shared schema as the Stop-hook
     producer (ts/sid/cwd/project/turn_id/text/matched_pattern/status/producer)
     plus ADDITIVE fields (signal, recurrence_count, source_sessions). `text` is
-    stored VERBATIM as inert data (R-SEC-02) — never interpolated/executed. `ts`
-    is append-time (_now_iso, like the producer) — NOT a mined clock-in-a-decision;
-    determinism (INV-1) is scoped to the fp / text / tally, never ts."""
+    stored as inert data (R-SEC-02) — never interpolated/executed — and REDACTED
+    first, at the boundary where a raw transcript record becomes a persisted
+    record. The recurrence arm passes a raw prompt body straight through here, so
+    without this the miner would reproduce the Stop-hook producer's leak the
+    moment MINER_RECURRENCE_RETIRED is lifted: this record's `text` reaches
+    `work/auto/pref-*/plan.md` and a durable preferences entry, both COMMITTED.
+    `_transcript_redact_secrets` was already imported into this module and never
+    called, which is what that gap looked like from the outside. Redaction is
+    idempotent, so the error-recovery arm — whose text is composed from
+    already-redacted parts — is unaffected. `ts` is append-time (_now_iso, like
+    the producer) — NOT a mined clock-in-a-decision; determinism (INV-1) is
+    scoped to the fp / text / tally, never ts."""
     proj = None
     if cwd:
         try:
@@ -212,7 +221,7 @@ def _transcript_build_record(kdir, sid, turn_id, text, signal, cwd="",
         "cwd": cwd or "",
         "project": proj,
         "turn_id": turn_id or "",
-        "text": text if isinstance(text, str) else "",
+        "text": _transcript_redact_secrets(text) if isinstance(text, str) else "",
         "matched_pattern": signal,
         "status": "queued",
         "producer": PREFER_QUEUE_MINER_PRODUCER,

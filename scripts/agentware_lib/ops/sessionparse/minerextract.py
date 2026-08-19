@@ -136,6 +136,20 @@ def _transcript_tool_target(rec):
     return ""
 
 
+# Self-identifying credential shapes, each pinned to its issuer's real format so
+# an ordinary hyphenated word can never match. Ordered longest-prefix-first
+# (github_pat_ before ghp_) because alternation is first-match, not longest-match.
+_SECRET_TOKEN_RE = re.compile(
+    r"github_pat_[A-Za-z0-9_]{20,}"          # GitHub fine-grained PAT
+    r"|gh[pousr]_[A-Za-z0-9]{20,}"           # GitHub classic PAT / OAuth / server
+    r"|glpat-[A-Za-z0-9_\-]{18,}"            # GitLab PAT
+    r"|xox[baprs]-[A-Za-z0-9\-]{10,}"        # Slack
+    r"|sk-(?:ant-)?[A-Za-z0-9_\-]{20,}"      # OpenAI / Anthropic API keys
+    r"|AIza[0-9A-Za-z_\-]{35}"               # Google API key
+    r"|A(?:KIA|SIA)[0-9A-Z]{16}"             # AWS access key id (long+short term)
+)
+
+
 def _transcript_redact_secrets(s):
     """Strip embedded credentials from an error signature/target BEFORE it is
     persisted as inert candidate text OR a dedup key. The error DETAIL line the
@@ -156,10 +170,33 @@ def _transcript_redact_secrets(s):
     s = re.sub(r"(?<![\w@])[\w.\-]+:[^\s/@]+@([\w.\-]+)", r"<redacted>@\1", s)
     # key=secret / key: secret assignments for common credential key names (a
     # ':'/'=' delimiter is REQUIRED, so benign prose like "Password for '...'"
-    # is left intact).
+    # is left intact). The OPTIONAL auth-scheme group is load-bearing, not
+    # tidiness: `\S+` stops at the first space, so against the single commonest
+    # credential shape in a transcript — `Authorization: Bearer <token>` — the
+    # rule without it redacted the word "Bearer" and left the token standing.
+    # Proven live against a `ghp_` PAT, which reached `work/auto/pref-*/plan.md`
+    # with only the scheme word replaced. Consuming the scheme puts <redacted>
+    # where the credential is.
     s = re.sub(r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|"
                r"access[_-]?key|client[_-]?secret|bearer|authorization)\b"
-               r"(\s*[:=]\s*)\S+", r"\1\2<redacted>", s)
+               r"(\s*[:=]\s*)"
+               r"((?:bearer|basic|token|digest|apikey)\s+)?\S+",
+               lambda m: m.group(1) + m.group(2) + (m.group(3) or "")
+               + "<redacted>", s)
+    # BARE tokens with a known issuer prefix. The rules above ALL need a
+    # delimiter — a URL '@', or a ':'/'=' after a credential key name — so a
+    # credential pasted on its own ("deploy with ghp_… ", an AKIA in a stack
+    # trace) survived every one of them. These shapes are self-identifying, so
+    # matching the prefix + a length floor needs no delimiter and no entropy
+    # heuristic (which would be unbounded and false-positive-prone on prose the
+    # operator still has to READ in the review queue). Each alternative pins its
+    # issuer's real length so an ordinary hyphenated word cannot match.
+    s = _SECRET_TOKEN_RE.sub("<redacted>", s)
+    # PEM private key blocks, DOTALL across the armour. A key pasted into a
+    # transcript is multi-line, so no single-line rule can reach it.
+    s = re.sub(r"(?is)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?"
+               r"-----END [A-Z0-9 ]*PRIVATE KEY-----",
+               "<redacted-private-key>", s)
     return s
 
 

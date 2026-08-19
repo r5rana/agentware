@@ -84,6 +84,12 @@ IDs/paths and invalid categories, and updates the tag map for you.
 - Path: `learnings/<topic>.md`. ID format: `learn-<topic>`.
 - Created via `scripts/agentware learn` (writes file + registers atomically).
 - End with a back-reference link to `./index.md`.
+- **Content depth rule:** when a learning references a concrete artifact (config,
+  YAML, exact command, error string, code snippet, URL/endpoint, file path),
+  embed it VERBATIM in a fenced code block — never paraphrase. Genuinely one-fact
+  learnings and `decisions/` records that reference no artifact stay terse; do NOT
+  pad. Full standard with examples: see the **Artifact capture standard**
+  subsection in `.claude/skills/self-improvement/SKILL.md`.
 
 ### Project entries
 - Path: `projects/<project>/<NNN>-<title>.md` (numbered sequentially).

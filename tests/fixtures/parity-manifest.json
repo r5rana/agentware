@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 547,
+    "rows": 548,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 127,
@@ -47,17 +47,17 @@
       "modularity": 8,
       "org_team": 7,
       "retrieval_policy": 7,
-      "security_trust": 6,
+      "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 538,
+      "required": 539,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 60,
+      "curated": 61,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -216,7 +216,8 @@
       "plan_tasks": [
         40,
         41,
-        53
+        53,
+        61
       ]
     },
     {
@@ -1861,7 +1862,7 @@
       "verification": "curated",
       "task": 61,
       "evidence": {
-        "test": "tests.unit.knowledge.test_learn_provenance",
+        "test": "tests.unit.knowledge.test_artifact_capture_standard",
         "mutation": "store the reference without the artifact: the captured body no longer reproduces the cited artifact"
       }
     },
@@ -3658,6 +3659,21 @@
       "evidence": {
         "test": "tests.unit.features.test_pkg_channel",
         "mutation": "accept an unsigned or untrusted tag: the updater installs an unverified package"
+      }
+    },
+    {
+      "id": "sec:transcript-redaction-on-the-commit-path",
+      "dimension": "security_trust",
+      "capability": "Transcript secret redaction at the PRODUCER boundary, so every committed sink a mined turn reaches \u2014 the emitted workorder, its directory name, and the promoted preferences entry \u2014 inherits it",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 61,
+      "evidence": {
+        "test": "tests.unit.ops.test_prefer_queue_redaction",
+        "mutation": "drop the redaction call in `_prefer_queue_scan`: a credential in a preference-shaped prompt reaches work/auto/pref-*/plan.md, learnings/pref-*.md and index.json, all of them committed"
       }
     },
     {

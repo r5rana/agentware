@@ -298,7 +298,7 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor holds the scoped staging allowlist with "
                                  "its blob cap, push retry with backoff, and "
                                  "injection scanning of knowledge content"),
-        "plan_tasks": [40, 41, 53],
+        "plan_tasks": [40, 41, 53, 61],
     },
     {
         "name": "dream_maintenance",

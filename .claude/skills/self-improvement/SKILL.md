@@ -116,6 +116,75 @@ human note, but the reference on the marker line is what clears the gate.
 NEVER hand-create the learning file, NEVER hand-edit `index.json` — `learn` is
 the only writer. Do NOT ask the user; learnings belong on the record without ceremony.
 
+### Artifact capture standard
+
+When a learning REFERENCES a concrete artifact — a config file, YAML snippet,
+exact command line, error string or stack trace, file path, code snippet, URL /
+endpoint, or identifier — **embed it VERBATIM in a fenced code block** rather
+than paraphrasing it in prose.
+
+**Why:** Detail lost at capture time is unrecoverable. A learning that says
+"configured the metrics exporter with signed auth" is useless when the agent
+needs the *actual* config six months later. The retriever can surface a
+learning only if the content is there to surface.
+
+Keep the artifact VENDOR-NEUTRAL where the fact allows it: capture the shape
+that reproduces the behaviour, not the hostname of one deployment. A concrete
+endpoint someone must copy verbatim belongs in the external knowledge dir, never
+in a skill shipped with this package (`R-LOC-03`).
+
+**Good (artifact embedded):**
+
+```markdown
+> LEARNED: the metrics exporter needs a signed-auth extension wired by NAME,
+> not just enabled (Promoted: learn-metrics-exporter-signed-auth)
+
+Body passed to `learn --content -`:
+
+The exporter only authenticates when the extension is named on the exporter's
+`auth.authenticator` key — declaring the extension alone silently sends
+unsigned requests:
+
+​```yaml
+extensions:
+  signedauth:
+    region: <region>
+    service: metrics
+
+exporters:
+  remotewrite:
+    endpoint: https://<metrics-host>/api/v1/write
+    auth:
+      authenticator: signedauth      # <- the line that does the work
+​```
+
+Reload command (the config is read once, at start):
+​```bash
+sudo systemctl restart metrics-collector && journalctl -u metrics-collector -f
+​```
+```
+
+**Thin (artifact paraphrased — avoid this):**
+
+```markdown
+> LEARNED: configured the metrics exporter with signed auth
+
+Body: "Set up the collector to use signed authentication when exporting to the
+metrics endpoint. Had to restart the service after the config change."
+```
+
+The thin version captures the *fact* but loses the *artifact*. When another agent
+retrieves it, they still have to guess the YAML structure and the exact command.
+
+**Precision caveat — do NOT pad:**
+
+- Genuinely one-fact learnings (e.g. "webpack lazy-chunk naming uses
+  `[request]` placeholder" — 136 tokens, complete as-is) MUST stay terse.
+- `decisions/` records (median ~200 tokens, terse by design) MUST stay terse.
+- Richness means capturing real artifacts WHEN THEY EXIST, not adding filler
+  prose to short entries. If no concrete artifact is referenced, a one-liner is
+  perfectly fine.
+
 #### 3b. Skill (reusable procedure) — AUTHORED into canonical KB `skills/`, invocable only on approval
 
 A skill is **authored** (never a hand-written `index add` stub, never a download):

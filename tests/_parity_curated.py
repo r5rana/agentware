@@ -341,6 +341,14 @@ CURATED_ROWS = [
          "is injected into a session",
          DONOR, 53, "tests.integration.test_target_injection",
          "skip the scan: a poisoned knowledge file reaches the session prompt"),
+    _row("sec:transcript-redaction-on-the-commit-path", "security_trust",
+         "Transcript secret redaction at the PRODUCER boundary, so every "
+         "committed sink a mined turn reaches — the emitted workorder, its "
+         "directory name, and the promoted preferences entry — inherits it",
+         LOCAL, 61, "tests.unit.ops.test_prefer_queue_redaction",
+         "drop the redaction call in `_prefer_queue_scan`: a credential in a "
+         "preference-shaped prompt reaches work/auto/pref-*/plan.md, "
+         "learnings/pref-*.md and index.json, all of them committed"),
 
     # ---------------------------------------------------------------- dream/ops
     _row("dream:four-restored-nightly-steps", "dream_maintenance",
@@ -423,7 +431,7 @@ CURATED_ROWS = [
     _row("docs:artifact-capture-standard", "docs_templates",
          "The donor's artifact capture standard: a learning referencing a "
          "concrete artifact captures it verbatim",
-         DONOR, 61, "tests.unit.knowledge.test_learn_provenance",
+         DONOR, 61, "tests.unit.knowledge.test_artifact_capture_standard",
          "store the reference without the artifact: the captured body no longer "
          "reproduces the cited artifact"),
 

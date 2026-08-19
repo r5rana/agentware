@@ -22,6 +22,21 @@ The CURSOR makes scanning incremental and bounded: a queue that is re-scanned fr
 the beginning every session gets slower forever, and a scan with no cap can stall
 a session-start hook.
 
+REDACTION AT THIS BOUNDARY
+`_prefer_queue_scan` reads whatever the operator typed, and it used to store that
+turn VERBATIM. Its sinks are NOT log-local: the classify drain writes the
+candidate into `work/auto/pref-*/plan.md` and into that workorder's DIRECTORY
+NAME (the slug is derived from the text), and `prefer capture --from-workorder`
+promotes it into a durable `learnings/pref-*.md` entry. `logs/` is the only
+gitignored side, so a preference-shaped prompt carrying a credential — "from now
+on deploy with `-H 'Authorization: Bearer <token>'`" — put that credential into
+the knowledge base's git history permanently, and a KB is the artifact agentware
+is designed to SHARE. So the turn is redacted HERE, at the point it is first
+read, and the cue match, the operator-residual gate, `matched_pattern`, the
+fingerprint and the stored text all derive from that one redacted string. Fixing
+it at the two sinks instead would leave every future sink one more thing to
+remember, and this producer is precisely the one that forgot.
+
 Does NOT own: the admission bar (ops.preferadmit); writing a capture
 (ops.prefercapture); the `prefer mine` CLI handler, which needs the miner and so
 lives with the other handlers (ops.prefercmd);
@@ -44,6 +59,7 @@ from agentware_lib.core.dates import _now_iso
 from agentware_lib.core.projectcontext import _canonical_project_key, _resolve_context
 from agentware_lib.ops.planauthor.planedit import _atomic_write
 from agentware_lib.ops.preferadmit import _pref_operator_text
+from agentware_lib.ops.sessionparse.minerextract import _transcript_redact_secrets
 from agentware_lib.ops.sessionparse.minerfolds import (
     _PREFER_QUEUE_RE,
     _parse_prompts_records,
@@ -246,6 +262,10 @@ def _prefer_queue_scan(kdir, sid, cwd, prompts_path=None):
             body = (bodytext or "").strip()
             if not body:
                 continue
+            # REDACT FIRST — see REDACTION AT THIS BOUNDARY in the module
+            # docstring for why this is here and not at the sinks. Everything
+            # below derives from the ONE redacted string.
+            body = _transcript_redact_secrets(body)
             m = _PREFER_QUEUE_RE.search(body)
             if not m:
                 continue
