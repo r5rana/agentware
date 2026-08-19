@@ -2811,7 +2811,8 @@
       "dimension": "env_config",
       "capability": "GIT_AUTHOR_EMAIL (external)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"
@@ -2821,7 +2822,8 @@
       "dimension": "env_config",
       "capability": "GIT_AUTHOR_NAME (external)",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "generated"

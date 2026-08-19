@@ -25,6 +25,74 @@
 # gitignored (C-3/C-4) so transcripts and ephemeral loop state are never staged.
 # The commit-message scope tag is the feature name with its leading YYMMDD- date
 # stripped.
+
+# emit_fleet_line — write+STAGE the ONE committed per-USER terminal event (R-ORG-06).
+#
+# The local twin is emit_terminal_metric (outcome.sh), which appends the same
+# terminal facts to $METRICS_LOG. That log is gitignored and machine-local, so it
+# answers "how did MY runs go" and can never answer the question fleet
+# observability exists for — "how is the fleet going" — which needs the event to
+# survive into the shared history other clones can read. Hence a SECOND sink that
+# is committed, sharded per USER (never per team) so two engineers' lines cannot
+# textually collide on rebase, and stamped with steering_sha as the causal join key.
+#
+# Best-effort by construction: an unserved verb, a flat KB or any failure returns 0.
+# Telemetry may never be the reason a run fails. `fleet-emit` itself no-ops on a
+# non-org knowledge dir, so a single-operator install is byte-identical (R-ORG-04);
+# the --help probe is what keeps this a no-op on a build that never ported the verb.
+#
+# Does NOT commit — the caller commits, so the line rides an EXISTING commit rather
+# than making one of its own on the healthy path.
+emit_fleet_line() {
+  [[ -x scripts/agentware ]] || return 0
+  scripts/agentware fleet-emit --help >/dev/null 2>&1 || return 0
+  local done_n open_n total promise
+  open_n="$(open_markers 2>/dev/null || echo 0)"
+  done_n=$(grep -cE '^[[:space:]]*-[[:space:]]*✅[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || echo 0)
+  total=$(( ${open_n:-0} + ${done_n:-0} ))
+  if [[ -f "$STATE_DIR/.done" ]] || [[ "${open_n:-1}" -eq 0 ]]; then
+    promise="signalled"
+  else
+    promise="pending"
+  fi
+  scripts/agentware fleet-emit \
+    --outcome "$LOOP_OUTCOME" --feature "$FEATURE_NAME" \
+    --ts "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    --iterations-used "${LOOP_ITERATIONS_USED:-0}" --max "${MAX_ITERATIONS:-0}" \
+    --tasks-total "${total:-0}" --tasks-done "${done_n:-0}" \
+    --promise-status "$promise" >/dev/null 2>&1 || true
+}
+
+# commit_fleet_sink_only — micro-commit JUST the staged fleet line on a FAILURE
+# exit path. Called from loop_on_exit (outcome.sh) for the outcomes that exit
+# BEFORE run_kb_sync ever runs.
+#
+# Those are exactly the outcomes fleet observability is FOR. A run that completes
+# gets its line for free on the main KB commit; a run that hit the iteration cap or
+# failed its post-hook exits first, so without this path the sink would record only
+# successes and every aggregate over it would be a survivorship-biased flat line
+# that looks healthy. It deliberately does NOT re-run the worklog-scan gate: a
+# failed run legitimately has open markers, and blocking its terminal event on the
+# gate it just failed is how the failure signal would be lost.
+#
+# Path-scoped to fleet/ so no other pending KB edit rides this micro-commit, and
+# org-KB-only (a flat KB stages nothing, so the diff --cached probe returns early).
+commit_fleet_sink_only() {
+  [[ -x scripts/agentware ]] || return 0
+  local kdir
+  kdir="$(scripts/agentware config --knowledge-dir-only 2>/dev/null || true)"
+  [[ -z "$kdir" || ! -f "$kdir/.initialized" ]] && return 0
+  emit_fleet_line
+  if git -C "$kdir" diff --cached --quiet -- "fleet/" 2>/dev/null; then
+    return 0  # nothing staged (flat KB / emit no-op)
+  fi
+  git -C "$kdir" -c user.name="${GIT_AUTHOR_NAME:-agentware}" \
+      -c user.email="${GIT_AUTHOR_EMAIL:-agentware@local}" \
+      commit -q -m "chore(fleet): terminal $LOOP_OUTCOME for $FEATURE_NAME" \
+      -- "fleet/" >/dev/null 2>&1 || true
+  FLEET_SINK_COMMITTED=true
+}
+
 run_kb_sync() {
   if [[ ! -x scripts/agentware ]]; then
     return 0
@@ -75,6 +143,13 @@ run_kb_sync() {
     if [[ -n "$plan_title" ]]; then
       kb_msg_args=(--type feat --message "$plan_title")
     fi
+
+    # Committed fleet sink (R-ORG-06): write+STAGE the terminal event HERE, before
+    # the commit, so it rides the SAME commit. NOT in the EXIT trap — that fires
+    # after the push and would leave the tree permanently dirty. Mark it committed
+    # so the trap's failure-path fallback cannot emit a second line for this run.
+    emit_fleet_line
+    FLEET_SINK_COMMITTED=true
 
     log "[kb-sync] scripts/agentware kb-git commit (KB autocommit, tag: $kb_tag)"
     if ! scripts/agentware kb-git commit --tag "$kb_tag" "${kb_msg_args[@]}"; then

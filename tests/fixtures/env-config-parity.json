@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "e4f670c8744e"
+      "git_head": "8f3ce23a0445"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -36,23 +36,21 @@
   "counts": {
     "keys": 82,
     "side_attributed": 82,
-    "shared": 47,
+    "shared": 49,
     "local_only": 30,
-    "donor_only": 5,
+    "donor_only": 3,
     "kill_switches": 7,
     "config_keys": 37,
     "with_flag": 29,
     "dynamic": 9,
     "agentware_namespace": 69,
     "external_namespace": 13,
-    "read_sites": 218
+    "read_sites": 220
   },
   "pending_in_destination": [
     "AGENTWARE_REPOINT_AUTOPROVISION",
     "CLAUDE_TOOL_INPUT",
-    "CLAUDE_TOOL_NAME",
-    "GIT_AUTHOR_EMAIL",
-    "GIT_AUTHOR_NAME"
+    "CLAUDE_TOOL_NAME"
   ],
   "keys": [
     {
@@ -4256,9 +4254,10 @@
       "key": "GIT_AUTHOR_EMAIL",
       "namespace": "external",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": false,
       "dynamic": false,
@@ -4274,7 +4273,16 @@
       "flag_dests": [],
       "flag_source": "none",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/loop/kbsync.sh",
+            "line": 90,
+            "lang": "shell",
+            "form": "${GIT_AUTHOR_EMAIL:-}",
+            "default": "agentware@local",
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/loop/kbsync.sh",
@@ -4295,9 +4303,10 @@
       "key": "GIT_AUTHOR_NAME",
       "namespace": "external",
       "sides": [
+        "local",
         "donor"
       ],
-      "side": "donor-only",
+      "side": "shared",
       "direction": "read",
       "config_key": false,
       "dynamic": false,
@@ -4313,7 +4322,16 @@
       "flag_dests": [],
       "flag_source": "none",
       "read_sites": {
-        "local": [],
+        "local": [
+          {
+            "file": "scripts/loop/kbsync.sh",
+            "line": 89,
+            "lang": "shell",
+            "form": "${GIT_AUTHOR_NAME:-}",
+            "default": "agentware",
+            "kind": "read"
+          }
+        ],
         "donor": [
           {
             "file": "scripts/loop/kbsync.sh",

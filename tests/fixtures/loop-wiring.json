@@ -5,37 +5,161 @@
   "premerge_ref": "aw-pre-merge",
   "script_line_cap": 250,
   "capabilities": [
-    { "name": "usage", "origin": "local", "premerge": 2 },
-    { "name": "log", "origin": "local", "premerge": 68 },
-    { "name": "notify", "origin": "local", "premerge": 9 },
-    { "name": "cleanup", "origin": "local", "premerge": 1 },
-    { "name": "loop_on_exit", "origin": "local", "premerge": 1 },
-    { "name": "open_markers", "origin": "local", "premerge": 10 },
-    { "name": "_hash_stdin", "origin": "local", "premerge": 1 },
-    { "name": "progress_signature", "origin": "local", "premerge": 3 },
-    { "name": "learnings_promoted", "origin": "local", "premerge": 1 },
-    { "name": "metrics_emit_enabled", "origin": "local", "premerge": 4 },
-    { "name": "emit_metric", "origin": "local", "premerge": 3 },
-    { "name": "emit_done_stamp_failed", "origin": "local", "premerge": 1 },
-    { "name": "snapshot_task_states", "origin": "local", "premerge": 2 },
-    { "name": "emit_task_transition", "origin": "local", "premerge": 1 },
-    { "name": "emit_task_transitions", "origin": "local", "premerge": 2 },
-    { "name": "emit_terminal_metric", "origin": "local", "premerge": 1 },
-    { "name": "kb_autocommit_enabled", "origin": "local", "premerge": 2 },
-    { "name": "kb_push_enabled", "origin": "local", "premerge": 1 },
-    { "name": "run_pre_hooks", "origin": "local", "premerge": 1 },
-    { "name": "run_post_hooks", "origin": "local", "premerge": 1 },
-    { "name": "run_selfheal_review", "origin": "local", "premerge": 1 },
-    { "name": "emit_review_report", "origin": "local", "premerge": 6 },
-    { "name": "run_kb_sync", "origin": "local", "premerge": 1 },
-    { "name": "strip_frontmatter", "origin": "local", "premerge": 1 },
-    { "name": "build_codex_prompt", "origin": "local", "premerge": 2 },
-    { "name": "resolve_role_axes", "origin": "local", "premerge": 2 },
-    { "name": "run_agent", "origin": "local", "premerge": 6 },
-    { "name": "kb_sync_push", "origin": "local", "premerge": 1 },
-    { "name": "show_spawn_argv", "origin": "local", "premerge": 3 },
-    { "name": "run_phase", "origin": "local", "premerge": 2 },
-    { "name": "_aw_lock_status", "origin": "local", "premerge": 2 }
+    {
+      "name": "usage",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "log",
+      "origin": "local",
+      "premerge": 68
+    },
+    {
+      "name": "notify",
+      "origin": "local",
+      "premerge": 9
+    },
+    {
+      "name": "cleanup",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "loop_on_exit",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "open_markers",
+      "origin": "local",
+      "premerge": 10
+    },
+    {
+      "name": "_hash_stdin",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "progress_signature",
+      "origin": "local",
+      "premerge": 3
+    },
+    {
+      "name": "learnings_promoted",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "metrics_emit_enabled",
+      "origin": "local",
+      "premerge": 4
+    },
+    {
+      "name": "emit_metric",
+      "origin": "local",
+      "premerge": 3
+    },
+    {
+      "name": "emit_done_stamp_failed",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "snapshot_task_states",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "emit_task_transition",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "emit_task_transitions",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "emit_terminal_metric",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "kb_autocommit_enabled",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "kb_push_enabled",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "run_pre_hooks",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "run_post_hooks",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "run_selfheal_review",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "emit_review_report",
+      "origin": "local",
+      "premerge": 6
+    },
+    {
+      "name": "run_kb_sync",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "strip_frontmatter",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "build_codex_prompt",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "resolve_role_axes",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "run_agent",
+      "origin": "local",
+      "premerge": 6
+    },
+    {
+      "name": "kb_sync_push",
+      "origin": "local",
+      "premerge": 1
+    },
+    {
+      "name": "show_spawn_argv",
+      "origin": "local",
+      "premerge": 3
+    },
+    {
+      "name": "run_phase",
+      "origin": "local",
+      "premerge": 2
+    },
+    {
+      "name": "_aw_lock_status",
+      "origin": "local",
+      "premerge": 2
+    }
   ],
   "injected": [
     {
@@ -85,6 +209,18 @@
       "origin": "local",
       "min": 1,
       "why": "the main phase itself"
+    },
+    {
+      "name": "emit_fleet_line",
+      "origin": "donor",
+      "min": 2,
+      "why": "the R-ORG-06 committed terminal event. TWO call sites, not one: the healthy path emits inside run_kb_sync so the line rides the KB commit, and commit_fleet_sink_only emits again on the failure paths that exit before run_kb_sync ever runs. Keep only the first and the committed sink records successes exclusively, so every fleet aggregate over it is a survivorship-biased flat line that reads as a healthy fleet"
+    },
+    {
+      "name": "commit_fleet_sink_only",
+      "origin": "donor",
+      "min": 1,
+      "why": "the EXIT-trap failure-path micro-commit for the fleet sink. hit_max_iterations / post_hook_failure / blocked_on_ambiguity / sync_failed all exit 1 before run_kb_sync, so without this call their terminal line is written to a shard that is never committed and the exact failure signal fleet observability targets is lost"
     }
   ],
   "script_cap_debt": [],

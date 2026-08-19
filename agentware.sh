@@ -67,7 +67,7 @@ source "$LOOP_LIB_DIR/prompts.sh"      # PRE_PROMPT, MAIN_PROMPT, PROMOTE_PROMPT
 source "$LOOP_LIB_DIR/prompts-post.sh" # POST_PROMPT (union), MERGE_PROMPT, extras
 source "$LOOP_LIB_DIR/markers.sh"      # open_markers, snapshot_task_states, learnings_promoted
 source "$LOOP_LIB_DIR/metrics.sh"      # METRICS_LOG + per-iteration/task emitters
-source "$LOOP_LIB_DIR/outcome.sh"      # LOOP_OUTCOME state, terminal event, EXIT trap
+source "$LOOP_LIB_DIR/outcome.sh"      # LOOP_OUTCOME state, terminal event, EXIT trap (+ fleet sink)
 
 # --- gates and drivers -------------------------------------------------------
 source "$LOOP_LIB_DIR/safety.sh"       # circuit breaker, blocker halt, updater lock guard
@@ -78,7 +78,7 @@ source "$LOOP_LIB_DIR/hooks.sh"        # run_pre_hooks, run_post_hooks, kb_* res
 source "$LOOP_LIB_DIR/report.sh"       # emit_review_report
 source "$LOOP_LIB_DIR/review.sh"       # run_selfheal_review
 source "$LOOP_LIB_DIR/spawn.sh"        # run_agent, show_spawn_argv, codex injection
-source "$LOOP_LIB_DIR/kbsync.sh"       # run_kb_sync, kb_sync_push
+source "$LOOP_LIB_DIR/kbsync.sh"       # run_kb_sync, kb_sync_push, emit_fleet_line
 source "$LOOP_LIB_DIR/dryrun.sh"       # --dry-run report (exits 0 when set)
 source "$LOOP_LIB_DIR/phase.sh"        # run_phase (pre/post)
 source "$LOOP_LIB_DIR/mainloop.sh"     # run_main_loop

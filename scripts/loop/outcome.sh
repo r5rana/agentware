@@ -80,7 +80,26 @@ emit_terminal_metric() {
 loop_on_exit() {
   [[ -n "${TAIL_PID:-}" ]] && kill "$TAIL_PID" 2>/dev/null || true
   [[ "$LOOP_STARTED" == true ]] && emit_terminal_metric || true
+  # The COMMITTED org-fleet twin (R-ORG-06), failure paths only. A completed run
+  # emits inside run_kb_sync and rides its commit; hit_max_iterations /
+  # post_hook_failure / blocked_on_ambiguity / sync_failed all exit 1 BEFORE
+  # run_kb_sync, so without this their terminal line never commits — and those are
+  # precisely the events the fleet reports exist to count. Guarded on
+  # FLEET_SINK_COMMITTED so exactly ONE line is committed per run, never two.
+  # Best-effort: commit_fleet_sink_only swallows every failure and no-ops on a
+  # flat KB, so this never blocks the exit path (kbsync.sh).
+  if [[ "$LOOP_STARTED" == true ]] && [[ "${FLEET_SINK_COMMITTED:-false}" != true ]]; then
+    case "$LOOP_OUTCOME" in
+      hit_max_iterations|post_hook_failure|blocked_on_ambiguity|sync_failed)
+        commit_fleet_sink_only || true ;;
+    esac
+  fi
 }
 trap 'loop_on_exit' EXIT
+
+# Guard so the committed fleet line is written exactly once per run: run_kb_sync
+# sets it true on the completed path, and the EXIT trap above covers the failure
+# paths that never reach run_kb_sync.
+FLEET_SINK_COMMITTED=false
 
 :
