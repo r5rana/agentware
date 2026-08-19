@@ -1,9 +1,11 @@
 """agentware_lib.features.curationcmd -- the learn/decide command surface (layer: features).
 
-Owns: the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide) and
-their argparse registrars (register_learn / register_decide) -- the orchestrating
-write-commands that validate input, guard shared-writes, render the entry body,
-write the file, and register it in the index.
+Owns: the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the
+ONE write prologue they share (_kdir_for_curation_write -- resolve the knowledge dir
+THEN apply the shared/ CR-gate, so neither handler can acquire a write target
+without passing the gate), and their argparse registrars (register_learn /
+register_decide) -- the orchestrating write-commands that validate input, guard
+shared-writes, render the entry body, write the file, and register it in the index.
 
 Does NOT own: the pure entry WRITERS/renderers (_render_learning /
 _render_decision_body / _topic_to_title / _slugify) -> agentware_lib.knowledge.curation;
@@ -74,6 +76,35 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 LEARN_NEAR_DUP_THRESHOLD = 0.75
 
 
+def _kdir_for_curation_write(args):
+    """The knowledge dir a `learn`/`decide` write may target, or None if refused.
+
+    ONE prologue for both handlers, because the CR-gate is only a gate if EVERY
+    entry-writing verb passes through it. `learn` reached this module without the
+    guard call its own docstring promises: the flag was still declared, so
+    `--to-shared` parsed, was ignored, and a non-curator team loop wrote org-wide
+    while the help text said it could not. A gate that one of two sibling handlers
+    skips is indistinguishable from no gate for whichever handler skips it, and
+    the skip is invisible at review time precisely because the flag is still there.
+    Sharing the prologue makes the guard structural: a third curation verb gets it
+    by resolving its kdir, and cannot get a kdir any other way.
+
+    Returns the resolved kdir on success. On refusal it writes the reason to
+    stderr (both branches already own their message) and returns None, so the
+    caller's existing `if not kdir: return 1` covers both without gaining a
+    branch. Read-only; the refusal happens BEFORE any file or index write.
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return None
+    ok, gerr = _fleet.guard_shared_write(
+        kdir, to_shared=getattr(args, "to_shared", False))
+    if not ok:
+        sys.stderr.write("agentware: %s\n" % gerr)
+        return None
+    return kdir
+
+
 def _near_duplicate_learning(kdir, data, query_text):
     """Closest existing-learning near-duplicate of `query_text`: (entry, ratio).
 
@@ -113,7 +144,7 @@ def _near_duplicate_learning(kdir, data, query_text):
 
 
 def cmd_learn(args):
-    kdir = require_knowledge_dir()
+    kdir = _kdir_for_curation_write(args)
     if not kdir:
         return 1
 
@@ -253,12 +284,8 @@ def cmd_decide(args):
     edits index.json) and the same renderer; the only differences are the
     category, the auto `decision` tag, and the structured decision body.
     """
-    kdir = config.require_knowledge_dir()
+    kdir = _kdir_for_curation_write(args)
     if not kdir:
-        return 1
-    ok, gerr = _fleet.guard_shared_write(kdir, to_shared=getattr(args, "to_shared", False))
-    if not ok:
-        sys.stderr.write("agentware: %s\n" % gerr)
         return 1
     with index._index_lock(kdir):  # serialize load->mutate->save (B2 lost-update guard)
         data, err = index.load_index(kdir)
