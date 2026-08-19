@@ -14,7 +14,7 @@
 # bash only orchestrates the round loop + the STOP/escalate branch. Hermetically
 # testable: the review/remediate commands resolve `claude` via AGENTWARE_CLI, so a
 # fake agent binary drives their exit codes with no real Opus
-# (tests/test_loop_selfheal_gate.py).
+# (tests/integration/test_loop_selfheal_gate.py).
 #
 # Sourced by agentware.sh AFTER report.sh (emit_review_report, 6 call sites here).
 # Function definition only, so sourcing standalone under `set -e` exits 0.

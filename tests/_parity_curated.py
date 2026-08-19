@@ -70,38 +70,38 @@ CURATED_ROWS = [
          "The stage-1 skill pin at its 0.85 floor with the three-argument "
          "signature and the learnings-eviction guarantee, applied at all three "
          "call sites including retrieve_bm25 and the bm25+embed pre-trim branch",
-         LOCAL, 49, "tests.test_skill_pin_floor",
+         LOCAL, 49, "tests.unit.ops.test_skill_pin_floor",
          "set SKILL_PIN_FLOOR to the donor's None, or drop the pin from the "
          "pre-trim branch: a skill scoring above the floor stops ranking first"),
     _row("retrieval:read-time-trust-and-freshness", "retrieval_policy",
          "The read-time trust surface on every recall and query record: the "
          "live-anchored abs_path plus age_days, last_verified, stale, "
          "superseded_by and trust (zero donor equivalent, 7 symbols)",
-         LOCAL, 49, "tests.test_trust_surface",
+         LOCAL, 49, "tests.unit.features.test_trust_surface",
          "emit the RELATIVE path instead of re-anchoring to the live knowledge "
          "dir, or drop any one of the six trust fields from the record"),
     _row("retrieval:staleness-and-supersede-downweight", "retrieval_policy",
          "The ranking downweight applied to stale and superseded entries, "
          "sharing ONE stale-window definition with the audit and trust signals",
-         LOCAL, 49, "tests.test_staleness_downweight",
+         LOCAL, 49, "tests.unit.knowledge.test_staleness_downweight",
          "return a flat 1.0 multiplier: a superseded entry stops ranking below "
          "its successor"),
     _row("retrieval:token-budget-ladder", "retrieval_policy",
          "The committed R-RET-03/R-RET-04 ladder: default token budget 1500 with "
          "a stage-2 escalation to 3000, not the donor's collapsing 10000",
-         BOTH, 49, "tests.test_recall",
+         BOTH, 49, "tests.unit.retrieval.test_recall",
          "raise the default token budget to the donor's 10000: stage 1 and "
          "stage 2 become indistinguishable"),
     _row("retrieval:work-scope-plan-status-multipliers", "retrieval_policy",
          "Plan-status ranking multipliers sourced per feature and inherited by "
          "sibling worklogs (done, running and superseded score differently)",
-         LOCAL, 55, "tests.test_scopework_recall",
+         LOCAL, 55, "tests.unit.retrieval.test_scopework_recall",
          "flatten every plan-status multiplier to 1.0: a sibling worklog under a "
          "done plan stops scoring its recorded fraction"),
     _row("retrieval:work-corpus-stat-short-circuit", "retrieval_policy",
          "The work-corpus stat short-circuit, so a warm work-scope recall reads "
          "zero work bodies",
-         LOCAL, 55, "tests.test_workcache",
+         LOCAL, 55, "tests.unit.retrieval.test_workcache",
          "always read work bodies: the warm path stops being O(1) in body reads"),
     _row("retrieval:bm25-exact-score-pin", "retrieval_policy",
          "The donor's exact-score BM25 pin — order-based assertions alone let a "
@@ -114,38 +114,38 @@ CURATED_ROWS = [
     _row("kb:atomic-durable-write", "kb_integrity",
          "The atomic durable index write (temp file, fsync, rename) rather than "
          "the donor's truncating open() + json.dump",
-         LOCAL, 22, "tests.test_atomic_save",
+         LOCAL, 22, "tests.unit.knowledge.test_atomic_save",
          "replace the temp-file+rename+fsync with a truncating open(): a "
          "concurrent reader can observe a torn index"),
     _row("kb:reentrant-index-lock", "kb_integrity",
          "The reentrant fcntl.flock index lock with its process-wide guard "
          "around every mutation (the donor has zero fcntl/flock/fsync)",
-         LOCAL, 22, "tests.test_indexlock",
+         LOCAL, 22, "tests.unit.knowledge.test_indexlock",
          "remove the flock acquisition: the 5,000-poll concurrent probe records "
          "torn reads"),
     _row("kb:quarantine-and-continue-rebuild", "kb_integrity",
          "Fault-isolating rebuild: duplicate-id dedup plus quarantine-and-"
          "continue, so one malformed entry cannot fail the whole rebuild",
-         LOCAL, 22, "tests.test_quarantine",
+         LOCAL, 22, "tests.unit.knowledge.test_quarantine",
          "raise on the first malformed entry: a single bad file takes down the "
          "rebuild and the index with it"),
     _row("kb:auto-rebuild-once-recovery", "kb_integrity",
          "load_index auto-rebuild-once on a missing or corrupt index, which is "
          "what makes a fresh clone recover instead of hard-failing",
-         LOCAL, 22, "tests.test_rebuild",
+         LOCAL, 22, "tests.unit.features.test_rebuild",
          "remove the auto-rebuild-once recovery: a corrupt index stops self-"
          "recovering on load"),
     _row("kb:poisoned-index-list-normalizer", "kb_integrity",
          "The lenient list-field normalizer at every raw index read site (graph "
          "adjacency, relation lint, corpus text, frontmatter migration)",
-         LOCAL, 23, "tests.test_index_reader_safety",
+         LOCAL, 23, "tests.unit.knowledge.test_index_reader_safety",
          "read a list field raw at any one site: a mapping where a list is "
          "expected raises an uncaught type or hashability error"),
     _row("kb:corpus-fingerprint-freshness-authority", "kb_integrity",
          "The donor's content corpus_fingerprint as the cache-freshness "
          "authority (the monotonic counter goes stale-blind after a pull), with "
          "the coupled drop-on-write guard",
-         DONOR, 24, "tests.test_bm25_cache",
+         DONOR, 24, "tests.unit.retrieval.test_bm25_cache",
          "restore the monotonic generation counter as the authority: an entry "
          "arriving via a pull stops invalidating the cache"),
     _row("kb:foreign-schema-cache-rejection", "kb_integrity",
@@ -155,18 +155,18 @@ CURATED_ROWS = [
          "cache deliberately: the VECTOR cache is v1 on both sides with a "
          "byte-identical payload, so it is not a collision and must not be "
          "bumped",
-         BOTH, 24, "tests.test_cache_freshness",
+         BOTH, 24, "tests.unit.retrieval.test_cache_freshness",
          "accept a cache written under either legacy version number: a foreign "
          "schema loads as valid at the same cache path"),
     _row("kb:derived-artifacts-decommitted", "kb_integrity",
          "The nine derived knowledge-base artifacts stay gitignored (the donor "
          "tracks index.json, FEATURES.md and every roster)",
-         LOCAL, 57, "tests.test_decommit",
+         LOCAL, 57, "tests.unit.ops.test_decommit",
          "track any derived artifact again: a simulated two-clone sync conflicts "
          "on it"),
     _row("kb:roster-and-injection-lint", "kb_integrity",
          "The donor's roster and injection lint wired into index validate",
-         DONOR, 53, "tests.test_skill_roster",
+         DONOR, 53, "tests.unit.features.test_skill_roster",
          "blank a roster row: index validate must fail rather than pass"),
     _row("kb:pointer-target-guard", "kb_integrity",
          "The knowledge-dir TARGET guard — the only 'is this directory safe to "
@@ -174,7 +174,7 @@ CURATED_ROWS = [
          "layout module and wired into BOTH repoint paths (`init` and `config "
          "--set-knowledge-dir`), keeping its deliberate asymmetry over the "
          "derived index: absent is fine, present-but-corrupt is a refusal",
-         DONOR, 15, "tests.test_kbtarget_guard",
+         DONOR, 15, "tests.gates.test_kbtarget_guard",
          "drop the guard from either repoint path, or make it require the "
          "derived index: a fresh checkout stops being pointable, or a directory "
          "that is not a knowledge base is silently accepted"),
@@ -182,7 +182,7 @@ CURATED_ROWS = [
          "The `init` clobber guard as the UNION: the wider trigger (the config "
          "already points elsewhere, sentinel or not) with this tree's exit code "
          "3 and its structured `kb-already-configured` JSON payload",
-         BOTH, 15, "tests.test_kbtarget_guard",
+         BOTH, 15, "tests.gates.test_kbtarget_guard",
          "narrow the trigger back to sentinel-only, or return the generic exit "
          "1 without the JSON body: a half-onboarded pointer is clobbered "
          "silently, or a caller can no longer tell a clobber refusal from a "
@@ -209,59 +209,59 @@ CURATED_ROWS = [
     _row("loop:adversarial-review-gate", "loop_orchestration",
          "The adversarial review gate and its reviewer persona, run over the "
          "shipped diff at the end of a self-extension run",
-         LOCAL, 47, "tests.test_loop_selfheal_gate",
+         LOCAL, 47, "tests.integration.test_loop_selfheal_gate",
          "make the review gate return PROCEED unconditionally: a diff violating "
          "an acceptance criterion stops being caught"),
     _row("loop:worklog-marker-regexes-fail-closed", "loop_orchestration",
          "The R-SI-03 marker regexes fail CLOSED: an unpromoted `> LEARNED:` "
          "marker blocks the completion promise (they fail open donor-side)",
-         LOCAL, 45, "tests.test_loop_worklog_gate",
+         LOCAL, 45, "tests.integration.test_loop_worklog_gate",
          "relax a marker regex to the donor form: an unpromoted marker stops "
          "blocking the promise"),
     _row("loop:outcome-value-union", "loop_orchestration",
          "The LOOP_OUTCOME value set is the UNION, so the two values this tree "
          "emits are not rejected by the donor's org lint check O12",
-         LOCAL, 34, "tests.test_loop_emission",
+         LOCAL, 34, "tests.integration.test_loop_emission",
          "drop either locally-emitted outcome value from the accepted set: the "
          "pre-hook hard-blocks the next run in team mode"),
     _row("loop:org-lint-hook-gates", "loop_orchestration",
          "The donor's pre- and post-hook org lint gates, each a no-op when the "
          "knowledge base is flat",
-         DONOR, 33, "tests.test_loop_org_lint",
+         DONOR, 33, "tests.integration.test_loop_org_lint",
          "remove either call site: an org-invalid artifact passes the phase gate"),
     _row("loop:retrieval-quality-gate", "loop_orchestration",
          "The donor's per-run retrieval-quality gate in post-hooks with its kill "
          "switch, a no-op when the gold set is absent",
-         DONOR, 33, "tests.test_loop_retrieval_gate",
+         DONOR, 33, "tests.integration.test_loop_retrieval_gate",
          "remove the post-hook call site: a run that degraded retrieval quality "
          "completes clean"),
     _row("loop:session-start-roster-injection", "loop_orchestration",
          "Working SessionStart roster injection via the shared injectable "
          "predicate — this fixes a LIVE defect in this tree",
-         DONOR, 53, "tests.test_skill_hook",
+         DONOR, 53, "tests.integration.test_skill_hook",
          "make the injectable predicate return False for an always-on skill: the "
          "roster stops being injected at session start"),
 
     # ----------------------------------------------------------------- org/team
     _row("org:team-inference-from-knowledge-dir", "org_team",
          "Team inference from the knowledge-dir path plus shared-root detection",
-         DONOR, 50, "tests.test_team_mode_e2e",
+         DONOR, 50, "tests.e2e.test_team_mode_e2e",
          "return a constant team: a knowledge dir under another team's root "
          "resolves to the wrong shard"),
     _row("org:corpus-scoping-and-shared-precedence", "org_team",
          "Corpus scoping BEFORE index build and shared-corpus precedence, so "
          "recall scores are computed over the scoped corpus",
-         DONOR, 50, "tests.test_org_scoping",
+         DONOR, 50, "tests.unit.retrieval.test_org_scoping",
          "scope after the build: two-team recall isolation breaks and scores are "
          "computed over the unscoped corpus"),
     _row("org:cross-team-write-isolation", "org_team",
          "Cross-team staging isolation: a write aimed at another team's shard is "
          "refused",
-         DONOR, 50, "tests.test_org_isolation",
+         DONOR, 50, "tests.unit.core.test_org_isolation",
          "drop the target-team assertion: a cross-team write succeeds"),
     _row("org:curator-gate-on-shared-writes", "org_team",
          "The curator gate on shared-root writes, plus the payload contract keys",
-         DONOR, 50, "tests.test_org_curator",
+         DONOR, 50, "tests.unit.ops.test_org_curator",
          "allow a non-curator shared write: the shared corpus becomes writable "
          "by every teammate"),
     _row("org:bash-python-resolver-parity", "org_team",
@@ -269,7 +269,7 @@ CURATED_ROWS = [
          "config-home-overridden configurations (every agent spawn resolves "
          "through the bash one: task 35 collapsed the six hooks onto the single "
          "common.sh seam, and codex-stream.py spawns the script directly)",
-         DONOR, 36, "tests.test_resolver_parity",
+         DONOR, 36, "tests.integration.test_resolver_parity",
          "diverge either resolver's org-root tier: the hooks and the CLI resolve "
          "different knowledge dirs in the same session — "
          "TestParityGateBites.test_dropping_the_org_tier_reddens runs exactly "
@@ -285,7 +285,7 @@ CURATED_ROWS = [
          "as no banner at all), plus the deprecated workspace/package key "
          "mirrors so a consumer written against the donor vocabulary keeps "
          "resolving",
-         BOTH, 18, "tests.test_whereami_gate",
+         BOTH, 18, "tests.gates.test_whereami_gate",
          "reintroduce a parent-directory-name constraint on the project dir, "
          "add a non-standard marker to the root table (directly or via a table "
          "it composes), home the resolver in the cli leaf where the "
@@ -298,7 +298,7 @@ CURATED_ROWS = [
          "the live knowledge base. Genericised off one vendor's build system "
          "onto the marker table, with the deprecated key spelling still READ so "
          "an existing config.env keeps the guard",
-         DONOR, 17, "tests.test_orgidentity_gate",
+         DONOR, 17, "tests.gates.test_orgidentity_gate",
          "relax the match to a substring (a sibling checkout named <Name>V2 "
          "satisfies <Name>), shrink the marker table below its floor, or stop "
          "reading the deprecated key spelling (the guard silently disarms for "
@@ -306,59 +306,59 @@ CURATED_ROWS = [
     _row("org:additive-team-mode-migration", "org_team",
          "Team mode arrives as a REGISTERED, idempotent migration step leaving "
          "flat behaviour byte-identical",
-         DONOR, 63, "tests.test_migrate_runner",
+         DONOR, 63, "tests.unit.features.test_migrate_runner",
          "make the step non-idempotent: a second apply changes entry counts"),
 
     # ----------------------------------------------------------- security/trust
     _row("sec:signed-semver-update-channel", "security_trust",
          "The signed SemVer-tag update channel with its six self-heal call sites",
-         LOCAL, 41, "tests.test_pkg_channel",
+         LOCAL, 41, "tests.unit.features.test_pkg_channel",
          "accept an unsigned or untrusted tag: the updater installs an "
          "unverified package"),
     _row("sec:donor-plain-fetch-updater", "security_trust",
          "The donor's plain-fetch updater, replaced wholesale by the signed "
          "SemVer channel",
-         DONOR, 41, "tests.test_pkg_channel",
+         DONOR, 41, "tests.unit.features.test_pkg_channel",
          "restore the plain fetch: an unsigned update installs",
          status="superseded", superseded_by="sec:signed-semver-update-channel"),
     _row("sec:trust-publisher-anchor", "security_trust",
          "The trust publisher signing-key anchor (no donor equivalent at all)",
-         LOCAL, 40, "tests.test_pkg_trust_anchor",
+         LOCAL, 40, "tests.unit.core.test_pkg_trust_anchor",
          "accept a key absent from the anchor: any publisher can sign a release"),
     _row("sec:scoped-staging-allowlist", "security_trust",
          "The donor's scoped staging allowlist with its 256 KiB blob cap, "
          "converting ALL eight blanket `git add -A` call sites",
-         DONOR, 53, "tests.test_kb_git",
+         DONOR, 53, "tests.unit.ops.test_kb_git",
          "restore a blanket add at any one of the eight sites: one survivor "
          "defeats staging isolation"),
     _row("sec:push-retry-backoff-jitter", "security_trust",
          "Push retry with backoff and deterministic jitter, required because "
          "this tree has fanout AND graph run --concurrency",
-         DONOR, 53, "tests.test_kb_push",
+         DONOR, 53, "tests.integration.test_kb_push",
          "remove the retry loop: simulated push contention fails the run"),
     _row("sec:knowledge-content-injection-scan", "security_trust",
          "Injection and conflict-marker scanning of KNOWLEDGE CONTENT before it "
          "is injected into a session",
-         DONOR, 53, "tests.test_target_injection",
+         DONOR, 53, "tests.integration.test_target_injection",
          "skip the scan: a poisoned knowledge file reaches the session prompt"),
 
     # ---------------------------------------------------------------- dream/ops
     _row("dream:four-restored-nightly-steps", "dream_maintenance",
          "The four nightly dream steps the donor dropped, restored as four files "
          "behind the step registry",
-         LOCAL, 46, "tests.test_dream",
+         LOCAL, 46, "tests.unit.features.test_dream",
          "unregister any one restored step: the registry stops matching this "
          "tree's full set"),
     _row("dream:race-free-lock", "dream_maintenance",
          "The race-free dream lock critical section, replacing the donor's "
          "read-decide-write TOCTOU",
-         LOCAL, 46, "tests.test_dream_min_interval",
+         LOCAL, 46, "tests.unit.features.test_dream_min_interval",
          "restore read-decide-write acquisition: a concurrent double-acquire "
          "shows two winners"),
     _row("dream:donor-toctou-lock", "dream_maintenance",
          "The donor's read-decide-write dream lock, replaced by this tree's "
          "atomic critical section",
-         DONOR, 46, "tests.test_dream_min_interval",
+         DONOR, 46, "tests.unit.features.test_dream_min_interval",
          "restore the donor acquisition: the double-acquire probe shows two "
          "winners",
          status="superseded", superseded_by="dream:race-free-lock"),
@@ -371,13 +371,13 @@ CURATED_ROWS = [
     _row("dream:min-interval-guard", "dream_maintenance",
          "The dream min-interval gate, so a second cycle inside the interval is "
          "skipped rather than run",
-         LOCAL, 61, "tests.test_dream_min_interval",
+         LOCAL, 61, "tests.unit.features.test_dream_min_interval",
          "remove the interval check: a second dream inside the window runs"),
     _row("dream:never-mutates-the-package-tree", "dream_maintenance",
          "The INVARIANT the retired step violated, gated rather than assumed: no "
          "dream step reaches the package root, the dream corpus hard-resets "
          "nothing, and the CLI refuses the retired step id by name",
-         LOCAL, 16, "tests.test_dreampkg_retire_gate",
+         LOCAL, 16, "tests.gates.test_dreampkg_retire_gate",
          "register any step whose body reads the package root, or restore a "
          "hard-reset in the dream corpus: the mutation check names the step and "
          "the file"),
@@ -417,13 +417,13 @@ CURATED_ROWS = [
     _row("docs:template-frontmatter-corpus", "docs_templates",
          "Four templates including a decision template, each opening with a "
          "frontmatter block declaring the full required field set",
-         DONOR, 51, "tests.test_templates_lint",
+         DONOR, 51, "tests.unit.knowledge.test_templates_lint",
          "remove a required field from any template: the linter must redden "
          "naming the field"),
     _row("docs:artifact-capture-standard", "docs_templates",
          "The donor's artifact capture standard: a learning referencing a "
          "concrete artifact captures it verbatim",
-         DONOR, 61, "tests.test_learn_provenance",
+         DONOR, 61, "tests.unit.knowledge.test_learn_provenance",
          "store the reference without the artifact: the captured body no longer "
          "reproduces the cited artifact"),
 
@@ -432,13 +432,13 @@ CURATED_ROWS = [
          "The A/B retrieval no-regression gate extracts the WHOLE package for "
          "the HEAD arm; under the modular layout a flat blob is a 110-line "
          "facade with no lib behind it",
-         LOCAL, 26, "tests.test_eval_pinning",
+         LOCAL, 26, "tests.unit.retrieval.test_eval_pinning",
          "extract only the entrypoint blob: the HEAD arm reports unavailable "
          "instead of a score, and the gate silently stops gating"),
     _row("eval:gold-fixture-superset", "evaluation_quality",
          "The gold-fixture corpus as the union, carrying the only document in a "
          "skills category",
-         LOCAL, 59, "tests.test_eval",
+         LOCAL, 59, "tests.unit.retrieval.test_eval",
          "drop the skills-category document: the skills query stops ranking it "
          "first and the loader returns no category for it"),
     _row("eval:help-golden-corpus", "evaluation_quality",
@@ -450,7 +450,7 @@ CURATED_ROWS = [
     _row("eval:security-invariant-coverage", "evaluation_quality",
          "The security-invariant corpus as a per-path-class policy table plus a "
          "coverage assertion that every Python file on disk is claimed",
-         LOCAL, 27, "tests.test_invariants",
+         LOCAL, 27, "tests.gates.test_invariants",
          "add an unclaimed Python file under scripts: the coverage assertion "
          "must redden rather than silently skip it"),
 
@@ -475,19 +475,19 @@ CURATED_ROWS = [
     _row("mod:dashboard-package-route-union", "modularity",
          "The dashboard as a package with its path-confinement kernel in its own "
          "file, serving the UNION of both trees' routes",
-         BOTH, 69, "tests.test_dashboard_api",
+         BOTH, 69, "tests.integration.test_dashboard_api",
          "drop any route from the served union: the route-set assertion names it"),
     _row("mod:legacy-shrink-only-ratchet", "modularity",
          "The shrink-only legacy ratchet, so agentware_legacy.py can only get "
          "smaller and is deletable when empty",
-         LOCAL, 32, "tests.test_legacy_ratchet",
+         LOCAL, 32, "tests.gates.test_legacy_ratchet",
          "raise the high-water mark: legacy is allowed to grow again"),
     _row("mod:legacy-shrink-port-coupling", "modularity",
          "The ratchet's PER-HANDLER coupling: a cmd_* name may leave "
          "agentware_legacy.py only if a newly-appended PORTED_VERBS member — "
          "itself a real union verb — accounts for it by name, so a deletion is "
          "never mistaken for a port",
-         LOCAL, 32, "tests.test_legacy_ratchet",
+         LOCAL, 32, "tests.gates.test_legacy_ratchet",
          "delete one handler that no newly-ported verb accounts for while "
          "porting another, or credit a shrink to a token outside the union "
          "fixture: --record must refuse and name the orphan"),
@@ -496,7 +496,7 @@ CURATED_ROWS = [
          "allowlist only once its modular surface covers the UNION fixture on "
          "kind, required, nargs, default, choices, type and subparsers dest — "
          "not on flag names",
-         BOTH, 32, "tests.test_promotion_gate",
+         BOTH, 32, "tests.gates.test_promotion_gate",
          "narrow a choices set, move a default off its decided value, drop a "
          "required flag or rename a subparsers dest while leaving every option "
          "string spelled the same: each must redden on its own, naming the field"),
@@ -505,7 +505,7 @@ CURATED_ROWS = [
          "org, team, templates, work), which legacy-default routing can never "
          "resolve, plus the stub and routing checks no surface comparison can "
          "express",
-         DONOR, 32, "tests.test_presence_gate",
+         DONOR, 32, "tests.gates.test_presence_gate",
          "delete any one of the six from the modular parser, reduce one to a "
          "stub with no subcommands and no arguments of its own, or allowlist "
          "one under a token the router's argv scan cannot resolve: the gate "

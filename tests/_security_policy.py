@@ -35,7 +35,7 @@ import sys
 
 try:
     from tests._fixtures import REPO_ROOT, first_party_modules
-except ImportError:  # allow `python3 -m unittest tests.test_invariants`
+except ImportError:  # allow `python3 -m unittest tests.gates.test_invariants`
     from _fixtures import REPO_ROOT, first_party_modules
 
 
@@ -161,17 +161,22 @@ POLICIES = (
         "coverage assertion names it — failing closed, which is the whole "
         "point of the table."),
     Policy(
-        "test-support", ("tests/_*.py", "tests/__init__.py",
+        "test-support", ("tests/_*.py", "tests/*/_*.py", "tests/__init__.py",
                          "tests/*/__init__.py"), True, True,
         "shared fixtures and gate helpers: they must run on a stock python3 in "
-        "CI and on a fresh clone, exactly like the code they guard."),
+        "CI and on a fresh clone, exactly like the code they guard. Task 58 "
+        "layered the corpus, so a helper now sits at `tests/<tier>/_x.py` as "
+        "well as at the root — `tests/*/_*.py` claims both, because fnmatch's "
+        "`*` crosses `/` (the same property the fixture-corpus rule above is "
+        "narrowed against). The `/_` in the pattern is what keeps it off "
+        "`test_*.py`, so widening this class cannot quietly swallow a test."),
     Policy(
-        "test-loopback-client", ("tests/test_dashboard.py",
-                                 "tests/test_dashboard_api.py"), True, False,
+        "test-loopback-client", ("tests/integration/test_dashboard.py",
+                                 "tests/integration/test_dashboard_api.py"), True, False,
         "the only tests that drive the sidecar: they urllib-request the "
         "loopback port they just bound, which is the behaviour under test."),
     Policy(
-        "test-optional-backend", ("tests/test_embedder_fastembed.py",), False,
+        "test-optional-backend", ("tests/unit/retrieval/test_embedder_fastembed.py",), False,
         True,
         "exercises the optional backend behind a guarded import and skips when "
         "it is absent; it may name the third-party module it tests.",

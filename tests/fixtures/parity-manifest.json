@@ -1860,7 +1860,7 @@
       "verification": "curated",
       "task": 61,
       "evidence": {
-        "test": "tests.test_learn_provenance",
+        "test": "tests.unit.knowledge.test_learn_provenance",
         "mutation": "store the reference without the artifact: the captured body no longer reproduces the cited artifact"
       }
     },
@@ -1906,7 +1906,7 @@
       "verification": "curated",
       "task": 51,
       "evidence": {
-        "test": "tests.test_templates_lint",
+        "test": "tests.unit.knowledge.test_templates_lint",
         "mutation": "remove a required field from any template: the linter must redden naming the field"
       }
     },
@@ -1921,7 +1921,7 @@
       "verification": "curated",
       "task": 46,
       "evidence": {
-        "test": "tests.test_dream_min_interval",
+        "test": "tests.unit.features.test_dream_min_interval",
         "mutation": "restore the donor acquisition: the double-acquire probe shows two winners"
       },
       "superseded_by": "dream:race-free-lock"
@@ -1937,7 +1937,7 @@
       "verification": "curated",
       "task": 46,
       "evidence": {
-        "test": "tests.test_dream",
+        "test": "tests.unit.features.test_dream",
         "mutation": "unregister any one restored step: the registry stops matching this tree's full set"
       }
     },
@@ -1952,7 +1952,7 @@
       "verification": "curated",
       "task": 61,
       "evidence": {
-        "test": "tests.test_dream_min_interval",
+        "test": "tests.unit.features.test_dream_min_interval",
         "mutation": "remove the interval check: a second dream inside the window runs"
       }
     },
@@ -1967,7 +1967,7 @@
       "verification": "curated",
       "task": 16,
       "evidence": {
-        "test": "tests.test_dreampkg_retire_gate",
+        "test": "tests.gates.test_dreampkg_retire_gate",
         "mutation": "register any step whose body reads the package root, or restore a hard-reset in the dream corpus: the mutation check names the step and the file"
       }
     },
@@ -2005,7 +2005,7 @@
       "verification": "curated",
       "task": 46,
       "evidence": {
-        "test": "tests.test_dream_min_interval",
+        "test": "tests.unit.features.test_dream_min_interval",
         "mutation": "restore read-decide-write acquisition: a concurrent double-acquire shows two winners"
       }
     },
@@ -2909,7 +2909,7 @@
       "verification": "curated",
       "task": 26,
       "evidence": {
-        "test": "tests.test_eval_pinning",
+        "test": "tests.unit.retrieval.test_eval_pinning",
         "mutation": "extract only the entrypoint blob: the HEAD arm reports unavailable instead of a score, and the gate silently stops gating"
       }
     },
@@ -2924,7 +2924,7 @@
       "verification": "curated",
       "task": 59,
       "evidence": {
-        "test": "tests.test_eval",
+        "test": "tests.unit.retrieval.test_eval",
         "mutation": "drop the skills-category document: the skills query stops ranking it first and the loader returns no category for it"
       }
     },
@@ -2954,7 +2954,7 @@
       "verification": "curated",
       "task": 27,
       "evidence": {
-        "test": "tests.test_invariants",
+        "test": "tests.gates.test_invariants",
         "mutation": "add an unclaimed Python file under scripts: the coverage assertion must redden rather than silently skip it"
       }
     },
@@ -2969,7 +2969,7 @@
       "verification": "curated",
       "task": 22,
       "evidence": {
-        "test": "tests.test_atomic_save",
+        "test": "tests.unit.knowledge.test_atomic_save",
         "mutation": "replace the temp-file+rename+fsync with a truncating open(): a concurrent reader can observe a torn index"
       }
     },
@@ -2984,7 +2984,7 @@
       "verification": "curated",
       "task": 22,
       "evidence": {
-        "test": "tests.test_rebuild",
+        "test": "tests.unit.features.test_rebuild",
         "mutation": "remove the auto-rebuild-once recovery: a corrupt index stops self-recovering on load"
       }
     },
@@ -2999,7 +2999,7 @@
       "verification": "curated",
       "task": 24,
       "evidence": {
-        "test": "tests.test_bm25_cache",
+        "test": "tests.unit.retrieval.test_bm25_cache",
         "mutation": "restore the monotonic generation counter as the authority: an entry arriving via a pull stops invalidating the cache"
       }
     },
@@ -3014,7 +3014,7 @@
       "verification": "curated",
       "task": 57,
       "evidence": {
-        "test": "tests.test_decommit",
+        "test": "tests.unit.ops.test_decommit",
         "mutation": "track any derived artifact again: a simulated two-clone sync conflicts on it"
       }
     },
@@ -3030,7 +3030,7 @@
       "verification": "curated",
       "task": 24,
       "evidence": {
-        "test": "tests.test_cache_freshness",
+        "test": "tests.unit.retrieval.test_cache_freshness",
         "mutation": "accept a cache written under either legacy version number: a foreign schema loads as valid at the same cache path"
       }
     },
@@ -3046,7 +3046,7 @@
       "verification": "curated",
       "task": 15,
       "evidence": {
-        "test": "tests.test_kbtarget_guard",
+        "test": "tests.gates.test_kbtarget_guard",
         "mutation": "narrow the trigger back to sentinel-only, or return the generic exit 1 without the JSON body: a half-onboarded pointer is clobbered silently, or a caller can no longer tell a clobber refusal from a filesystem failure"
       }
     },
@@ -3061,7 +3061,7 @@
       "verification": "curated",
       "task": 15,
       "evidence": {
-        "test": "tests.test_kbtarget_guard",
+        "test": "tests.gates.test_kbtarget_guard",
         "mutation": "drop the guard from either repoint path, or make it require the derived index: a fresh checkout stops being pointable, or a directory that is not a knowledge base is silently accepted"
       }
     },
@@ -3076,7 +3076,7 @@
       "verification": "curated",
       "task": 23,
       "evidence": {
-        "test": "tests.test_index_reader_safety",
+        "test": "tests.unit.knowledge.test_index_reader_safety",
         "mutation": "read a list field raw at any one site: a mapping where a list is expected raises an uncaught type or hashability error"
       }
     },
@@ -3091,7 +3091,7 @@
       "verification": "curated",
       "task": 22,
       "evidence": {
-        "test": "tests.test_quarantine",
+        "test": "tests.unit.knowledge.test_quarantine",
         "mutation": "raise on the first malformed entry: a single bad file takes down the rebuild and the index with it"
       }
     },
@@ -3106,7 +3106,7 @@
       "verification": "curated",
       "task": 22,
       "evidence": {
-        "test": "tests.test_indexlock",
+        "test": "tests.unit.knowledge.test_indexlock",
         "mutation": "remove the flock acquisition: the 5,000-poll concurrent probe records torn reads"
       }
     },
@@ -3121,7 +3121,7 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.test_skill_roster",
+        "test": "tests.unit.features.test_skill_roster",
         "mutation": "blank a roster row: index validate must fail rather than pass"
       }
     },
@@ -3154,7 +3154,7 @@
       "verification": "curated",
       "task": 18,
       "evidence": {
-        "test": "tests.test_whereami_gate",
+        "test": "tests.gates.test_whereami_gate",
         "mutation": "reintroduce a parent-directory-name constraint on the project dir, add a non-standard marker to the root table (directly or via a table it composes), home the resolver in the cli leaf where the features-layer caller cannot import it, or drop a deprecated key mirror"
       }
     },
@@ -3169,7 +3169,7 @@
       "verification": "curated",
       "task": 47,
       "evidence": {
-        "test": "tests.test_loop_selfheal_gate",
+        "test": "tests.integration.test_loop_selfheal_gate",
         "mutation": "make the review gate return PROCEED unconditionally: a diff violating an acceptance criterion stops being caught"
       }
     },
@@ -3184,7 +3184,7 @@
       "verification": "curated",
       "task": 33,
       "evidence": {
-        "test": "tests.test_loop_org_lint",
+        "test": "tests.integration.test_loop_org_lint",
         "mutation": "remove either call site: an org-invalid artifact passes the phase gate"
       }
     },
@@ -3199,7 +3199,7 @@
       "verification": "curated",
       "task": 34,
       "evidence": {
-        "test": "tests.test_loop_emission",
+        "test": "tests.integration.test_loop_emission",
         "mutation": "drop either locally-emitted outcome value from the accepted set: the pre-hook hard-blocks the next run in team mode"
       }
     },
@@ -3214,7 +3214,7 @@
       "verification": "curated",
       "task": 33,
       "evidence": {
-        "test": "tests.test_loop_retrieval_gate",
+        "test": "tests.integration.test_loop_retrieval_gate",
         "mutation": "remove the post-hook call site: a run that degraded retrieval quality completes clean"
       }
     },
@@ -3229,7 +3229,7 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.test_skill_hook",
+        "test": "tests.integration.test_skill_hook",
         "mutation": "make the injectable predicate return False for an always-on skill: the roster stops being injected at session start"
       }
     },
@@ -3244,7 +3244,7 @@
       "verification": "curated",
       "task": 45,
       "evidence": {
-        "test": "tests.test_loop_worklog_gate",
+        "test": "tests.integration.test_loop_worklog_gate",
         "mutation": "relax a marker regex to the donor form: an unpromoted marker stops blocking the promise"
       }
     },
@@ -3260,7 +3260,7 @@
       "verification": "curated",
       "task": 69,
       "evidence": {
-        "test": "tests.test_dashboard_api",
+        "test": "tests.integration.test_dashboard_api",
         "mutation": "drop any route from the served union: the route-set assertion names it"
       }
     },
@@ -3275,7 +3275,7 @@
       "verification": "curated",
       "task": 32,
       "evidence": {
-        "test": "tests.test_presence_gate",
+        "test": "tests.gates.test_presence_gate",
         "mutation": "delete any one of the six from the modular parser, reduce one to a stub with no subcommands and no arguments of its own, or allowlist one under a token the router's argv scan cannot resolve: the gate names that verb"
       }
     },
@@ -3290,7 +3290,7 @@
       "verification": "curated",
       "task": 32,
       "evidence": {
-        "test": "tests.test_legacy_ratchet",
+        "test": "tests.gates.test_legacy_ratchet",
         "mutation": "raise the high-water mark: legacy is allowed to grow again"
       }
     },
@@ -3305,7 +3305,7 @@
       "verification": "curated",
       "task": 32,
       "evidence": {
-        "test": "tests.test_legacy_ratchet",
+        "test": "tests.gates.test_legacy_ratchet",
         "mutation": "delete one handler that no newly-ported verb accounts for while porting another, or credit a shrink to a token outside the union fixture: --record must refuse and name the orphan"
       }
     },
@@ -3367,7 +3367,7 @@
       "verification": "curated",
       "task": 32,
       "evidence": {
-        "test": "tests.test_promotion_gate",
+        "test": "tests.gates.test_promotion_gate",
         "mutation": "narrow a choices set, move a default off its decided value, drop a required flag or rename a subparsers dest while leaving every option string spelled the same: each must redden on its own, naming the field"
       }
     },
@@ -3382,7 +3382,7 @@
       "verification": "curated",
       "task": 63,
       "evidence": {
-        "test": "tests.test_migrate_runner",
+        "test": "tests.unit.features.test_migrate_runner",
         "mutation": "make the step non-idempotent: a second apply changes entry counts"
       }
     },
@@ -3397,7 +3397,7 @@
       "verification": "curated",
       "task": 36,
       "evidence": {
-        "test": "tests.test_resolver_parity",
+        "test": "tests.integration.test_resolver_parity",
         "mutation": "diverge either resolver's org-root tier: the hooks and the CLI resolve different knowledge dirs in the same session \u2014 TestParityGateBites.test_dropping_the_org_tier_reddens runs exactly that mutation against a copy of the script, alongside the config-home, abspath and blank-value arms"
       }
     },
@@ -3412,7 +3412,7 @@
       "verification": "curated",
       "task": 50,
       "evidence": {
-        "test": "tests.test_org_scoping",
+        "test": "tests.unit.retrieval.test_org_scoping",
         "mutation": "scope after the build: two-team recall isolation breaks and scores are computed over the unscoped corpus"
       }
     },
@@ -3427,7 +3427,7 @@
       "verification": "curated",
       "task": 50,
       "evidence": {
-        "test": "tests.test_org_isolation",
+        "test": "tests.unit.core.test_org_isolation",
         "mutation": "drop the target-team assertion: a cross-team write succeeds"
       }
     },
@@ -3442,7 +3442,7 @@
       "verification": "curated",
       "task": 50,
       "evidence": {
-        "test": "tests.test_org_curator",
+        "test": "tests.unit.ops.test_org_curator",
         "mutation": "allow a non-curator shared write: the shared corpus becomes writable by every teammate"
       }
     },
@@ -3457,7 +3457,7 @@
       "verification": "curated",
       "task": 17,
       "evidence": {
-        "test": "tests.test_orgidentity_gate",
+        "test": "tests.gates.test_orgidentity_gate",
         "mutation": "relax the match to a substring (a sibling checkout named <Name>V2 satisfies <Name>), shrink the marker table below its floor, or stop reading the deprecated key spelling (the guard silently disarms for every operator who configured it before the rename)"
       }
     },
@@ -3472,7 +3472,7 @@
       "verification": "curated",
       "task": 50,
       "evidence": {
-        "test": "tests.test_team_mode_e2e",
+        "test": "tests.e2e.test_team_mode_e2e",
         "mutation": "return a constant team: a knowledge dir under another team's root resolves to the wrong shard"
       }
     },
@@ -3502,7 +3502,7 @@
       "verification": "curated",
       "task": 49,
       "evidence": {
-        "test": "tests.test_trust_surface",
+        "test": "tests.unit.features.test_trust_surface",
         "mutation": "emit the RELATIVE path instead of re-anchoring to the live knowledge dir, or drop any one of the six trust fields from the record"
       }
     },
@@ -3517,7 +3517,7 @@
       "verification": "curated",
       "task": 49,
       "evidence": {
-        "test": "tests.test_skill_pin_floor",
+        "test": "tests.unit.ops.test_skill_pin_floor",
         "mutation": "set SKILL_PIN_FLOOR to the donor's None, or drop the pin from the pre-trim branch: a skill scoring above the floor stops ranking first"
       }
     },
@@ -3532,7 +3532,7 @@
       "verification": "curated",
       "task": 49,
       "evidence": {
-        "test": "tests.test_staleness_downweight",
+        "test": "tests.unit.knowledge.test_staleness_downweight",
         "mutation": "return a flat 1.0 multiplier: a superseded entry stops ranking below its successor"
       }
     },
@@ -3548,7 +3548,7 @@
       "verification": "curated",
       "task": 49,
       "evidence": {
-        "test": "tests.test_recall",
+        "test": "tests.unit.retrieval.test_recall",
         "mutation": "raise the default token budget to the donor's 10000: stage 1 and stage 2 become indistinguishable"
       }
     },
@@ -3563,7 +3563,7 @@
       "verification": "curated",
       "task": 55,
       "evidence": {
-        "test": "tests.test_workcache",
+        "test": "tests.unit.retrieval.test_workcache",
         "mutation": "always read work bodies: the warm path stops being O(1) in body reads"
       }
     },
@@ -3578,7 +3578,7 @@
       "verification": "curated",
       "task": 55,
       "evidence": {
-        "test": "tests.test_scopework_recall",
+        "test": "tests.unit.retrieval.test_scopework_recall",
         "mutation": "flatten every plan-status multiplier to 1.0: a sibling worklog under a done plan stops scoring its recorded fraction"
       }
     },
@@ -3593,7 +3593,7 @@
       "verification": "curated",
       "task": 41,
       "evidence": {
-        "test": "tests.test_pkg_channel",
+        "test": "tests.unit.features.test_pkg_channel",
         "mutation": "restore the plain fetch: an unsigned update installs"
       },
       "superseded_by": "sec:signed-semver-update-channel"
@@ -3609,7 +3609,7 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.test_target_injection",
+        "test": "tests.integration.test_target_injection",
         "mutation": "skip the scan: a poisoned knowledge file reaches the session prompt"
       }
     },
@@ -3624,7 +3624,7 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.test_kb_push",
+        "test": "tests.integration.test_kb_push",
         "mutation": "remove the retry loop: simulated push contention fails the run"
       }
     },
@@ -3639,7 +3639,7 @@
       "verification": "curated",
       "task": 53,
       "evidence": {
-        "test": "tests.test_kb_git",
+        "test": "tests.unit.ops.test_kb_git",
         "mutation": "restore a blanket add at any one of the eight sites: one survivor defeats staging isolation"
       }
     },
@@ -3654,7 +3654,7 @@
       "verification": "curated",
       "task": 41,
       "evidence": {
-        "test": "tests.test_pkg_channel",
+        "test": "tests.unit.features.test_pkg_channel",
         "mutation": "accept an unsigned or untrusted tag: the updater installs an unverified package"
       }
     },
@@ -3669,7 +3669,7 @@
       "verification": "curated",
       "task": 40,
       "evidence": {
-        "test": "tests.test_pkg_trust_anchor",
+        "test": "tests.unit.core.test_pkg_trust_anchor",
         "mutation": "accept a key absent from the anchor: any publisher can sign a release"
       }
     },

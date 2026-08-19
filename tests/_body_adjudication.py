@@ -197,7 +197,7 @@ ADJUDICATIONS = {
                      "gate can see -- the refusal is now signalled by returning "
                      "None -- and that CLI-unreachable defensive branch is locked "
                      "behaviourally by `KbCommitSubjectContractTest` in "
-                     "`tests/test_kb_git.py`, whose three cases were each proven "
+                     "`tests/unit/ops/test_kb_git.py`, whose three cases were each proven "
                      "to redden (drop the handler's None arm; make the helper "
                      "fall back instead of refusing; give the handler its own "
                      "diverging copy of one branch). The four derivation branches "
@@ -350,7 +350,7 @@ ADJUDICATIONS = {
     # clearest evidence that the docstring-inclusive normalisation is doing its
     # job. The offending token is deliberately NOT reproduced here: quoting a
     # leaked name to document its removal re-leaks it, and the artifact-reference
-    # scanner (tests/test_plan_artifact_refs.py) correctly flagged this comment
+    # scanner (tests/gates/test_plan_artifact_refs.py) correctly flagged this comment
     # for doing exactly that.
     "git_entry_ids_at_ref": {
         "adjudication": "superseded",

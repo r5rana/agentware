@@ -26,7 +26,7 @@
 #     an emitted value the enum does not name fails O12, and the org-lint gate then
 #     hard-blocks every subsequent run in team mode (plan task 34).
 # Adding a set-point below therefore means widening LOOP_OUTCOME_ENUM in the same
-# change; tests.test_loop_emission re-derives this set from the shell sources and
+# change; tests.integration.test_loop_emission re-derives this set from the shell sources and
 # fails if it ever outgrows the enum.
 #
 # We track the current intent in LOOP_OUTCOME and emit ONE terminal event on loop

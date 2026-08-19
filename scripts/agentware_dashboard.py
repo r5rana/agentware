@@ -3,7 +3,7 @@
 
 Stdlib-only HTTP server for the read-only observability dashboard.
 
-WHY A SIDECAR: the toolkit's moat is enforced by `tests/test_invariants.py`,
+WHY A SIDECAR: the toolkit's moat is enforced by `tests/gates/test_invariants.py`,
 whose import guards (`test_cli_imports_are_stdlib_only` /
 `test_cli_imports_no_network_modules`) `ast.walk` the CLI source and FORBID any
 network-capable module (`http`, `socket`, `ssl`, `urllib`, ...) — even nested or

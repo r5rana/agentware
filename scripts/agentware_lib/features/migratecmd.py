@@ -52,7 +52,7 @@ stops resolving is a loud ImportError/AttributeError rather than a handler that 
 falls out of the guarded set. It stayed EMPTY through task 37 because `migrate` is
 deliberately not a guarded writer (see _kb_writer_funcs); task 38's `relate` is the
 first ported verb that writes the KB, so it is the first row.
-Each later port appends its own row; `tests/test_kbschema_interlock.py` asserts the
+Each later port appends its own row; `tests/unit/features/test_kbschema_interlock.py` asserts the
 correspondence in both directions — no ported writer verb missing a row, no row that
 does not resolve — so the guard cannot be forgotten one port at a time.
 """
@@ -251,7 +251,7 @@ def _kb_migrate_apply(kdir):
 # `_kb_writer_funcs`, by the verb id the strangler routes on. This is the CONTRACT
 # half of the interlock: it says which verbs MUST be guarded once they are ported,
 # independently of whether anyone remembered to add the row below. The suite reads
-# both and fails on the difference — see tests/test_kbschema_interlock.py.
+# both and fails on the difference — see tests/unit/features/test_kbschema_interlock.py.
 _KB_WRITER_VERBS = frozenset((
     "index", "learn", "decide", "ingest", "relate", "prefer", "plan",
     "features", "skill", "dream",

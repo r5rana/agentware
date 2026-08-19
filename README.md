@@ -169,7 +169,7 @@ Nothing personal is ever committed: the repo is **pure steering**, and your know
    └─────────── POST ──────────┘  self-assess → assessment.md → promote learnings
 ```
 
-The toolkit guarantees *how* knowledge is written; the agent decides *what*. Retrieval is byte-identical (no LLM/RNG/network/wall-clock in ranking), proven by guard tests: `test_recall_json_is_byte_identical_across_runs`, `test_cli_imports_are_stdlib_only`, `test_recall_leaves_entire_kb_tree_unchanged` (`tests/test_invariants.py`).
+The toolkit guarantees *how* knowledge is written; the agent decides *what*. Retrieval is byte-identical (no LLM/RNG/network/wall-clock in ranking), proven by guard tests: `test_recall_json_is_byte_identical_across_runs`, `test_cli_imports_are_stdlib_only`, `test_recall_leaves_entire_kb_tree_unchanged` (`tests/gates/test_invariants.py`).
 
 Full walkthrough: [docs/GUIDE.md](docs/GUIDE.md) · plan format: [docs/loop.md](docs/loop.md) · rationale: [docs/methodology.md](docs/methodology.md).
 

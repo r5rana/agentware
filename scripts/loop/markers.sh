@@ -11,7 +11,7 @@
 # CONTRACT: the grep -cE pattern below is the canonical task-marker regex. It MUST
 # stay byte-identical to PLAN_TASK_MARKER_RE in scripts/agentware (the linter derives
 # its Python form from those same POSIX-ERE bytes). The byte-identity is pinned by the
-# contract test in tests/test_plan_lint.py (locates this line by the `⬜|🟡` token).
+# contract test in tests/unit/ops/test_plan_lint.py (locates this line by the `⬜|🟡` token).
 open_markers() {
   local n
   n=$(grep -cE '^[[:space:]]*-[[:space:]]*(⬜|🟡)[[:space:]]*\*\*[0-9]' "$DOCS_DIR/plan.md" 2>/dev/null || true)

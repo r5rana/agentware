@@ -121,7 +121,7 @@ def cmd_dashboard(args):
     """Serve the read-only observability dashboard (localhost-only).
 
     The HTTP server needs `http.server`, which the toolkit's import guards
-    (INV-1/INV-6, tests/test_invariants.py) forbid in this CLI source. So the
+    (INV-1/INV-6, tests/gates/test_invariants.py) forbid in this CLI source. So the
     server lives in a SEPARATE sidecar file (`scripts/agentware_dashboard.py`)
     that the guards never scan, and we launch it via subprocess — the same
     pattern as the optional embedder backend. This keeps the toolkit's

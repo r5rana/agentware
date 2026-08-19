@@ -155,7 +155,7 @@ FLEET_TERMINAL_REQUIRED = ("event", "ts", "outcome", "steering_sha", "team")
 #   * `quota_throttled` — a loop terminal the graph disposition table already
 #     classifies (PAUSE, not a failure) and which no gate may reject if a lane
 #     pause path ever emits it.
-# tests.test_loop_emission RE-DERIVES the emitted set from the shell sources on
+# tests.integration.test_loop_emission RE-DERIVES the emitted set from the shell sources on
 # every run and fails if this tuple stops covering it, so a new set-point cannot
 # land without widening the enum first.
 LOOP_OUTCOME_ENUM = ("completed", "hit_max_iterations", "post_hook_failure",

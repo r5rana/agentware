@@ -4,15 +4,44 @@ Hermetic, stdlib-only (`unittest`) tests for the `scripts/agentware` toolkit.
 **No pytest, no third-party dependencies** — pure Python standard library so the
 package keeps zero hard dependencies (INV-6).
 
+## Layout (task 58)
+
+The corpus is layered; there are no flat test files under `tests/`.
+
+| Tier | Holds |
+|---|---|
+| `tests/unit/<layer>/` | one `agentware_lib/<layer>/` module's behaviour (`cli`, `core`, `features`, `knowledge`, `ops`, `retrieval`) |
+| `tests/integration/` | two or more layers, or a seam the lib does not own — the orchestrator, the hooks, the dashboard, the MCP server |
+| `tests/e2e/` | a whole user-visible path: a full loop, a fresh clone, a benchmark run |
+| `tests/gates/` | the migration and repo-structure gates themselves, whose subject is a `tests/_*.py` harness module or a tree-wide invariant |
+
+Rules the suite enforces on itself (`tests/gates/test_test_layout.py`):
+
+- no test file directly under `tests/`, and none outside a tier;
+- **no test file over 600 lines** — split along class boundaries, lifting the
+  shared header into a sibling `_<name>_support.py`;
+- a test file that MOVES is recorded in `tests/_test_layout.py`'s
+  `RELOCATIONS`, because a node id embeds its module path and the
+  preserved-surface freeze reads a moved id as a lost one otherwise.
+
+**Never rename a test method or class to fix a name that has gone stale.** The
+freeze cannot tell a rename from a deletion, and it is right not to: narrow what
+the method asserts and say so in its docstring instead.
+
+Helper modules (`tests/_*.py`) stay at the corpus root. Layered files find the
+repo through `tests/_paths.py` (`REPO_ROOT`, `TESTS_DIR`) rather than counting
+`os.path.dirname` hops, which is depth-dependent and fails silently.
+
 ## Running
 
 ```sh
-python3 -m unittest discover -s tests -v        # whole suite
-python3 -m unittest tests.test_existing_cli -v  # one module
+python3 -m unittest discover -s tests -v                       # whole suite
+python3 -m unittest tests.integration.test_existing_cli -v      # one module
+python3 -m unittest discover -s tests/unit/retrieval -t . -v    # one tier
 ```
 
-Both invocation styles work; `tests/` is a package (`__init__.py`) and each test
-module imports fixtures with a dual `tests._fixtures` / `_fixtures` fallback.
+`tests/` and every tier are packages (`__init__.py`), and each test module
+imports fixtures with a dual `tests._fixtures` / `_fixtures` fallback.
 
 The package consistency pass also runs the suite:
 

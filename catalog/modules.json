@@ -88,7 +88,7 @@
       "not_owns": "any command; any dream-cycle machinery (agentware_lib.features.dreamsteps);",
       "owns": "`_dream_capture` — run a cmd_* handler in-process with stdout/stderr captured and return (rc, text). Eight lines, stdlib only. Named for the dream cycle because that needed it first, but nothing about it is dream-specific: three unrelated subsystems drive `cmd_plan_new` or `cmd_audit` through it and parse the JSON. Homed in the dreamsteps package it could only be reached by importing that submodule, which executes the whole package __init__ — and that aggregator imports every step, including ones that import the modules trying to reach the harness. The result was a latent import cycle that stayed invisible while something happened to import dreamsteps first, and raised 'partially initialized module' the moment a new caller changed the order. An 8-line utility should not decide whether an import succeeds.",
       "path": "scripts/agentware_lib/core/capture.py",
-      "test_file": "tests/test_dream.py"
+      "test_file": "tests/unit/features/test_dream.py"
     },
     {
       "anchor_symbols": [
@@ -562,7 +562,7 @@
       "not_owns": "the anchor itself (agentware_lib.core.pkgtrust); state and quarantine (agentware_lib.core.pkgstate); APPLYING a resolved tag (agentware_lib.features.pkgapply); deciding when to look (agentware_lib.features.pkgupdater);",
       "owns": "the SIGNED release channel: what counts as a version tag, how versions order, which tags the channel offers, signature verification against the HOME-pinned anchor, tag->sha resolution, and the single entry point answering 'what is the newest tag I may move to, and is it trustworthy?'. REPLACES the donor's plain-fetch updater (superseded parity row): a plain fetch trusts whatever the remote serves, so anyone who can write the remote chooses the code that runs on the next tick. Resolution is conservative by construction -- channel-pattern only, ordered by parsed SemVer rather than string or commit date, quarantined tags skipped, and an unverifiable tag stops resolution rather than being skipped with a warning.",
       "path": "scripts/agentware_lib/core/pkgchannel.py",
-      "test_file": "tests/test_pkg_channel.py"
+      "test_file": "tests/unit/features/test_pkg_channel.py"
     },
     {
       "anchor_symbols": [
@@ -585,7 +585,7 @@
       "not_owns": "the publisher signing-key anchor built on top of it (agentware_lib.core.pkgtrust); the `trust` CLI (agentware_lib.features.trustcmd); the update channel and release preflight that consume it (tasks 41-42);",
       "owns": "the secure package HOME primitives -- the ~/.agentware resolver (_pkg_home_dir, late-bound through the config aggregator so the suite's HOME_CONFIG patch is seen), the fail-closed ownership/permission assertion applied before any trusted file is read (_pkg_assert_secure_path), the secured-home constructor (_pkg_secure_home), the mode-preserving atomic writer (_pkg_secure_atomic_write), the trust-anchor filename (ALLOWED_SIGNERS_NAME) and the error they raise (_PkgStateError). These are FILESYSTEM rules, not signing rules: 'owned by me, not a symlink, not group-writable' is the same question for a trust anchor, an update-channel state file or a release preflight record (tasks 40/41/42), so it is answered ONCE here.",
       "path": "scripts/agentware_lib/core/pkghome.py",
-      "test_file": "tests/test_pkg_trust_anchor.py"
+      "test_file": "tests/unit/core/test_pkg_trust_anchor.py"
     },
     {
       "anchor_symbols": [
@@ -614,7 +614,7 @@
       "not_owns": "the filesystem primitives (agentware_lib.core.pkghome); the signing anchor (agentware_lib.core.pkgtrust); tag resolution (agentware_lib.core.pkgchannel); applying (agentware_lib.features.pkgapply); scheduling (agentware_lib.features.pkgupdater);",
       "owns": "the updater STATE file under ~/.agentware and the reentrant cross-process lock that serialises it, plus the CAPPED quarantine list. Every read and write asserts the pkghome security rules first, so a tampered state file is refused rather than trusted -- the same fail-closed rule the trust anchor uses, applied to the file that records WHICH version is installed. Quarantine is state rather than cache: a tag that failed to apply must not be retried forever, re-breaking the tree on every tick.",
       "path": "scripts/agentware_lib/core/pkgstate.py",
-      "test_file": "tests/test_update_state.py"
+      "test_file": "tests/unit/features/test_update_state.py"
     },
     {
       "anchor_symbols": [
@@ -643,7 +643,7 @@
       "not_owns": "the filesystem primitives it asserts through (agentware_lib.core.pkghome); the `trust` CLI handler and registrar (agentware_lib.features.trustcmd), because core holds NO command handlers anywhere in this tree; the update channel (task 41) and release preflight (task 42) that consume this anchor;",
       "owns": "the HOME-pinned publisher SSH signing-key TRUST ANCHOR: the default principal (PKG_PUBLISHER_PRINCIPAL), accepted key types (_SSH_KEYTYPES), the anchor path and its fail-closed security assertion (_pkg_allowed_signers_path / _pkg_assert_signers_secure), the pure-stdlib fingerprint (_pkg_ssh_key_fingerprint), the multi-key parser/lister (_pkg_parse_signers / _pkg_list_signers), the append-with-overlap pinner (_pkg_pin_publisher_key), the in-tree key locator (_pkg_intree_signing_key_path) and the two report builders the CLI and checkup share. The anchor lives OUTSIDE the tree the updater rewrites, so a malicious push cannot rotate the key it is verified against; it is multi-key with SSH valid-after/valid-before so a rotation does not strand the fleet.",
       "path": "scripts/agentware_lib/core/pkgtrust.py",
-      "test_file": "tests/test_pkg_trust_anchor.py"
+      "test_file": "tests/unit/core/test_pkg_trust_anchor.py"
     },
     {
       "anchor_symbols": [
@@ -872,7 +872,7 @@
       "not_owns": "the settings' resolution (agentware_lib.core.config); the handler that acts on these flags (agentware_lib.features.configcmd.cfgmain); the other flag groups (each has its own module);",
       "owns": "the `config` ACCESSORS for the settings this migration ported — the signed-channel updater, the periodic self-exam, the auto skill-promotion family and the git guards. Each port brought a setting's RESOLVER and left its accessor behind, because a resolver is what the feature needs to RUN and the accessor is only what a human needs to CHANGE it. The result was a setting that is real, documented, read on every run — and unreachable: `config --set-checkup off` answered 'unrecognized arguments', so the only way to turn the feature off was to hand-edit config.env. That is worse than a missing feature: the feature works, so nobody looks for a bug, and the operator simply concludes the setting does not exist.",
       "path": "scripts/agentware_lib/features/configcmd/cfgports.py",
-      "test_file": "tests/test_adopted_capabilities.py"
+      "test_file": "tests/integration/test_adopted_capabilities.py"
     },
     {
       "anchor_symbols": [
@@ -1363,7 +1363,7 @@
       "not_owns": "the drain and the tier classifier (agentware_lib.ops.preferclassify); the queue (agentware_lib.ops.preferqueue); approval and rejection (agentware_lib.ops.preferdispose); the step ORDER (agentware_lib.features.dreamsteps.registry);",
       "owns": "dream step \"g\" -- a three-line ADAPTER over the prefer-queue drain, split from its machinery for the same reason as step m. The drain sorts queued candidates by governance tier, and tier-3 (kernel-path or gate-loosening) is REJECTED outright: an unattended job must never be the thing that weakens a governance gate. Idempotent (only `status=queued` is processed) and defer-not-drop when the g3 cap is full -- the candidate stays queued rather than vanishing, because a dropped proposal is one the operator never learns existed. Ordered BEFORE f so this cycle's queue transitions and emitted workorders are backed up in the cycle that produced them.",
       "path": "scripts/agentware_lib/features/dreamsteps/steppreferclassify.py",
-      "test_file": "tests/test_prefer_classify.py"
+      "test_file": "tests/unit/ops/test_prefer_classify.py"
     },
     {
       "anchor_symbols": [
@@ -1383,7 +1383,7 @@
       "not_owns": "the emit seam it drives (agentware_lib.features.skillpropose); cluster detection (agentware_lib.ops.skillcluster); the mode setting (agentware_lib.core.config); the step ORDER (agentware_lib.features.dreamsteps.registry);",
       "owns": "dream step \"k\" -- one handler, nothing else. DETECTION + PROPOSAL ONLY: it never authors a skill stub, never runs `index add`, never installs. A nightly job that could promote its own procedures unattended would be rewriting the agent's behaviour while nobody is watching. Not change-gated (recurrence accrues with wall-clock, like step s) and ordered AFTER s and BEFORE f, so kb-git-commit still backs up anything emitted the same night -- an emit that is not committed the same night is an emit the operator can lose. A missing or unloadable index reports `skipped` with its reason rather than clean, mirroring step s: no clusters from a broken corpus is indistinguishable from no clusters from a healthy one, and only one of those is good news.",
       "path": "scripts/agentware_lib/features/dreamsteps/stepskillpropose.py",
-      "test_file": "tests/test_dream_skill_propose.py"
+      "test_file": "tests/unit/features/test_dream_skill_propose.py"
     },
     {
       "anchor_symbols": [
@@ -1403,7 +1403,7 @@
       "not_owns": "the emitter it drives (agentware_lib.features.staleproposal); the freshness detectors (agentware_lib.ops.freshness); the step ORDER (agentware_lib.features.dreamsteps.registry);",
       "owns": "dream step \"s\" -- one handler, nothing else, per the package's one-file-per-step contract. NOT change-gated, unlike steps c and d: staleness ages against the WALL CLOCK, so the knowledge base nobody touched for four months is exactly the one with the most stale entries and exactly the one a change-gate would skip forever. It shells the SHIPPED `audit --stale --propose` rather than emitting directly, so what the nightly cycle produces is byte-for-byte what a human gets running the command by hand. It refuses to collapse its outcomes: DEFERRED is transient (drain work/auto/), BLOCKED is permanent (a g1 kernel refusal -- draining is futile), and SKIPPED means the propose path could not RUN, which is the one that matters, since a broken index otherwise looks exactly like a healthy corpus with nothing stale.",
       "path": "scripts/agentware_lib/features/dreamsteps/stepstalepropose.py",
-      "test_file": "tests/test_dream_stale_propose.py"
+      "test_file": "tests/unit/features/test_dream_stale_propose.py"
     },
     {
       "anchor_symbols": [
@@ -1421,7 +1421,7 @@
       "not_owns": "the miner itself and its cursor, extractors and error signatures (agentware_lib.ops.sessionparse.minerscan and siblings); the queue (agentware_lib.ops.preferqueue); the step ORDER (agentware_lib.features.dreamsteps.registry);",
       "owns": "dream step \"m\" -- a three-line ADAPTER over the miner. The handler lives here and the machinery lives in ops on purpose: being a nightly step is something that HAPPENS to the miner, not what it is, and homing the handler in `ops.sessionparse` would make an ops module know about the dream cycle and break the registry's sibling-only import contract. Ordered immediately BEFORE step g because m ENQUEUES and g DRAINS -- that way a candidate mined tonight is triaged tonight and committed tonight, in one cycle instead of three. Everything mined is QUARANTINED: a candidate is a proposal, and nothing on this path can make mined text act as a source=user preference.",
       "path": "scripts/agentware_lib/features/dreamsteps/steptranscriptmine.py",
-      "test_file": "tests/test_transcript_miner_e2e.py"
+      "test_file": "tests/e2e/test_transcript_miner_e2e.py"
     },
     {
       "anchor_symbols": [
@@ -1562,7 +1562,7 @@
       "not_owns": "the manifest's paths, reads, writes or validation (agentware_lib.features.graphdag.graphmanifest); the renderings (agentware_lib.features.graphdag.graphrender);",
       "owns": "`_graph_canonical` — the ONE normalization of a manifest into a stable ordered structure, and nothing else. Extracted because two modules need it and neither can own it: graphmanifest hashes and saves it, graphrender renders from it, and `_graph_save` calls the renderer — so homing it in either closes an import cycle. Duplicating it instead would be worse: two canonicalizations that drift produce a manifest whose saved hash does not match the rendered graph, and the checkpoint guarantee ('the graph I approved is the graph that ran') is exactly a comparison of those two things.",
       "path": "scripts/agentware_lib/features/graphdag/graphcanon.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1580,7 +1580,7 @@
       "not_owns": "any handler — the seven authoring subverbs (agentware_lib.features.graphdag.graphedit) and the six execution ones (agentware_lib.features.graphdag.graphrun);",
       "owns": "the `graph` registrar wiring all thirteen subverbs, split into an authoring registrar and an execution registrar along the same seam the handlers use. It is its own module because it must import BOTH handler halves, and homing it in either would give that half an import edge to the other purely for registration — the property worth protecting is that the authoring half can never reach the executor. The checkpoint policy names come from the PLAN's vocabulary, so `graph add-node --checkpoint` and the plan that declares it cannot offer different sets.",
       "path": "scripts/agentware_lib/features/graphdag/graphcmd.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1610,7 +1610,7 @@
       "not_owns": "any behaviour at all — nothing here reads a file, spawns a process or decides anything;",
       "owns": "every constant the DAG scheduler agrees on: the manifest schema tag, the size and concurrency bounds, the edge kinds, the six node STATES and the two derived sets, the four checkpoint dispositions and the verdict table, the detail codes, the timeouts and tick ceiling, the kill-switch variable names, the lane env allowlist and the kernel serialize token. Pure data and nothing else. A scheduler is a state machine with a lot of surface, and nine other modules ask it 'is this node dispatchable', 'is this outcome terminal', 'does this verdict halt the subtree' — two modules keeping their own copy of 'which states are done' is how a scheduler dispatches a node twice or hangs on one it finished. The bounds are REFUSALS: this thing spawns real agent processes against a real repository, and an orchestrator without a tick ceiling does not fail loudly, it burns quota in a loop nobody is watching.",
       "path": "scripts/agentware_lib/features/graphdag/graphconst.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1636,7 +1636,7 @@
       "not_owns": "the six EXECUTION subverbs (agentware_lib.features.graphdag.graphrun); the tick loop (agentware_lib.features.graphdag.graphexec); the registrar (agentware_lib.features.graphdag.graphcmd);",
       "owns": "the seven AUTHORING subverbs — new, add-node, rm-node, add-edge, rm-edge, show and validate. Nothing here spawns a process, touches a worktree or merges anything, and that is the point of the split: the subverbs an operator uses to SHAPE a graph must be safe to run at any time without wondering whether they will start work. `graph validate` in particular has to be consequence-free to be useful — a validator you hesitate to run is one that gets run after the mistake instead of before it. A node's write set and checkpoint policy come from the PLAN that describes the work, never from a second declaration that could disagree.",
       "path": "scripts/agentware_lib/features/graphdag/graphedit.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1658,7 +1658,7 @@
       "not_owns": "the manifest (agentware_lib.features.graphdag.graphmanifest); lane spawn and merge (agentware_lib.features.graphdag.graphlane); the ledger (agentware_lib.features.graphdag.graphledger); the verbs (agentware_lib.features.graphdag.graphrun);",
       "owns": "the tick loop that actually runs the DAG, plus the terminal bookkeeping. Each tick recomputes every node's state from on-disk evidence, recomputes the ready frontier, dispatches what fits under the concurrency bound and reconciles what finished. NOTHING is carried in memory between ticks that could not be rebuilt from disk, which is precisely why `graph resume` after a crash is the same code path as a normal tick rather than a special one. Every loop has a bound — tick ceiling, wall-clock deadline, per-node timeout, concurrency window — because an unbounded orchestrator does not fail loudly, it burns quota overnight while reporting progress. A load-bearing failure halts its SUBTREE, not the world: blocking everything on any failure makes a twenty-node graph as fragile as a shell script with `set -e`, and containing nothing lets dependents build on a broken foundation.",
       "path": "scripts/agentware_lib/features/graphdag/graphexec.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1685,7 +1685,7 @@
       "not_owns": "the ready set and conflict edges (agentware_lib.features.graphdag.graphtopo); node state (agentware_lib.features.graphdag.graphstate); the tick loop (agentware_lib.features.graphdag.graphexec);",
       "owns": "the lane lifecycle: the orchestrator's own kill-switch check, the sanitized child environment, the spawn, the per-lane driver, dispatch selection, the reprovision test, preparation, and the merge path with its gates. The env is an ALLOWLIST and that is the security boundary — a denylist grows every time anything in the system gains a setting, and the one nobody remembers to add is the one that leaks. The kill switch is checked BEFORE anything spawns, because an off switch honoured after the first spawn is not an off switch. Merging is GATED: a lane reports its own outcome, and the merge re-checks the conditions that matter before integrating, on the same principle as the review gate's regression chain — the actor being verified does not get to be the verifier.",
       "path": "scripts/agentware_lib/features/graphdag/graphlane.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1712,7 +1712,7 @@
       "not_owns": "the manifest (agentware_lib.features.graphdag.graphmanifest); state derivation (agentware_lib.features.graphdag.graphstate); the tick loop (agentware_lib.features.graphdag.graphexec);",
       "owns": "the append-only run ledger, the approval lookup, the metric emitter, the checkpoint log, the machine-readable status payload and the human report. The manifest holds the graph's CURRENT shape and cannot answer 'what happened' — after a crash and resume that is the only question worth asking, and the scheduler's own resume logic is one of the ledger's readers, so it is append-only. `_graph_last_approval` plus the manifest hash is what lets a resume know not just that a checkpoint was approved but that it was approved for THIS graph. Status and report are two renderings of ONE derived state rather than two computations: renderers can drift in presentation, but independent computations drift in FACT, and then the operator and the automation disagree about whether a run is finished.",
       "path": "scripts/agentware_lib/features/graphdag/graphledger.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1743,7 +1743,7 @@
       "not_owns": "topological order and the ready set (agentware_lib.features.graphdag.graphtopo); execution (agentware_lib.features.graphdag.graphexec); the verbs (agentware_lib.features.graphdag.graphedit);",
       "owns": "the on-disk locations, the reader and constructor, the builder, the self-extension flag, the full validator, the durable write, the commit helper and the content hash. The manifest is the ONLY durable truth — the ready set, the topological order, the rendered graph and the status payload are all derived, and the manifest is what survives a crash and what `graph resume` reads. `graph_manifest_errors` returns EVERY problem rather than the first, because a scheduler that reports one error per run makes the operator play twenty questions with a DAG they cannot execute — and the cheapest place to reject a malformed graph is before any process spawns.",
       "path": "scripts/agentware_lib/features/graphdag/graphmanifest.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1765,7 +1765,7 @@
       "not_owns": "the manifest itself (agentware_lib.features.graphdag.graphmanifest); node state (agentware_lib.features.graphdag.graphstate);",
       "owns": "the DAG's three human renderings — the markdown view written beside the manifest, the Graphviz DOT export and the Mermaid export. A JSON DAG with twenty nodes and forty edges is not something a human can hold in their head well enough to approve, and this scheduler asks for approval BEFORE it spawns anything. The markdown view is written on every save specifically so the reviewable artifact is never staler than the thing it describes. Pure: every renderer is a function from a manifest to a string, so the caller owns the write and a render can be diffed and tested without touching disk.",
       "path": "scripts/agentware_lib/features/graphdag/graphrender.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1791,7 +1791,7 @@
       "not_owns": "the seven AUTHORING subverbs (agentware_lib.features.graphdag.graphedit); the tick loop (agentware_lib.features.graphdag.graphexec); the ledger (agentware_lib.features.graphdag.graphledger);",
       "owns": "the six EXECUTION subverbs — run, resume, status, checkpoint, cancel and teardown. `resume` is NOT recovery code: because state is derived from on-disk evidence rather than remembered, resuming is just running a graph that already has progress, through the same tick loop. A separate recovery path would be code that runs only after something already went wrong, which is the code least likely to be correct when it finally runs. `checkpoint` records approval against the manifest's canonical HASH, so an approval means 'I approved THIS graph' — edit the DAG afterwards and the stale approval no longer applies. `cancel` and `teardown` are separate so an operator can stop a runaway graph immediately without destroying the lanes they still want to inspect, which is usually the point of stopping.",
       "path": "scripts/agentware_lib/features/graphdag/graphrun.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1818,7 +1818,7 @@
       "not_owns": "the state VOCABULARY (agentware_lib.features.graphdag.graphconst); the ready set (agentware_lib.features.graphdag.graphtopo); the driver (agentware_lib.features.graphdag.graphexec);",
       "owns": "what a node's state IS, derived from the lane's evidence rather than read from a status field somebody remembered to write. That is the whole design: a process killed between finishing work and recording it leaves a stored status of 'running' forever, and the scheduler then either hangs on it or dispatches it a second time. Deriving means a crash costs nothing — `graph resume` re-reads the same evidence and reaches the same conclusion. The detail codes exist because the four ways a node can LOOK done without being done are genuinely different situations and collapsing them loses the operator's next action; `_graph_finalize_unfinalized` reconciles finished-but-unrecorded work instead of re-running it, because re-running finished work is how a scheduler destroys it.",
       "path": "scripts/agentware_lib/features/graphdag/graphstate.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1845,7 +1845,7 @@
       "not_owns": "node STATE (agentware_lib.features.graphdag.graphstate); lane lifecycle (agentware_lib.features.graphdag.graphlane); the tick loop (agentware_lib.features.graphdag.graphexec);",
       "owns": "topological order, the dispatch frontier, the blast-radius walk, and the WRITE-SET machinery that turns declared file writes into implicit ordering edges. This is the module that keeps concurrency honest: a DAG's declared edges say what depends on what, NOT what conflicts with what, and two nodes with no dependency but overlapping write sets will race — last writer wins, silently, with the losing node's work gone and its lane reporting success. Derived serialization edges close that, token-matched rather than string-equal because `scripts/foo.py` and `scripts/` are the same conflict. The ready set is RECOMPUTED every tick rather than kept as a queue, because a queue would have to stay consistent with a manifest a crash, a resume or a human cancel can change underneath it.",
       "path": "scripts/agentware_lib/features/graphdag/graphtopo.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -1942,7 +1942,7 @@
       "not_owns": "the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout, the schema-sidecar READER _kb_schema_read, which moved DOWN to agentware_lib.core.kblayout at task 39 (plan lint's ops-layer ramps read it too) and is re-exported from here;",
       "owns": "the knowledge-base SCHEMA INTERLOCK in full — the registered migration table",
       "path": "scripts/agentware_lib/features/migratecmd.py",
-      "test_file": "tests/test_migrate_runner.py"
+      "test_file": "tests/unit/features/test_migrate_runner.py"
     },
     {
       "anchor_symbols": [
@@ -1972,7 +1972,7 @@
       "not_owns": "deciding a tag is trustworthy (agentware_lib.core.pkgchannel); crash recovery (agentware_lib.features.pkgreconcile); WHEN to run (agentware_lib.features.pkgupdater); the CLI (agentware_lib.features.updatecmd);",
       "owns": "everything between 'we have a trustworthy tag' and 'the tree runs it, or is back exactly where it started': the syntax check, bounded subprocess runner, smoke test, git-liveness and stale-index-lock guards, ROLLBACK, the KB migration hook and the two-layer runner. Every step is bounded and reversible because this code rewrites the tree it is itself running from: a hang leaves no working CLI and a half-applied update leaves one that imports but does not work. Refuses to start on a DIRTY tree -- overwriting uncommitted operator edits is not recoverable, so it is prevented rather than rolled back.",
       "path": "scripts/agentware_lib/features/pkgapply.py",
-      "test_file": "tests/test_pkg_apply_edges.py"
+      "test_file": "tests/unit/features/test_pkg_apply_edges.py"
     },
     {
       "anchor_symbols": [
@@ -1997,7 +1997,7 @@
       "not_owns": "performing an apply or rollback (agentware_lib.features.pkgapply, reached back only by a function-local import so the edge is one-way); tag resolution (agentware_lib.core.pkgchannel); scheduling (agentware_lib.features.pkgupdater);",
       "owns": "CRASH RECOVERY for a half-applied update. The updater rewrites the tree it runs from, so it can be killed mid-fetch, mid-checkout, after checkout but before smoke, or after a rollback but before the state write. Reconciling decides from the TREE rather than from the record whether the pending move landed. Carries the BRICK-ORDERING rule: once migrate stamped a higher KB schema, rollback is FORBIDDEN (it would leave old code under a new schema), so that branch strands loudly instead.",
       "path": "scripts/agentware_lib/features/pkgreconcile.py",
-      "test_file": "tests/test_tick_dispatch.py"
+      "test_file": "tests/unit/features/test_tick_dispatch.py"
     },
     {
       "anchor_symbols": [
@@ -2025,7 +2025,7 @@
       "not_owns": "applying or rolling back (agentware_lib.features.pkgapply); crash recovery (agentware_lib.features.pkgreconcile); tag verification (agentware_lib.core.pkgchannel); the CLI (agentware_lib.features.updatecmd);",
       "owns": "WHEN to update and self-healing: the operator setting and its parser, the due-check, the tick entry point, the lock-status word, the SELF-HEAL path, the staleness pre-hook and the heartbeat emitter. Cadence is separate from apply because 'should we look now?' and 'apply this verified tag' fail in different ways and are asked from different places. Staleness is the inverse signal -- an updater that has not checked in is itself a fault, because a silent updater and a healthy one look identical from outside.",
       "path": "scripts/agentware_lib/features/pkgupdater.py",
-      "test_file": "tests/test_pkg_updater.py"
+      "test_file": "tests/unit/features/test_pkg_updater.py"
     },
     {
       "anchor_symbols": [
@@ -2126,7 +2126,7 @@
       "not_owns": "sanitising what comes back (agentware_lib.features.reviewoutput); the `review` VERB and its report/remediation flow, resident until its own port;",
       "owns": "the subprocess seam every LLM-backed review runs through: the agent invocation with retry/backoff and a timeout breaker, the single-spawn primitive, the failure classifiers, the diagnostics and the invocation builder. An agent spawn is not a function call — it crosses a process boundary into a non-deterministic, network-backed, occasionally-hanging peer, and every consumer needs the SAME answers about retries and deadlines. The TIMEOUT BREAKER is deliberately module-level state: when a slow peer trips enough deadline-class failures, further spawns short-circuit instead of each paying the full timeout; a per-call breaker would never trip.",
       "path": "scripts/agentware_lib/features/reviewagent.py",
-      "test_file": "tests/test_acr_gate.py"
+      "test_file": "tests/unit/retrieval/test_acr_gate.py"
     },
     {
       "anchor_symbols": [
@@ -2148,7 +2148,7 @@
       "not_owns": "spawning the agent, retries, the timeout breaker (agentware_lib.features.reviewagent); what a caller does with the sanitized result;",
       "owns": "everything that happens to what a review agent RETURNS before any of it reaches a document: control-character stripping, single-line flattening, bounded stderr capture, the inline-safe wrapper, fenced quoting and JSON extraction. A SECURITY boundary: agent output is model text, i.e. UNTRUSTED external content under R-SEC-02, flowing into reports, workorders and knowledge entries. `_review_untrusted_inline` exists so a caller CANNOT accidentally interpolate raw output into a template — the safe form is the one that is easy to reach — and JSON is EXTRACTED and parsed, never eval'd.",
       "path": "scripts/agentware_lib/features/reviewoutput.py",
-      "test_file": "tests/test_acr.py"
+      "test_file": "tests/unit/retrieval/test_acr.py"
     },
     {
       "anchor_symbols": [
@@ -2188,7 +2188,7 @@
       "not_owns": "the detection itself (agentware_lib.ops.skillcluster); the shared emit seam (agentware_lib.features.skillpropose); the proposal LEDGER lifecycle that shares the verb name (agentware_lib.features.proposals.proposeauthor);",
       "owns": "the on-demand skill-candidate DETECTION verb (`skill candidates`) — the backfill / fresh-clone corpus sweep, mirroring `audit --stale --propose`. Its own subverb rather than folded into `propose`, because the union fixture keeps --slug/--ref REQUIRED on propose and a sweep names no slug. Preserving it was the point: dropping it at promotion would have been a SILENT capability loss, since the promotion gate checks for MISSING union nodes and an additive one is invisible to it. Detection and proposal only — never authors a stub, never runs `index add`, never installs — through the SAME shared emit seam the nightly dream step uses, so the cap, the dedup and the idempotency key cannot drift between the two entry points.",
       "path": "scripts/agentware_lib/features/skillcandidate.py",
-      "test_file": "tests/test_skill_promote.py"
+      "test_file": "tests/unit/features/test_skill_promote.py"
     },
     {
       "anchor_symbols": [
@@ -2212,7 +2212,7 @@
       "not_owns": "the reconcile/verdict/install machinery (agentware_lib.features.skillsync); the KB-side authoring verbs (agentware_lib.features.skills);",
       "owns": "the per-machine skill EXECUTION-CACHE lockfile: schema, location, readers and writer, the per-skill record, the ownership test, the content hash over a skill TREE, and the name/display guards. A skill in the knowledge base is TEXT; a skill in the execution cache is something a harness will RUN, and the lockfile is the record of which one an operator approved and at exactly what content. Without it, 'is this installed?' and 'is this what I installed?' are the same question with no way to tell them apart. Ownership is READ FROM THE LOCKFILE rather than inferred from the filesystem, because a directory's existence says nothing about who created it — and removing someone else's skill because it shares a name is the kind of destructive surprise that ends trust in a tool permanently.",
       "path": "scripts/agentware_lib/features/skilllock.py",
-      "test_file": "tests/test_skill_lockfile.py"
+      "test_file": "tests/unit/features/test_skill_lockfile.py"
     },
     {
       "anchor_symbols": [
@@ -2239,7 +2239,7 @@
       "not_owns": "cluster DETECTION and its thresholds (agentware_lib.ops.skillcluster); the dream step that runs this nightly (agentware_lib.features.dreamsteps.stepskillpropose); the skill lifecycle it proposes INTO (agentware_lib.features.skills, agentware_lib.features.proposals);",
       "owns": "the EMISSION half of auto skill-promotion: the safe-name guard, the existing-skill coverage index and matcher, the cluster identity key, the untrusted Context renderer, the emitter, and `_skill_promote_run` -- the SINGLE seam shared by the nightly dream step and the on-demand verb. Nothing here authors, indexes, or installs a skill: the only write is a `Status: draft` workorder, and three separate human gates stand between a detected cluster and an executable skill. The two caps are different caps -- the per-run cap is a cold-start guard that increments `skipped_cap` and keeps going, while the global g3 draft cap returns `deferred:` and BREAKS, since every remaining candidate would defer too.",
       "path": "scripts/agentware_lib/features/skillpropose.py",
-      "test_file": "tests/test_skill_promote.py"
+      "test_file": "tests/unit/features/test_skill_promote.py"
     },
     {
       "anchor_symbols": [
@@ -2303,7 +2303,7 @@
       "not_owns": "the lockfile and tree hash (agentware_lib.features.skilllock); the KB-side authoring verbs (agentware_lib.features.skills); the `skill` registrar (agentware_lib.features.proposals);",
       "owns": "the vetted skill INSTALL GATE: reconcile, verdict, install, the roster views and the `skill sync` handler. One property justifies the whole module — `--approve` is the ONLY path that installs. A skill in the KB arrived over an unsigned pull from whoever could write to the corpus; a skill in the execution cache is something a harness EXECUTES without asking, and the gap between those is the only place a human can stand. Approval binds to a CONTENT HASH, so a skill whose tree changed returns to PENDING rather than carrying the old approval forward: the operator approved a body, not a title, and the second version is the one worth attacking precisely because the first was reviewed. The git author is DISPLAY-ONLY under an (UNVERIFIED) label — it is attacker-controllable over the same unsigned pull, so gating on it would be theatre, which is worse than nothing because it reads like verification.",
       "path": "scripts/agentware_lib/features/skillsync.py",
-      "test_file": "tests/test_skill_sync.py"
+      "test_file": "tests/unit/features/test_skill_sync.py"
     },
     {
       "anchor_symbols": [
@@ -2328,7 +2328,7 @@
       "not_owns": "the freshness DETECTORS and the report they assemble (agentware_lib.ops.freshness); the `audit` command that calls this (agentware_lib.ops.audit); the dream step that runs it nightly (agentware_lib.features.dreamsteps.stepstalepropose);",
       "owns": "the PROPOSE half of `audit --stale --propose`: the clean-report test, the structured finding renderer, the wall-clock-free idempotency key and the emitter. Separate from `ops.freshness` because freshness is READ-ONLY by contract and this module WRITES a workorder draft -- folding them together would make the module that only reports into one that also writes, with no way for the next reader to tell which half they were calling. The fingerprint keys on the finding IDENTITY and deliberately excludes `age_days`, which increments daily: fingerprinting the rendered text instead would mint a new slug for the same unresolved state every calendar day until the drafts exhausted the shared g3 cap.",
       "path": "scripts/agentware_lib/features/staleproposal.py",
-      "test_file": "tests/test_staleness_propose.py"
+      "test_file": "tests/unit/ops/test_staleness_propose.py"
     },
     {
       "anchor_symbols": [
@@ -2349,7 +2349,7 @@
       "not_owns": "the anchor itself -- key parsing, fingerprints, the signers file and its security assertion (agentware_lib.core.pkgtrust); the filesystem primitives beneath it (agentware_lib.core.pkghome); the update channel (task 41) and release preflight (task 42);",
       "owns": "the `trust` verb -- cmd_trust dispatching all four subverbs to the _trust_list / _trust_pin / _trust_verify helpers (decomposed at landing: the monolith body was 27 branches against a cap of 12), the _trust_resolve_key_file helper, and the register_trust registrar. `pin` and `rotate` deliberately share ONE implementation: a rotation IS a pin carrying --valid-before, and two implementations would let the overlap-window semantics drift between the path that opens the window and the path that closes it.",
       "path": "scripts/agentware_lib/features/trustcmd.py",
-      "test_file": "tests/test_trust_surface.py"
+      "test_file": "tests/unit/features/test_trust_surface.py"
     },
     {
       "anchor_symbols": [
@@ -2494,7 +2494,7 @@
       "not_owns": "the duplicate/conflict detector and the advisory report built around these (agentware_lib.ops.freshness); the staleness review PROPOSAL (agentware_lib.features.staleproposal); the ACR prior these ride alongside (agentware_lib.retrieval.acr); the ranking core that applies the downweight (agentware_lib.retrieval.skillpin);",
       "owns": "the ONE definition of the stale window and everything derived from it: the volatile categories and the stale scan, the declared-supersede edge and its reverse lookup, the read-time trust record, and the RANKING downweight. It sits in knowledge because THREE consumers must agree on the window — `audit --stale` (through ops.freshness), the trust fields on every recall record, and the ranking downweight — and they live in three different layers. A second constant is the failure outright: an entry reported stale by audit but ranked as current by recall is a system whose halves disagree about one fact, and the operator has no way to tell which to believe. The downweight is deliberately separate from the ACR prior, which is GENTLE by design (freshness floored so a still-true OLD fact is never buried) — the right default for a fact that merely aged and the wrong one for a fact that is genuinely stale or superseded. Everything is computed at read time and writes NOTHING (INV-2): no stored stale/trust field, no silent trust rewrite; a proven-wrong learning is demoted by a DECLARED supersede edge plus a flag for review, never an auto-delete.",
       "path": "scripts/agentware_lib/knowledge/freshsignals.py",
-      "test_file": "tests/test_staleness_downweight.py"
+      "test_file": "tests/unit/knowledge/test_staleness_downweight.py"
     },
     {
       "anchor_symbols": [
@@ -2757,7 +2757,7 @@
       "not_owns": "the marker TABLES (agentware_lib.core.orgkeys); the org LINT that reports poisoned entries to an operator (agentware_lib.ops.orglint); the write-side governance deciding who may put an entry in shared/ (agentware_lib.ops.fleet.fleetguard); the ranking that consumes the survivors (agentware_lib.retrieval);",
       "owns": "the read-time REFUSAL of untrusted knowledge: the content scan, the per-corpus suppression pass, and the shared-id denylist join. `org lint` already flags an entry carrying an injection or conflict marker — but a lint REPORTS, and reporting happens when a human runs it, which is not when the entry gets injected. Between those moments the entry is read by recall, ranked, and pasted into a session context, which is the only moment that matters. R-SEC-02 says never trust external content, and knowledge becomes external the instant more than one person can write it: shared/ is authored by OTHER TEAMS, so a knowledge base that injects whatever it holds is prompt injection with a delivery mechanism and a persistence layer. SHARED entries are scanned and the caller's OWN are not — that is where the trust boundary actually is, and scanning your own corpus would suppress every learning that legitimately QUOTES an injection string, including the ones ABOUT prompt injection. Suppression is REPORTED, never silent: a silent filter is indistinguishable from a corpus that had nothing to say, and the one case an operator most needs to see is exactly the one it would hide.",
       "path": "scripts/agentware_lib/knowledge/readguard.py",
-      "test_file": "tests/test_adopted_capabilities.py"
+      "test_file": "tests/integration/test_adopted_capabilities.py"
     },
     {
       "anchor_symbols": [
@@ -2780,7 +2780,7 @@
       "not_owns": "the `relates` token vocabulary or the byte-preserving frontmatter",
       "owns": "the declared-edge WRITE path in full — `_declare_relation` (the guarded,",
       "path": "scripts/agentware_lib/knowledge/relatecmd.py",
-      "test_file": "tests/test_relate.py"
+      "test_file": "tests/unit/knowledge/test_relate.py"
     },
     {
       "anchor_symbols": [
@@ -2947,7 +2947,7 @@
       "not_owns": "any probe (agentware_lib.ops.checkupprobes, agentware_lib.ops.checkuphealth); thresholds and cadence (agentware_lib.ops.checkupconfig); emission and the LLM narrative (agentware_lib.ops.checkupemit);",
       "owns": "the presentation half plus the entry points: the aggregator, the report renderer and its section builders, the SessionStart banner, `cmd_checkup`, the tick job body and the `checkup` registrar. `--status-line` prints ONLY when a fresh report exists and is a byte-identical no-op when checkup is OFF — it runs at SessionStart on every session, so anything it prints is a permanent context cost, and a banner that speaks when it has nothing to say trains the reader to skip the one time it matters. The exam is OFF by default, writes a report and at most SUGGESTED workorders, and never applies anything itself.",
       "path": "scripts/agentware_lib/ops/checkupcmd.py",
-      "test_file": "tests/test_checkup_e2e.py"
+      "test_file": "tests/e2e/test_checkup_e2e.py"
     },
     {
       "anchor_symbols": [
@@ -2976,7 +2976,7 @@
       "not_owns": "the probes themselves (agentware_lib.ops.checkupprobes, agentware_lib.ops.checkuphealth); rendering and the CLI (agentware_lib.ops.checkupcmd); emission (agentware_lib.ops.checkupemit);",
       "owns": "everything the periodic self-exam needs BEFORE it examines anything: operator settings and parsers, every threshold the probes grade against, the report/ack/last-run paths, the report reader and content hash, and the due-check with its anchor epoch. The thresholds live together because each is the line between healthy and worth-telling-the-operator, and they are read by DIFFERENT probes that must not drift apart on what counts as stale. The anchor epoch makes cadence deterministic rather than drifting, so a machine that was asleep neither skips a cycle nor fires twice on wake.",
       "path": "scripts/agentware_lib/ops/checkupconfig.py",
-      "test_file": "tests/test_checkup_config.py"
+      "test_file": "tests/unit/features/test_checkup_config.py"
     },
     {
       "anchor_symbols": [
@@ -3003,7 +3003,7 @@
       "not_owns": "the probes that produce findings (agentware_lib.ops.checkupprobes, agentware_lib.ops.checkuphealth); rendering and the CLI (agentware_lib.ops.checkupcmd); the agent spawn (agentware_lib.features.reviewagent);",
       "owns": "the half of the self-exam that can CHANGE THE WORLD: the LLM narrative input and call, candidate selection, the workorder emitter, the refusal reason and the idempotency signature. Every other checkup module is read-only; this is the only place the exam can be wrong in a way that costs the operator something, which is why it is separated. The SIGNATURE is the anti-duplicate — an exam running every cycle must not emit the same workorder every cycle. The LLM narrative is OPTIONAL and gated: findings are produced deterministically FIRST and the model only writes them up, so a model failure degrades the prose, never the findings.",
       "path": "scripts/agentware_lib/ops/checkupemit.py",
-      "test_file": "tests/test_checkup_emit.py"
+      "test_file": "tests/unit/ops/test_checkup_emit.py"
     },
     {
       "anchor_symbols": [
@@ -3032,7 +3032,7 @@
       "not_owns": "knowledge-base probes (agentware_lib.ops.checkupprobes); thresholds (agentware_lib.ops.checkupconfig); emission (agentware_lib.ops.checkupemit);",
       "owns": "the probes that grade the MACHINE: config drift, a stale updater heartbeat, the dream journal watch, frozen-metric detection, worktree count, retrieval latency, KB-structure migration triggers and the package-version check. Every one can be wrong while every test passes. A STALE HEARTBEAT is the sharpest and the reason the exam exists at all: a silent updater and a healthy one look identical from outside, so absence of news must be measured rather than assumed good. Frozen-metric detection is the inverse guard — a metric unchanged for MIN_FROZEN_CYCLES is suppressed so the exam does not repeat itself into being ignored.",
       "path": "scripts/agentware_lib/ops/checkuphealth.py",
-      "test_file": "tests/test_checkup_drift.py"
+      "test_file": "tests/unit/ops/test_checkup_drift.py"
     },
     {
       "anchor_symbols": [
@@ -3060,7 +3060,7 @@
       "not_owns": "runtime and package health (agentware_lib.ops.checkuphealth); thresholds (agentware_lib.ops.checkupconfig); emission (agentware_lib.ops.checkupemit);",
       "owns": "the probes that grade the KNOWLEDGE BASE: metric trend, the flywheel (is the loop still turning learnings into durable knowledge?), learning freshness, and the plan sweep with its draft TTLs. These ask whether the knowledge is still ALIVE, not whether the code is healthy — a knowledge base fails quietly, and none of that breaks a test or is visible from one session, which is exactly why a periodic exam exists. The TTL split is deliberate: an AUTO-generated draft ages out faster than an OPERATOR-written one, because the machine can regenerate its own proposal while a human draft may be deliberate work-in-progress.",
       "path": "scripts/agentware_lib/ops/checkupprobes.py",
-      "test_file": "tests/test_checkup_aggregate.py"
+      "test_file": "tests/unit/ops/test_checkup_aggregate.py"
     },
     {
       "anchor_symbols": [
@@ -3118,7 +3118,7 @@
       "not_owns": "the other derive_* reporters (agentware_lib.ops.derive); the retrieval ENGINE — ranking, recall, BM25 (agentware_lib.retrieval.*);",
       "owns": "the RETRIEVAL slice of the derive family: what an agent actually retrieved in a session — which knowledge ids and which paths it opened — plus the tolerant live.jsonl reader. Split from ops.derive purely on the FILE ceiling (that module is 587 of its 600 lines) but the seam is real: the other derivers read PLAN and WORKLOG structure, this one reads a transcript. `_is_recall_call` excludes calls appearing only inside a `--verify` assertion, which would otherwise report retrieval the agent never performed and inflate the very metric this exists to measure honestly.",
       "path": "scripts/agentware_lib/ops/deriveretrieval.py",
-      "test_file": "tests/test_checkup_aggregate.py"
+      "test_file": "tests/unit/ops/test_checkup_aggregate.py"
     },
     {
       "anchor_symbols": [
@@ -3330,7 +3330,7 @@
       "not_owns": "the `kb-git` COMMANDS that call it — commit / pull / push (agentware_lib.ops.staging); the org constants it scopes against (agentware_lib.core.orgkeys); the git runner (agentware_lib.core.gitio);",
       "owns": "WHAT MAY BE STAGED into a knowledge-base commit: the team-scope prefix, the derived-file predicates, the allowlist, and the ONE staging seam every KB write goes through. A blanket `git add -A` stages whatever happens to be in the tree — in org mode that is ANOTHER TEAM'S FILES committed as part of this team's merge, a cross-team write that looks completely ordinary in the log, which is the worst property a write can have. It also stages the derived set (gitignored and rebuilt, so committing it guarantees a conflict on the next sync) and whatever artifact someone dropped in the directory. `allow_derived=True` re-admits the derived files for the ONE caller that needs it — the post-merge reconciliation, which just REGENERATED them from the merged entry union — and is a parameter rather than a second function so every call site that does NOT pass it is visibly not asking for it. Split from ops.staging when that file crossed the 600-line cap, along the honest seam the cap forced: this module answers 'what may be staged', ops.staging answers 'what do the kb-git commands do', and those track different things — the org layout and gitignore contract versus the CLI surface.",
       "path": "scripts/agentware_lib/ops/kbstage.py",
-      "test_file": "tests/test_adopted_capabilities.py"
+      "test_file": "tests/integration/test_adopted_capabilities.py"
     },
     {
       "anchor_symbols": [
@@ -3611,7 +3611,7 @@
       "not_owns": "the KERNEL-PATH TOKEN LIST (_KERNEL_PATH_TOKENS), which has ONE definition site in agentware_lib.ops.plangraph and is imported here -- two copies would let a hook file added to one leave the other guard blind; the g2 EMIT-SIDE sanitizers that REWRITE a value to be safe to render (_sanitize_provenance / _sanitize_context_block / _sanitize_target), a different obligation from this module's REFUSAL (agentware_lib.ops.planauthor.plansanitize); the plan GENERATION half that calls this guard (agentware_lib.ops.planauthor.planedit); the plan STATE MACHINE (agentware_lib.ops.planauthor.planstate); the plan grammar (agentware_lib.ops.planmarkers);",
       "owns": "the g1 KERNEL-PATH refusal family -- the guard deciding whether a value names a path inside the agentware PACKAGE, so a MACHINE-generated plan (`plan new --auto`) must be refused outright: the token list (_KERNEL_PATH_TOKENS), the de-obfuscating normalizer (_strip_kernel_invisibles / _KERNEL_CONFUSABLE_TT / _KERNEL_TOK_EDGE_RE / _KERNEL_HOME_RE / _norm_kernel_token / _kernel_subtokens), the two segment-bounded matchers (_has_kernel_path_segment / _text_hits_kernel_path), the case- and symlink-proof filesystem resolver (_resolves_under_repo) and the `--target` entry point (_target_hits_kernel). Closes the normalization-evasion shapes: zero-width/combining codepoints, NFKC compatibility forms, Cyrillic/Greek homoglyphs, markdown emphasis, possessives, list glue, symlinks, `..` traversal and APFS case-insensitivity.",
       "path": "scripts/agentware_lib/ops/planauthor/plankernelpath.py",
-      "test_file": "tests/test_g1harden.py"
+      "test_file": "tests/gates/test_g1harden.py"
     },
     {
       "anchor_symbols": [
@@ -3637,7 +3637,7 @@
       "not_owns": "EDITING an existing plan.md -- add-task/set-status/target-dirs and the shared writers (_atomic_write/_plan_path/_plan_promise/_plan_renumber), which this module imports one-way (agentware_lib.ops.planauthor.planedit); the plan STATE MACHINE (agentware_lib.ops.planauthor.planstate); the g1 kernel-path refusal family (agentware_lib.ops.planauthor.plankernelpath); the g2 emit-side sanitizers (agentware_lib.ops.planauthor.plansanitize); the ENFORCEMENT half (agentware_lib.ops.planlint); `plan state-backfill`, whose payload needs a features-layer live-session detector (agentware_lib.features.migratecmd);",
       "owns": "the BIRTH of a plan.md -- the canonical lint-passing skeleton builder (_plan_skeleton, assembled from the _skeleton_* section helpers) and the `plan new` handler (cmd_plan_new, with the _plannew_* guard helpers), plus the g3 workorder lifecycle cap (_count_auto_open_workorders / WORKORDER_DRAFT_CAP) that only the creation path enforces. This is a UNION, not a pure move: this tree contributes the workorder provenance headers, `> Status: draft`, target/context/task seeds, the `## Premises` stub (R14 / R-GND-01) and guards g1/g2/g3; the donor contributes the ORG `> Team:` stamp (R-ORG-05, `org lint` O1) that the larger side lacked. Flat-KB output is byte-identical to the pre-union skeleton.",
       "path": "scripts/agentware_lib/ops/planauthor/plannew.py",
-      "test_file": "tests/test_plan_authoring.py"
+      "test_file": "tests/unit/ops/test_plan_authoring.py"
     },
     {
       "anchor_symbols": [
@@ -3660,7 +3660,7 @@
       "not_owns": "the g1 KERNEL-PATH refusal family (_KERNEL_CONFUSABLE_TT / _norm_kernel_token / _has_kernel_path_segment / _text_hits_kernel_path), which REFUSES an emit rather than rewriting a value and lands with `plan new --auto`; the plan STATE MACHINE that consumes _sanitize_provenance (agentware_lib.ops.planauthor.planstate); the plan GENERATION half that consumes all three (agentware_lib.ops.planauthor.planedit); the plan grammar these match against (agentware_lib.ops.planmarkers);",
       "owns": "the EMIT-SIDE g2 guard family -- the three sanitizers that neutralize text before it is rendered into a plan.md (_sanitize_provenance, _sanitize_context_block, _sanitize_target) and the three shapes they defend against: a forged `> Status:`/`> Claimed-by:` header, a forged ATX section header, and a phantom LOOSE open-task marker the loop's completion grep would count forever.",
       "path": "scripts/agentware_lib/ops/planauthor/plansanitize.py",
-      "test_file": "tests/test_target_injection.py"
+      "test_file": "tests/integration/test_target_injection.py"
     },
     {
       "anchor_symbols": [
@@ -3699,7 +3699,7 @@
       "not_owns": "the `> Status:` READER (_read_plan_status / _PLAN_STATES / _PLAN_DEFAULT_STATE / _PLAN_STATUS_HEADER_RE), which moved DOWN to agentware_lib.ops.plangraph at task 39 to break a planlint->planstate cycle and is re-exported from here; the g2 text neutralization the --reason/--superseded-by values pass through (agentware_lib.ops.planauthor.plansanitize); the `recall --scope work` plan-status ranking multipliers (_WORK_STATUS_MULT / _work_status_multiplier), a RETRIEVAL concern that cannot live in ops because retrieval->ops is an upward edge (task 55); the plan GENERATION half (agentware_lib.ops.planauthor.planedit); the ENFORCEMENT half (agentware_lib.ops.planlint); the status BACKFILL migration and its `plan state-backfill` CLI adapter, whose payload needs the features-layer live-session detector (agentware_lib.features.migratecmd);",
       "owns": "the toolkit-owned plan LIFECYCLE -- the legal-transition matrix and its constants (_PLAN_STATE_TRANSITIONS / _PLAN_STATE_RANK / _PLAN_TERMINAL_STATES / STALLED_CLAIM_HOURS / the Claimed-by + Superseded-by header regexes), the claim-stamp primitives (_short_host / _claim_age_hours / _parse_claim), the tolerant plan reader (_load_plan_tolerant), the deterministic merge resolver (_merge_plan_status), the two PURE plan-text WRITER primitives (_set_header_line / _append_status_log + _PLAN_STATUS_LOG_HEADING), and the two SOLE writers of the `> Status:` header -- cmd_plan_set_state and its loop-facing orchestrator cmd_plan_claim.",
       "path": "scripts/agentware_lib/ops/planauthor/planstate.py",
-      "test_file": "tests/test_backfill_migration.py"
+      "test_file": "tests/unit/features/test_backfill_migration.py"
     },
     {
       "anchor_symbols": [
@@ -3747,7 +3747,7 @@
       "not_owns": "the pure-format rules R1..R11, the orchestrator, the readiness gate and the CLI handler (agentware_lib.ops.planlint); every PARSER these rules consult (agentware_lib.ops.plangraph, agentware_lib.ops.planmarkers, agentware_lib.ops.planpremises) -- nothing here parses, it only judges;",
       "owns": "plan lint R12..R16 -- the GOVERNANCE rules that need the plan's PLACE in the knowledge base (KB-relative path, schema generation, knowledge dir) rather than only its text, together with the two WARN->ERROR versioned-ramp thresholds they key on.",
       "path": "scripts/agentware_lib/ops/plangovern.py",
-      "test_file": "tests/test_plan_lint.py"
+      "test_file": "tests/unit/ops/test_plan_lint.py"
     },
     {
       "anchor_symbols": [
@@ -3792,7 +3792,7 @@
       "not_owns": "any RULE (R11/R13/R15/R16 are agentware_lib.ops.planlint / agentware_lib.ops.plangovern, which import these); the plan STATE MACHINE and its writers (agentware_lib.ops.planauthor.planstate); the TASK-MARKER grammar (agentware_lib.ops.planmarkers); the graph MANIFEST and DAG scheduler (RESIDENT, task 48); the `## Premises` trust boundary (agentware_lib.ops.planpremises);",
       "owns": "the plan document's DECLARATIVE BLOCK parsers -- `## Target packages` (R11), `## Depends-on:`, `## Write set` + its conservative inference, `> Checkpoint:`, and the `> Status:` lifecycle header re-exported by ops.planauthor.planstate",
       "path": "scripts/agentware_lib/ops/plangraph.py",
-      "test_file": "tests/test_plan_graph.py"
+      "test_file": "tests/unit/features/test_plan_graph.py"
     },
     {
       "anchor_symbols": [
@@ -3868,7 +3868,7 @@
       "not_owns": "any RULE (agentware_lib.ops.planlint / agentware_lib.ops.plangovern); the DECLARATIVE BLOCK parsers that describe the plan AS A NODE (agentware_lib.ops.plangraph); plan AUTHORING (agentware_lib.ops.planauthor);",
       "owns": "the SHARED VOCABULARY of the plan-lint family -- the canonical task-marker regex whose bytes are shared with agentware.sh's grep, the POSIX-ERE translator, every derived plan regex, task-number parsing and the monotonic-numbering check, the open-marker counter, and _lint_add, the one finding-record constructor.",
       "path": "scripts/agentware_lib/ops/planmarkers.py",
-      "test_file": "tests/test_plan_lint.py"
+      "test_file": "tests/unit/ops/test_plan_lint.py"
     },
     {
       "anchor_symbols": [
@@ -3906,7 +3906,7 @@
       "not_owns": "the evaluators (agentware_lib.ops.premisecheck); plan authoring (agentware_lib.ops.planauthor);",
       "owns": "the TRUST BOUNDARY of the `## Premises` surface: the closed grammar, its non-executing parser, and the R-GND-01 verify-premises verb",
       "path": "scripts/agentware_lib/ops/planpremises.py",
-      "test_file": "tests/test_premise_gate.py"
+      "test_file": "tests/unit/ops/test_premise_gate.py"
     },
     {
       "anchor_symbols": [
@@ -3927,7 +3927,7 @@
       "not_owns": "writing a capture (agentware_lib.ops.prefercapture); the durable queue (agentware_lib.ops.preferqueue); gate-loosening refusal (agentware_lib.ops.prefergate);",
       "owns": "the ADMISSION BAR: the cue/noise vocabulary, the operator-text extractor, the capturable test and the entry-provenance test. A captured preference injects into EVERY future session, so each one is a permanent context cost paid forever -- the bar is deliberately strict, and the standard is 'would a future session behave differently knowing this?'. A capture system with a low bar does not become more helpful, it becomes a slow leak that degrades every session after it. Its own module because both the capture path and the queue scanner ask these questions and cannot import each other without a cycle.",
       "path": "scripts/agentware_lib/ops/preferadmit.py",
-      "test_file": "tests/test_prefer_precision.py"
+      "test_file": "tests/unit/ops/test_prefer_precision.py"
     },
     {
       "anchor_symbols": [
@@ -3953,7 +3953,7 @@
       "not_owns": "the admission bar (agentware_lib.ops.preferadmit); the queue (agentware_lib.ops.preferqueue); tier classification (agentware_lib.ops.preferclassify);",
       "owns": "the capture WRITE and the entry lifecycle around it. Capture SUPERSEDES by key rather than appending: two captures that disagree would both inject into the same context window and the model has no way to know which the operator meant, so the conflict is resolved once at capture time instead of being deferred to every future session. Every capture is refused if it names a kernel path (R-CAP-03) or reads as weakening a governance gate.",
       "path": "scripts/agentware_lib/ops/prefercapture.py",
-      "test_file": "tests/test_prefer_capture.py"
+      "test_file": "tests/unit/ops/test_prefer_capture.py"
     },
     {
       "anchor_symbols": [
@@ -3976,7 +3976,7 @@
       "not_owns": "approval and rejection, the human DISPOSITION half (agentware_lib.ops.preferdispose); the admission bar (agentware_lib.ops.preferadmit);",
       "owns": "TRIAGE: the tier classifier, the drain that walks the queue, the workorder emitter and the classify report with its rotation. TIERING is what keeps this safe to automate -- tier-1 is a preference the operator approves directly, tier-2 becomes a SUGGESTED workorder that still needs approval before anything runs. Nothing here promotes to durable knowledge on its own. The report is ROTATED rather than appended forever, because an unbounded report is one nobody opens.",
       "path": "scripts/agentware_lib/ops/preferclassify.py",
-      "test_file": "tests/test_prefer_classify.py"
+      "test_file": "tests/unit/ops/test_prefer_classify.py"
     },
     {
       "anchor_symbols": [
@@ -3998,7 +3998,7 @@
       "not_owns": "the digest (agentware_lib.ops.preferdigest); classification (agentware_lib.ops.preferclassify); approval and rejection (agentware_lib.ops.preferdispose); the miner (agentware_lib.ops.sessionparse.minerscan);",
       "owns": "the `prefer` verb surface: the dispatcher, the `mine` and `review` handlers and the registrar (split into three sub-registrars to hold the per-function cap). `prefer review` is deliberately read-only across EVERY candidate state including queued and journaled ones -- a review surface showing only actionable items would hide the queue's backlog, which is precisely the number an operator needs to decide whether the miner is worth keeping on.",
       "path": "scripts/agentware_lib/ops/prefercmd.py",
-      "test_file": "tests/test_prefer_review.py"
+      "test_file": "tests/unit/ops/test_prefer_review.py"
     },
     {
       "anchor_symbols": [
@@ -4020,7 +4020,7 @@
       "not_owns": "the `prefer` verb and its subcommands (agentware_lib.ops.prefercmd); the admission bar (agentware_lib.ops.preferadmit);",
       "owns": "the SESSION-START digest and the two budgets that bound it. This text is injected into EVERY session, so it is a permanent context cost paid forever and growing -- the budgets stop an accumulating preference set from silently eating the window it exists to improve. The budget TRUNCATES the digest rather than refusing a capture, so the capture path stays honest about what the operator asked for while the injection stays bounded. The only part of the prefer family whose cost is paid by sessions that never touch `prefer` at all.",
       "path": "scripts/agentware_lib/ops/preferdigest.py",
-      "test_file": "tests/test_prefer_injection.py"
+      "test_file": "tests/integration/test_prefer_injection.py"
     },
     {
       "anchor_symbols": [
@@ -4060,7 +4060,7 @@
       "not_owns": "capturing a preference or the queue it lands in (the `prefer` verb, resident until its own port); the R-CAP-03 kernel-path refusal, a different obligation (agentware_lib.ops.planauthor.plankernelpath);",
       "owns": "the deterministic classifier answering whether a captured preference would WEAKEN a governance gate rather than express a taste. Captured preferences inject into every future session, so 'stop running the tests first' and 'prefer tabs over spaces' are not the same kind of statement — the first would quietly disable a safety property for every later run, which R-CAP-03 refuses. The NEGATION sets are the subtle part: 'do not skip the review gate' contains both a loosen verb and a gate noun and is the OPPOSITE of a loosening request, so negation is checked BEFORE the verb/noun pair fires.",
       "path": "scripts/agentware_lib/ops/prefergate.py",
-      "test_file": "tests/test_prefer_capture.py"
+      "test_file": "tests/unit/ops/test_prefer_capture.py"
     },
     {
       "anchor_symbols": [
@@ -4087,7 +4087,7 @@
       "not_owns": "the admission bar (agentware_lib.ops.preferadmit); the capture write (agentware_lib.ops.prefercapture); approval and rejection (agentware_lib.ops.preferdispose);",
       "owns": "the durable candidate QUEUE and its per-session byte-offset cursor, plus the archive readers and the fingerprint. Nothing the miner or the capture path produces is knowledge yet -- it is a PROPOSAL, and the queue is the seam that keeps it that way. The FINGERPRINT is checked against the ARCHIVE as well as the live queue, so a candidate the operator already rejected does not reappear tomorrow: rejection is remembered, not merely actioned, and a queue that resurfaces disposed items is one the operator stops reading.",
       "path": "scripts/agentware_lib/ops/preferqueue.py",
-      "test_file": "tests/test_prefer_queue.py"
+      "test_file": "tests/unit/ops/test_prefer_queue.py"
     },
     {
       "anchor_symbols": [
@@ -4116,7 +4116,7 @@
       "not_owns": "the grammar or the parser -- what a premise may SAY is agentware_lib.ops.planpremises;",
       "owns": "one evaluator per closed-grammar check kind, and the dispatcher over them",
       "path": "scripts/agentware_lib/ops/premisecheck.py",
-      "test_file": "tests/test_premise_gate.py"
+      "test_file": "tests/unit/ops/test_premise_gate.py"
     },
     {
       "anchor_symbols": [
@@ -4165,7 +4165,7 @@
       "not_owns": "the trust anchor (agentware_lib.core.pkgtrust); the update channel that consumes a release (agentware_lib.core.pkgchannel); the package-level release GATE, a different verb (agentware_lib.ops.releasegate); key and tag ACTIONS, which stay operator-gated in docs/release-signing.md;",
       "owns": "the read-only `release preflight` -- a hermetic verify SELF-TEST plus the publisher/client readiness report and the `release` registrar. The self-test exists because reporting configuration cannot answer the real question: a machine can have a pinned key, a reachable remote and plausible git config while gpg.ssh.allowedSignersFile points at nothing, in which case verification silently passes EVERYTHING. So it builds a throwaway repo, signs a tag with a scratch key, and proves both directions -- a valid signature verifies, a tampered one is refused -- before reporting on the real machine.",
       "path": "scripts/agentware_lib/ops/releasepreflight.py",
-      "test_file": "tests/test_release_preflight.py"
+      "test_file": "tests/unit/features/test_release_preflight.py"
     },
     {
       "anchor_symbols": [
@@ -4192,7 +4192,7 @@
       "not_owns": "the vocabulary (agentware_lib.ops.reviewschema); the config axes and skip ledger (agentware_lib.ops.reviewconfig); the prompts (agentware_lib.ops.reviewprompts); the degradation diagnostics (agentware_lib.ops.reviewdiag); the remediation loop (agentware_lib.ops.reviewremediate); the report (agentware_lib.ops.reviewreport);",
       "owns": "the round driver that fans reviewers out across dimensions, verifies each finding and runs the coverage critic, plus the diff resolver, the text renderer and the `review` handler and registrar. Three stages, separate on purpose: FAN OUT one reviewer per dimension (narrow scopes, since a reviewer told to find everything reports the first obvious thing); VERIFY each finding with an agent whose job is to REFUTE it, the stage that earns the gate its name, because without it the output is a list of plausible claims and a plausible-but-wrong finding is worse than silence; CRITICIZE the coverage, since the reviewers' blind spots are correlated and completeness needs its own pass. Collapsing any two produces a gate that agrees with itself. `_review_resolve_diff` returns None (not '') when git FAILS, because a swallowed git failure once let the audit run over an empty diff and stamp an un-audited self-extension green.",
       "path": "scripts/agentware_lib/ops/reviewaudit.py",
-      "test_file": "tests/test_review_orchestrator.py"
+      "test_file": "tests/unit/ops/test_review_orchestrator.py"
     },
     {
       "anchor_symbols": [
@@ -4221,7 +4221,7 @@
       "not_owns": "the finding vocabulary (agentware_lib.ops.reviewschema); prompt text (agentware_lib.ops.reviewprompts); the fan-out (agentware_lib.ops.reviewaudit); spawn timeouts (agentware_lib.features.reviewagent);",
       "owns": "the three tunable axes and their defaults, the env resolution, the axis RANKINGS with the downgrade detector and its warnings, and the skip escape hatch with its audit trail. A downgrade is WARNED about rather than refused: an adversarial review run by a weaker reviewer is not a cheaper review, it is one that finds less and reports the same 'clean' -- but refusing outright would push people to skip the gate entirely, which is strictly worse than a downgraded run they can see in the log. That is why the ranks are ordered data rather than a boolean: the question is not 'different from the default' but 'WEAKER than it'. Skipping is likewise recorded INTO THE WORKLOG with its reason, because an escape hatch that leaves no trace is indistinguishable from a gate that never ran.",
       "path": "scripts/agentware_lib/ops/reviewconfig.py",
-      "test_file": "tests/test_review_config.py"
+      "test_file": "tests/unit/ops/test_review_config.py"
     },
     {
       "anchor_symbols": [
@@ -4244,7 +4244,7 @@
       "not_owns": "the normalization that DECIDES an item is malformed (agentware_lib.ops.reviewschema); spawn-failure classification (agentware_lib.features.reviewagent); the fan-out that calls these (agentware_lib.ops.reviewaudit);",
       "owns": "the two diagnostics that make a DEGRADED review round visible: the soft-fail report for a reviewer whose output was unusable, and the dropped-item report for one whose output was partly unusable. A review gate has exactly one dangerous failure mode -- reporting 'no findings' when it failed to review -- and every path here converts a silent zero into a loud one. A crashed reviewer contributes zero findings, identical at the call site to one that found nothing wrong; the diagnostic names the role, the exit class and a bounded stderr tail so the round reads as degraded. The gate SOFT-fails rather than aborting so one broken reviewer does not discard the others' findings, and that trade is only safe because the degradation is reported.",
       "path": "scripts/agentware_lib/ops/reviewdiag.py",
-      "test_file": "tests/test_review_orchestrator.py"
+      "test_file": "tests/unit/ops/test_review_orchestrator.py"
     },
     {
       "anchor_symbols": [
@@ -4269,7 +4269,7 @@
       "not_owns": "the dimensions and severities the prompts quote (agentware_lib.ops.reviewschema); the model and effort axes (agentware_lib.ops.reviewconfig); the spawning itself (agentware_lib.features.reviewagent); the fan-out (agentware_lib.ops.reviewaudit);",
       "owns": "the effort preamble and the four prompts the gate spawns agents with. They are four separate builders rather than one parameterized template because they ask for OPPOSITE things, and blurring them is what produces an agreeable review: the REVIEWER finds problems along one narrow dimension (asked to find everything, it finds the obvious thing and stops); the VERIFIER tries to REFUTE a specific finding, and must default to skepticism, since a verifier that merely re-reads will confirm, and a confirmed wrong finding gets acted on; the CRITIC says what is MISSING, the only prompt that can grow the audit, because the reviewers' blind spots are correlated; the FIXER repairs findings that already survived verification. The diff and the criteria are fenced before interpolation -- a diff is attacker-influenced text, and a prompt that pastes it raw can be told to report no findings.",
       "path": "scripts/agentware_lib/ops/reviewprompts.py",
-      "test_file": "tests/test_review_orchestrator.py"
+      "test_file": "tests/unit/ops/test_review_orchestrator.py"
     },
     {
       "anchor_symbols": [
@@ -4295,7 +4295,7 @@
       "not_owns": "the fix status vocabulary (agentware_lib.ops.reviewschema); the fixer prompt (agentware_lib.ops.reviewprompts); the audit that PRODUCED the findings (agentware_lib.ops.reviewaudit); the report (agentware_lib.ops.reviewreport);",
       "owns": "the fixer loop, the regression GATE CHAIN and the `remediate` verb. The gate chain is the point: an agent that edits code to satisfy a finding will report success, and that report is worth nothing on its own -- the model has every incentive to believe it fixed the thing and no way to check. The chain re-runs the project's own tests in a SUBPROCESS, and the chain's exit code, not the agent's claim, decides whether a fix is accepted. It runs under a timeout, so a fix that hangs the suite fails the gate instead of hanging the remediation. Findings arrive VERIFIED, never raw: fixing a plausible-but-refuted finding means editing working code to satisfy a claim already shown to be wrong.",
       "path": "scripts/agentware_lib/ops/reviewremediate.py",
-      "test_file": "tests/test_remediate.py"
+      "test_file": "tests/unit/ops/test_remediate.py"
     },
     {
       "anchor_symbols": [
@@ -4322,7 +4322,7 @@
       "not_owns": "the vocabulary (agentware_lib.ops.reviewschema); the audit that produces rounds (agentware_lib.ops.reviewaudit); remediation (agentware_lib.ops.reviewremediate); the workorder emitter it calls (agentware_lib.ops.planauthor.plannew);",
       "owns": "the review REPORT, the worklog callout, the low-severity workorder emitter and the `review-report` verb. Material and low findings are split deliberately: material findings GATE, low findings become a tier-2 PROPOSED workorder a human triages later. Collapsing the two would force a choice between a gate that cries wolf and one that silently drops real findings, and both end the same way -- with the gate turned off. Dedup is across ROUNDS and keys on the finding's identity rather than its prose, so the same defect surfaced by two dimensions counts once; without that a multi-round audit inflates its own count every round. The report records the model and effort each round ran at, because a clean report from a downgraded reviewer and one from a pinned reviewer are not the same evidence, and the report is all that survives.",
       "path": "scripts/agentware_lib/ops/reviewreport.py",
-      "test_file": "tests/test_review_report.py"
+      "test_file": "tests/unit/ops/test_review_report.py"
     },
     {
       "anchor_symbols": [
@@ -4348,7 +4348,7 @@
       "not_owns": "the config axes (agentware_lib.ops.reviewconfig); the prompts (agentware_lib.ops.reviewprompts); the fan-out (agentware_lib.ops.reviewaudit); agent spawning (agentware_lib.features.reviewagent);",
       "owns": "every closed set the review subsystem agrees on -- the severity ladder and which rungs BLOCK, the verifier verdicts, the audit dimensions and their lookup, the finding field contract, the fix statuses -- plus the two normalizers that force untrusted agent output into those sets. It is its own module because everything downstream has to agree on what 'blocking' means, and a gate whose two halves disagree about that fails in the worst possible direction: it PASSES. Normalization here is a trust boundary, not a convenience: an unrecognized severity, dimension or verdict is coerced or the item is dropped AND COUNTED, so a reviewer returning garbage surfaces as dropped items in a diagnostic rather than as a silently empty audit.",
       "path": "scripts/agentware_lib/ops/reviewschema.py",
-      "test_file": "tests/test_review_config.py"
+      "test_file": "tests/unit/ops/test_review_config.py"
     },
     {
       "anchor_symbols": [
@@ -4393,7 +4393,7 @@
       "not_owns": "the cursor and the caps (agentware_lib.ops.sessionparse.minerstate); error signatures (agentware_lib.ops.sessionparse.minererrors);",
       "owns": "the readers that turn one raw transcript record into structured facts: SECRET REDACTION, tolerant JSON field extraction and the tool-target resolvers. Redaction runs HERE, at the boundary where a record is first read, rather than at each place output is written -- a session transcript is the highest-risk text in the system, holding whatever the operator typed and whatever their tools printed, and redacting at the sinks means every new sink is a fresh chance to forget. The extractors are deliberately tolerant because a transcript can be truncated mid-record, and a strict parse would discard exactly the sessions most worth mining.",
       "path": "scripts/agentware_lib/ops/sessionparse/minerextract.py",
-      "test_file": "tests/test_transcript_miner.py"
+      "test_file": "tests/unit/ops/test_transcript_miner.py"
     },
     {
       "anchor_symbols": [
@@ -4431,7 +4431,7 @@
       "not_owns": "the `prefer` verb, the candidate ledger or any WRITER over miner state (plan task 45);",
       "owns": "the PURE transcript folds the miner emits with and the recurrence precision gate",
       "path": "scripts/agentware_lib/ops/sessionparse/minerfolds.py",
-      "test_file": "tests/test_transcript_miner_governance.py"
+      "test_file": "tests/unit/ops/test_transcript_miner_governance.py"
     },
     {
       "anchor_symbols": [
@@ -4454,7 +4454,7 @@
       "not_owns": "the cursor and the caps (agentware_lib.ops.sessionparse.minerstate); record extraction and redaction (agentware_lib.ops.sessionparse.minerextract); the queue (agentware_lib.ops.preferqueue);",
       "owns": "the passes that walk settled sessions and produce candidates, plus the orchestrator and its dream-step adapter. TWO passes because they answer different questions with different evidence bars: RECURRENCE asks whether the operator asked repeatedly across DISTINCT sessions and is gated hard, since a repeated phrasing is weak evidence on its own; ERROR-RECOVERY asks whether something failed and then got fixed, which is strong evidence from a single occurrence. Collapsing them would force one precision bar onto two kinds of signal. Dedup runs against the queue's fingerprints as well as the miner's own emitted set, so a rejected candidate does not return every night.",
       "path": "scripts/agentware_lib/ops/sessionparse/minerscan.py",
-      "test_file": "tests/test_transcript_miner_e2e.py"
+      "test_file": "tests/e2e/test_transcript_miner_e2e.py"
     },
     {
       "anchor_symbols": [
@@ -4478,7 +4478,7 @@
       "not_owns": "the pure folds and the recurrence gate (agentware_lib.ops.sessionparse.minerfolds); the mining passes (agentware_lib.ops.sessionparse.minerscan);",
       "owns": "the miner's durable CURSOR and every bound it runs under: the state file, transcript root resolution, per-session settle detection, truncation helpers and the caps with their pruners. The miner is offline and incremental and must never re-mine what it already emitted, or the prefer queue fills with duplicates -- the cursor is that memory. `_transcript_session_settled` stops it mining a session still being written, where a half-written transcript would yield a truncated candidate that looks final. Every cap here is a REFUSAL to grow without bound.",
       "path": "scripts/agentware_lib/ops/sessionparse/minerstate.py",
-      "test_file": "tests/test_transcript_miner.py"
+      "test_file": "tests/unit/ops/test_transcript_miner.py"
     },
     {
       "anchor_symbols": [
@@ -4586,7 +4586,7 @@
       "not_owns": "the workorder EMITTER and the run that drives it (agentware_lib.features.skillpropose); the mode and cap settings (agentware_lib.core.config); the dream step (agentware_lib.features.dreamsteps.stepskillpropose);",
       "owns": "skill-candidate DETECTION over the learnings corpus: the six algorithm thresholds, the pairwise edge weight, the per-cluster scores, the density-gated quasi-clique grower and the operator-tunable threshold resolution. Detection-only and READ-ONLY (INV-2) -- which is the whole reason it is a separate module from emission. The thresholds are deliberately unlike the duplicate detector's: two entries SAYING THE SAME THING share vocabulary, but a real multi-step procedure shares a tag spine and little else, so the edge bar is LOWER (0.30) and what separates a genuine clique from a single-linkage A~B~C chain is DENSITY enforced DURING growth (2/3 = 0.67 fails, a true triangle 3/3 = 1.0 survives). Size is clamped to [3,6] so a duplicate PAIR can never surface as a skill.",
       "path": "scripts/agentware_lib/ops/skillcluster.py",
-      "test_file": "tests/test_skill_promote.py"
+      "test_file": "tests/unit/features/test_skill_promote.py"
     },
     {
       "anchor_symbols": [
@@ -4733,7 +4733,7 @@
       "not_owns": "what the tick RUNS -- updater cadence, self-heal and heartbeat (agentware_lib.features.pkgupdater); the DREAM schedule, a separate verb with its own launchd label and cron line (agentware_lib.features.dreamsched); the apply path (agentware_lib.features.pkgapply);",
       "owns": "the shared 30-minute TICK: the schedule identity, launchd plist and crontab line builders, the job registry, install/uninstall, the dispatcher, and `cmd_tick` with its `--lock-status` REVERSE-GUARD. The guard reports the updater lock's holder and staleness WITHOUT taking the lock, which is what lets the loop tell a live apply apart from a stale lock left by a killed one -- a guard that acquired the lock to inspect it would be the deadlock it exists to prevent. Install is always an EXPLICIT operator action: nothing installs a schedule as a side effect of a CLI run, and `_crontab_filter` removes only this package's managed line so an uninstall can never eat unrelated cron entries.",
       "path": "scripts/agentware_lib/ops/tickcmd.py",
-      "test_file": "tests/test_tick_dispatch.py"
+      "test_file": "tests/unit/features/test_tick_dispatch.py"
     },
     {
       "anchor_symbols": [
@@ -5156,7 +5156,7 @@
       "not_owns": "the ranking core that calls it (agentware_lib.retrieval.skillpin); the plain BM25 retriever that also calls it on the eval path (agentware_lib.retrieval.bm25); the ACR prior and the staleness downweight it composes with (agentware_lib.retrieval.acr, agentware_lib.knowledge.freshsignals);",
       "owns": "the R-RET-03 stage-1 skill pin: the 0.85 threshold and the pin itself, including the learnings-eviction guarantee. Its own module because the pin must run at THREE call sites and two of them cannot import each other — `skillpin.recall_ranked` (plain and bm25+embed branches) and `bm25.retrieve_bm25` (the eval/gate path) — and `skillpin` already imports `bm25`, so homing the pin in either closes a cycle. Extracting it is what lets all three share ONE implementation, which is the point: a pin the interactive path applies and the evaluation path does not is a pin the release gate cannot measure, and an unmeasured ranking change regresses silently. The pin promotes a skill scoring within the floor of the top overall score to position 0 and only then — R-RET-03 says a matched SKILL is a PROCEDURE to follow, and BM25 alone cannot tell a procedure from a fact. Learnings are never evicted: the naive pop-and-insert pushes whatever sat at rank top_k-1 out of the window, and if that is a LEARNING the pin has just hidden the prior problem-and-error context to make room for a procedure — the wrong trade in exactly the situation needing both.",
       "path": "scripts/agentware_lib/retrieval/pinpolicy.py",
-      "test_file": "tests/test_skill_pin_floor.py"
+      "test_file": "tests/unit/ops/test_skill_pin_floor.py"
     },
     {
       "anchor_symbols": [
@@ -5351,7 +5351,7 @@
       "not_owns": "the parser (agentware_lib.cli.assemble_parser/build_parser), any verb HANDLER (each lives in its owning agentware_lib module — see agentware_lib._registration for the verb->module map), and the legacy passthrough itself (scripts/agentware execs scripts/agentware_legacy.py into its own globals). Retired with that passthrough at feature 260813 task 56.",
       "owns": "the STRANGLER ROUTER: PORTED_VERBS (the routing allowlist — EMPTY at task 29, one verb appended per port), GLOBAL_OPTIONS (the top-level option-arity table), verb_of (the argv scan PAST the global flags to the first positional), route (the allowlist decision) and dispatch (the two-way call). LEGACY-DEFAULT: anything not written down is served by the preserved monolith.",
       "path": "scripts/agentware_lib/strangler.py",
-      "test_file": "tests/test_strangler_routing.py"
+      "test_file": "tests/integration/test_strangler_routing.py"
     }
   ],
   "naming_disambiguation": {

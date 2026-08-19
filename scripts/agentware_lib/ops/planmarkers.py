@@ -54,7 +54,7 @@ import re
 # Canonical task-marker regex — the SINGLE SOURCE OF TRUTH for "what counts as an
 # open task marker" in a feature plan. Its bytes MUST stay byte-identical to the
 # `grep -cE '…'` pattern in agentware.sh:open_markers() (pinned by the contract
-# test in tests/test_plan_lint.py). This is the POSIX-ERE form exactly as grep
+# test in tests/unit/ops/test_plan_lint.py). This is the POSIX-ERE form exactly as grep
 # consumes it; Python's `re` does NOT honour POSIX `[[:class:]]` syntax, so the
 # linter derives a Python-usable pattern via _posix_ere_to_python() at load time
 # rather than feeding these bytes to re.compile directly.

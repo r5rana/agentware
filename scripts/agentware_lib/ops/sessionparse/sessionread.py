@@ -8,7 +8,7 @@ subagents/*.jsonl into one metric row, the deterministic transcript feature matc
 (_session_feature_match) and the ordered, filtered collector (collect_sessions).
 
 ⚠️ MONKEYPATCH SEAM: parse_session resolves _parse_session_uncached in THIS
-module's OWN globals, so the spy in tests/test_loop_perf.py MUST be installed on
+module's OWN globals, so the spy in tests/integration/test_loop_perf.py MUST be installed on
 THIS module (sessionread._parse_session_uncached), never on the aggregator package
 or the entrypoint facade -- either of those holds a re-exported COPY of the
 function object and patching it is a silent no-op. The two functions are kept in

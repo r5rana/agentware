@@ -49,7 +49,7 @@ declared values, honour ``--`` as the end-of-options marker, and return the firs
 remaining positional. ``GLOBAL_OPTIONS`` is a DECLARED table rather than a parser
 introspection because introspecting means building the parser, which means importing the
 whole tree to decide whether to import the whole tree. The table is kept honest by a gate
-(``tests/test_strangler_routing.py``) that diffs it against the root node of the union
+(``tests/integration/test_strangler_routing.py``) that diffs it against the root node of the union
 surface fixture, so a global option added on either side reddens rather than misroutes.
 
 Stdlib-only, no I/O, no imports at module scope: this module is on the hot path of every

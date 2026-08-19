@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from _preserved_scan import (  # noqa: E402
     FIXTURE_FAMILIES, TEMPLATE_ANCHORS, collect_node_ids, git_head, module_of,
     relativise, scan_tree, tail_of)
+from _test_layout import resolves  # noqa: E402
 
 SCHEMA = 1
 
@@ -45,12 +46,63 @@ SCHEMA = 1
 #: LOCAL keeps the name per the plan's decided conflict resolution ("LOCAL keeps
 #: the name; the donor ledger re-homes to `skill suggest`/`suggestions`/
 #: `promote`"); the donor ledger's tests re-home alongside its verb family.
+#:
+#: TASK 58 ADDED SEVEN MORE, and they are collisions this repo CREATED. Layering
+#: the local corpus moves 191 flat files onto the paths the donor's own
+#: decomposition already occupies, so seven local files land on a donor file
+#: that is still PENDING in the backlog. Every one is fully DISJOINT (0 shared
+#: ids of 208 local and 194 donor), because the two sides test the same module
+#: from opposite ends: the local file drives the CLI, while the donor file is a
+#: module-surface test that, in its own words, "imports ONLY the module under
+#: test, never the entrypoint". Both are worth keeping, so both are pinned --
+#: LOCAL keeps the layered name (the task-9 rule), and the donor's re-homes to
+#: `_surface` to say what it is rather than which tree it came from.
+#:
+#: Pinning them HERE, in the commit that creates the hazard, is the whole point:
+#: the day someone ports the donor's `tests/unit/retrieval/test_acr.py` the
+#: destination is already decided, instead of a blanket copy silently deleting
+#: 24 local tests that no filename check would notice.
 COLLISION_DESTINATIONS = {
     "tests/test_skill_promote.py": {
         "local": "tests/unit/features/test_skill_promote.py",
         "donor": "tests/unit/features/test_skill_suggest.py",
     },
+    "tests/unit/core/test_frontmatter.py": {
+        "local": "tests/unit/core/test_frontmatter.py",
+        "donor": "tests/unit/core/test_frontmatter_surface.py",
+    },
+    "tests/unit/features/test_dream.py": {
+        "local": "tests/unit/features/test_dream.py",
+        "donor": "tests/unit/features/test_dream_surface.py",
+    },
+    "tests/unit/ops/test_freshness.py": {
+        "local": "tests/unit/ops/test_freshness.py",
+        "donor": "tests/unit/ops/test_freshness_surface.py",
+    },
+    "tests/unit/ops/test_metrics.py": {
+        "local": "tests/unit/ops/test_metrics.py",
+        "donor": "tests/unit/ops/test_metrics_surface.py",
+    },
+    "tests/unit/retrieval/test_acr.py": {
+        "local": "tests/unit/retrieval/test_acr.py",
+        "donor": "tests/unit/retrieval/test_acr_surface.py",
+    },
+    "tests/unit/retrieval/test_ledger.py": {
+        "local": "tests/unit/retrieval/test_ledger.py",
+        "donor": "tests/unit/retrieval/test_ledger_surface.py",
+    },
+    "tests/unit/retrieval/test_scorecard.py": {
+        "local": "tests/unit/retrieval/test_scorecard.py",
+        "donor": "tests/unit/retrieval/test_scorecard_surface.py",
+    },
 }
+
+#: The seven rows above -- the collisions the task-58 relayering CREATED, as
+#: opposed to the shared-path hazards the two trees arrived with. Named so the
+#: live gate can assert exactly this set is pinned and free, and so a future
+#: relayering that creates an eighth has to come back here.
+RELAYERING_COLLISIONS = tuple(sorted(
+    rel for rel in COLLISION_DESTINATIONS if rel.startswith("tests/unit/")))
 
 
 # --------------------------------------------------------------------------
@@ -458,12 +510,22 @@ def diff_node_ids(frozen_local, frozen_donor, pending, live):
 
     Kept free of I/O so the gate's semantics can be tested directly on
     synthetic sets instead of only through a multi-second real discovery.
+
+    RESOLVED THROUGH THE TASK-58 RELOCATION LEDGER. A node id embeds its module
+    path, so layering the corpus changes every id in a moved file. `resolves()`
+    retries a missing id at the module(s) `_test_layout.RELOCATIONS` records as
+    that module's successors -- a RECORDED move, never a guess: a module absent
+    from the ledger is not relocated, and an id whose tail no successor collects
+    is still LOST. `pending` is checked against `live` DIRECTLY (no relocation):
+    a donor id may only be dropped from the backlog when it genuinely collects.
     """
     out = []
-    for nid in sorted(set(frozen_local) - set(live)):
-        out.append("LOST node id: %s" % nid)
-    for nid in sorted((set(frozen_donor) - set(pending)) - set(live)):
-        out.append("LOST donor node id: %s" % nid)
+    for nid in sorted(set(frozen_local)):
+        if not resolves(nid, live):
+            out.append("LOST node id: %s" % nid)
+    for nid in sorted(set(frozen_donor) - set(pending)):
+        if not resolves(nid, live):
+            out.append("LOST donor node id: %s" % nid)
     for nid in sorted(set(pending) & set(live)):
         out.append("RATCHET: pending node id now resolves, drop it: %s" % nid)
     return out

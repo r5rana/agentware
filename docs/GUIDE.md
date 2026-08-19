@@ -433,7 +433,7 @@ Recency) prior over the BM25 score so trusted, fresher entries get a nudge —
 > entries) ACR is a near-constant multiplier, so the gate honestly **FAILs** and the
 > default stays `bm25` — the flip earns its way in only when ACR delivers measurable
 > lift. The reorder + flip behaviour is proven on diverse synthetic fixtures in
-> `tests/test_recall.py` and `tests/test_acr_gate.py`.
+> `tests/unit/retrieval/test_recall.py` and `tests/unit/retrieval/test_acr_gate.py`.
 
 ### Retrieval modes — A (deterministic, default) / B (local semantic, opt-in)
 

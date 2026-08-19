@@ -91,8 +91,8 @@ GREP_EXCLUDE_PATHS = (
     "tests/_parity_manifest.py",
     "tests/_parity_schema.py",
     "tests/fixtures/parity-manifest.json",
-    "tests/test_parity_gate.py",
-    "tests/test_parity_manifest.py",
+    "tests/gates/test_parity_gate.py",
+    "tests/gates/test_parity_manifest.py",
 )
 
 GREP_EXCLUDE_DIRS = (".git", "__pycache__", ".venv", "node_modules", ".mypy_cache")

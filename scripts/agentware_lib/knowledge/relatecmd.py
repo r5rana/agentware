@@ -30,7 +30,7 @@ only change is decomposition. The monolith's `_declare_relation` was a single
 for a new location. It is split into the four stages it always had — resolve,
 read, write-the-md, confirm — with the orchestration left in `_declare_relation`
 so its NAME, signature and every returned key are unchanged for `test_relate` and
-for `tests/test_schemaguard.py`'s index-writer map.
+for `tests/unit/features/test_schemaguard.py`'s index-writer map.
 
 THE SCHEMA GUARD FOLLOWS THE HANDLER
 ------------------------------------
