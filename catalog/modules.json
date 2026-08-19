@@ -3306,6 +3306,8 @@
     {
       "anchor_symbols": [
         "KB_BLOB_MAX_BYTES",
+        "_KB_BENCH_LEDGER_REL",
+        "_is_committed_sink",
         "_is_derived_rel",
         "kb_git_stage_allowlist",
         "kb_git_stage_scoped",

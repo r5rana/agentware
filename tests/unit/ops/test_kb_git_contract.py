@@ -269,3 +269,140 @@ class KbCommitSubjectContractTest(unittest.TestCase):
                 self.assertEqual(
                     _head_subject(repo), derived,
                     "the handler committed a subject the helper did not derive")
+
+
+@unittest.skipUnless(HAVE_GIT, "git not available")
+class KbBenchmarkLedgerIsASinkTest(unittest.TestCase):
+    """The canonical benchmark ledger survives the blob cap (task 59).
+
+    `kb_git_stage_allowlist` drops any blob over `KB_BLOB_MAX_BYTES` unless it is
+    a committed SINK — and its own comment says "benchmarks history-*.jsonl ...
+    are text/committed sink data and are ALLOWED explicitly". The pattern was
+    `base.startswith("history-")`, which misses the canonical ledger
+    `benchmarks/history.jsonl` (`retrieval.ledger.HISTORY_REL`) by one character.
+
+    That gap is not hypothetical and not stable: the ledger is APPEND-ONLY, so it
+    grows with every `eval --record` and is guaranteed to cross a fixed byte cap
+    eventually. On the day it does, the KB commit silently stops carrying it
+    while `releasegate._gate2_lite_gold_fixture` and `_gate3_reliability_delta`
+    keep reading the LAST COMMITTED row as if it were current -- a stale baseline
+    that reports PASS. Reproduced on this KB at 263,311 bytes vs the 262,144 cap.
+
+    Both halves are asserted: the over-cap ledger is ALLOWED, and an ordinary
+    over-cap file is still REJECTED, so the fix cannot be satisfied by disabling
+    the cap.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="agentware-test-kbsink-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.cli = load_cli()
+
+    def _seed(self, repo, *rels):
+        """Create + COMMIT each path small, so git reports it individually.
+
+        `git status --porcelain` collapses an untracked directory to a single
+        `dir/` entry, so an untracked file is never even seen by the per-path
+        guard. The live KB the bug was found on has a TRACKED ledger, and that is
+        the state the cap actually applies to -- so the fixture must reproduce it.
+        """
+        for rel in rels:
+            abs_p = os.path.join(repo, rel)
+            os.makedirs(os.path.dirname(abs_p), exist_ok=True)
+            with open(abs_p, "w", encoding="utf-8") as f:
+                f.write("seed\n")
+        _run(repo, "add", "-A")
+        _run(repo, "commit", "-q", "-m", "seed sink fixtures")
+
+    def _over_cap(self, repo, rel):
+        from agentware_lib.ops import staging
+        abs_p = os.path.join(repo, rel)
+        os.makedirs(os.path.dirname(abs_p), exist_ok=True)
+        with open(abs_p, "w", encoding="utf-8") as f:
+            f.write("x" * (staging.KB_BLOB_MAX_BYTES + 1024))
+        return abs_p
+
+    def test_over_cap_benchmark_ledger_is_staged_and_a_plain_blob_is_not(self):
+        from agentware_lib.ops import staging
+        repo = _init_repo(os.path.join(self.tmp, "kb"))
+        self._seed(repo, "benchmarks/history.jsonl",
+                   "benchmarks/history-gold-fixture.jsonl", "references/huge.md")
+        self._over_cap(repo, "benchmarks/history.jsonl")
+        self._over_cap(repo, "benchmarks/history-gold-fixture.jsonl")
+        self._over_cap(repo, "references/huge.md")
+        allow, rejected = staging.kb_git_stage_allowlist(repo, "")
+        self.assertIn("benchmarks/history.jsonl", allow,
+                      "the canonical ledger must survive the blob cap")
+        self.assertIn("benchmarks/history-gold-fixture.jsonl", allow,
+                      "the per-suite ledger sibling must survive too")
+        rejected_paths = [p for p, _why in rejected]
+        self.assertIn("references/huge.md", rejected_paths,
+                      "the cap must still reject an ordinary over-cap blob")
+        self.assertNotIn("benchmarks/history.jsonl", rejected_paths)
+
+    def test_the_ledger_actually_reaches_the_commit(self):
+        """End to end: `kb-git commit` carries an over-cap ledger into HEAD."""
+        repo = _init_repo(os.path.join(self.tmp, "kb2"))
+        self._seed(repo, "benchmarks/history.jsonl")
+        self._over_cap(repo, "benchmarks/history.jsonl")
+        ns = types.SimpleNamespace(path=repo, tag="bench", type="chore",
+                                   message="ledger", format="text")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = self.cli.cmd_kb_git_commit(ns)
+        self.assertEqual(rc, 0, buf.getvalue())
+        # NOT `ls-files`: the seed commit already tracks the path, so presence
+        # proves nothing and passes with the fix reverted. Assert the committed
+        # CONTENT is the grown ledger -- that is what "carried into HEAD" means.
+        from agentware_lib.ops import staging
+        blob = _run(repo, "cat-file", "-s", "HEAD:benchmarks/history.jsonl")
+        self.assertGreater(int(blob.stdout.strip()), staging.KB_BLOB_MAX_BYTES,
+                           "HEAD still holds the pre-growth ledger — the commit "
+                           "skipped it: %s" % buf.getvalue())
+
+
+class KbCommittedSinkPredicateTest(unittest.TestCase):
+    """`_is_committed_sink` -- the sink rule as a predicate (task 59).
+
+    The rule was a 4-clause inline boolean inside `kb_git_stage_allowlist`, which
+    was AT its declared branch debt; adding the canonical ledger pushed it over
+    and the ceiling ratchet refused it. Extracting the decision is the fix (the
+    debt row is retired, not raised) -- and an extraction is a BEHAVIOURAL claim,
+    so every shape it must answer is asserted here directly rather than only
+    through the fold that calls it. All four allow shapes, plus the negatives
+    that keep the exemption from swallowing ordinary files.
+    """
+
+    def _sink(self, inner):
+        from agentware_lib.ops import staging
+        return staging._is_committed_sink(inner, inner.rsplit("/", 1)[-1])
+
+    def test_every_sink_shape_is_recognised(self):
+        for inner in ("teams/core/fleet/rahul.jsonl",
+                      "fleet/rahul.jsonl",
+                      "benchmarks/history.jsonl",
+                      "benchmarks/history-gold-fixture.jsonl",
+                      "configurations/assets/diagram.png",
+                      "configurations/assets/DIAGRAM.SVG"):
+            with self.subTest(inner=inner):
+                self.assertTrue(self._sink(inner), inner)
+
+    def test_ordinary_files_are_not_sinks(self):
+        for inner in ("learnings/a.md",
+                      "benchmarks/README.md",          # not .jsonl
+                      "benchmarks/historyx.jsonl",     # neither canonical nor history-
+                      "notes/history.jsonl",           # canonical NAME, wrong dir
+                      "fleet/notes.md",                # in fleet, not .jsonl
+                      "configurations/assets/dump.har"):
+            with self.subTest(inner=inner):
+                self.assertFalse(self._sink(inner), inner)
+
+    def test_the_predicate_matches_the_fold_that_uses_it(self):
+        """The extraction preserved behaviour: same inputs, same allow decision."""
+        from agentware_lib.ops import staging
+        for inner in ("benchmarks/history.jsonl", "learnings/a.md",
+                      "teams/core/fleet/x.jsonl", "configurations/assets/a.png"):
+            with self.subTest(inner=inner):
+                base = inner.rsplit("/", 1)[-1]
+                self.assertEqual(staging._is_committed_sink(inner, base),
+                                 self._sink(inner))

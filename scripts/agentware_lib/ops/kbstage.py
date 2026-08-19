@@ -2,8 +2,9 @@
 
 Owns: the team-scope prefix (`kb_rel_prefix`), the prefix strip
 (`_strip_rel_prefix`), the derived-file predicates (`_is_derived_rel` /
-`_is_derived_rel_scoped`), the allowlist itself (`kb_git_stage_allowlist`) and
-the ONE staging seam every KB write goes through (`kb_git_stage_scoped`).
+`_is_derived_rel_scoped`), the committed-sink predicate (`_is_committed_sink`),
+the allowlist itself (`kb_git_stage_allowlist`) and the ONE staging seam every KB
+write goes through (`kb_git_stage_scoped`).
 Does NOT own: the `kb-git` COMMANDS that call it (commit / pull / push) ->
 ops.staging; the org constants it scopes against -> core.orgkeys; the git runner
 -> core.gitio.
@@ -21,8 +22,9 @@ The allowlist answers one question per pending path: MAY this be staged? Team
 scope first (a path outside the caller's own folder is REFUSED, not silently
 included), then the derived drop, then the artifact-extension and blob-size
 guards, with an explicit allow for the committed sink files that legitimately
-carry data (`teams/*/fleet/*.jsonl`, `benchmarks/history-*.jsonl`,
-`configurations/assets/*.png`).
+carry data (`teams/*/fleet/*.jsonl`, the canonical benchmark ledger
+`benchmarks/history.jsonl` and its per-suite siblings `benchmarks/history-*.jsonl`,
+`configurations/assets/*.png`) — see `_is_committed_sink`.
 
 `kb_git_stage_scoped(allow_derived=True)` re-admits the derived set for the ONE
 caller that needs it: the post-merge reconciliation, which just REGENERATED those
@@ -53,9 +55,19 @@ from agentware_lib.ops.kbgit import git_changed_paths, git_toplevel
 
 
 KB_BLOB_MAX_BYTES = 262144  # 256 KiB — reject an oversized blob from the KB commit
+# The CANONICAL append-only benchmark ledger, KB-root-relative. This is
+# `retrieval.ledger.HISTORY_REL` restated as a literal: ops must not import
+# retrieval to know one filename, and the value is frozen by the ledger's own
+# append-only contract. Named here because it is the ONE sink whose size grows
+# monotonically with every `eval --record`, so it is guaranteed to cross
+# KB_BLOB_MAX_BYTES eventually — and on the day it does, an unnamed ledger stops
+# being committed while every gate that reads it keeps reporting the last
+# committed baseline as current.
+_KB_BENCH_LEDGER_REL = "benchmarks/history.jsonl"
 # Artifact extensions never staged by the KB auto-commit (heavy/binary/derived).
-# NOTE: fleet *.jsonl + benchmarks history-*.jsonl + assets *.png are text/committed
-# sink data and are ALLOWED explicitly below — this set is for stray heavy blobs.
+# NOTE: fleet *.jsonl + benchmarks history.jsonl / history-*.jsonl + assets *.png
+# are text/committed sink data and are ALLOWED explicitly below — this set is for
+# stray heavy blobs.
 _KB_STAGE_REJECT_EXTS = (".har", ".zip", ".tar", ".gz", ".mp4", ".mov", ".pdf",
                          ".trace", ".webm")
 
@@ -105,6 +117,34 @@ def _is_derived_rel_scoped(rel, rel_prefix=""):
     return _is_derived_rel(inner)
 
 
+def _is_committed_sink(inner, base):
+    """True iff this KB-root-relative path is a COMMITTED SINK.
+
+    A sink is append-only data the KB is meant to carry: fleet terminal-event
+    shards, the benchmark ledger (canonical + per-suite), and configuration
+    assets. It is exempt from BOTH guards in `kb_git_stage_allowlist` -- the
+    artifact-extension reject and the `KB_BLOB_MAX_BYTES` blob cap -- because a
+    sink is expected to be large and to keep growing; that is what makes it a
+    sink rather than a stray blob.
+
+    Extracted from the caller (task 59), which was AT its declared branch debt:
+    the sink rule is one decision, and inlining it as a 4-clause boolean charged
+    every clause to a function whose real job is the per-path fold. Pure: no I/O,
+    no clock -- `inner`/`base` in, bool out. `base` is passed in rather than
+    re-split so caller and predicate can never disagree about what the basename
+    is.
+    """
+    if ("/" + orgkeys.ORG_FLEET_DIR + "/") in ("/" + inner) and inner.endswith(".jsonl"):
+        return True
+    if inner == _KB_BENCH_LEDGER_REL:
+        return True
+    if base.startswith("history-") and inner.endswith(".jsonl"):
+        return True
+    if "/configurations/assets/" in ("/" + inner):
+        return base.lower().endswith((".png", ".jpg", ".jpeg", ".svg", ".gif"))
+    return False
+
+
 def kb_git_stage_allowlist(target, rel_prefix=None):
     """Repo-relative paths this KB commit SHOULD stage — team-scoped + guarded.
 
@@ -117,8 +157,10 @@ def kb_git_stage_allowlist(target, rel_prefix=None):
       - DROP derived files (index.json / FEATURES.md / <sub>/index.md rosters):
         they are gitignored + rebuilt, never committed.
       - DROP an artifact-ext blob or any blob > KB_BLOB_MAX_BYTES (except the
-        committed sink files: teams/*/fleet/*.jsonl, benchmarks/history-*.jsonl,
-        configurations/assets/*.png — those are allowed text/data).
+        committed sink files: teams/*/fleet/*.jsonl, the canonical benchmark
+        ledger benchmarks/history.jsonl and its per-suite siblings
+        benchmarks/history-*.jsonl, configurations/assets/*.png — those are
+        allowed text/data).
     Returns (allow, rejected) where `rejected` is [(path, reason)] for observability.
     Deterministic, read-only. When rel_prefix == '' (flat KB) it still enforces the
     derived/artifact drops but never rejects for team scope.
@@ -134,10 +176,7 @@ def kb_git_stage_allowlist(target, rel_prefix=None):
         if _is_derived_rel(inner):
             continue  # derived → silently skip (regenerable)
         base = inner.rsplit("/", 1)[-1]
-        # Allowed committed sink/data files (explicit allow before ext-reject).
-        is_sink = (("/" + orgkeys.ORG_FLEET_DIR + "/") in ("/" + inner) and inner.endswith(".jsonl")) \
-            or (base.startswith("history-") and inner.endswith(".jsonl")) \
-            or ("/configurations/assets/" in ("/" + inner) and base.lower().endswith((".png", ".jpg", ".jpeg", ".svg", ".gif")))
+        is_sink = _is_committed_sink(inner, base)
         ext = os.path.splitext(base)[1].lower()
         if not is_sink and ext in _KB_STAGE_REJECT_EXTS:
             rejected.append((rel, "artifact extension %s not staged" % ext))
@@ -214,6 +253,7 @@ def _is_derived_rel(rel):
 
 _EXPORTS = [
     "kb_rel_prefix",
+    "_is_committed_sink",
     "_strip_rel_prefix",
     "_is_derived_rel",
     "_is_derived_rel_scoped",

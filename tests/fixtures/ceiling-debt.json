@@ -276,11 +276,6 @@
         },
         {
           "kind": "function_over_branch_cap",
-          "location": "scripts/agentware_lib/ops/kbstage.py::kb_git_stage_allowlist",
-          "value": 14
-        },
-        {
-          "kind": "function_over_branch_cap",
           "location": "scripts/agentware_lib/ops/steering.py::lint_steering",
           "value": 19
         },

@@ -49,7 +49,9 @@ import agentware_lib.core.orgkeys as orgkeys
 # entrypoint facade and every existing caller resolve exactly as before.
 from agentware_lib.ops.kbstage import (   # noqa: F401  (re-export)
     KB_BLOB_MAX_BYTES,
+    _KB_BENCH_LEDGER_REL,
     _KB_STAGE_REJECT_EXTS,
+    _is_committed_sink,
     _is_derived_rel,
     _is_derived_rel_scoped,
     _strip_rel_prefix,
@@ -570,7 +572,8 @@ def _kb_push_backoff_delay(attempt):
 
 
 _EXPORTS = [
-    "KB_BLOB_MAX_BYTES", "_KB_STAGE_REJECT_EXTS", "kb_rel_prefix", "_strip_rel_prefix",
+    "KB_BLOB_MAX_BYTES", "_KB_BENCH_LEDGER_REL", "_KB_STAGE_REJECT_EXTS",
+    "_is_committed_sink", "kb_rel_prefix", "_strip_rel_prefix",
     "_is_derived_rel_scoped", "kb_git_stage_allowlist", "kb_git_stage_scoped",
     "COMMIT_MSG_RE",
     "COMMIT_SUBJECT_MAX", "COMMIT_TOPICS_LIMIT", "kb_changed_knowledge_topics",
