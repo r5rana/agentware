@@ -31,6 +31,12 @@ CLI_PATH = os.path.join(REPO_ROOT, "scripts", "agentware")
 #: Present only during the strangler window (feature 260813 tasks 25..56).
 LEGACY_PATH = os.path.join(REPO_ROOT, "scripts", "agentware_legacy.py")
 
+#: The product's own recursion guard (`retrieval.ledger._record_test_passrate_detail`,
+#: `ops.audit._audit_tests_check`): when set, a verb that would shell the suite to
+#: measure a pass-rate records "not measured" instead. Named here rather than
+#: spelled inline so `run_cli` and the gate that proves it stay on ONE string.
+NESTED_UNITTEST_ENV = "AGENTWARE_NESTED_UNITTEST"
+
 _CLI_MODULE = None
 
 #: `sys.modules` key holding the ONE CLI module object the suite may have. Not a
@@ -650,6 +656,21 @@ def run_cli(argv, kdir, stdin_text=None):
     dream state never leaks and synthetic-KB audits depend ONLY on KB state. A
     caller that sets AGENTWARE_DREAM explicitly (e.g. the dream tests) is
     respected and its value restored afterward.
+
+    Recursion: several verbs (`eval --record`, `audit`) measure a test pass-rate
+    by SHELLING `python3 -m unittest discover -s tests` in a child process. Their
+    guard against re-entering the suite is the AGENTWARE_NESTED_UNITTEST env var,
+    which only the product sets when IT spawns — so a suite run under any runner
+    never sets it, and the first `--record` test spawns a whole nested suite that
+    also collects `tests/fixtures/` and wedges (observed: >10 min at 0.0% CPU).
+    A process running this fixture is BY DEFINITION already inside a suite run,
+    so the guard is defaulted ON here for the duration of the call, exactly like
+    AGENTWARE_DREAM above: one seam covering every current and future CLI test
+    instead of a per-class setUp each new test must remember (two classes had
+    already missed it). A caller that sets it explicitly is respected and its
+    value restored afterward; the verbs then record `test_pass_rate: None`
+    ("not measured"), which is their documented nested behaviour and what the
+    classes that DID remember the guard already assert.
     """
     mod = load_cli()
     prev = os.environ.get("AGENTWARE_KNOWLEDGE_DIR")
@@ -658,6 +679,9 @@ def run_cli(argv, kdir, stdin_text=None):
     force_dream_off = prev_dream is None
     if force_dream_off:
         os.environ["AGENTWARE_DREAM"] = "0"
+    force_nested = os.environ.get(NESTED_UNITTEST_ENV) is None
+    if force_nested:
+        os.environ[NESTED_UNITTEST_ENV] = "1"
     out, err = io.StringIO(), io.StringIO()
     prev_stdin = sys_stdin = None
     try:
@@ -687,6 +711,8 @@ def run_cli(argv, kdir, stdin_text=None):
             os.environ["AGENTWARE_KNOWLEDGE_DIR"] = prev
         if force_dream_off:
             os.environ.pop("AGENTWARE_DREAM", None)
+        if force_nested:
+            os.environ.pop(NESTED_UNITTEST_ENV, None)
     return code, out.getvalue(), err.getvalue()
 
 
