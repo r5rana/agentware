@@ -187,15 +187,6 @@
       "tests.test_org_kb.TestWorkStampCoverage.test_repairs_inline_stale_team",
       "tests.test_org_kb.TestWorkStampCoverage.test_stamp_after_frontmatter_never_breaks_the_block",
       "tests.test_org_kb.TestWorkStampCoverage.test_stamps_all_md_types_not_just_three",
-      "tests.test_parser_golden.HelpGoldenMaster.test_all_help_surfaces_byte_identical_to_golden",
-      "tests.test_parser_golden.HelpGoldenMaster.test_golden_dir_exists",
-      "tests.test_parser_golden.HelpGoldenMaster.test_golden_master_is_non_vacuous_on_help_change",
-      "tests.test_parser_golden.HelpGoldenMaster.test_surface_set_matches_fixtures_exactly",
-      "tests.test_parser_golden.ParserRegistrationContract.test_build_parser_top_level_order_matches_registration",
-      "tests.test_parser_golden.ParserRegistrationContract.test_contract_ratchet_detects_dropped_or_reordered_verb",
-      "tests.test_parser_golden.ParserRegistrationContract.test_every_leaf_subparser_dispatches_to_owning_handler",
-      "tests.test_parser_golden.ParserRegistrationContract.test_every_registered_verb_resolves_to_callable_registrar",
-      "tests.test_parser_golden.ParserRegistrationContract.test_registration_matches_pinned_display_order",
       "tests.test_proposal_integrity.CleanPassTests.test_flat_kb_without_proposals_passes",
       "tests.test_proposal_integrity.CleanPassTests.test_healthy_proposal_passes",
       "tests.test_proposal_integrity.CleanPassTests.test_integrity_errors_helper_clean",
@@ -1890,7 +1881,16 @@
       "tests.unit.retrieval.test_vectorcache.SemanticAvailable.test_available_only_with_configured_backend"
     ],
     "landed_from_donor": [
-      "tests.test_invariants.StdlibOnlyTest.test_sidecars_excluded_from_guarded_corpus"
+      "tests.test_invariants.StdlibOnlyTest.test_sidecars_excluded_from_guarded_corpus",
+      "tests.test_parser_golden.HelpGoldenMaster.test_all_help_surfaces_byte_identical_to_golden",
+      "tests.test_parser_golden.HelpGoldenMaster.test_golden_dir_exists",
+      "tests.test_parser_golden.HelpGoldenMaster.test_golden_master_is_non_vacuous_on_help_change",
+      "tests.test_parser_golden.HelpGoldenMaster.test_surface_set_matches_fixtures_exactly",
+      "tests.test_parser_golden.ParserRegistrationContract.test_build_parser_top_level_order_matches_registration",
+      "tests.test_parser_golden.ParserRegistrationContract.test_contract_ratchet_detects_dropped_or_reordered_verb",
+      "tests.test_parser_golden.ParserRegistrationContract.test_every_leaf_subparser_dispatches_to_owning_handler",
+      "tests.test_parser_golden.ParserRegistrationContract.test_every_registered_verb_resolves_to_callable_registrar",
+      "tests.test_parser_golden.ParserRegistrationContract.test_registration_matches_pinned_display_order"
     ]
   },
   "cli_symbols": {
@@ -6335,9 +6335,7 @@
     }
   },
   "assets": {
-    "pending_in_destination": [
-      "fixture_family:help_golden"
-    ]
+    "pending_in_destination": []
   },
   "test_path_collisions": {
     "rows": {

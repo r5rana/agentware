@@ -8,7 +8,7 @@ from tests.gates._preserved_gates_support import (  # noqa: F401
     COLLISION_DESTINATIONS, DONOR, FIXTURE, RELAYERING_COLLISIONS,
     RELOCATIONS, REPO, collect_node_ids, derive, diff_node_ids,
     donor_available, json, load_fixture, load_node_ids, os, relocate,
-    resolves, shutil, tempfile, unittest, verify)
+    resolves, scan_fixture_families, shutil, tempfile, unittest, verify)
 
 
 @unittest.skipUnless(donor_available(), "donor tree not staged")
@@ -214,11 +214,69 @@ class DeterminismTest(unittest.TestCase):
         frozen = set(load_node_ids(FIXTURE, "local")["node_ids"])
         self.assertEqual(sorted(n for n in frozen if not resolves(n, fresh)), [])
 
+    #: Sections a fresh derivation must reproduce BYTE-FOR-BYTE.
+    #: `fixture_families` is deliberately NOT here — see the test below.
+    EXACT_SECTIONS = ("executables", "templates", "catalogs", "assets")
+
     def test_every_non_node_id_section_reproduces_exactly(self):
         committed = load_fixture()
-        for section in ("executables", "templates", "catalogs",
-                        "fixture_families", "assets"):
+        for section in self.EXACT_SECTIONS:
             self.assertEqual(self.fresh[section], committed[section], section)
+
+    def test_a_landed_fixture_family_grows_but_never_shrinks(self):
+        """`fixture_families` follows the node-id rule, for the same reason.
+
+        The class contract above is "byte-exact against the FROZEN donor tree,
+        superset against the LIVE one". `fixture_families` sat in the exact
+        loop only because, until task 60, no donor asset had ever LANDED here:
+        `scan_fixture_families` claims a family from whichever tree carries it
+        and `_merge_named` UNIONS list fields, so the moment the destination
+        grows `tests/fixtures/help_golden/` a fresh derivation legitimately
+        reports 126 members where the frozen record holds the donor's 80. That
+        divergence IS the landing, exactly as a new test file diverges the
+        local node-id half — not drift.
+
+        Re-deriving the committed section instead would be the worse fix twice
+        over: it regenerates a MIXED fixture (the very thing
+        `learn-re-derive-and-diff-never-regenerate-a-mixed-fixture` names), and
+        it would overwrite the frozen 80-member DONOR record with a mirror of
+        this tree's own corpus — which is the only evidence that all eighty
+        donor surfaces survived the regeneration, and which
+        `HelpGoldenMaster.test_every_frozen_donor_surface_is_present` reads.
+        A self-derived record cannot witness its own completeness.
+
+        So every tooth of the exact compare is kept except "no member added":
+        same families, same path and kind, no frozen member lost, no frozen
+        side lost.
+
+        The lost-member check reads the LOCAL tree's own scan, NOT the merged
+        row. `_merge_named` unions the two trees' member lists, so while the
+        read-only donor is staged it re-supplies any name deleted here and a
+        merged-row assertion passes against exactly the deletion it is written
+        to catch — verified by deleting a golden and watching the merged form
+        stay green. Scanning the destination directly is what makes this bite.
+        """
+        committed = load_fixture()["fixture_families"]
+        local = scan_fixture_families(REPO)
+        self.assertEqual(set(self.fresh["fixture_families"]), set(committed),
+                         "the fixture-family SET may not change")
+        for family, frozen in sorted(committed.items()):
+            live = self.fresh["fixture_families"][family]
+            self.assertEqual(live["path"], frozen["path"], family)
+            self.assertEqual(live["kind"], frozen["kind"], family)
+            self.assertEqual(
+                sorted(set(frozen["members"]) - set(live["members"])), [],
+                "fixture family %r LOST frozen member(s)" % family)
+            self.assertEqual(
+                sorted(set(frozen["sides"]) - set(live["sides"])), [],
+                "fixture family %r LOST a frozen side" % family)
+            if family not in local:
+                continue  # still donor-only; nothing has landed to lose
+            self.assertEqual(
+                sorted(set(frozen["members"]) - set(local[family]["members"])),
+                [], "fixture family %r has LANDED here but the destination is "
+                    "missing frozen member(s); the merged row hides this "
+                    "because the staged donor still supplies them" % family)
 
     def test_the_pinned_collision_destinations_reproduce_exactly(self):
         """A pinned row that STILL collides must reproduce its pins exactly.

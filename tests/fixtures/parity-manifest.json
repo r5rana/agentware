@@ -128,13 +128,14 @@
       "tier": "generated",
       "source": "tests/fixtures/preserved-surface.json",
       "gate": "tests/_preserved_freeze.py",
-      "donor_delta": true,
-      "donor_delta_evidence": "preserved-surface assets.pending_in_destination > 0",
+      "donor_delta": false,
+      "donor_delta_evidence": "preserved-surface assets.pending_in_destination == 0 \u2014 the asset backlog is TERMINAL. Task 25 landed catalog/modules.json, task 51 the decision template, and task 60 the last row, fixture_family:help_golden, regenerated locally because the donor's eighty goldens were rendered by a different argparse and could never have been copied.",
       "plan_tasks": [
         9,
-        51
+        51,
+        60
       ],
-      "donor_delta_derived": true
+      "donor_delta_derived": false
     },
     {
       "name": "retrieval_policy",
@@ -255,7 +256,7 @@
       "source": null,
       "gate": null,
       "donor_delta": true,
-      "donor_delta_evidence": "the donor holds the 80-member help_golden corpus and the exact-score BM25 pin",
+      "donor_delta_evidence": "the donor holds the exact-score BM25 pin; its 80-member help_golden corpus is landed and superseded by the local 125-surface superset (task 60)",
       "plan_tasks": [
         26,
         27,
@@ -2931,16 +2932,17 @@
     {
       "id": "eval:help-golden-corpus",
       "dimension": "evaluation_quality",
-      "capability": "The donor's 80-member help_golden fixture family, regenerated exactly once on the operator's own interpreter after the verb surface is final",
+      "capability": "The help_golden fixture family as a strict superset of the donor's 80 members \u2014 125 surfaces regenerated exactly once on the operator's own interpreter, after the verb surface was final, with COLUMNS pinned and the capturing interpreter recorded alongside them",
       "sides": [
-        "donor"
+        "donor",
+        "local"
       ],
       "status": "required",
       "verification": "curated",
       "task": 60,
       "evidence": {
-        "test": "tests.test_help_golden",
-        "mutation": "regenerate on a different interpreter version: the rendering diff reddens every golden"
+        "test": "tests.gates.test_parser_golden",
+        "mutation": "delete one committed golden: the surface-set check names it as an unpinned live surface and the frozen-donor-member check reddens"
       }
     },
     {

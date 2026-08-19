@@ -182,11 +182,17 @@ class FixtureShapeTest(unittest.TestCase):
         the asset stopped being donor-only, so parking it as pending would have
         been a claim this tree no longer has it.
 
-        ONE donor asset remains: the help goldens (task 60, regenerated once the
-        verb surface is final).
+        Task 60 then landed the LAST one, `fixture_family:help_golden`,
+        regenerated on this operator's interpreter once the verb surface was
+        final (the donor's eighty goldens were rendered by a different argparse
+        and could never have been copied across). The backlog is now EMPTY, so
+        this assertion is what makes a re-added pending asset visible: the
+        ratchet is shrink-only and there is nothing left to shrink.
         """
         pending = self.fx["assets"]["pending_in_destination"]
-        self.assertEqual(set(pending), {"fixture_family:help_golden"})
+        self.assertEqual(set(pending), set(),
+                         "the asset backlog is terminal — a new pending row "
+                         "means a donor asset was un-landed, not deferred")
 
     def test_fixture_carries_no_operator_home_path(self):
         with open(FIXTURE, encoding="utf-8") as fh:

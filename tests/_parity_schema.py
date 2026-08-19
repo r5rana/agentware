@@ -232,9 +232,15 @@ DIMENSIONS = [
         "tier": "generated",
         "source": "tests/fixtures/preserved-surface.json",
         "gate": "tests/_preserved_freeze.py",
-        "donor_delta": True,
-        "donor_delta_evidence": "preserved-surface assets.pending_in_destination > 0",
-        "plan_tasks": [9, 51],
+        "donor_delta": False,
+        "donor_delta_evidence": (
+            "preserved-surface assets.pending_in_destination == 0 — the asset "
+            "backlog is TERMINAL. Task 25 landed catalog/modules.json, task 51 "
+            "the decision template, and task 60 the last row, "
+            "fixture_family:help_golden, regenerated locally because the "
+            "donor's eighty goldens were rendered by a different argparse and "
+            "could never have been copied."),
+        "plan_tasks": [9, 51, 60],
     },
     {
         "name": "retrieval_policy",
@@ -325,8 +331,10 @@ DIMENSIONS = [
         "source": None,
         "gate": None,
         "donor_delta": True,
-        "donor_delta_evidence": ("the donor holds the 80-member help_golden corpus "
-                                 "and the exact-score BM25 pin"),
+        "donor_delta_evidence": ("the donor holds the exact-score BM25 pin; its "
+                                 "80-member help_golden corpus is landed and "
+                                 "superseded by the local 125-surface superset "
+                                 "(task 60)"),
         "plan_tasks": [26, 27, 59, 60],
     },
     {

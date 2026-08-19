@@ -442,11 +442,13 @@ CURATED_ROWS = [
          "drop the skills-category document: the skills query stops ranking it "
          "first and the loader returns no category for it"),
     _row("eval:help-golden-corpus", "evaluation_quality",
-         "The donor's 80-member help_golden fixture family, regenerated exactly "
-         "once on the operator's own interpreter after the verb surface is final",
-         DONOR, 60, "tests.test_help_golden",
-         "regenerate on a different interpreter version: the rendering diff "
-         "reddens every golden"),
+         "The help_golden fixture family as a strict superset of the donor's 80 "
+         "members — 125 surfaces regenerated exactly once on the operator's own "
+         "interpreter, after the verb surface was final, with COLUMNS pinned and "
+         "the capturing interpreter recorded alongside them",
+         BOTH, 60, "tests.gates.test_parser_golden",
+         "delete one committed golden: the surface-set check names it as an "
+         "unpinned live surface and the frozen-donor-member check reddens"),
     _row("eval:security-invariant-coverage", "evaluation_quality",
          "The security-invariant corpus as a per-path-class policy table plus a "
          "coverage assertion that every Python file on disk is claimed",

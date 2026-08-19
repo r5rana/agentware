@@ -59,6 +59,13 @@ TIERS = ("unit/cli", "unit/core", "unit/features", "unit/knowledge",
 #: {old dotted module: (successor dotted module, ...)} -- the task-58 move.
 #: A tuple because task 58 also SPLITS a file over the line cap, and a split
 #: sends one old module's tests to several new ones.
+#:
+#: Task 60 adds the one row that is NOT a task-58 local move: the donor's flat
+#: `tests.test_parser_golden` lands here directly at its layered path, so its
+#: nine frozen ids need the same module-half rewrite a local move needed. The
+#: mechanism is identical (`relocate()` reads only the module half) and the
+#: honesty checks are the same -- the old path must not exist, the successor
+#: must, and every frozen tail must still collect.
 RELOCATIONS = {
     "tests.test_acr": ("tests.unit.retrieval.test_acr",),
     "tests.test_acr_gate": ("tests.unit.retrieval.test_acr_gate",),
@@ -185,6 +192,8 @@ RELOCATIONS = {
     "tests.test_orgidentity_gate": ("tests.gates.test_orgidentity_gate",),
     "tests.test_parity_gate": ("tests.gates.test_parity_gate",),
     "tests.test_parity_manifest": ("tests.gates.test_parity_manifest",),
+    # donor-side landing (task 60), not a task-58 local move -- see above.
+    "tests.test_parser_golden": ("tests.gates.test_parser_golden",),
     "tests.test_pkg_apply_edges": ("tests.unit.features.test_pkg_apply_edges",),
     "tests.test_pkg_channel": ("tests.unit.features.test_pkg_channel",),
     "tests.test_pkg_cleanup": ("tests.unit.features.test_pkg_cleanup",),

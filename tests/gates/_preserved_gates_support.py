@@ -22,7 +22,8 @@ from _preserved_freeze import (  # noqa: E402
     COLLISION_DESTINATIONS, RELAYERING_COLLISIONS, check_destination, derive,
     diff_node_ids, load_node_ids, reachable_symbols, unsatisfied_assets, verify)
 from _preserved_scan import (  # noqa: E402
-    FIXTURE_FAMILIES, ScopeIndex, collect_node_ids, scan_cli_symbols)
+    FIXTURE_FAMILIES, ScopeIndex, collect_node_ids, scan_cli_symbols,
+    scan_fixture_families)
 from _test_layout import RELOCATIONS, relocate, resolves  # noqa: E402
 FIXTURE = os.path.join(HERE, "fixtures", "preserved-surface.json")
 def load_fixture():
