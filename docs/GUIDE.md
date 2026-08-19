@@ -460,15 +460,25 @@ trades zero-install portability for extra paraphrase recall.
   runs) or the bare `scripts/agentware config --retrieval-mode-only` for shell use.
   The switch takes effect on the **next** recall/eval (config is read per-run — no
   daemon, no restart).
-- **The local embedder is pluggable and LAZILY imported.** Mode B reads
-  `AGENTWARE_EMBEDDER_BACKEND` — a dotted module (or a path to one) exposing
-  `embed(texts) -> vectors`. Two backends ship: the default real backend
-  `scripts/agentware_embedder_fastembed.py` (pinned **`fastembed==0.8.0`**, ONNX /
-  no PyTorch, default model `BAAI/bge-small-en-v1.5`, opt up to
-  `BAAI/bge-base-en-v1.5`) and a reference `scripts/agentware_embedder_ollama.py`
-  (talks to a LOCAL Ollama serving e.g. `nomic-embed-text`). The module is imported
-  **only** when Mode B is active, so Mode A carries **zero** import cost and never
-  depends on anything being installed.
+- **The local embedder is a REGISTERED extension point, LAZILY imported.** Mode B
+  reads `AGENTWARE_EMBEDDER_BACKEND`, which takes a **registered name** —
+  `fastembed` or `ollama` — or, still, a dotted module / path to one. Two backends
+  ship: the default real backend `scripts/agentware_embedder_fastembed.py` (pinned
+  **`fastembed==0.8.0`**, ONNX / no PyTorch, default model
+  `BAAI/bge-small-en-v1.5`, opt up to `BAAI/bge-base-en-v1.5`) and a reference
+  `scripts/agentware_embedder_ollama.py` (talks to a LOCAL Ollama serving e.g.
+  `nomic-embed-text`). The module is imported **only** when Mode B is active, so
+  Mode A carries **zero** import cost and never depends on anything being
+  installed.
+- **The embedder contract is declared and validated in one place** —
+  `scripts/agentware_lib/core/embedderapi.py`. A backend module exposes
+  `get_embedder(model=None) -> Embedder` and the Embedder exposes
+  `embed(texts) -> list[list[float]]`; `dim` is optional. **Absence is silent,
+  breakage is loud**: with nothing installed you get Mode A and no noise, but a
+  backend you *did* configure which fails the protocol is named on stderr
+  (`embedder backend 'x' does not satisfy the embedder protocol: missing embed`)
+  and repeated in the mode-fallback notice — so "I turned on semantic retrieval
+  and got BM25" always comes with a reason.
 - **The determinism contract (A unconditional / B within-machine, honestly stated).**
   Mode A is byte-identical for all time — same inputs, same bytes, no exceptions.
   Mode B is deterministic **GIVEN a pinned model id + cached vectors ON A GIVEN
@@ -501,7 +511,7 @@ flags). Every key resolves **env → `config.env` → default**:
 | Key | Setter | Reader | Default | Meaning |
 |---|---|---|---|---|
 | `AGENTWARE_RETRIEVAL_MODE` | `config --set-retrieval bm25\|semantic` (alias of `--set-mode deterministic\|semantic`) | `config --retrieval-mode-only` (effective) | `deterministic` (Mode A) | Which retrieval mode runs |
-| `AGENTWARE_EMBEDDER_BACKEND` | `config --set-embedder <dotted-name\|path>` | `config --embedder-only` | _unset_ (no semantic backend) | The LOCAL embedder backend module |
+| `AGENTWARE_EMBEDDER_BACKEND` | `config --set-embedder <name\|dotted-name\|path>` | `config --embedder-only` | _unset_ (no semantic backend) | The LOCAL embedder backend: a registered name (`fastembed`, `ollama`), a dotted module or a path |
 | `AGENTWARE_EMBED_MODEL` | `config --set-embed-model <id>` | `config --embed-model-only` | `nomic-embed-text` | The embedding model id passed to the backend |
 | `AGENTWARE_DREAM` | `config --set-dream on\|off` | `config --dream-only` | `off` (opt-in) | Enable the unattended `dream` maintenance cycle |
 | `AGENTWARE_DREAM_SCHEDULE` | `config --set-dream-schedule HH:MM\|<cron>` | `config --dream-schedule-only` | _unset_ | Nightly run time the scheduler installs |

@@ -27,26 +27,38 @@ Default model `BAAI/bge-small-en-v1.5` (384-dim, fast); opt up to
 only model weights + tokenizer (ONNX) — NO code execution from model files
 (R-SEC-02).
 
-Contract expected by `load_embedder()`:
+Contract — declared and validated in `agentware_lib.core.embedderapi`, which is
+the extension point this file plugs into:
 
-    get_embedder(model=None) -> Embedder
-    Embedder.embed(texts: list[str]) -> list[list[float]]   # fixed-dim
-    Embedder.dim: int
+    get_embedder(model=None) -> Embedder                    # REQUIRED
+    Embedder.embed(texts: list[str]) -> list[list[float]]   # REQUIRED, fixed-dim
+    Embedder.dim: int | None                                # OPTIONAL
+
+`dim` is optional and this file's earlier "Embedder.dim: int" overstated it:
+nothing in agentware reads it, and it is None here until the first embed
+anyway. A backend missing a REQUIRED member is rejected by name rather than
+degrading ranking silently.
 
 Determinism (INV-1, Mode B): a pinned model returns the SAME vector for the SAME
 input ON A GIVEN MACHINE. Every component is ROUNDED to a fixed precision
-(`EMBED_ROUND_DP`, mirroring the Ollama backend) so serialization jitter can
-never perturb the downstream cosine ranking; RRF later fuses on INTEGER ranks, so
-Mode B is deterministic GIVEN a pinned model + cached vectors. Reproducibility is
+(`embedderapi.EMBED_ROUND_DP`, via the shared `round_vector` both backends call)
+so serialization jitter can never perturb the downstream cosine ranking; RRF
+later fuses on INTEGER ranks, so Mode B is deterministic GIVEN a pinned model +
+cached vectors. Reproducibility is
 pinned to the model version + machine, stated honestly: ONNX float math can
 differ ACROSS machines/CPUs, so the vector cache + benchmark numbers are
 reproduced PER MACHINE — never claimed to be unconditionally cross-machine
 byte-identical (unlike Mode A's pure-stdlib BM25, which IS unconditional).
 """
 
-# Fixed decimal places every component is rounded to (determinism guard; mirrors
-# the reference Ollama backend so both Mode-B backends quantize identically).
-EMBED_ROUND_DP = 6
+# The rounding precision + quantizer come from the extension point, so both
+# Mode-B backends quantize identically BY CONSTRUCTION rather than by two
+# literals that agree today. This resolves under a path spec as well as a dotted
+# one with no sys.path help: a SUBMODULE is found through its parent package's
+# `__path__`, and the loader lives inside `agentware_lib`, so the package is
+# always imported before this body runs.
+from agentware_lib.core.embedderapi import round_vector
+
 # Pinned default model (small/fast, 384-dim). Opt up via AGENTWARE_EMBED_MODEL.
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 # Pinned dependency version (R-DEP-02) — surfaced in the missing-dep message.
@@ -99,7 +111,7 @@ class FastEmbedEmbedder(object):
         return self._impl
 
     def _round(self, vec):
-        return [round(float(x), EMBED_ROUND_DP) for x in vec]
+        return round_vector(vec)
 
     def embed(self, texts):
         """Return one fixed-dim, rounded vector per input text (order-preserving)."""

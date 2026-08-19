@@ -35,20 +35,30 @@ repo through `tests/_paths.py` (`REPO_ROOT`, `TESTS_DIR`) rather than counting
 ## Running
 
 ```sh
-# whole suite (~8 min). The two --ignore flags are NOT optional:
-#   tests/fixtures/   holds fixture DATA, including SWE task repos with their own
-#                     `test_hidden.py` graders that are meant to be run BY a test,
-#                     never collected as one;
-#   test_eval_gold.py is a heavyweight benchmark, run deliberately, not per-change.
-python3 -m pytest tests/ -q -p no:cacheprovider \
-    --ignore=tests/fixtures --ignore=tests/test_eval_gold.py
+# WHOLE SUITE — four tier-scoped runs, in the tiers' own runner. This is the
+# supported path: the package has zero hard dependencies (INV-6), so pytest is
+# NOT installed on a stock clone and `python3 -m pytest` fails with
+# "No module named pytest" before collecting anything.
+for t in unit gates integration e2e; do
+    python3 -m unittest discover -s tests/$t -t . || echo "TIER $t RED"
+done
 
 python3 -m unittest tests.integration.test_existing_cli -v      # one module
 python3 -m unittest discover -s tests/unit/retrieval -t . -v    # one tier
 ```
 
-> **Do not run `unittest discover -s tests` for the whole suite.** It collects the
-> two exclusions above, and doing so INTERMITTENTLY HANGS — observed three times,
+Tier-scoped `discover` needs no `--ignore` flags: `tests/fixtures/` holds fixture
+DATA (including SWE task repos with their own `test_hidden.py` graders, meant to
+be run BY a test and never collected as one) and sits under no tier, so the four
+runs above cover the whole corpus and collect none of it. If you DO have pytest
+installed, `python3 -m pytest tests/ -q -p no:cacheprovider --ignore=tests/fixtures`
+works too — but treat it as a convenience, not the contract. Drop the
+`--ignore=tests/test_eval_gold.py` that older instructions carry: task 58 layered
+the corpus and no file sits at that path any more, so the flag ignores nothing
+and reads as coverage that is not happening.
+
+> **Do not run `unittest discover -s tests` for the whole suite.** It collects
+> `tests/fixtures/`, and doing so INTERMITTENTLY HANGS — observed three times,
 > each stalling for 40+ minutes at 0.0% CPU with a static log, twice wedging an
 > autonomous loop iteration that was waiting on it. A run that hangs rather than
 > fails is the worst shape a verification can take: it cannot be distinguished

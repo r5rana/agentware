@@ -65,6 +65,32 @@ _BOOM_BACKEND = 'raise RuntimeError("backend import blew up")\n'
 # A backend with no get_embedder factory (contract violation -> None).
 _NO_FACTORY_BACKEND = 'x = 1\n'
 
+# A backend whose FACTORY raises ImportError because its own optional dependency
+# is absent. This is the shipped fastembed backend's documented behaviour — it
+# probes eagerly so `semantic_embedder_available()` is honest — and it is
+# ABSENCE, not breakage, so it must stay silent.
+_MISSING_DEP_BACKEND = '''\
+def get_embedder(model=None):
+    raise ImportError("thirdparty is not installed; pip install thirdparty==1.0")
+'''
+
+# A conforming backend that imports a lib module `vectorcache` does NOT pull in,
+# so the import genuinely has to resolve through sys.path rather than being
+# short-circuited by sys.modules. Stands in for any third-party backend reaching
+# into agentware_lib.
+_LIB_IMPORTING_BACKEND = '''\
+import agentware_lib.core.gitio  # noqa: F401 - the point is that it resolves
+
+
+class LibImportingEmbedder(object):
+    def embed(self, texts):
+        return [[0.0] for _ in texts]
+
+
+def get_embedder(model=None):
+    return LibImportingEmbedder()
+'''
+
 # A backend whose factory returns an object without .embed (contract -> None).
 _BAD_OBJECT_BACKEND = '''\
 class NotAnEmbedder(object):
@@ -115,6 +141,21 @@ class EmbedderBackendTest(unittest.TestCase):
     def _use(self, path):
         os.environ[self.cli.EMBEDDER_BACKEND_KEY] = path
         self.cli._reset_embedder_cache()
+
+    def _load_capturing_stderr(self):
+        """load_embedder() with stderr captured -> (embedder, stderr_text).
+
+        The loudness half of the contract is an OBSERVABLE, so it is asserted
+        the way the operator experiences it — bytes on stderr — rather than by
+        reading the rejection dict, which would pass even if nothing was ever
+        printed.
+        """
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            emb = self.cli.load_embedder()
+        return emb, buf.getvalue()
 
     # --- static-import surface stays stdlib-only -----------------------------
     @unittest.skipIf(sys.version_info < (3, 10),
@@ -182,25 +223,148 @@ class EmbedderBackendTest(unittest.TestCase):
         self.assertIn("local", notice.lower())
 
     def test_missing_path_spec_is_none_no_crash(self):
+        """ABSENT, so SILENT: nothing is installed there to complain about."""
         self._use(os.path.join(self.tmp, "does-not-exist.py"))
-        self.assertIsNone(self.cli.load_embedder())
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNone(emb)
+        self.assertEqual(err, "", "absence must not be reported as breakage")
+        self.assertIsNone(self.cli.embedder_rejection())
         self.assertFalse(self.cli.semantic_embedder_available())
 
     def test_missing_dotted_module_is_none_no_crash(self):
+        """ABSENT, so SILENT — the zero-install default, not a misconfiguration."""
         self._use("agentware_no_such_backend_xyz")
-        self.assertIsNone(self.cli.load_embedder())
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNone(emb)
+        self.assertEqual(err, "")
+        self.assertIsNone(self.cli.embedder_rejection())
 
     def test_backend_that_raises_on_import_is_none(self):
+        """PRESENT and broken: it is installed, so the failure is named."""
         self._use(self._write_backend(_BOOM_BACKEND, "boom.py"))
-        self.assertIsNone(self.cli.load_embedder())
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNone(emb)
+        self.assertIn("failed to load", err)
+        self.assertIn("backend import blew up", err)
+        self.assertIn("failed to load", self.cli.embedder_rejection() or "")
+
+    def test_backend_whose_dependency_is_missing_is_silent(self):
+        """A backend installed WITHOUT its own optional dependency is ABSENT.
+
+        The shipped fastembed backend raises ImportError from `get_embedder()`
+        by design, so `semantic_embedder_available()` is honest about a machine
+        with nothing pip-installed — the default state. Warning there would put
+        a line on every `config --show` in the zero-install case, which is how a
+        diagnostic channel gets trained away. Found by running the suite and
+        watching the real fastembed backend do exactly this.
+        """
+        self._use(self._write_backend(_MISSING_DEP_BACKEND, "nodep.py"))
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNone(emb)
+        self.assertEqual(err, "", "a missing dependency is absence, not breakage")
+        self.assertIsNone(self.cli.embedder_rejection())
 
     def test_backend_without_factory_is_none(self):
+        """PRESENT and non-conforming: rejected by the NAME of what is missing."""
         self._use(self._write_backend(_NO_FACTORY_BACKEND, "nofac.py"))
-        self.assertIsNone(self.cli.load_embedder())
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNone(emb)
+        self.assertIn("get_embedder", err)
+        self.assertIn("does not satisfy the embedder protocol", err)
+        self.assertIn("get_embedder", self.cli.embedder_rejection() or "")
 
     def test_backend_returning_bad_object_is_none(self):
+        """The plan's own criterion: a missing REQUIRED attribute is named.
+
+        `embed` is the attribute; before the extension point this object became
+        a bare None indistinguishable from "nothing installed", and the only
+        symptom was that ranking quietly fell back to BM25.
+        """
         self._use(self._write_backend(_BAD_OBJECT_BACKEND, "badobj.py"))
-        self.assertIsNone(self.cli.load_embedder())
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNone(emb)
+        self.assertIn("missing embed", err)
+        self.assertIn("does not satisfy the embedder protocol", err)
+        reason = self.cli.embedder_rejection()
+        self.assertIn("missing embed", reason or "")
+        # And it reaches the operator through the mode resolver too, so the
+        # advice is not the wrong one ("install a local model") for a backend
+        # that IS installed.
+        os.environ[self.cli.RETRIEVAL_MODE_KEY] = "semantic"
+        eff, fell_back, notice = self.cli.resolve_effective_retrieval_mode()
+        self.assertEqual(eff, "deterministic")
+        self.assertTrue(fell_back)
+        self.assertIn("rejected", notice)
+        self.assertIn("missing embed", notice)
+
+    def test_the_warning_is_emitted_once_per_spec_not_per_recall(self):
+        """Loudness is bounded by the memo — a line per recall trains it away."""
+        self._use(self._write_backend(_BAD_OBJECT_BACKEND, "badobj2.py"))
+        _emb, first = self._load_capturing_stderr()
+        self.assertIn("does not satisfy", first)
+        for _ in range(3):
+            _emb, again = self._load_capturing_stderr()
+            self.assertEqual(again, "", "the memo must suppress repeats")
+        # ... and a reset re-arms it, because the operator may have fixed it.
+        self.cli._reset_embedder_cache()
+        _emb, after_reset = self._load_capturing_stderr()
+        self.assertIn("does not satisfy", after_reset)
+
+    def test_a_registered_backend_name_resolves_to_its_shipped_module(self):
+        """`--set-embedder ollama` works: the registry is the extension point."""
+        from agentware_lib.core import embedderapi
+        self.assertIn("ollama", embedderapi.registered_names())
+        self._use("ollama")
+        emb, err = self._load_capturing_stderr()
+        self.assertIsNotNone(emb, err)
+        self.assertTrue(callable(getattr(emb, "embed", None)))
+        self.assertEqual(err, "")
+
+    def test_an_unregistered_spec_still_resolves_the_way_it_always_did(self):
+        """The registry ADDS a spelling; it takes none away."""
+        self._use("agentware_embedder_ollama")
+        emb, _err = self._load_capturing_stderr()
+        self.assertIsNotNone(emb)
+
+    def test_a_backend_may_import_a_lib_module_the_cli_has_not_loaded(self):
+        """A path-loaded backend reaches `agentware_lib` with NO sys.path help.
+
+        This pins the reason the loader carries no sys.path bootstrap — a guard
+        for that was written, could not be made to fail, and was deleted. Python
+        resolves a SUBMODULE through its parent package's `__path__` (absolute),
+        not through `sys.path`, and the loader lives INSIDE `agentware_lib`, so
+        the package is necessarily imported before any backend body runs. The
+        test stays because the property is load-bearing and non-obvious: if it
+        ever stopped holding, an ImportError would be classified as ABSENCE and
+        a correctly installed backend would vanish into a silent Mode-A fallback
+        with no diagnostic at all.
+
+        Two details make it non-vacuous, and both were learned the hard way. It
+        runs in a SUBPROCESS (the suite's own fixture imports every lib module,
+        so nothing in-process is ever un-imported), and it imports a module the
+        CLI does NOT pull in — `vectorcache` loads 19 lib modules and
+        `core.gitio` is not one of them. The first attempt asserted in-process
+        against `core.embedderapi` and passed with the guard reverted, because
+        `sys.modules` short-circuits the import before `sys.path` is consulted.
+        A test of "can it import?" is vacuous unless the module is genuinely not
+        loaded yet.
+        """
+        import subprocess
+        scripts_dir = os.path.dirname(os.path.abspath(CLI_PATH))
+        backend = self._write_backend(_LIB_IMPORTING_BACKEND, "libimport.py")
+        driver = (
+            "import sys\n"
+            "scripts, backend = sys.argv[1], sys.argv[2]\n"
+            "sys.path.insert(0, scripts)\n"
+            "import agentware_lib.retrieval.vectorcache as vc\n"
+            "sys.path.remove(scripts)\n"   # the caller's bootstrap is gone
+            "emb = vc.load_embedder(backend=backend, model='m')\n"
+            "print('LOADED' if emb is not None else 'NONE')\n")
+        proc = subprocess.run(
+            [sys.executable, "-c", driver, scripts_dir, backend],
+            capture_output=True, text=True, timeout=120)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "LOADED", proc.stderr)
 
     # --- config.env precedence (not just env) --------------------------------
     def test_backend_resolves_from_config_file(self):
@@ -225,8 +389,17 @@ class OllamaReferenceBackendTest(unittest.TestCase):
     def setUp(self):
         import importlib.util
         from importlib.machinery import SourceFileLoader
-        path = os.path.join(os.path.dirname(os.path.abspath(CLI_PATH)),
-                            "agentware_embedder_ollama.py")
+        # The backend imports `agentware_lib.core.embedderapi` for the shared
+        # quantizer, so `scripts/` must be importable before its body runs. The
+        # product guarantees this in `_load_embedder_module`; a raw
+        # SourceFileLoader (this class, and any embedding caller) does not go
+        # through it, so the sibling fastembed suite's discipline applies here.
+        scripts_dir = os.path.dirname(os.path.abspath(CLI_PATH))
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        from agentware_lib.core import embedderapi
+        self.api = embedderapi
+        path = os.path.join(scripts_dir, "agentware_embedder_ollama.py")
         loader = SourceFileLoader("agentware_embedder_ollama_test", path)
         spec = importlib.util.spec_from_loader(loader.name, loader)
         self.mod = importlib.util.module_from_spec(spec)
@@ -246,8 +419,12 @@ class OllamaReferenceBackendTest(unittest.TestCase):
         v = emb.embed(["alpha", "beta"])
         self.assertEqual(len(v), 2)
         self.assertEqual(emb.dim, 3)
-        # Rounded to EMBED_ROUND_DP places (determinism guard).
-        self.assertEqual(v[0][0], round(0.1234567, self.mod.EMBED_ROUND_DP))
+        # Rounded to EMBED_ROUND_DP places (determinism guard). The constant now
+        # lives ONCE, in the extension point, and the backend reaches it through
+        # the shared quantizer rather than restating the literal.
+        self.assertEqual(v[0][0], round(0.1234567, self.api.EMBED_ROUND_DP))
+        self.assertFalse(hasattr(self.mod, "EMBED_ROUND_DP"),
+                         "the backend must not re-declare the rounding constant")
         # Same input -> same vector.
         self.assertEqual(emb.embed(["alpha"])[0], v[0])
 

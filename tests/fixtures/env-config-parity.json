@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "b45e0854e6f0"
+      "git_head": "e4f670c8744e"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -2580,7 +2580,7 @@
         "local": [
           {
             "file": "scripts/agentware_embedder_ollama.py",
-            "line": 50,
+            "line": 63,
             "lang": "python",
             "form": "get()",
             "default": null,
