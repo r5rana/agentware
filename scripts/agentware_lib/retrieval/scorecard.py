@@ -45,23 +45,16 @@ def _fmt_cell(value, fmt):
     return (fmt % value) if isinstance(value, (int, float)) else "—"
 
 
-def render_scorecard(rows):
-    """Render the append-only ledger rows as a Markdown trend table (newest run
-    first) plus the latest ablation delta. Pure: deterministic given `rows`, so
-    it is a faithful VIEW over the immutable ledger. Returns the markdown text.
+def _trend_table(ordered):
+    """Own the headline TREND TABLE: the `_SCORECARD_COLS` header plus one row
+    per ledger entry, newest run first. Its own unit because the parent had
+    started making a SECOND promise here — the per-run metric CELL CONTRACT
+    (which ledger key feeds which column, and the em-dash fallback per cell) —
+    which is independent of how the document as a whole is assembled. Returns
+    the markdown lines; never empty (the caller guards the no-rows case).
     """
-    head = "# agentware Recall / Benchmark Scorecard\n"
-    intro = (
-        "> Derived VIEW over the append-only benchmark ledger "
-        "(`benchmarks/history.jsonl`). Regenerate with "
-        "`scripts/agentware bench scorecard`. Newest run first; the ledger "
-        "itself is immutable (one row per commit + run-timestamp).\n")
-    if not rows:
-        return "%s\n%s\n_No benchmark runs recorded yet._\n" % (head, intro)
-    ordered = sorted(rows, key=lambda r: r.get("run", ""), reverse=True)
-    lines = [head, intro, ""]
-    lines.append("| " + " | ".join(_SCORECARD_COLS) + " |")
-    lines.append("| " + " | ".join("---" for _ in _SCORECARD_COLS) + " |")
+    lines = ["| " + " | ".join(_SCORECARD_COLS) + " |",
+             "| " + " | ".join("---" for _ in _SCORECARD_COLS) + " |"]
     for r in ordered:
         m = r.get("metrics", {}) or {}
         cells = [
@@ -78,49 +71,91 @@ def render_scorecard(rows):
             _fmt_cell(r.get("reliability"), "%.2f"),
         ]
         lines.append("| " + " | ".join(cells) + " |")
+    return lines
+
+
+def _ablation_section(ordered):
+    """Own the LATEST ABLATION DELTA block. Its own unit because the parent had
+    started making a THIRD promise here — a SELECTION rule (only the newest row
+    carrying an `ablation` payload is shown, and none at all when no row has
+    one) layered on a signed-delta format that differs from the trend table's.
+    Returns the markdown lines, or [] when no row carries an ablation.
+    """
     abl_rows = [r for r in ordered if r.get("ablation")]
-    if abl_rows:
-        a = abl_rows[0]
-        abl = a["ablation"]
-        delta = abl.get("delta", {}) or {}
-        lines.append("")
-        lines.append(
-            "## Latest ablation delta (%s vs %s) — commit `%s`, run %s"
-            % (abl.get("treatment", "?"), abl.get("baseline", "?"),
-               a.get("commit", "?"), a.get("run", "?")))
-        lines.append("")
-        lines.append("| Metric | Delta |")
-        lines.append("| --- | --- |")
-        for label, key in (("Recall@k", "recall_at_k"),
-                           ("Precision@k", "precision_at_k"),
-                           ("nDCG@k", "ndcg_at_k"), ("MRR", "mrr")):
-            v = delta.get(key)
-            cell = ("%+.4f" % v) if isinstance(v, (int, float)) else "—"
-            lines.append("| %s | %s |" % (label, cell))
-    # SWE-task section (suite='swe-task' rows)
+    if not abl_rows:
+        return []
+    a = abl_rows[0]
+    abl = a["ablation"]
+    delta = abl.get("delta", {}) or {}
+    lines = [
+        "",
+        "## Latest ablation delta (%s vs %s) — commit `%s`, run %s"
+        % (abl.get("treatment", "?"), abl.get("baseline", "?"),
+           a.get("commit", "?"), a.get("run", "?")),
+        "",
+        "| Metric | Delta |",
+        "| --- | --- |",
+    ]
+    for label, key in (("Recall@k", "recall_at_k"),
+                       ("Precision@k", "precision_at_k"),
+                       ("nDCG@k", "ndcg_at_k"), ("MRR", "mrr")):
+        v = delta.get(key)
+        cell = ("%+.4f" % v) if isinstance(v, (int, float)) else "—"
+        lines.append("| %s | %s |" % (label, cell))
+    return lines
+
+
+def _swe_section(ordered):
+    """Own the SWE-TASK BENCHMARK section (`suite == 'swe-task'` rows). Its own
+    unit because the parent had started making a FOURTH promise here — a second,
+    DIFFERENTLY-SHAPED table over a FILTERED subset of the same ledger (seeds /
+    per-arm means / signed delta rather than retrieval metrics), whose columns
+    owe nothing to `_SCORECARD_COLS`. Returns the markdown lines, or [] when no
+    row belongs to the swe-task suite.
+    """
     swe_rows = [r for r in ordered if r.get("suite") == "swe-task"]
-    if swe_rows:
-        lines.append("")
-        lines.append("## SWE-Task Benchmark")
-        lines.append("")
-        swe_cols = ("Run (UTC)", "Commit", "Seeds", "Arms", "Delta")
-        lines.append("| " + " | ".join(swe_cols) + " |")
-        lines.append("| " + " | ".join("---" for _ in swe_cols) + " |")
-        for r in swe_rows:
-            arm_stats = r.get("arms", {})
-            arm_summary = "; ".join(
-                "%s=%.2f" % (a, s.get("mean", 0))
-                for a, s in arm_stats.items())
-            d = r.get("delta")
-            delta_cell = ("%+.4f" % d) if isinstance(d, (int, float)) else "—"
-            cells = [
-                r.get("run") or "—",
-                "`%s`" % (r.get("commit") or "—"),
-                str(r.get("seeds", "—")),
-                arm_summary or "—",
-                delta_cell,
-            ]
-            lines.append("| " + " | ".join(cells) + " |")
+    if not swe_rows:
+        return []
+    swe_cols = ("Run (UTC)", "Commit", "Seeds", "Arms", "Delta")
+    lines = ["", "## SWE-Task Benchmark", "",
+             "| " + " | ".join(swe_cols) + " |",
+             "| " + " | ".join("---" for _ in swe_cols) + " |"]
+    for r in swe_rows:
+        arm_stats = r.get("arms", {})
+        arm_summary = "; ".join(
+            "%s=%.2f" % (a, s.get("mean", 0))
+            for a, s in arm_stats.items())
+        d = r.get("delta")
+        delta_cell = ("%+.4f" % d) if isinstance(d, (int, float)) else "—"
+        cells = [
+            r.get("run") or "—",
+            "`%s`" % (r.get("commit") or "—"),
+            str(r.get("seeds", "—")),
+            arm_summary or "—",
+            delta_cell,
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    return lines
+
+
+def render_scorecard(rows):
+    """Render the append-only ledger rows as a Markdown trend table (newest run
+    first) plus the latest ablation delta. Pure: deterministic given `rows`, so
+    it is a faithful VIEW over the immutable ledger. Returns the markdown text.
+    """
+    head = "# agentware Recall / Benchmark Scorecard\n"
+    intro = (
+        "> Derived VIEW over the append-only benchmark ledger "
+        "(`benchmarks/history.jsonl`). Regenerate with "
+        "`scripts/agentware bench scorecard`. Newest run first; the ledger "
+        "itself is immutable (one row per commit + run-timestamp).\n")
+    if not rows:
+        return "%s\n%s\n_No benchmark runs recorded yet._\n" % (head, intro)
+    ordered = sorted(rows, key=lambda r: r.get("run", ""), reverse=True)
+    lines = [head, intro, ""]
+    lines.extend(_trend_table(ordered))
+    lines.extend(_ablation_section(ordered))
+    lines.extend(_swe_section(ordered))
     return "\n".join(lines) + "\n"
 
 

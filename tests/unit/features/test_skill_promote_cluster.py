@@ -2,11 +2,215 @@
 
 See `tests.unit.features._skill_promote_support` for the
 shared header.
+
+Task 99 adds `SkillClusterHelperTest` / `GrowClusterTest`, the BEHAVIOURAL cover
+for the six seams the `ops.skillcluster` branch-ceiling payoff extracted. The
+classes live here, beside the `cluster_learnings` end-to-end cover they hold the
+seams of, and NOT in `tests/unit/ops/test_skillcluster.py`: that path is a LIVE
+row in `tests/fixtures/test-ownership-debt.json`, so creating the file would
+strand the row as `stale_debt` and redden the ownership gate until the fixture
+and its `ratchet.max_rows` are edited too -- a two-file move outside this task.
 """
+
+from tests._paths import TESTS_DIR
+
+import sys
 
 from tests.unit.features._skill_promote_support import (  # noqa: F401
     SyntheticKBTestCase, _CHAIN, _COVERED_DEBUG, _TIGHT, _learn,
-    build_synthetic_kb, json, load_cli, os)
+    build_synthetic_kb, json, load_cli, os, unittest)
+
+_SCRIPTS = os.path.join(os.path.dirname(TESTS_DIR), "scripts")
+if _SCRIPTS not in sys.path:
+    sys.path.insert(0, _SCRIPTS)
+
+from agentware_lib.ops import skillcluster as _sc  # noqa: E402
+
+# A hand-built weighted graph, so every assertion below is an EXACT number
+# rather than a property of the tokenizer. Triangle a~b~c~a, plus a strong
+# outside neighbour `d` hanging off `c` and a weak one `e` hanging off `a`.
+_W = {
+    "a": {"b": 0.8, "c": 0.6, "e": 0.2},
+    "b": {"a": 0.8, "c": 0.4},
+    "c": {"a": 0.6, "b": 0.4, "d": 0.5},
+    "d": {"c": 0.5},
+    "e": {"a": 0.2},
+}
+_TAGS = {"a": {"spine", "one"}, "b": {"spine"}, "c": {"spine", "two"},
+         "d": {"outside"}, "e": {"outside"}}
+
+# The single-linkage chain the density gate exists to reject: a~b, b~c, a!~c.
+_CHAIN_W = {"a": {"b": 0.5}, "b": {"a": 0.5, "c": 0.5}, "c": {"b": 0.5}}
+
+
+class SkillClusterHelperTest(SyntheticKBTestCase):
+    """Task 99: the pure metric + graph-construction seams lifted out of
+    `_skill_cluster_scores` and `cluster_learnings`."""
+
+    # --- _intra_scores owns (cohesion, density) over the members' own pairs --
+
+    def test_intra_scores_complete_triangle(self):
+        cohesion, density = _sc._intra_scores(["a", "b", "c"], _W)
+        # all three pairs are edges: (0.8 + 0.6 + 0.4) / 3, and 3 of 3 possible.
+        self.assertAlmostEqual(cohesion, 0.6, places=12)
+        self.assertAlmostEqual(density, 1.0, places=12)
+
+    def test_intra_scores_counts_only_edges_that_exist(self):
+        # a~b is an edge; a~d and b~d are not, so density is 1 of 3 possible and
+        # cohesion averages over the ONE edge, never over the missing pairs.
+        cohesion, density = _sc._intra_scores(["a", "b", "d"], _W)
+        self.assertAlmostEqual(cohesion, 0.8, places=12)
+        self.assertAlmostEqual(density, 1.0 / 3.0, places=12)
+
+    def test_intra_scores_singleton_is_vacuously_dense(self):
+        # Fewer than two members has no pair to measure: density 1.0 by
+        # convention, cohesion 0.0 because there is no weight to average.
+        self.assertEqual(_sc._intra_scores(["a"], _W), (0.0, 1.0))
+        self.assertEqual(_sc._intra_scores([], _W), (0.0, 1.0))
+
+    # --- _mean_external owns the halo ---------------------------------------
+
+    def test_mean_external_averages_each_members_best_outside_edge(self):
+        # a -> e (0.2); b -> nothing outside (0.0); c -> d (0.5).
+        got = _sc._mean_external(["a", "b", "c"], _W, {"a", "b", "c"})
+        self.assertAlmostEqual(got, 0.7 / 3.0, places=12)
+
+    def test_mean_external_ignores_membership_not_weight(self):
+        # Same node, different member set: with only `b` a member, its strongest
+        # edge (a, 0.8) is EXTERNAL and dominates the 0.4 to c.
+        self.assertAlmostEqual(_sc._mean_external(["b"], _W, {"b"}), 0.8,
+                               places=12)
+        # And a member set with no outside neighbour at all scores exactly 0.0.
+        self.assertEqual(_sc._mean_external(["d"], _W, {"c", "d"}), 0.0)
+        self.assertEqual(_sc._mean_external([], _W, set()), 0.0)
+
+    # --- _tag_spine owns the dominant tag + its share -----------------------
+
+    def test_tag_spine_picks_dominant_tag_and_share(self):
+        # "spine" is on all three; "one"/"two" on one each.
+        self.assertEqual(_sc._tag_spine(["a", "b", "c"], _TAGS), ("spine", 1.0))
+        # 2 of 3 members carry "spine" here -> share 2/3, not 1.0.
+        tag, share = _sc._tag_spine(["a", "b", "d"], _TAGS)
+        self.assertEqual(tag, "spine")
+        self.assertAlmostEqual(share, 2.0 / 3.0, places=12)
+
+    def test_tag_spine_breaks_ties_by_name_ascending(self):
+        tags = {"a": {"zebra", "alpha"}, "b": {"zebra", "alpha"}}
+        self.assertEqual(_sc._tag_spine(["a", "b"], tags), ("alpha", 1.0))
+
+    def test_tag_spine_untagged_members_have_no_spine(self):
+        self.assertEqual(_sc._tag_spine(["a", "b"], {}), (None, 0.0))
+        self.assertEqual(_sc._tag_spine(["a"], {"a": None}), (None, 0.0))
+        self.assertEqual(_sc._tag_spine([], _TAGS), (None, 0.0))
+
+    # --- the parent is assembly + the separation margin ---------------------
+
+    def test_skill_cluster_scores_composes_the_three_seams(self):
+        sc = _sc._skill_cluster_scores({"c", "a", "b"}, _W, _TAGS)
+        self.assertAlmostEqual(sc["cohesion"], 0.6, places=12)
+        self.assertAlmostEqual(sc["density"], 1.0, places=12)
+        # separation is exactly cohesion - mean_external, the one value the
+        # parent still computes itself.
+        self.assertAlmostEqual(sc["separation"], 0.6 - 0.7 / 3.0, places=12)
+        self.assertEqual(sc["tag_spine_tag"], "spine")
+        self.assertAlmostEqual(sc["tag_spine_share"], 1.0, places=12)
+
+    # --- _cluster_nodes owns the node set -----------------------------------
+
+    def test_cluster_nodes_keeps_learnings_in_id_order(self):
+        data = build_synthetic_kb(self.kdir, entries=_TIGHT + _CHAIN)
+        ids, tokmap, tagmap = _sc._cluster_nodes(self.kdir, data)
+        self.assertEqual(ids, sorted(e["id"] for e in _TIGHT + _CHAIN))
+        self.assertEqual(set(tokmap), set(ids))
+        self.assertEqual(tagmap["learn-pay-retry"],
+                         {"payment", "refund", "retry"})
+        # The corpus is the BM25 one, so the body vocabulary is tokenized in.
+        self.assertIn("backoff", tokmap["learn-pay-retry"])
+
+    def test_cluster_nodes_drops_non_learnings_and_idless_entries(self):
+        entries = list(_TIGHT)
+        skill = dict(entries[0])
+        skill.update({"id": "skill-not-a-learning", "category": "skills",
+                      "path": "skills/not-a-learning.md"})
+        data = build_synthetic_kb(self.kdir, entries=entries + [skill])
+        ids, _tok, _tag = _sc._cluster_nodes(self.kdir, data)
+        self.assertEqual(ids, sorted(e["id"] for e in _TIGHT))
+
+    # --- _cluster_adjacency owns the edge set -------------------------------
+
+    def test_cluster_adjacency_is_symmetric_and_bar_gated(self):
+        ids = ["p", "q", "r"]
+        tok = {"p": {"k1", "k2"}, "q": {"k1", "k2"}, "r": {"z1", "z2"}}
+        tags = {"p": set(), "q": set(), "r": set()}
+        adjw = _sc._cluster_adjacency(ids, tok, tags, 0.30)
+        # p/q share every token -> Jaccard 1.0, recorded BOTH ways.
+        self.assertEqual(adjw["p"], {"q": 1.0})
+        self.assertEqual(adjw["q"], {"p": 1.0})
+        # r shares nothing -> 0.0 < 0.30, so it gets an EMPTY row, not a KeyError.
+        self.assertEqual(adjw["r"], {})
+
+    def test_cluster_adjacency_edge_min_is_inclusive(self):
+        ids = ["p", "q"]
+        tok = {"p": {"a", "b"}, "q": {"b", "c"}}          # Jaccard = 1/3
+        tags = {"p": set(), "q": set()}
+        third = 1.0 / 3.0
+        self.assertEqual(_sc._cluster_adjacency(ids, tok, tags, third),
+                         {"p": {"q": third}, "q": {"p": third}})
+        self.assertEqual(_sc._cluster_adjacency(ids, tok, tags, 0.34),
+                         {"p": {}, "q": {}})
+
+
+class GrowClusterTest(SyntheticKBTestCase):
+    """Task 99: `_grow_cluster` -- the density-gated quasi-clique growth loop.
+    The gate ORDER is the behaviour under test, so each case isolates ONE gate."""
+
+    def test_growth_refuses_the_candidate_that_would_drop_density(self):
+        # THE load-bearing case. `c` IS connected (b~c), so connectivity admits
+        # it; only the density-DURING-growth gate can refuse it, and it must,
+        # because a~b~c with a!~c is density 2/3 = 0.667 < 0.70.
+        got = _sc._grow_cluster("a", ["a", "b", "c"], set(), _CHAIN_W,
+                                _sc._SKILL_CLUSTER_DENSITY_MIN, 6)
+        self.assertEqual(got, {"a", "b"})
+
+    def test_the_same_candidate_is_admitted_once_the_bar_drops(self):
+        # Same graph, same seed, bar lowered under 2/3: `c` now qualifies. This
+        # is what proves the refusal above came from the DENSITY gate and not
+        # from connectivity or the size clamp.
+        got = _sc._grow_cluster("a", ["a", "b", "c"], set(), _CHAIN_W, 0.6, 6)
+        self.assertEqual(got, {"a", "b", "c"})
+
+    def test_growth_admits_a_true_triangle_whole(self):
+        got = _sc._grow_cluster("a", ["a", "b", "c", "d", "e"], set(), _W,
+                                _sc._SKILL_CLUSTER_DENSITY_MIN, 6)
+        # a, b, c are mutually adjacent (density 1.0); d and e are single-linkage
+        # hangers-on that would take density to 6/10 and 6/10, so both are out.
+        self.assertEqual(got, {"a", "b", "c"})
+
+    def test_growth_stops_at_max_size(self):
+        got = _sc._grow_cluster("a", ["a", "b", "c", "d", "e"], set(), _W,
+                                _sc._SKILL_CLUSTER_DENSITY_MIN, 2)
+        # Greedy: the strongest admissible edge out of {a} is a~b at 0.8.
+        self.assertEqual(got, {"a", "b"})
+
+    def test_growth_never_takes_a_member_of_an_earlier_cluster(self):
+        got = _sc._grow_cluster("a", ["a", "b", "c", "d", "e"], {"b"}, _W,
+                                _sc._SKILL_CLUSTER_DENSITY_MIN, 6)
+        self.assertEqual(got, {"a", "c"})
+
+    def test_growth_reads_used_and_never_mutates_it(self):
+        used = {"b"}
+        _sc._grow_cluster("a", ["a", "b", "c", "d", "e"], used, _W,
+                          _sc._SKILL_CLUSTER_DENSITY_MIN, 6)
+        self.assertEqual(used, {"b"},
+                         "the caller consumes a cluster only once it QUALIFIES; "
+                         "growth must not claim ids for a cluster that is then "
+                         "thrown away")
+
+    def test_an_isolated_seed_grows_to_itself(self):
+        self.assertEqual(
+            _sc._grow_cluster("z", ["z"], set(), {"z": {}},
+                              _sc._SKILL_CLUSTER_DENSITY_MIN, 6),
+            {"z"})
 
 
 class ClusterLearningsTest(SyntheticKBTestCase):

@@ -15,12 +15,22 @@ Stdlib `unittest` only (no pytest, no new deps). Never touches the real KB.
 """
 
 import os
+import sys
+import unittest
 
 try:
     from tests._fixtures import SyntheticKBTestCase, load_cli
+    from tests._paths import REPO_ROOT
 except ImportError:  # allow `python3 -m unittest tests.unit.retrieval.test_scorecard`
     from _fixtures import SyntheticKBTestCase, load_cli
+    from _paths import REPO_ROOT
 
+if os.path.join(REPO_ROOT, "scripts") not in sys.path:
+    sys.path.insert(0, os.path.join(REPO_ROOT, "scripts"))
+
+# The three SECTION helpers are module-private, so they are not on the
+# entrypoint facade `CLI` — reach them through their owning module.
+from agentware_lib.retrieval import scorecard as SC  # noqa: E402
 
 CLI = load_cli()
 
@@ -154,3 +164,118 @@ class BenchScorecardCliTest(SyntheticKBTestCase):
         self.assertEqual(first, second)
         with open(ledger, "rb") as f:
             self.assertEqual(f.read(), ledger_before)
+
+
+_SWE_ROW = {
+    "suite": "swe-task",
+    "run": "2026-06-30T12:00:00Z",
+    "commit": "abc123",
+    "seeds": 5,
+    "arms": {
+        "with-context": {"mean": 0.72, "seeds": 5},
+        "no-context": {"mean": 0.48, "seeds": 5},
+    },
+    "delta": -0.24,
+}
+
+
+class TrendTableSectionTest(unittest.TestCase):
+    """`_trend_table` owns the headline table: header + one row per entry."""
+
+    def test_header_and_one_row_per_entry(self):
+        rows = [
+            _row("bbb222", "2026-06-24T12:00:00Z", recall=0.98),
+            {"run": "2026-06-24T08:00:00Z", "commit": "ccc333",
+             "metrics": {}, "reliability": None},
+        ]
+        self.assertEqual(SC._trend_table(rows), [
+            "| Run (UTC) | Commit | Committed (UTC) | Strategy | Mode | "
+            "Recall@5 | nDCG@5 | MRR | p50 ms | ctx-tok | Reliability |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- "
+            "| --- |",
+            "| 2026-06-24T12:00:00Z | `bbb222` | 2026-06-24T00:00:00Z | bm25 "
+            "| eval | 0.9800 | 0.8500 | 0.8000 | 1.100 | 512.0 | 96.00 |",
+            # Missing metrics / missing meta -> em-dash in every cell.
+            "| 2026-06-24T08:00:00Z | `ccc333` | — | — | — | — | — | — | — "
+            "| — | — |",
+        ])
+
+    def test_row_order_is_the_callers_order(self):
+        """The helper never re-sorts: it emits the rows as handed to it."""
+        older = _row("aaa111", "2026-06-24T10:00:00Z")
+        newer = _row("bbb222", "2026-06-24T12:00:00Z")
+        lines = SC._trend_table([newer, older])
+        self.assertEqual(len(lines), 4)          # 2 header lines + 2 rows
+        self.assertIn("bbb222", lines[2])
+        self.assertIn("aaa111", lines[3])
+
+
+class AblationSectionTest(unittest.TestCase):
+    """`_ablation_section` owns the latest-ablation-delta block only."""
+
+    ABLATION = {"baseline": "tag", "treatment": "bm25",
+                "delta": {"recall_at_k": 0.33, "precision_at_k": 0.01,
+                          "ndcg_at_k": -0.37, "mrr": None}}
+
+    def test_no_ablation_row_renders_nothing(self):
+        self.assertEqual(
+            SC._ablation_section([_row("aaa111", "2026-06-24T10:00:00Z")]), [])
+
+    def test_renders_signed_delta_table(self):
+        rows = [_row("new999", "2026-06-24T13:00:00Z", mode="ablate",
+                     ablation=self.ABLATION)]
+        self.assertEqual(SC._ablation_section(rows), [
+            "",
+            "## Latest ablation delta (bm25 vs tag) — commit `new999`, "
+            "run 2026-06-24T13:00:00Z",
+            "",
+            "| Metric | Delta |",
+            "| --- | --- |",
+            "| Recall@k | +0.3300 |",
+            "| Precision@k | +0.0100 |",
+            "| nDCG@k | -0.3700 |",
+            "| MRR | — |",                       # non-numeric -> em-dash
+        ])
+
+    def test_uses_only_the_first_ablation_row(self):
+        """Rows arrive newest-first, so the FIRST carrier wins; later ones are
+        skipped entirely rather than rendered as extra blocks."""
+        first = _row("new999", "2026-06-24T13:00:00Z", ablation=self.ABLATION)
+        second = _row("old000", "2026-06-24T09:00:00Z", ablation=dict(
+            self.ABLATION, treatment="vec", delta={"recall_at_k": 0.11}))
+        lines = SC._ablation_section([first, second])
+        self.assertEqual(len(lines), 9)
+        self.assertIn("commit `new999`", lines[1])
+        self.assertNotIn("old000", "\n".join(lines))
+        self.assertNotIn("+0.1100", "\n".join(lines))
+
+
+class SweSectionTest(unittest.TestCase):
+    """`_swe_section` owns the SWE-task table over `suite == 'swe-task'` rows."""
+
+    def test_no_swe_rows_renders_nothing(self):
+        self.assertEqual(
+            SC._swe_section([_row("aaa111", "2026-06-24T10:00:00Z")]), [])
+
+    def test_renders_seeds_arms_and_signed_delta(self):
+        self.assertEqual(SC._swe_section([_SWE_ROW]), [
+            "",
+            "## SWE-Task Benchmark",
+            "",
+            "| Run (UTC) | Commit | Seeds | Arms | Delta |",
+            "| --- | --- | --- | --- | --- |",
+            "| 2026-06-30T12:00:00Z | `abc123` | 5 | "
+            "with-context=0.72; no-context=0.48 | -0.2400 |",
+        ])
+
+    def test_filters_out_non_swe_rows(self):
+        rows = [_row("aaa111", "2026-06-24T10:00:00Z"), _SWE_ROW]
+        lines = SC._swe_section(rows)
+        self.assertEqual(len(lines), 6)          # header block + ONE data row
+        self.assertNotIn("aaa111", "\n".join(lines))
+
+    def test_missing_fields_render_as_dash(self):
+        sparse = {"suite": "swe-task", "run": "", "commit": None,
+                  "arms": {}, "delta": "n/a"}
+        self.assertEqual(SC._swe_section([sparse])[-1],
+                         "| — | `—` | — | — | — |")

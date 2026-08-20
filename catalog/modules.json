@@ -2860,6 +2860,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_fleetreport.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_freshness.py"
     },
     {
@@ -7771,7 +7776,13 @@
     {
       "anchor_symbols": [
         "FLEET_IMPACT_FLOOR_N",
+        "_fleet_impact",
+        "_fleet_issues",
         "_fleet_top_learning_tags",
+        "_impact_boundary",
+        "_impact_payload",
+        "_impact_split",
+        "_print_impact",
         "cmd_fleet",
         "register_fleet"
       ],
@@ -7789,7 +7800,7 @@
       "owns": "the deterministic fleet observability REPORT surface -- cmd_fleet (the `fleet issues` recurrence ranking over the committed terminal sink joined with the rebuilt index's learning/decision tags, and the `fleet impact` correlational before/after failure-rate delta at a date-or-steering-sha boundary), the sufficiency floor that suppresses a delta computed from too few events (FLEET_IMPACT_FLOOR_N), and the `fleet` argparse registrar register_fleet.",
       "path": "scripts/agentware_lib/ops/fleet/fleetreport.py",
       "test_file": "tests/unit/ops/test_fleetreport.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_fleet",
@@ -9883,8 +9894,14 @@
         "_SKILL_CLUSTER_MIN_SIZE",
         "_SKILL_CLUSTER_SEPARATION_MIN",
         "_SKILL_CLUSTER_TAGSPINE_MIN",
+        "_cluster_adjacency",
+        "_cluster_nodes",
+        "_grow_cluster",
+        "_intra_scores",
+        "_mean_external",
         "_skill_cluster_scores",
         "_skill_edge_weight",
+        "_tag_spine",
         "cluster_learnings",
         "resolve_skill_promote_thresholds"
       ],
@@ -10706,7 +10723,10 @@
       "anchor_symbols": [
         "SCORECARD_REL",
         "_SCORECARD_COLS",
+        "_ablation_section",
         "_fmt_cell",
+        "_swe_section",
+        "_trend_table",
         "render_scorecard",
         "write_scorecard"
       ],

@@ -465,9 +465,19 @@ the file has started making; that promise is the new module's name.
 **Never raise a cap to fit the code, and never add a debt row to fit it**
 (`R-MOD-04`). The caps are pinned BY VALUE in `tests/gates/test_module_manifest.py`
 so lowering the bar takes two deliberate edits in two files. The pre-existing
-residual lives in `tests/fixtures/ceiling-debt.json`, is shrink-only in BOTH
-directions (an undeclared violation fails AND a row the tree no longer produces
-fails), and is owned by a named task.
+residual lives in `tests/fixtures/ceiling-debt.json` and is shrink-only in BOTH
+directions: an undeclared violation fails, AND a row the tree no longer produces
+fails.
+
+Every row there carries a **verdict**, and there are only two. An `exempt` row is
+permanent and names the **invariant** its count encodes — the branches are a
+closed taxonomy, a report-every-problem check set, or a per-field coercion of an
+external schema this package does not own — and it carries no owner, because
+there is no work to own. A `paydown` row is open work and names both an owner and
+the concrete **seam** that removes it. There is no third state: a row declared
+with no decision, owned by a task that has since closed, is what the schema
+refuses. `ratchet.max_rows` and `ratchet.max_paydown_rows` are pinned by value
+beside the caps, and the paydown counter only falls.
 
 ---
 

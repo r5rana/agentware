@@ -36,19 +36,9 @@ lines, so no `file_over_cap` row is available to anyone, anywhere in the tree
 (`schema_errors` refuses one). That half of the plan's ceiling is a property now,
 not a promise, and it cannot be re-broken by declaring the breakage as debt.
 
-The residual is therefore per-FUNCTION only — ~74 functions across `orglint`,
-`planlint`, `recallcmd`, `updatecmd`, `skills` and friends — and belongs to plan
-task 67, which widens the manifest across the whole tree and adds exactly these
-caps. It stays declared rather than fixed for a reason that is specific, not
-merely economic: task 30 gates that no definition's body is SHORTER than its
-adjudicated winner's, so splitting a 149-branch body into helpers here would
-redden the body differ, and the later port waves rewrite many of these same
-functions wholesale from the other tree. Leaving that residual undeclared would
-make this gate red for forty tasks, and a permanently red gate hides the ONE
-finding that matters: a NEW violation arriving today.
-
-So the residual is declared, per location, in a committed fixture and subtracted.
-It is a ratchet, not an allowlist, and it bites in BOTH directions:
+The residual is therefore per-FUNCTION only, and it is declared, per location, in
+a committed fixture and subtracted. It is a ratchet, not an allowlist, and it
+bites in BOTH directions:
 
   * a violation worse than its declared value, or at an undeclared location, is a
     failure — new monoliths cannot hide behind old ones;
@@ -58,12 +48,56 @@ It is a ratchet, not an allowlist, and it bites in BOTH directions:
 A row may never forgive a location under a package this task split — those are
 asserted clean directly, so the split cannot silently regress.
 
+## Schema 2 — every row carries a DECISION (task 99)
+
+Under schema 1 every row named an OWNING TASK: "task 67 removes this". That is
+the right shape for a residual with a scheduled end, and the wrong shape the
+moment the owning task closes — the pointer dangles, nobody is looking for the
+row any more, and a ratchet with 151 rows owned by finished work is an allowlist
+wearing a ratchet's clothes. Task 67 measured the residual tree-wide; task 99
+read every row against its body and gave each one of exactly two verdicts:
+
+  * `exempt` — PERMANENT, because the count is a property of the code. The row
+    carries an `invariant` naming what the branches ARE: a closed taxonomy, a
+    report-every-problem check set, a per-field coercion of an external schema
+    this package does not own. It carries NO `owner`, because there is no work
+    to own, and the schema refuses one.
+  * `paydown` — WORK, because the reading found nothing encoded: a guard-clause
+    chain, a flag dispatch whose arms each re-implement their own renderer, a
+    hand-rolled reader written at eight sites, repeated inline formatting. The
+    row carries a `seam` naming the concrete helpers that remove it and the
+    parent count that results, so it is a work order rather than a complaint and
+    the next reader does not have to re-derive the reading.
+
+The third state — declared, with no decision, owned by a task that has closed —
+is what this schema makes unrepresentable. `verdict` is required; an `exempt`
+row may not carry an owner; a `paydown` row must carry both an owner and a seam.
+
+`invariant` is additionally held to naming a property of the CODE. The row's
+history (which tree it came from, which port carried it, why splitting it then
+was risky) is real and belongs in the group `reason`; it is refused inside
+`invariant` by a closed word list, because "inherited from the donor at task 67"
+justifies nothing about whether the count is correct TODAY. A `seam` is under no
+such rule: naming the blocker that clears before the seam can be cut is exactly
+what a work order should say.
+
+Two counters, both pinned BY VALUE in `tests/gates/test_module_ceilings.py`:
+`ratchet.max_rows` must equal the row count, and `ratchet.max_paydown_rows` may
+only fall. Admitting a new row therefore takes a deliberate edit in two files —
+the same two-key move `_test_ownership` requires — and the paydown group can
+only shrink.
+
+An exemption is still a CEILING, not a pardon: the declared value is the worst
+the location may be, and a location that improves must have its row lowered or
+removed in the same commit. Both directions still bite.
+
 Stdlib only, read-only, deterministic, py3.7-safe.
 """
 
 import ast
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -80,8 +114,30 @@ import _corpus  # noqa: E402  (the ONE corpus + cap table, shared with the gener
 REPO_ROOT = _corpus.REPO_ROOT
 LIB_DIR = os.path.join(REPO_ROOT, "scripts", "agentware_lib")
 
-DEBT_SCHEMA = "agentware/ceiling-debt@1"
+DEBT_SCHEMA = "agentware/ceiling-debt@2"
 DEFAULT_DEBT = os.path.join(HERE, "fixtures", "ceiling-debt.json")
+
+#: The shortest a row's justification may be, whichever kind it is. A one-liner
+#: like "it is a dispatcher" names a shape, not a guarantee; an `invariant` has
+#: to say what breaks if the branches are collapsed and a `seam` has to name the
+#: helpers that remove the row, and neither fits in forty characters.
+JUSTIFICATION_MIN_CHARS = 60
+
+#: Words that describe a row's HISTORY or a reviewer's NERVES rather than the
+#: code's behaviour. Every one of them appeared in the schema-1 group reasons,
+#: where they were correct and useful — they explain how the row got here. In
+#: `invariant` they are a rubber stamp: none of them can be checked against the
+#: body, and all of them stay true forever no matter how the code changes. The
+#: match is word-boundaried so "reports" is not read as "port".
+PROVENANCE_WORDS = (
+    "task", "todo", "tbd", "inherited", "donor", "monolith", "legacy",
+    "pre-existing", "preexisting", "port", "ported", "move", "moved",
+    "temporary", "temporarily", "later", "eventually", "someday",
+    "risk", "risky", "dangerous", "complex", "complexity", "churn",
+    "refactor", "scope", "verbatim", "economic", "expensive",
+)
+_PROVENANCE_RX = re.compile(
+    r"\b(%s)\b" % "|".join(re.escape(w) for w in PROVENANCE_WORDS))
 
 # --- the ceilings (plan "Ceilings" section; the table lives in _corpus) ------
 LIB_FILE_CAP = _corpus.LAYER_CAPS[_corpus.LIB_LAYER]
@@ -268,15 +324,102 @@ def load_debt(path=None):
     for group in data.get("groups", []):
         for row in group.get("rows", []):
             merged = dict(row)
-            merged.setdefault("owner", group.get("owner"))
             merged.setdefault("reason", group.get("reason"))
+            merged.setdefault("verdict", group.get("verdict"))
+            if group.get("invariant") is not None:
+                merged.setdefault("invariant", group.get("invariant"))
+            if group.get("seam") is not None:
+                merged.setdefault("seam", group.get("seam"))
+            # NOT setdefault: an `owner` anywhere must reach `schema_errors`
+            # rather than being silently absorbed into the row it decorates.
+            if "owner" in group and "owner" not in merged:
+                merged["owner"] = group["owner"]
             rows.append(merged)
     return {"schema": data["schema"], "rows": rows,
-            "note": data.get("note"), "captured": data.get("captured")}
+            "note": data.get("note"), "captured": data.get("captured"),
+            "ratchet": data.get("ratchet") or {}}
 
 
 def _row_key(row):
     return (row["kind"], row["location"])
+
+
+EXEMPT = "exempt"
+PAYDOWN = "paydown"
+VERDICTS = (EXEMPT, PAYDOWN)
+
+
+def invariant_errors(location, text):
+    """Why this `invariant` does not name a property of the code, if it does not.
+
+    Split out so the refusal can be exercised directly on a string: the rule is
+    "say what the branches ARE", and the two ways to break it are to say nothing
+    (too short) or to say where the row came from (provenance language).
+    """
+    errors = []
+    if not text or not str(text).strip():
+        return ["row %r declares no invariant: an exemption must name the "
+                "property its count encodes, or its verdict is paydown"
+                % location]
+    text = str(text)
+    if len(text) < JUSTIFICATION_MIN_CHARS:
+        errors.append(
+            "row %r has a %d-character invariant; %d is the floor, because an "
+            "exemption has to say what BREAKS if the branches are collapsed"
+            % (location, len(text), JUSTIFICATION_MIN_CHARS))
+    hits = sorted(set(_PROVENANCE_RX.findall(text.lower())))
+    if hits:
+        errors.append(
+            "row %r justifies its exemption with provenance/nerves language "
+            "%r: `invariant` must name a property of the CODE that a reader can "
+            "check against the body — where the row came from belongs in the "
+            "group `reason`" % (location, hits))
+    return errors
+
+
+def _verdict_errors(row):
+    """The per-verdict obligations: what each kind of row must and may not carry.
+
+    A `paydown` row keeps an owner ON PURPOSE. It is open work, and open work
+    has someone doing it; what schema 1 got wrong was letting that owner outlive
+    the task, not having one at all. The counter is what keeps it honest —
+    `max_paydown_rows` only falls, so this group cannot grow while nobody is
+    looking, and when it reaches zero every remaining row is a decision that
+    stands.
+    """
+    loc, verdict = row.get("location"), row.get("verdict")
+    if verdict not in VERDICTS:
+        return ["row %r has verdict %r; every row must be adjudicated as one of "
+                "%r — a row with no verdict is the state this schema exists to "
+                "make unrepresentable" % (loc, verdict, list(VERDICTS))]
+    errors = []
+    if verdict == EXEMPT:
+        if "owner" in row:
+            errors.append(
+                "row %r is exempt but carries an `owner` (%r): an exemption has "
+                "no owner because there is no work to own. If there IS work, "
+                "its verdict is paydown." % (loc, row.get("owner")))
+        errors.extend(invariant_errors(loc, row.get("invariant")))
+        if row.get("seam"):
+            errors.append("row %r is exempt but names a `seam`: a seam is a "
+                          "work order, so the verdict should be paydown" % loc)
+    else:
+        owner = row.get("owner") or ""
+        if not owner.startswith("task "):
+            errors.append(
+                "row %r is a paydown but names no owning task (got %r): open "
+                "work has someone doing it" % (loc, row.get("owner")))
+        seam = row.get("seam") or ""
+        if len(seam) < JUSTIFICATION_MIN_CHARS:
+            errors.append(
+                "row %r is a paydown with a %d-character seam; %d is the floor, "
+                "because a work order has to name the helpers that remove the "
+                "row, not merely complain about it" % (loc, len(seam),
+                                                       JUSTIFICATION_MIN_CHARS))
+        if row.get("invariant"):
+            errors.append("row %r is a paydown but names an `invariant`: if the "
+                          "count encodes something, the verdict is exempt" % loc)
+    return errors
 
 
 def schema_errors(data):
@@ -284,9 +427,10 @@ def schema_errors(data):
     errors = []
     seen = set()
     for row in data.get("rows", []):
-        for field in ("kind", "location", "value", "owner", "reason"):
+        for field in ("kind", "location", "value", "reason", "verdict"):
             if not row.get(field) and row.get(field) != 0:
                 errors.append("row %r missing %r" % (row.get("location"), field))
+        errors.extend(_verdict_errors(row))
         key = _row_key(row)
         if key in seen:
             errors.append("duplicate row for %r" % (key,))
@@ -302,23 +446,58 @@ def schema_errors(data):
             # kind outright under the lib — rather than listing the twelve split
             # packages as carve-outs — is what makes that half of the file cap
             # unbreakable: a NEW over-cap lib file cannot be legalised by
-            # declaring it, by any later task.
+            # declaring it, by any later task, under EITHER verdict.
             #
             # Task 67 widened the corpus to the dashboard, the loop and hook
             # scripts, the test corpus and the webui, and that widening DID find
             # a residual: ten files already over their cap on the day the cap
-            # first applied to them. Those may be declared, because the plan
-            # itself assigns their removal elsewhere (task 69 decomposes the
-            # dashboard; task 71 owns the test corpus) — refusing the row would
-            # not split them, it would only force task 67 to do task 69's work or
-            # to lower the cap until the tree fit, which is the failure the
-            # ratchet exists to prevent. The refusal stays absolute where the
-            # claim is absolute: inside the lib.
+            # first applied to them. Those may be declared, because refusing the
+            # row would not split them — it would only force the cap down until
+            # the tree fit, which is the failure the ratchet exists to prevent.
+            # The refusal stays absolute where the claim is absolute: inside the
+            # lib.
             errors.append(
                 "row %r declares %s under %s: the lib file cap is satisfied "
                 "outright after task 21, so no lib file may be forgiven for "
                 "exceeding it — split the file instead"
                 % (loc, FILE_OVER, LIB_PREFIX))
+    errors.extend(_counter_errors(data))
+    return errors
+
+
+def _counter_errors(data):
+    """The population ratchet: the declared counter must equal the row count.
+
+    Checked HERE and not only in the gate test, so the documented command
+    (`python3 tests/_ceiling_gate.py`) refuses a hand-added exemption too. The
+    CEILING itself is pinned by value in `tests/gates/test_module_ceilings.py`
+    — one key in the fixture, one in the gate, so admitting a new exemption
+    cannot be a one-line edit anywhere.
+
+    A fixture with no `ratchet` block at all is not failed here: `load_debt`
+    hands synthetic single-row fixtures to `schema_errors` throughout the
+    suite, and requiring a counter on those would test the harness rather than
+    the ledger. The committed fixture's counter is asserted present by its own
+    gate test.
+    """
+    ratchet = data.get("ratchet") or {}
+    if "max_rows" not in ratchet:
+        return []
+    errors = []
+    rows = data.get("rows", [])
+    declared, actual = ratchet["max_rows"], len(rows)
+    if declared != actual:
+        errors.append(
+            "ratchet.max_rows is %r but the file carries %d row(s): the counter "
+            "is how a NEW row is made to cost two deliberate edits, so it must "
+            "be updated in the same commit" % (declared, actual))
+    live_pd = len([r for r in rows if r.get("verdict") == PAYDOWN])
+    declared_pd = ratchet.get("max_paydown_rows")
+    if declared_pd is not None and declared_pd != live_pd:
+        errors.append(
+            "ratchet.max_paydown_rows is %r but %d row(s) carry the paydown "
+            "verdict: this counter only falls, so paying a row down means "
+            "lowering it here in the same commit" % (declared_pd, live_pd))
     return errors
 
 
@@ -385,8 +564,8 @@ def main(argv=None):
         sys.stderr.write("ceiling gate FAILED: %d schema error(s), %d "
                          "problem(s)\n" % (len(errors), len(problems)))
         return 1
-    sys.stdout.write("ceiling gate OK: %d file(s) scanned, %d declared\n"
-                     % (len(corpus_files()), len(data["rows"])))
+    sys.stdout.write("ceiling gate OK: %d file(s) scanned, %d row(s) "
+                     "declared\n" % (len(corpus_files()), len(data["rows"])))
     return 0
 
 
