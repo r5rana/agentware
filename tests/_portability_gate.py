@@ -41,6 +41,15 @@ TWO TOKEN CLASSES, TWO SOURCES -- and the split is deliberate:
   reports ``unavailable`` in the report and in the exit banner; it never
   silently contributes zero needles and reads like a pass.
 
+TWO TASK-83 COMPANIONS cover what a SCAN structurally cannot.
+``tests/_neutrality_redact.py`` is the WRITE side, sharing this module's
+`load_needles` so the two cannot drift: a scan reports a token only once it is
+committed, and a capture frozen at a pinned head cannot be regenerated to remove
+one -- which is how three fixtures here carried a token for two waves.
+``tests/_portability_store.py`` is the OBJECT-STORE surface: every surface below
+is reachability-bounded, while a store keeps every abandoned rewrite and fetched
+tip and `git push` publishes by REF.
+
 Stdlib only. READ-ONLY: it opens files, runs read-only git plumbing, and writes
 nothing anywhere. Never touches the knowledge base.
 """

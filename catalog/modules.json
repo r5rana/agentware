@@ -1595,6 +1595,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_neutrality_redact.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_org_writer_rows.py"
     },
     {
@@ -1661,6 +1666,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/_portability_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_portability_store.py"
     },
     {
       "layer": "tests",
@@ -2010,6 +2020,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/gates/test_neutrality_redact.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/gates/test_orgidentity_gate.py"
     },
     {
@@ -2041,6 +2056,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_portability_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_portability_store.py"
     },
     {
       "layer": "tests",

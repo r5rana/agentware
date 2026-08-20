@@ -166,6 +166,26 @@ STAGES = tuple(
                "The shipped tree is vendor- and operator-neutral across all "
                "five surfaces (working tree, filenames, empty dirs, git "
                "metadata, commit range)."),
+        _stage("object-store", "object store gained only local authorship",
+               ("python3", "tests/_portability_store.py"), (FULL,),
+               "Task 83: every commit the object store holds beyond the base "
+               "ref, classified by the weakest `git push` that could publish "
+               "it. The commit-RANGE surface walks reachability from the branch "
+               "and stops; a store keeps every abandoned rewrite and fetched "
+               "tip, and `push --all` publishes by REF, not by what the branch "
+               "reaches. It is how task 82's pre-rewrite identity was found "
+               "still sitting on a refs/heads/ backup after the branch itself "
+               "was proven clean."),
+        _stage("neutrality-redaction", "committed captures carry no vendor token",
+               ("python3", "tests/_neutrality_redact.py"), (FULL, BOOTSTRAP),
+               "Task 83: the WRITE side of the portability gate. Three frozen "
+               "captures (a donor test-run baseline and two node-id freezes) "
+               "committed a vendor token no wave could clear, because a capture "
+               "cannot be regenerated at a moved head. This runs the same "
+               "needle set the scan uses over every capture artifact, so the "
+               "redactor and the gate that grades it cannot drift. Cheap enough "
+               "for the bootstrap profile; the builtin zero-tolerance class "
+               "runs even where the private needle file is absent."),
         _stage("body-differ", "body differ",
                ("python3", "tests/_body_differ.py", "--check"), (FULL,),
                "No ported definition landed with a body THINNER than its "
@@ -221,7 +241,12 @@ STAGES = tuple(
 #: A phrase with no stage, or a stage id that does not exist, is a gate failure.
 TASK_COVERAGE = (
     ("the full suite", tuple("suite-" + t for t in SUITE_TIERS)),
-    ("the portability gate", ("portability",)),
+    # TASK 83 widened this phrase rather than adding a tenth row: the task-12
+    # gate, the object-store surface and the write-side redactor are three
+    # halves of ONE claim (this tree is publishable), and listing them here is
+    # what makes dropping any of them fail by name instead of by silence.
+    ("the portability gate",
+     ("portability", "object-store", "neutrality-redaction")),
     ("the parity gate", ("parity", "parity-probes", "parity-sweep")),
     ("the body differ", ("body-differ",)),
     ("the constant differ", ("constant-differ",)),

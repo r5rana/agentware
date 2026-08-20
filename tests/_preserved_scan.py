@@ -19,7 +19,8 @@ env/config fixture (task 8) can see:
   6. FIXTURE FAMILIES   -- the three fixture families the merge must preserve
 
 Every recorded path is repo-relative and every recorded root is home-relativised,
-per `learn-capture-scripts-neutralise-env-and-redact-paths`.
+per `learn-capture-scripts-neutralise-env-and-redact-paths`, and every collected
+node id is NEUTRALISED before it leaves `collect_node_ids` (task 83).
 """
 
 import ast
@@ -168,7 +169,33 @@ def collect_node_ids(root):
         raise SystemExit("node-id collection failed for %s (rc=%d)\n%s"
                          % (root, proc.returncode, proc.stderr[-2000:]))
     payload = json.loads(proc.stdout)
-    return payload["ids"], payload["errors"]
+    return neutralise_ids(payload["ids"]), payload["errors"]
+
+
+def neutralise_ids(ids):
+    """Strip vendor tokens from collected ids BEFORE any consumer commits them.
+
+    Applied here, at the one boundary every id set crosses, rather than in each
+    writer: `_preserved_freeze` freezes these into two committed fixtures and
+    `_suite_delta` records them in the committed baselines, so a rule living in
+    one writer would leave the other leaking. A test NAMED for a vendor build
+    system is not a naming accident -- it is what that test tests -- so the
+    token cannot be renamed away upstream, and committing it here would put
+    operator-environment knowledge in a public repository (R-LOC-03).
+
+    Degrades to the identity function only if the needle machinery cannot load
+    at all; the zero-tolerance class is builtin, so the normal path always has
+    something to look for. See `tests/_neutrality_redact.py`.
+    """
+    try:
+        try:
+            from tests import _neutrality_redact as neutral
+        except ImportError:  # pragma: no cover - direct-script invocation
+            import _neutrality_redact as neutral
+        compiled, _meta = neutral.load_compiled()
+    except (ImportError, ValueError, OSError):  # pragma: no cover
+        return ids
+    return neutral.redact_ids(ids, compiled)
 
 
 def module_of(node_id):

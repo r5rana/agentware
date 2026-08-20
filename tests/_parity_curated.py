@@ -412,6 +412,33 @@ CURATED_ROWS = MERGE_ROWS + [
          LOCAL, 79, "tests.gates.test_parity_sweep",
          "take one row's probe out of the table: the coverage arm names that "
          "row rather than passing over a shorter table"),
+    _row("mod:neutrality-redaction-at-the-write-boundary", "modularity",
+         "The WRITE side of the portability gate: every node id leaves "
+         "`_preserved_scan.collect_node_ids` neutralised and every captured "
+         "output tail leaves `_baseline_capture.tail` neutralised, through the "
+         "SAME needle set the five-surface scan grades the tree by — so a "
+         "generator can never commit a vendor token the gate would then report "
+         "with no wave able to clear it, which is exactly how three frozen "
+         "captures carried one for two waves",
+         LOCAL, 83, "tests.gates.test_neutrality_redact",
+         "make the redactor keep its own needle list instead of calling the "
+         "gate's loader: the shared-source arm adds a needle nobody hardcoded "
+         "and demands that BOTH the scan and the redactor move on it, so a "
+         "private copy goes red even though it still imports the same module"),
+    _row("mod:object-store-authorship-census", "modularity",
+         "The SIXTH surface: every commit the object store holds beyond the "
+         "base ref, classified by the weakest `git push` that could publish it "
+         "(branch / pushable / mirror_only / unreachable) and checked against "
+         "the identity ANCHORED at the base ref's author. Reachability is not "
+         "publishability — `git log base..HEAD` stops at the branch while a "
+         "store keeps every abandoned rewrite and fetched tip, and `push --all` "
+         "publishes by REF",
+         LOCAL, 83, "tests.gates.test_portability_store",
+         "reimplement the census on `rev-list` instead of "
+         "`cat-file --batch-all-objects`: "
+         "test_the_store_sees_a_commit_the_range_walk_cannot goes red, because "
+         "it asserts the DIFFERENCE between the two enumerations rather than "
+         "the classifier's output"),
     _row("mod:mutation-sweep-runs-in-ci", "modularity",
          "The sweep is a DECLARED CI stage, so the proof is executed on every "
          "run rather than the once its author ran it: `--check` in both "

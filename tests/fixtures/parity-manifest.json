@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 569,
+    "rows": 571,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
@@ -44,20 +44,20 @@
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
-      "modularity": 17,
+      "modularity": 19,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 560,
+      "required": 562,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 82,
+      "curated": 84,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -289,7 +289,8 @@
         73,
         78,
         79,
-        82
+        82,
+        83
       ]
     }
   ],
@@ -3968,6 +3969,27 @@
       }
     },
     {
+      "id": "mod:neutrality-redaction-at-the-write-boundary",
+      "dimension": "modularity",
+      "capability": "The WRITE side of the portability gate: every node id leaves `_preserved_scan.collect_node_ids` neutralised and every captured output tail leaves `_baseline_capture.tail` neutralised, through the SAME needle set the five-surface scan grades the tree by \u2014 so a generator can never commit a vendor token the gate would then report with no wave able to clear it, which is exactly how three frozen captures carried one for two waves",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 83,
+      "evidence": {
+        "test": "tests.gates.test_neutrality_redact",
+        "mutation": "make the redactor keep its own needle list instead of calling the gate's loader: the shared-source arm adds a needle nobody hardcoded and demands that BOTH the scan and the redactor move on it, so a private copy goes red even though it still imports the same module",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_neutrality_redact.py",
+          "find": "    rows, meta = gate.load_needles(needles_path)",
+          "replace": "    rows, meta = ([], {c: {\"status\": \"builtin\", \"source\": \"builtin\", \"count\": 0} for c in gate.CLASSES})\n    del needles_path  # a private list, drifting from the scan\n"
+        }
+      }
+    },
+    {
       "id": "mod:no-vacuous-gate-command",
       "dimension": "modularity",
       "capability": "Every checker a CI stage names is EFFECTIVE, not merely present: it carries a real __main__ dispatch and can exit non-zero. Three of the five commands CONTRIBUTING.md documented as 'the structural checkers' could not fail \u2014 _ceiling_gate.py and _modularity_rules.py had no __main__ at all (running them imported a module and exited 0) and _manifest_gen.py --check ignored the flag and printed the manifest",
@@ -3985,6 +4007,27 @@
           "path": "tests/_ceiling_gate.py",
           "find": "if __name__ == \"__main__\":\n    sys.exit(main())",
           "replace": "# the dispatch task 78 found missing, removed again\n"
+        }
+      }
+    },
+    {
+      "id": "mod:object-store-authorship-census",
+      "dimension": "modularity",
+      "capability": "The SIXTH surface: every commit the object store holds beyond the base ref, classified by the weakest `git push` that could publish it (branch / pushable / mirror_only / unreachable) and checked against the identity ANCHORED at the base ref's author. Reachability is not publishability \u2014 `git log base..HEAD` stops at the branch while a store keeps every abandoned rewrite and fetched tip, and `push --all` publishes by REF",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 83,
+      "evidence": {
+        "test": "tests.gates.test_portability_store",
+        "mutation": "reimplement the census on `rev-list` instead of `cat-file --batch-all-objects`: test_the_store_sees_a_commit_the_range_walk_cannot goes red, because it asserts the DIFFERENCE between the two enumerations rather than the classifier's output",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_portability_store.py",
+          "find": "    out = _git(repo, \"cat-file\", \"--batch-all-objects\",",
+          "replace": "    out = _git(repo, \"rev-list\", \"--all\")\n    return sorted(_lines(out))\n    out = _git(repo, \"cat-file\", \"--batch-all-objects\","
         }
       }
     },

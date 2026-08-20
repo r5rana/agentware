@@ -542,6 +542,23 @@ MUTATION_PROBES = {
         "find": "    \"docs:roadmap-preserved\": {\n        \"kind\": \"delete-path\",\n        \"path\": \"ROADMAP.md\"\n    },\n",
         "replace": ""
     },
+    "mod:neutrality-redaction-at-the-write-boundary": {
+        "kind": "replace",
+        "path": "tests/_neutrality_redact.py",
+        "find": "    rows, meta = gate.load_needles(needles_path)",
+        "replace": "    rows, meta = ([], {c: {\"status\": \"builtin\", "
+                   "\"source\": \"builtin\", \"count\": 0} "
+                   "for c in gate.CLASSES})\n"
+                   "    del needles_path  # a private list, drifting from the scan\n"
+    },
+    "mod:object-store-authorship-census": {
+        "kind": "replace",
+        "path": "tests/_portability_store.py",
+        "find": "    out = _git(repo, \"cat-file\", \"--batch-all-objects\",",
+        "replace": "    out = _git(repo, \"rev-list\", \"--all\")\n"
+                   "    return sorted(_lines(out))\n"
+                   "    out = _git(repo, \"cat-file\", \"--batch-all-objects\","
+    },
     "mod:mutation-sweep-runs-in-ci": {
         "kind": "replace",
         "path": "tests/_ci_gate.py",

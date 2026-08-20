@@ -29,6 +29,15 @@ tagged release yet, so everything shipped so far sits under `[Unreleased]`.
   shards, provenance stamping, cross-team write isolation, curator-gated shared
   writes, and deterministic fleet reporting. With the org keys unset, resolution
   is byte-identical to a flat single-operator install.
+- **A five-surface vendor-neutrality gate plus its two task-83 companions.** The
+  scan grades the tree, its paths, its empty directories, its git metadata and
+  the branch commit range; `tests/_neutrality_redact.py` is the WRITE side, so a
+  generator that commits captured output neutralises it through the same needle
+  set rather than leaving a token no later wave can clear; and
+  `tests/_portability_store.py` adds the object-store census, which classifies
+  every commit beyond the base ref by the weakest `git push` that could publish
+  it — reachability is not publishability, and a store keeps every abandoned
+  rewrite and fetched tip a range walk never sees.
 - **A generated module manifest** (`catalog/modules.json`) enumerating every
   Python and shell file with its layer, ceiling and owning test, and the ratchets
   that keep the tree modular: per-file and per-function ceilings, the layer

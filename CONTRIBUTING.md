@@ -144,7 +144,7 @@ Green means *no worse than the recorded baseline*, not *zero failures* — read
 
 **The structural checkers** run in a second each and catch most review comments
 before a reviewer has to write them. Each prints a verdict and exits non-zero on
-a finding — `python3 tests/_ci_gate.py --profile bootstrap` runs all six:
+a finding — `python3 tests/_ci_gate.py --profile bootstrap` runs all seven:
 
 ```bash
 python3 tests/_ceiling_gate.py            # file and per-function ceilings
@@ -153,7 +153,16 @@ python3 tests/_test_ownership.py          # every module has an owning unit file
 python3 tests/_manifest_gen.py --check    # catalog/modules.json matches the tree
 python3 tests/_parity_manifest.py --check # every capability carries a row
 python3 tests/_parity_sweep.py --check    # every row's mutation probe is runnable
+python3 tests/_neutrality_redact.py       # no committed capture carries a vendor token
 ```
+
+**If you added a generator that COMMITS captured output** — a test-run baseline,
+a node-id freeze, a recorded traceback — it must write through the neutrality
+redactor. `tests/_neutrality_redact.py` shares its needle set with the
+five-surface portability gate, so the write side and the scan that grades the
+tree cannot disagree; `--apply` re-neutralises a file that already leaked. This
+is not theoretical: three frozen captures carried a vendor token for two waves
+because a capture taken at a pinned head cannot be regenerated to remove it.
 
 **If you added or changed a curated parity row**, prove its mutation actually
 reddens the test it names. The row is a claim; the probe is what refutes it:

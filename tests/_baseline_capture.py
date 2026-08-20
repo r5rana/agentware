@@ -132,8 +132,31 @@ def redact(text):
         return text
 
 
+def neutralise(text):
+    """Strip VENDOR identity from any text this capture is about to COMMIT.
+
+    The sibling of `redact`, and it exists because the two answer different
+    questions with the same urgency: `redact` removes the OPERATOR from a
+    committed traceback, this removes the ENVIRONMENT the donor tree ran in. A
+    failing donor test quotes its own assertion message, and three donor tests
+    assert on a corporate build system and auth cookie by name -- which is how a
+    vendor token ends up committed inside a fixture nobody thinks of as vendor
+    data. `tests/_neutrality_redact.py` shares the five-surface gate's needle
+    set, so the write side and the scan that grades it cannot disagree.
+    """
+    try:
+        import _neutrality_redact as _neutral
+    except ImportError:  # pragma: no cover - direct-script invocation
+        from tests import _neutrality_redact as _neutral
+    try:
+        compiled, _meta = _neutral.load_compiled()
+    except (ValueError, OSError):
+        return text
+    return _neutral.redact_text(text, compiled)
+
+
 def tail(text, limit=2000):
-    text = redact((text or "").strip())
+    text = neutralise(redact((text or "").strip()))
     if len(text) <= limit:
         return text
     return "..." + text[-limit:]

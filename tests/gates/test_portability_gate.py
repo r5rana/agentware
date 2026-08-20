@@ -438,13 +438,38 @@ class DebtTest(TempCase):
         self.assertEqual(pd.bare_location(keep), "a/b.md")
 
     def test_portgate_committed_debt_fixture_is_valid_and_owned(self):
+        """NARROWED IN PLACE at task 83, never renamed.
+
+        Task 12 asserted the fixture was non-empty, which was true of every day
+        between then and now and is the assertion a burndown must eventually
+        falsify: task 83 cleared the last three rows, so "there is at least one
+        row" became a demand that the debt never be paid off. What survives is
+        the part that was always the point -- every row PRESENT is a valid,
+        owned, non-zero-tolerance row -- plus `summarize` still answering over
+        whatever the file holds. The emptiness itself is asserted by
+        `test_portgate_committed_debt_fixture_is_empty_at_task_83`; splitting
+        them keeps this one meaningful if a future wave ever declares a row
+        again.
+        """
         rows = pd.load_debt()
-        self.assertTrue(rows)
         for row in rows:
             self.assertIn(row["surface"], pg.SURFACES)
             self.assertNotEqual(row.get("class"), pg.ZERO_TOLERANCE)
             self.assertRegex(row["owner"], r"task \d+")
-        self.assertTrue(pd.summarize(rows))
+        self.assertEqual(sorted(pd.summarize(rows)),
+                         sorted({r["owner"] for r in rows}))
+
+    def test_portgate_committed_debt_fixture_is_empty_at_task_83(self):
+        """The ratchet reached zero, and the gate is green on its own terms.
+
+        The last three rows named task 58 as their owner -- a task that had
+        already closed, which is how a shrink-only ledger rots into an
+        allowlist. They were cleared by REDACTING the token inside each frozen
+        capture rather than by deleting the row that carried it (a capture
+        rewritten to hide a deletion destroys the only record of what the other
+        tree had), and the gate now passes with no subtraction at all.
+        """
+        self.assertEqual(pd.load_debt(), [])
 
     def test_portgate_committed_debt_fixture_carries_no_token_text(self):
         with open(pd.DEFAULT_DEBT, "r", encoding="utf-8") as handle:
