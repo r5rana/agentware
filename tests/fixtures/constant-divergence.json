@@ -8,7 +8,7 @@
  },
  "counts": {
   "legacy": 227,
-  "lib": 577,
+  "lib": 580,
   "legacy_only": 248,
   "shared": 227,
   "divergent": 17
@@ -32,7 +32,7 @@
   ],
   "_EXPORTS": [
    0,
-   194
+   196
   ]
  },
  "legacy_only": [
@@ -1982,13 +1982,13 @@
   },
   {
    "name": "_KB_MIGRATIONS",
-   "literal": "((1, 'additive', 'plan-state-backfill', _migration_001_state_backfill), (2, 'additive', 'team-mode-scaffold', _migration_002_team_mode_scaffold))",
+   "literal": "((1, 'additive', 'plan-state-backfill', _migration_001_state_backfill), (2, 'additive', 'team-mode-scaffold', _migration_002_team_mode_scaffold), (3, 'additive', 'template-refresh', _migration_003_template_refresh))",
    "legacy_sites": [
     "scripts/agentware_legacy.py"
    ],
    "status": "resolved",
-   "follow_up": "task 63",
-   "reason": "the migration registry is append-only by design; task 63 appends migration 002 (the additive team-mode scaffold). Migration 001's row is preserved verbatim, so a lost or re-spelt monolith migration still fails the differ.",
+   "follow_up": "task 90",
+   "reason": "the migration registry is append-only by design; task 63 appends migration 002 (the additive team-mode scaffold) and task 90 migration 003 (the installed-template refresh). Migration 001's row is preserved verbatim, so a lost or re-spelt monolith migration still fails the differ.",
    "lib_sites": [
     "scripts/agentware_lib/features/migratecmd.py"
    ]

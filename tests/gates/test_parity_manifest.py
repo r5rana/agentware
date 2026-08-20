@@ -234,9 +234,17 @@ class CuratedTierTest(unittest.TestCase):
         for rid in hand_written.get("absence_probe", []):
             self.assertIn(rid, committed)
 
+    #: Upper bound on a curated row's plan task. A SANITY bound only — it catches a
+    #: typo or a placeholder, and the real check is the dimension-membership test
+    #: below, which is strictly stronger (a task absent from every dimension's
+    #: plan_tasks fails there whatever this bound says). Widened 88 -> 106 at task
+    #: 90: the plan grew to 105 tasks, so the old literal — the task count on the
+    #: day it was written — had started rejecting rows for existing.
+    MAX_PLAN_TASK = 105
+
     def test_every_curated_row_names_a_plan_task_and_a_test_and_a_mutation(self):
         for row in self.curated:
-            self.assertIn(row["task"], range(1, 88), row["id"])
+            self.assertIn(row["task"], range(1, self.MAX_PLAN_TASK + 1), row["id"])
             self.assertTrue(row["evidence"]["test"].startswith("tests."))
             self.assertGreater(len(row["evidence"]["mutation"]), 20, row["id"])
 

@@ -359,7 +359,7 @@ def _register_plan_state(plan_sub, fmt_parent):
     import agentware_lib.ops.planauthor.planstate as planstate
     import agentware_lib.ops.plangraph as plangraph
     _backfill = getattr(
-        importlib.import_module("agentware_lib.features.migratecmd"),
+        importlib.import_module("agentware_lib.features.planbackfill"),
         "cmd_plan_state_backfill")
 
     p_plan_state = plan_sub.add_parser(

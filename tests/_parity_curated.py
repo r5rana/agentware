@@ -63,6 +63,15 @@ CURATED_ROWS = MERGE_ROWS + [
          DONOR, 51, "tests.unit.knowledge.test_templates_lint",
          "remove a required field from any template: the linter must redden "
          "naming the field"),
+    _row("docs:installed-template-refresh", "docs_templates",
+         "Migration 003 refreshes an INSTALLED template only when it is both "
+         "frontmatter-less AND byte-identical to a generation this package "
+         "shipped, so a stale KB is repaired while an operator-modified "
+         "template is left alone",
+         LOCAL, 90, "tests.unit.ops.test_templaterefresh",
+         "drop the pristine-digest half of the test (refresh anything "
+         "frontmatter-less): the step silently overwrites a template the "
+         "operator edited, and the left-byte-identical assertions redden"),
     _row("docs:artifact-capture-standard", "docs_templates",
          "The donor's artifact capture standard: a learning referencing a "
          "concrete artifact captures it verbatim",

@@ -140,6 +140,16 @@ class RegistrationTest(OrgMigrateTestCase):
         self.assertGreaterEqual(self.mig.KB_SCHEMA_VERSION, 2)
 
     def test_migrate_list_reports_the_step_as_pending_on_an_older_kb(self):
+        """THIS step is reported pending, at ITS version, in registry order.
+
+        Narrowed at task 90 from "the pending list IS exactly this step" to "the
+        FIRST pending row on a schema-1 KB is this step, at version 2". The old
+        spelling was an assertion about the whole registry made from a test that
+        owns one row of it, so registering ANY later migration reddened it — and
+        the ordered-first form still fails if this step is dropped, re-versioned,
+        renamed, or ordered behind a later one, which is everything this test was
+        ever measuring.
+        """
         kdir = tempfile.mkdtemp(prefix="agentware-kb-")
         self.addCleanup(shutil.rmtree, kdir, True)
         build_synthetic_kb(kdir)
@@ -148,8 +158,8 @@ class RegistrationTest(OrgMigrateTestCase):
         code, out, err = self.run_cli(["migrate", "--list", "--format", "json"], kdir)
         self.assertEqual(code, 0, err)
         payload = json.loads(out)
-        self.assertEqual([p["name"] for p in payload["pending"]],
-                         ["team-mode-scaffold"])
+        self.assertEqual(payload["pending"][0]["name"], "team-mode-scaffold")
+        self.assertEqual(payload["pending"][0]["version"], 2)
         self.assertEqual(payload["target"], self.mig.KB_SCHEMA_VERSION)
 
     def test_applying_through_the_runner_actually_executes_the_body(self):

@@ -34,11 +34,11 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 571,
+    "rows": 572,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
-      "docs_templates": 13,
+      "docs_templates": 14,
       "dream_maintenance": 7,
       "env_config": 82,
       "evaluation_quality": 4,
@@ -51,13 +51,13 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 562,
+      "required": 563,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 84,
+      "curated": 85,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -251,7 +251,8 @@
         74,
         75,
         76,
-        77
+        77,
+        90
       ]
     },
     {
@@ -2025,6 +2026,27 @@
           "path": ".claude/skills/modular-development/SKILL.md",
           "find": "python3 tests/_ceiling_gate.py",
           "replace": "python3 tests/_ceiling_gate_v2.py"
+        }
+      }
+    },
+    {
+      "id": "docs:installed-template-refresh",
+      "dimension": "docs_templates",
+      "capability": "Migration 003 refreshes an INSTALLED template only when it is both frontmatter-less AND byte-identical to a generation this package shipped, so a stale KB is repaired while an operator-modified template is left alone",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 90,
+      "evidence": {
+        "test": "tests.unit.ops.test_templaterefresh",
+        "mutation": "drop the pristine-digest half of the test (refresh anything frontmatter-less): the step silently overwrites a template the operator edited, and the left-byte-identical assertions redden",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/templaterefresh.py",
+          "find": "    return \"refresh\" if _sha256_bytes(raw) in known else \"modified\"",
+          "replace": "    return \"refresh\""
         }
       }
     },

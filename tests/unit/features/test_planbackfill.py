@@ -1,13 +1,24 @@
-"""Migration 001 — plan state-backfill (feature 260710, Task 4).
+"""Owning unit file for `agentware_lib.features.planbackfill` (R-MOD-06).
 
-Verifies the dogfood migration that stamps a derived `> Status:` on every legacy
-plan: derives done vs draft, never overwrites an existing status, skips the live
-loop feature and unparseable plans, covers work/auto/ workorders, is idempotent,
-and runs through `migrate --apply` (additive tier).
+Migration 001 — plan state-backfill (feature 260710, Task 4). Verifies the
+dogfood migration that stamps a derived `> Status:` on every legacy plan: derives
+done vs draft, never overwrites an existing status, skips the live loop feature
+and unparseable plans, covers work/auto/ workorders, is idempotent, and runs
+through `migrate --apply` (additive tier).
 
-Test names are prefixed `test_backfill_` (a distinct -k handle).
+RENAMED from `test_backfill_migration` at task 90, when migration 001's body moved
+out of the registry module into `features/planbackfill` (registering migration 003
+pushed `migratecmd` past its 600-line cap, and the split went where the file's own
+docstring already declared two obligations). The rename is a RE-AIM, not new
+coverage: this file was always this body's oracle, and it is now named for the
+module it owns, so the ownership gate can see it. Recorded in
+`tests/_test_layout.RELOCATIONS`, because a node id embeds its module path and the
+preserved-surface freeze reads a moved id as a lost one.
 
-Runner: python3 -m unittest tests.unit.features.test_backfill_migration -v
+Test names are prefixed `test_backfill_` (a distinct -k handle) and are deliberately
+NOT renamed with the file: the freeze cannot tell a rename from a deletion.
+
+Runner: python3 -m unittest tests.unit.features.test_planbackfill -v
 """
 
 import os
@@ -21,14 +32,16 @@ try:
 except ImportError:
     from _fixtures import run_cli as _raw_run_cli, build_synthetic_kb, load_lib
 
-#: Migration 001's body moved to the lib with the runner at task 37; its two plan
-#: helpers (_plan_path / _read_plan_status) are bound in the same namespace, so
-#: this module is the whole oracle for this file.
-MIGRATE_MOD = "agentware_lib.features.migratecmd"
+#: Migration 001's body moved to the lib with the runner at task 37, and out of the
+#: registry module into its own at task 90. This is the module under test.
+MIGRATE_MOD = "agentware_lib.features.planbackfill"
 #: The plan primitives the assertions read are OWNED elsewhere and only reached
 #: through the migration: naming their modules keeps the ownership visible.
 PLANEDIT_MOD = "agentware_lib.ops.planauthor.planedit"
 PLANSTATE_MOD = "agentware_lib.ops.planauthor.planstate"
+#: The REGISTRY that schedules this body — reached only for the schema version the
+#: `migrate --apply` assertion reads, never for the body itself (task 90).
+REGISTRY_MOD = "agentware_lib.features.migratecmd"
 
 
 def _legacy_plan(feature, done=True):
@@ -52,6 +65,7 @@ class BackfillTestCase(unittest.TestCase):
         self.mod = load_lib(MIGRATE_MOD)
         self.planedit = load_lib(PLANEDIT_MOD)
         self.planstate = load_lib(PLANSTATE_MOD)
+        self.registry = load_lib(REGISTRY_MOD)
 
     def run_cli(self, argv):
         try:
@@ -150,7 +164,8 @@ class BackfillTestCase(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(self.status_of("260101-mig")[0], "done")
         with open(os.path.join(self.kdir, ".schema")) as f:
-            self.assertEqual(int(f.read().strip()), self.mod.KB_SCHEMA_VERSION)
+            self.assertEqual(int(f.read().strip()),
+                             self.registry.KB_SCHEMA_VERSION)
 
 
 if __name__ == "__main__":

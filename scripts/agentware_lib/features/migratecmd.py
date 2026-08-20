@@ -6,22 +6,24 @@ registered version), the sidecar writer (_kb_schema_write; the READER
 _kb_schema_read moved to core.kblayout at task 39 and is re-exported here), the
 pending-set (_kb_pending_migrations), the audit journal (_KB_MIGRATION_JOURNAL_REL /
 _kb_journal_migration), the idempotent runner (_kb_migrate_apply), the dispatch-time
-guard (_kb_writer_funcs / _kb_autoapply_funcs / _kb_predispatch_gate), migration 001's
-body (_run_state_backfill / _migration_001_state_backfill), and the `migrate` command
-handler + registrar (cmd_migrate / register_migrate).
-Does NOT own: the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout,
-with the rest of the KB layout); the plan `> Status:` text primitives migration 001
-rewrites (-> agentware_lib.ops.planauthor.planstate); the plan path + atomic write
-(-> agentware_lib.ops.planauthor.planedit); the loop-outcome derivation
-(-> agentware_lib.ops.derive); the live-session detector (->
-agentware_lib.features.dreamgate); and any WRITER it guards — every one of those lives
-in its own module and is named here only as a gate TARGET.
-Layer deps: features.migratecmd -> core (config, dates, kblayout) + ops (derive,
-planauthor.planedit, planauthor.planstate) + features (dreamgate) — ALL DOWNWARD or
-same-layer. That cross-layer reach is exactly why the interlock is homed in features
-rather than in knowledge: migration 001's body needs the ops plan primitives AND the
-features live-session detector, and knowledge -> ops / knowledge -> features are the
-upward edges the layer contract forbids.
+guard (_kb_writer_funcs / _kb_autoapply_funcs / _kb_predispatch_gate), the three
+registered migrations' lazy entry points (_migration_001_state_backfill /
+_migration_002_team_mode_scaffold / _migration_003_template_refresh) and the
+`migrate` command handler + registrar (cmd_migrate / register_migrate).
+Does NOT own: any migration BODY — 001's is agentware_lib.features.planbackfill,
+002's agentware_lib.ops.orgmigrate, 003's agentware_lib.ops.templaterefresh, each
+resolved LAZILY at call time (task 90 moved 001 out, so the registry now owns
+none of the three; a body is a one-off rewrite of operator data, the registry only
+SCHEDULES it); the schema sidecar's FILENAME (SCHEMA_REL ->
+agentware_lib.core.kblayout, with the rest of the KB layout); the plan path +
+atomic write (-> agentware_lib.ops.planauthor.planedit); and any WRITER it guards
+— every one of those lives in its own module and is named here only as a gate
+TARGET.
+Layer deps: features.migratecmd -> core (config, dates, kblayout) +
+ops.planauthor.planedit (the atomic `.schema` write) — ALL DOWNWARD. The interlock
+stays homed in features because the bodies it schedules reach across ops AND
+features, and knowledge -> ops / knowledge -> features are the upward edges the
+layer contract forbids.
 Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 
 WHY THIS IS THE FIRST PORT (feature 260813 task 37)
@@ -60,16 +62,12 @@ does not resolve — so the guard cannot be forgotten one port at a time.
 import importlib
 import json
 import os
-import re
 import sys
 
 import agentware_lib.core.config as config
 import agentware_lib.core.dates as dates
 import agentware_lib.core.kblayout as kblayout
-import agentware_lib.features.dreamgate as dreamgate
-import agentware_lib.ops.derive as derive
 import agentware_lib.ops.planauthor.planedit as planedit
-import agentware_lib.ops.planauthor.planstate as planstate
 # The schema-sidecar READER moved DOWN to core.kblayout at task 39, beside the
 # SCHEMA_REL name it reads, and is re-exported here so `CLI._kb_schema_read` and
 # every call site in this module resolve the SAME object. It moved because plan
@@ -89,104 +87,20 @@ from agentware_lib.core.kblayout import _kb_schema_read   # noqa: F401  (re-expo
 # CLL (KB_SCHEMA_VERSION < .schema) fails loud read-only on any KB write.
 # Each migration: (version:int, tier:'additive'|'restructuring', name:str,
 #                  fn:callable(kdir)) — fn MUST be idempotent + non-destructive.
-def _backfill_plan_features(kdir):
-    """Every work feature under <kdir>/work with a plan to consider, `auto/` ones
-    included, in sorted order. Returns None when work/ cannot be listed at all —
-    the caller reports an empty summary rather than crashing a migration."""
-    work = os.path.join(kdir, "work")
-    feats = []
-    try:
-        for name in sorted(os.listdir(work)):
-            fdir = os.path.join(work, name)
-            if not os.path.isdir(fdir):
-                continue
-            if name == "auto":
-                try:
-                    for sub in sorted(os.listdir(fdir)):
-                        if os.path.isdir(os.path.join(fdir, sub)):
-                            feats.append("auto/" + sub)
-                except OSError:
-                    pass
-            else:
-                feats.append(name)
-    except OSError:
-        return None
-    return feats
-
-
-def _backfill_read_plan(path, feat):
-    """(text, None) for a plan-shaped file, else (None, reason). A plan needs a
-    title or a `> Feature:`/`> Created:` header anchor; anything else is one of
-    the legacy non-plan variants and is SKIPPED (logged), never a crash."""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            text = f.read()
-    except OSError:
-        sys.stderr.write("migration-001: skipping unreadable plan %s\n" % feat)
-        return None, "unreadable"
-    if not (re.search(r"(?m)^#\s", text)
-            or re.search(r"(?m)^>\s*(Feature|Created):", text)):
-        sys.stderr.write("migration-001: skipping unparseable plan %s\n" % feat)
-        return None, "unparseable"
-    return text, None
-
-
-def _backfill_stamp_plan(kdir, feat, path, text, now_iso):
-    """Stamp a derived `> Status:` + one status-log line onto ONE legacy plan.
-    Returns the state written. Non-destructive: only ADDS the two lines."""
-    outcome = derive.derive_outcome(kdir, feat)
-    state = "done" if (outcome and outcome.get("outcome") == "completed") \
-        else "draft"
-    lines = text.splitlines()
-    lines = planstate._set_header_line(lines, "Status", state)
-    lines = planstate._append_status_log(
-        lines, "- %s (none) -> %s by migration-001 reason: backfilled by "
-               "migration-001" % (now_iso, state))
-    out = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
-    planedit._atomic_write(path, out)
-    return state
-
-
-def _run_state_backfill(kdir, now_iso=None):
-    """Stamp `> Status:` on every legacy work/*/plan.md AND work/auto/*/plan.md
-    that lacks one, deriving `done` (metrics terminal `completed` > `.loop/.done` >
-    all-tasks-✅, via derive_outcome) else `draft`. NEVER overwrites an existing
-    status; skips the live loop feature (is_session_active) and unparseable plans
-    (logged); appends a `backfilled by migration-001` status-log line per stamp.
-    Idempotent + non-destructive. Returns a summary dict."""
-    now_iso = now_iso or dates.utc_now_iso()
-    live = dreamgate.is_session_active(kdir)
-    stamped, skipped_existing, skipped_live, skipped_unparseable = [], [], [], []
-    feats = _backfill_plan_features(kdir)
-    if feats is None:
-        return {"stamped": [], "skipped_existing": [], "skipped_live": [],
-                "skipped_unparseable": []}
-    for feat in feats:
-        path = planedit._plan_path(kdir, feat)
-        if not os.path.isfile(path):
-            continue
-        text, _reason = _backfill_read_plan(path, feat)
-        if text is None:
-            skipped_unparseable.append(feat)
-            continue
-        _state, cnt = planstate._read_plan_status(text)
-        if cnt >= 1:
-            skipped_existing.append(feat)   # NEVER overwrite an existing status
-            continue
-        if feat == live:
-            skipped_live.append(feat)       # the loop stamps it done at run end
-            continue
-        state = _backfill_stamp_plan(kdir, feat, path, text, now_iso)
-        stamped.append({"feature": feat, "state": state})
-    return {"stamped": stamped, "skipped_existing": skipped_existing,
-            "skipped_live": skipped_live,
-            "skipped_unparseable": skipped_unparseable}
-
-
 def _migration_001_state_backfill(kdir):
     """Migration 001 (additive tier): dogfood the state machine by stamping a
-    derived `> Status:` on every pre-existing plan. Idempotent + non-destructive."""
-    return _run_state_backfill(kdir)
+    derived `> Status:` on every pre-existing plan. Idempotent + non-destructive;
+    the body lives in agentware_lib.features.planbackfill (moved there at task 90
+    — see that module's docstring for why a body is not the registry's).
+
+    The import is LAZY, like 002's and 003's: this module is imported on EVERY
+    CLI invocation (the dispatch gate lives here), and the body reaches ops.derive,
+    both plan primitive modules and the live-session detector — a fan-out no
+    `--help` should pay for.
+    """
+    import agentware_lib.features.planbackfill as planbackfill
+    return planbackfill._run_state_backfill(kdir)
+
 
 
 def _migration_002_team_mode_scaffold(kdir):
@@ -207,12 +121,34 @@ def _migration_002_team_mode_scaffold(kdir):
     return orgmigrate.run_team_mode_scaffold(kdir)
 
 
+def _migration_003_template_refresh(kdir):
+    """Migration 003 (additive tier): refresh the templates `init` INSTALLED into
+    the knowledge dir, which `init` itself can never revisit — it copies each
+    template only when the destination is absent, so a KB created before the
+    corpus gained frontmatter keeps its legacy copies forever and `templates
+    lint` reports a T1 finding with no path to clearing it. Idempotent +
+    non-destructive: a file is rewritten ONLY when it is both frontmatter-less
+    AND byte-identical to a generation this package shipped, so an operator-
+    modified template is left alone. The body lives in
+    agentware_lib.ops.templaterefresh.
+
+    The import is LAZY for the same reason as _migration_002_team_mode_scaffold:
+    `agentware_lib.cli` imports this module on every CLI invocation (the dispatch
+    gate lives here), and no `--help` should pay for a migration body's fan-out.
+    """
+    import agentware_lib.ops.templaterefresh as templaterefresh
+    return templaterefresh.run_template_refresh(kdir)
+
+
 # Registered migrations, ascending version. 001 = plan state-backfill (additive);
-# 002 = additive team-mode scaffold (additive).
+# 002 = additive team-mode scaffold (additive); 003 = installed-template refresh
+# (additive).
 _KB_MIGRATIONS = ((1, "additive", "plan-state-backfill",
                    _migration_001_state_backfill),
                   (2, "additive", "team-mode-scaffold",
-                   _migration_002_team_mode_scaffold))
+                   _migration_002_team_mode_scaffold),
+                  (3, "additive", "template-refresh",
+                   _migration_003_template_refresh))
 KB_SCHEMA_VERSION = max((m[0] for m in _KB_MIGRATIONS), default=0)
 _KB_MIGRATION_JOURNAL_REL = os.path.join("logs", "migrations.jsonl")
 
@@ -302,7 +238,7 @@ _KB_WRITER_TARGETS = (
     ("agentware_lib.ops.planauthor.planedit", "cmd_plan_set_status"),
     ("agentware_lib.ops.planauthor.planstate", "cmd_plan_set_state"),
     ("agentware_lib.ops.planauthor.planstate", "cmd_plan_claim"),
-    ("agentware_lib.features.migratecmd", "cmd_plan_state_backfill"),
+    ("agentware_lib.features.planbackfill", "cmd_plan_state_backfill"),
     # task 45 — the `prefer` writers. `prefer` is in _KB_WRITER_VERBS, so the
     # interlock's correspondence check requires a row per DISPATCHED handler.
     # cmd_prefer is registered even though it is largely sugar over cmd_learn:
@@ -353,7 +289,7 @@ _KB_AUTOAPPLY_EXCLUDED_TARGETS = (
     # itself: the runner would apply 001 and then hand control to the handler that
     # performs 001's work on an already-migrated KB. Version-REFUSAL still applies
     # (it stays in _KB_WRITER_TARGETS above); only the auto-apply is withheld.
-    ("agentware_lib.features.migratecmd", "cmd_plan_state_backfill"),
+    ("agentware_lib.features.planbackfill", "cmd_plan_state_backfill"),
     # task 45 — `cmd_prefer` is DUAL-MODE: digest / list / scan-queue are
     # read-only and run at SESSION START, so auto-applying migrations from them
     # would let a read silently advance the KB `.schema` on every session.
@@ -544,25 +480,6 @@ def register_migrate(sub, fmt_parent):
     p_mig.set_defaults(func=cmd_migrate)
 
 
-def cmd_plan_state_backfill(args):
-    """`plan state-backfill` — migration 001's logic, also runnable directly."""
-    kdir = config.require_knowledge_dir()
-    if not kdir:
-        return 1
-    summary = _run_state_backfill(kdir)
-    if getattr(args, "format", "text") == "json":
-        out = {"ok": True}
-        out.update(summary)
-        json.dump(out, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("PLAN state-backfill: stamped %d, skipped %d existing + %d live + "
-              "%d unparseable"
-              % (len(summary["stamped"]), len(summary["skipped_existing"]),
-                 len(summary["skipped_live"]), len(summary["skipped_unparseable"])))
-    return 0
-
-
 # Explicit facade export list (public AND underscore-private): the entrypoint binds
 # exactly these names, so the monolith's own dispatch gate and every
 # SourceFileLoader-based test reach ONE runner — the interlock's whole point.
@@ -575,10 +492,9 @@ _EXPORTS = [
     "_kb_pending_migrations",
     "_kb_journal_migration",
     "_kb_migrate_apply",
-    "_run_state_backfill",
     "_migration_001_state_backfill",
     "_migration_002_team_mode_scaffold",
-    "cmd_plan_state_backfill",
+    "_migration_003_template_refresh",
     "cmd_migrate",
 ]
 

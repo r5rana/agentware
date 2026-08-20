@@ -216,12 +216,15 @@ LEGACY_ONLY = {
     "_KB_MIGRATIONS": {
         "literal": "((1, 'additive', 'plan-state-backfill', "
                    "_migration_001_state_backfill), (2, 'additive', "
-                   "'team-mode-scaffold', _migration_002_team_mode_scaffold))",
+                   "'team-mode-scaffold', _migration_002_team_mode_scaffold), "
+                   "(3, 'additive', 'template-refresh', "
+                   "_migration_003_template_refresh))",
         "reason": "the migration registry is append-only by design; task 63 "
-                  "appends migration 002 (the additive team-mode scaffold). "
+                  "appends migration 002 (the additive team-mode scaffold) and "
+                  "task 90 migration 003 (the installed-template refresh). "
                   "Migration 001's row is preserved verbatim, so a lost or "
                   "re-spelt monolith migration still fails the differ.",
-        "follow_up": "task 63",
+        "follow_up": "task 90",
     },
 }
 

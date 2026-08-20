@@ -149,10 +149,22 @@ class ManagedBlockArmTest(ScratchTreeTest):
 
     def test_a_hand_edited_managed_block_is_named(self):
         """The fan-in column is a fact, not prose: nudging it by one is the
-        smallest possible hand edit and it must still be caught."""
-        edit(self.root, docsync.ARCH_REL,
-             "| `agentware_lib.core.dates` | `tests/unit/core/test_dates.py` | 54 |",
-             "| `agentware_lib.core.dates` | `tests/unit/core/test_dates.py` | 55 |")
+        smallest possible hand edit and it must still be caught.
+
+        The count is READ from the scratch tree rather than written here (task
+        90). Pinning the literal made this fixture a second, hand-maintained copy
+        of a GENERATED number: adding any module that imports `core.dates` moved
+        the real row and the mutation stopped applying, so the arm failed with
+        `fixture drift` — a gate reporting its own fixture rather than the thing
+        it guards. Deriving it keeps the mutation exactly one off-by-one.
+        """
+        row = re.search(
+            r"\| `agentware_lib\.core\.dates` \| `[^`]+` \| (\d+) \|",
+            read(self.root, docsync.ARCH_REL))
+        self.assertIsNotNone(row, "the module-map row for core.dates is gone")
+        edit(self.root, docsync.ARCH_REL, row.group(0),
+             row.group(0).replace("| %s |" % row.group(1),
+                                  "| %d |" % (int(row.group(1)) + 1)))
         self.assertNamed("D", "module-map")
 
     def test_a_hand_edited_ceiling_table_is_named(self):

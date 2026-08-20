@@ -565,6 +565,12 @@ MUTATION_PROBES = {
         "find": "        _stage(\"parity-sweep\", \"parity mutation sweep (every curated row)\",",
         "replace": "        _stage(\"parity-sweep-RENAMED\", \"parity mutation sweep (every curated row)\","
     },
+    "docs:installed-template-refresh": {
+        "kind": "replace",
+        "path": "scripts/agentware_lib/ops/templaterefresh.py",
+        "find": '    return "refresh" if _sha256_bytes(raw) in known else "modified"',
+        "replace": '    return "refresh"',
+    },
 }
 
 

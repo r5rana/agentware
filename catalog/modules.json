@@ -550,6 +550,11 @@
     {
       "layer": "lib",
       "line_cap": 600,
+      "path": "scripts/agentware_lib/features/planbackfill.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
       "path": "scripts/agentware_lib/features/proposals/__init__.py"
     },
     {
@@ -1116,6 +1121,11 @@
       "layer": "lib",
       "line_cap": 600,
       "path": "scripts/agentware_lib/ops/team.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/templaterefresh.py"
     },
     {
       "layer": "lib",
@@ -2425,11 +2435,6 @@
     {
       "layer": "tests",
       "line_cap": 600,
-      "path": "tests/unit/features/test_backfill_migration.py"
-    },
-    {
-      "layer": "tests",
-      "line_cap": 600,
       "path": "tests/unit/features/test_cfgshow.py"
     },
     {
@@ -2581,6 +2586,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_plan_graph_scheduler.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_planbackfill.py"
     },
     {
       "layer": "tests",
@@ -3076,6 +3086,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_staleness_propose.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_templaterefresh.py"
     },
     {
       "layer": "tests",
@@ -3950,6 +3965,7 @@
         "agentware_lib.features.pkgapply",
         "agentware_lib.features.pkgreconcile",
         "agentware_lib.features.pkgupdater",
+        "agentware_lib.features.planbackfill",
         "agentware_lib.features.proposals.proposalpromote",
         "agentware_lib.features.proposals.proposeauthor",
         "agentware_lib.features.reviewagent",
@@ -4091,6 +4107,7 @@
         "agentware_lib.ops.preferdigest",
         "agentware_lib.ops.skillcluster",
         "agentware_lib.ops.staging",
+        "agentware_lib.ops.templaterefresh",
         "agentware_lib.retrieval.bench.benchledger",
         "agentware_lib.retrieval.corpus"
       ],
@@ -4327,6 +4344,7 @@
         "agentware_lib.ops.scaffoldunit",
         "agentware_lib.ops.staging",
         "agentware_lib.ops.steering",
+        "agentware_lib.ops.templaterefresh",
         "agentware_lib.ops.tickcmd",
         "agentware_lib.retrieval.goldfixture",
         "agentware_lib.retrieval.ledger",
@@ -4976,9 +4994,9 @@
       ],
       "depended_on_by": [
         "agentware_lib.features.dream",
-        "agentware_lib.features.migratecmd",
         "agentware_lib.features.pkgapply",
         "agentware_lib.features.pkgupdater",
+        "agentware_lib.features.planbackfill",
         "agentware_lib.features.updatecmd"
       ],
       "dependency_direction": "features -> core, knowledge, ops, retrieval",
@@ -6090,9 +6108,6 @@
         "KB_SCHEMA_VERSION",
         "_KB_MIGRATIONS",
         "_KB_MIGRATION_JOURNAL_REL",
-        "_backfill_plan_features",
-        "_backfill_read_plan",
-        "_backfill_stamp_plan",
         "_cmd_migrate_apply",
         "_kb_autoapply_funcs",
         "_kb_journal_migration",
@@ -6104,10 +6119,9 @@
         "_kb_writer_funcs",
         "_migration_001_state_backfill",
         "_migration_002_team_mode_scaffold",
+        "_migration_003_template_refresh",
         "_resolve_targets",
-        "_run_state_backfill",
         "cmd_migrate",
-        "cmd_plan_state_backfill",
         "register_migrate"
       ],
       "depended_on_by": [
@@ -6119,16 +6133,15 @@
       "depends_on": [
         "agentware_lib.core.dates",
         "agentware_lib.core.kblayout",
-        "agentware_lib.features.dreamgate",
-        "agentware_lib.ops.derive",
+        "agentware_lib.features.planbackfill",
         "agentware_lib.ops.orgmigrate",
         "agentware_lib.ops.planauthor.planedit",
-        "agentware_lib.ops.planauthor.planstate"
+        "agentware_lib.ops.templaterefresh"
       ],
       "layer": "features",
       "name": "agentware_lib.features.migratecmd",
-      "not_owns": "the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout, with the rest of the KB layout); the plan `> Status:` text primitives migration 001 rewrites (-> agentware_lib.ops.planauthor.planstate); the plan path + atomic write (-> agentware_lib.ops.planauthor.planedit); the loop-outcome derivation (-> agentware_lib.ops.derive); the live-session detector (-> agentware_lib.features.dreamgate); and any WRITER it guards — every one of those lives in its own module and is named here only as a gate TARGET.",
-      "owns": "the knowledge-base SCHEMA INTERLOCK in full — the registered migration table (_KB_MIGRATIONS) and the package's schema version (KB_SCHEMA_VERSION = the max registered version), the sidecar writer (_kb_schema_write; the READER _kb_schema_read moved to core.kblayout at task 39 and is re-exported here), the pending-set (_kb_pending_migrations), the audit journal (_KB_MIGRATION_JOURNAL_REL / _kb_journal_migration), the idempotent runner (_kb_migrate_apply), the dispatch-time guard (_kb_writer_funcs / _kb_autoapply_funcs / _kb_predispatch_gate), migration 001's body (_run_state_backfill / _migration_001_state_backfill), and the `migrate` command handler + registrar (cmd_migrate / register_migrate).",
+      "not_owns": "any migration BODY — 001's is agentware_lib.features.planbackfill, 002's agentware_lib.ops.orgmigrate, 003's agentware_lib.ops.templaterefresh, each resolved LAZILY at call time (task 90 moved 001 out, so the registry now owns none of the three; a body is a one-off rewrite of operator data, the registry only SCHEDULES it); the schema sidecar's FILENAME (SCHEMA_REL -> agentware_lib.core.kblayout, with the rest of the KB layout); the plan path + atomic write (-> agentware_lib.ops.planauthor.planedit); and any WRITER it guards — every one of those lives in its own module and is named here only as a gate TARGET.",
+      "owns": "the knowledge-base SCHEMA INTERLOCK in full — the registered migration table (_KB_MIGRATIONS) and the package's schema version (KB_SCHEMA_VERSION = the max registered version), the sidecar writer (_kb_schema_write; the READER _kb_schema_read moved to core.kblayout at task 39 and is re-exported here), the pending-set (_kb_pending_migrations), the audit journal (_KB_MIGRATION_JOURNAL_REL / _kb_journal_migration), the idempotent runner (_kb_migrate_apply), the dispatch-time guard (_kb_writer_funcs / _kb_autoapply_funcs / _kb_predispatch_gate), the three registered migrations' lazy entry points (_migration_001_state_backfill / _migration_002_team_mode_scaffold / _migration_003_template_refresh) and the `migrate` command handler + registrar (cmd_migrate / register_migrate).",
       "path": "scripts/agentware_lib/features/migratecmd.py",
       "test_file": "tests/unit/features/test_migratecmd.py",
       "test_file_present": false,
@@ -6266,6 +6279,34 @@
       "path": "scripts/agentware_lib/features/pkgupdater.py",
       "test_file": "tests/unit/features/test_pkgupdater.py",
       "test_file_present": false,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
+        "_backfill_plan_features",
+        "_backfill_read_plan",
+        "_backfill_stamp_plan",
+        "_run_state_backfill",
+        "cmd_plan_state_backfill"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.migratecmd"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.features.dreamgate",
+        "agentware_lib.ops.derive",
+        "agentware_lib.ops.planauthor.planedit",
+        "agentware_lib.ops.planauthor.planstate"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.planbackfill",
+      "not_owns": "the migration REGISTRY, the schema sidecar, the dispatch gate or the runner that calls this (agentware_lib.features.migratecmd — one schema authority, per its interlock docstring); the plan `> Status:` text primitives this rewrites (agentware_lib.ops.planauthor.planstate); the plan path + atomic write (agentware_lib.ops.planauthor.planedit); the loop-outcome derivation (agentware_lib.ops.derive); the live-session detector (agentware_lib.features.dreamgate); the `plan` registrar, which resolves this handler by (module, attr) at REGISTRATION time (agentware_lib.ops.planauthor.planedit.register_plan).",
+      "owns": "migration 001's BODY in full — the work-feature walk (_backfill_plan_features), the plan-shaped reader (_backfill_read_plan), the per-plan stamp (_backfill_stamp_plan), the idempotent runner (_run_state_backfill) and the `plan state-backfill` handler (cmd_plan_state_backfill) that makes the same logic runnable directly.",
+      "path": "scripts/agentware_lib/features/planbackfill.py",
+      "test_file": "tests/unit/features/test_planbackfill.py",
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -7606,7 +7647,7 @@
         "derive_plan_size"
       ],
       "depended_on_by": [
-        "agentware_lib.features.migratecmd",
+        "agentware_lib.features.planbackfill",
         "agentware_lib.ops.alerts",
         "agentware_lib.ops.failureladder",
         "agentware_lib.ops.loopanalytics",
@@ -8289,6 +8330,7 @@
         "agentware_lib.features.graphdag.graphmanifest",
         "agentware_lib.features.graphdag.graphrun",
         "agentware_lib.features.migratecmd",
+        "agentware_lib.features.planbackfill",
         "agentware_lib.features.skilllock",
         "agentware_lib.ops.checkupcmd",
         "agentware_lib.ops.orgmigrate",
@@ -8298,7 +8340,8 @@
         "agentware_lib.ops.preferdispose",
         "agentware_lib.ops.preferqueue",
         "agentware_lib.ops.reviewreport",
-        "agentware_lib.ops.sessionparse.minerstate"
+        "agentware_lib.ops.sessionparse.minerstate",
+        "agentware_lib.ops.templaterefresh"
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
       "depends_on": [
@@ -8464,7 +8507,7 @@
         "agentware_lib.features.dreamsteps.stepdetectreport",
         "agentware_lib.features.graphdag.graphrun",
         "agentware_lib.features.graphdag.graphstate",
-        "agentware_lib.features.migratecmd",
+        "agentware_lib.features.planbackfill",
         "agentware_lib.ops.checkupemit",
         "agentware_lib.ops.checkuphealth",
         "agentware_lib.ops.checkupprobes",
@@ -9979,6 +10022,37 @@
           "verb": "team"
         }
       ]
+    },
+    {
+      "anchor_symbols": [
+        "LEGACY_TEMPLATE_DIGESTS",
+        "TEMPLATES_DIRNAME",
+        "_classify_template",
+        "_empty_summary",
+        "_has_frontmatter",
+        "_report",
+        "_sha256_bytes",
+        "refresh_installed_templates",
+        "run_template_refresh",
+        "shipped_templates_dir"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.migratecmd"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter",
+        "agentware_lib.core.paths",
+        "agentware_lib.ops.planauthor.planedit"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.templaterefresh",
+      "not_owns": "the migration REGISTRY, the schema sidecar or the runner that calls this (agentware_lib.features.migratecmd — one schema authority, per its interlock docstring); the FIRST install of the corpus into a new knowledge dir (agentware_lib.features.setupcmd's `init`, whose copy is deliberately create-if-absent); the template CONTRACT this makes satisfiable (agentware_lib.ops.fleet.fleettemplates' T1..T5 `templates lint`); the shipped templates themselves (`templates/*.md` at the repo root); the frontmatter grammar (agentware_lib.core.frontmatter); the atomic write (agentware_lib.ops.planauthor. planedit).",
+      "owns": "the refresh of an ALREADY-INSTALLED template corpus in an operator's knowledge dir — the pristine-shipped digest table (LEGACY_TEMPLATE_DIGESTS, which is what lets \"unmodified\" be decided rather than guessed), the per-file classifier (_classify_template -> refresh | current | modified | foreign | unreadable | source-not-conformant), the file-level refresh (refresh_installed_templates), the change-only notice (_report) and the migration entry point run_template_refresh.",
+      "path": "scripts/agentware_lib/ops/templaterefresh.py",
+      "test_file": "tests/unit/ops/test_templaterefresh.py",
+      "test_file_present": true,
+      "verbs": []
     },
     {
       "anchor_symbols": [

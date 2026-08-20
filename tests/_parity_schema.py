@@ -335,7 +335,11 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor carries a decision template, declared "
                                  "frontmatter on every template, an architecture "
                                  "README section and the artifact capture standard"),
-        "plan_tasks": [20, 51, 61, 74, 75, 76, 77],
+        # 90 completes 51: the reconciled corpus only ever reaches a knowledge
+        # base that did not already have one, because `init` copies
+        # create-if-absent — so the shipped templates and the INSTALLED ones
+        # are two different corpora until a migration reconciles them.
+        "plan_tasks": [20, 51, 61, 74, 75, 76, 77, 90],
     },
     {
         "name": "evaluation_quality",

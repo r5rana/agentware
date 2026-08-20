@@ -82,7 +82,7 @@ modules import it, i.e. what a change here ripples into).
 
 <!-- BEGIN GENERATED: module-map (python3 tests/_doc_sync.py --write) -->
 
-_203 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
+_205 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
 
 #### `core/` — 20 modules
 
@@ -94,14 +94,14 @@ _203 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.core.config.configvalidate` | `tests/unit/core/test_configvalidate.py` | 1 |
 | `agentware_lib.core.config.configwrite` | `tests/unit/core/test_configwrite.py` | 0 |
 | `agentware_lib.core.config.orgresolve` | `tests/unit/core/test_orgresolve.py` | 0 |
-| `agentware_lib.core.dates` | `tests/unit/core/test_dates.py` | 54 |
+| `agentware_lib.core.dates` | `tests/unit/core/test_dates.py` | 55 |
 | `agentware_lib.core.embedderapi` | `tests/unit/core/test_embedderapi.py` | 1 |
-| `agentware_lib.core.frontmatter` | `tests/unit/core/test_frontmatter.py` | 30 |
+| `agentware_lib.core.frontmatter` | `tests/unit/core/test_frontmatter.py` | 31 |
 | `agentware_lib.core.gitio` | `tests/unit/core/test_gitio.py` | 28 |
 | `agentware_lib.core.kblayout` | `tests/unit/core/test_kblayout.py` | 16 |
 | `agentware_lib.core.orgidentity` | `tests/unit/core/test_orgidentity.py` | 2 |
 | `agentware_lib.core.orgkeys` | `tests/unit/core/test_orgkeys.py` | 12 |
-| `agentware_lib.core.paths` | `tests/unit/core/test_paths.py` | 39 |
+| `agentware_lib.core.paths` | `tests/unit/core/test_paths.py` | 40 |
 | `agentware_lib.core.pkgchannel` | `tests/unit/core/test_pkgchannel.py` | 6 |
 | `agentware_lib.core.pkghome` | `tests/unit/core/test_pkghome.py` | 10 |
 | `agentware_lib.core.pkgstate` | `tests/unit/core/test_pkgstate.py` | 6 |
@@ -157,7 +157,7 @@ _203 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.retrieval.vectorcache` | `tests/unit/retrieval/test_vectorcache.py` | 6 |
 | `agentware_lib.retrieval.workcorpus` | `tests/unit/retrieval/test_workcorpus.py` | 1 |
 
-#### `ops/` — 75 modules
+#### `ops/` — 76 modules
 
 | Module | Owning test | Fan-in |
 |--------|-------------|--------|
@@ -190,7 +190,7 @@ _203 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.ops.metricscmd` | `tests/unit/ops/test_metricscmd.py` | 0 |
 | `agentware_lib.ops.orglint` | `tests/unit/ops/test_orglint.py` | 0 |
 | `agentware_lib.ops.orgmigrate` | `tests/unit/ops/test_orgmigrate.py` | 1 |
-| `agentware_lib.ops.planauthor.planedit` | `tests/unit/ops/test_planedit.py` | 14 |
+| `agentware_lib.ops.planauthor.planedit` | `tests/unit/ops/test_planedit.py` | 16 |
 | `agentware_lib.ops.planauthor.plankernelpath` | `tests/unit/ops/test_plankernelpath.py` | 8 |
 | `agentware_lib.ops.planauthor.plannew` | `tests/unit/ops/test_plannew.py` | 6 |
 | `agentware_lib.ops.planauthor.plansanitize` | `tests/unit/ops/test_plansanitize.py` | 2 |
@@ -235,9 +235,10 @@ _203 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.ops.staging` | `tests/unit/ops/test_staging.py` | 8 |
 | `agentware_lib.ops.steering` | `tests/unit/ops/test_steering.py` | 2 |
 | `agentware_lib.ops.team` | `tests/unit/ops/test_team.py` | 2 |
+| `agentware_lib.ops.templaterefresh` | `tests/unit/ops/test_templaterefresh.py` | 1 |
 | `agentware_lib.ops.tickcmd` | `tests/unit/ops/test_tickcmd.py` | 0 |
 
-#### `features/` — 67 modules
+#### `features/` — 68 modules
 
 | Module | Owning test | Fan-in |
 |--------|-------------|--------|
@@ -294,6 +295,7 @@ _203 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.features.pkgapply` | `tests/unit/features/test_pkgapply.py` | 5 |
 | `agentware_lib.features.pkgreconcile` | `tests/unit/features/test_pkgreconcile.py` | 2 |
 | `agentware_lib.features.pkgupdater` | `tests/unit/features/test_pkgupdater.py` | 7 |
+| `agentware_lib.features.planbackfill` | `tests/unit/features/test_planbackfill.py` | 1 |
 | `agentware_lib.features.proposals.proposalpromote` | `tests/unit/features/test_proposalpromote.py` | 0 |
 | `agentware_lib.features.proposals.proposalreport` | `tests/unit/features/test_proposalreport.py` | 1 |
 | `agentware_lib.features.proposals.proposeauthor` | `tests/unit/features/test_proposeauthor.py` | 1 |
