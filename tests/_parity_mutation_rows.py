@@ -571,6 +571,12 @@ MUTATION_PROBES = {
         "find": '    return "refresh" if _sha256_bytes(raw) in known else "modified"',
         "replace": '    return "refresh"',
     },
+    "kb:one-topic-grammar-for-both-curation-verbs": {
+        "kind": "replace",
+        "path": "scripts/agentware_lib/features/curationcmd.py",
+        "find": "        topic = _curation_topic(raw_topic)  # writes its own refusal/notice",
+        "replace": "        topic = raw_topic",
+    },
 }
 
 

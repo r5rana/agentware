@@ -1696,7 +1696,7 @@
     "scripts/agentware_lib/retrieval/evalcmd.py::register_eval",
     "scripts/agentware_lib/retrieval/recallcmd.py::register_recall"
    ],
-   "rationale": "The monolith built the whole CLI in ONE `build_parser`; the lib's `assemble_parser` walks the frozen registration tuple and each verb owns its own registrar. The maintenance protocol above said to append each verb's registrar as it ported, and while the monolith's 65k-char body was still present it paid the floor by itself, so a missing row cost nothing and the list stopped at task 38. This is that list completed -- all 44, generated from _PARSER_REGISTRATION so it cannot drift from what actually registers."
+   "rationale": "The monolith built the whole CLI in ONE `build_parser`; the lib's `assemble_parser` walks the verb rows agentware_lib.verbs DISCOVERS and each verb owns its own registrar. The maintenance protocol above said to append each registrar as it ported, and while the monolith's 65k-char body was still present it paid the floor by itself, so a missing row cost nothing and the list stopped at task 38. This is that list completed -- all 44, read from the per-module `__verbs__` declarations (task 70), so it cannot drift from what runs."
   },
   {
    "name": "build_recall_payload",
@@ -2235,8 +2235,16 @@
    "donor_sites": [
     "scripts/agentware_lib/features/curationcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 3607
+   "adjudication": "decomposed",
+   "winner_chars": 3607,
+   "host": "scripts/agentware_lib/features/curationcmd.py",
+   "floor_chars": 2959,
+   "absorbs": [
+    "scripts/agentware_lib/features/curationcmd.py::_curation_topic",
+    "scripts/agentware_lib/features/curationcmd.py::_near_duplicate_refusal",
+    "scripts/agentware_lib/features/curationcmd.py::_entry_probe_text"
+   ],
+   "rationale": "Task 91 hardened `decide`'s `--topic`, which took the string VERBATIM as both the decisions/ filename stem and the entry id while `learn` had normalized since 260710-learning-repair-p1. The fix is a SHARE, not a second implementation: a grammar the sibling verb skips is indistinguishable from no grammar for whoever calls the sibling, and two copies would drift on the next edit. So `cmd_learn`'s three input blocks left it for the three named receivers -- the slug normalization and its notice, the near-duplicate policy (force short-circuit, threshold, refusal sentence), and the probe-text assembly -- and `cmd_decide` now calls the same three. Every statement that left the handler is in one of them; nothing was dropped, which is why the learn half of the behaviour is pinned by `tests/unit/features/test_learn_hardening.py` passing UNCHANGED across the move (same notice text, same refusal wording, same --force semantics), while the new `tests/unit/features/test_decide_hardening.py` pins the half that did not exist -- six of its eleven cases were reproduced RED against the pre-task module. The receivers are shared rather than learn-private on purpose: that sharing IS the capability the task landed, and the parity row `kb:one-topic-grammar-for-both-curation-verbs` carries the mutation (make `cmd_decide` take `args.topic` verbatim again) that reddens the decide half while the learn half stays green -- the asymmetry itself, made executable."
   },
   {
    "name": "cmd_mcp",

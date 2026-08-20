@@ -456,4 +456,16 @@ CURATED_ROWS = MERGE_ROWS + [
          LOCAL, 79, "tests.gates.test_ci_workflow",
          "delete the sweep stage from the declared table: the coverage arm "
          "names it by id rather than passing over a shorter table"),
+    # --------------------------------------------------------- kb integrity
+    _row("kb:one-topic-grammar-for-both-curation-verbs", "kb_integrity",
+         "BOTH entry-writing verbs normalize `--topic` through one grammar, so "
+         "neither can mint a filename or an entry id carrying spaces — an id "
+         "`worklog scan` slugifies its marker before matching and could "
+         "therefore never see as promoted, recoverable only by `index remove` "
+         "+ re-add. `learn` normalized; `decide` took the string verbatim, "
+         "identically on both sides of the merge",
+         LOCAL, 91, "tests.unit.features.test_decide_hardening",
+         "make `cmd_decide` take `args.topic` verbatim again: the id/path "
+         "space assertions and the normalization-notice assertion redden, and "
+         "`test_learn_hardening` stays green — which is the asymmetry itself"),
 ]

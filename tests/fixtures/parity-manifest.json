@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 572,
+    "rows": 573,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
@@ -42,7 +42,7 @@
       "dream_maintenance": 7,
       "env_config": 82,
       "evaluation_quality": 4,
-      "kb_integrity": 12,
+      "kb_integrity": 13,
       "loop_orchestration": 7,
       "modularity": 19,
       "org_team": 7,
@@ -51,13 +51,13 @@
       "test_corpus": 256
     },
     "by_status": {
-      "required": 563,
+      "required": 564,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 85,
+      "curated": 86,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -167,7 +167,8 @@
         23,
         24,
         53,
-        57
+        57,
+        91
       ]
     },
     {
@@ -3445,6 +3446,27 @@
           "path": "scripts/agentware_lib/features/setupcmd.py",
           "find": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir):\n            pointable, reason = kblayout.kb_pointable(existing)\n",
           "replace": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir) \\\n                and os.path.isfile(os.path.join(existing, kblayout.SENTINEL_REL)):\n            pointable, reason = kblayout.kb_pointable(existing)\n"
+        }
+      }
+    },
+    {
+      "id": "kb:one-topic-grammar-for-both-curation-verbs",
+      "dimension": "kb_integrity",
+      "capability": "BOTH entry-writing verbs normalize `--topic` through one grammar, so neither can mint a filename or an entry id carrying spaces \u2014 an id `worklog scan` slugifies its marker before matching and could therefore never see as promoted, recoverable only by `index remove` + re-add. `learn` normalized; `decide` took the string verbatim, identically on both sides of the merge",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 91,
+      "evidence": {
+        "test": "tests.unit.features.test_decide_hardening",
+        "mutation": "make `cmd_decide` take `args.topic` verbatim again: the id/path space assertions and the normalization-notice assertion redden, and `test_learn_hardening` stays green \u2014 which is the asymmetry itself",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/features/curationcmd.py",
+          "find": "        topic = _curation_topic(raw_topic)  # writes its own refusal/notice",
+          "replace": "        topic = raw_topic"
         }
       }
     },

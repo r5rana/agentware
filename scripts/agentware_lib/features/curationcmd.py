@@ -1,11 +1,16 @@
 """agentware_lib.features.curationcmd -- the learn/decide command surface (layer: features).
 
 Owns: the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the
-ONE write prologue they share (_kdir_for_curation_write -- resolve the knowledge dir
-THEN apply the shared/ CR-gate, so neither handler can acquire a write target
-without passing the gate), and their argparse registrars (register_learn /
-register_decide) -- the orchestrating write-commands that validate input, guard
-shared-writes, render the entry body, write the file, and register it in the index.
+THREE input contracts they share -- the write prologue (_kdir_for_curation_write --
+resolve the knowledge dir THEN apply the shared/ CR-gate, so neither handler can
+acquire a write target without passing the gate), the `--topic` grammar
+(SLUG_RE / _curation_topic -- one slug normalization + notice for both verbs, so
+neither can write a file or an id nobody can promote), and the near-duplicate
+policy (LEARN_NEAR_DUP_THRESHOLD / _near_duplicate_entry / _near_duplicate_refusal
+-- the category-scoped BM25 probe plus the refusal it earns) -- and their argparse
+registrars (register_learn / register_decide) -- the orchestrating write-commands
+that validate input, guard shared-writes, render the entry body, write the file,
+and register it in the index.
 
 Does NOT own: the pure entry WRITERS/renderers (_render_learning /
 _render_decision_body / _topic_to_title / _slugify) -> agentware_lib.knowledge.curation;
@@ -106,11 +111,99 @@ def _kdir_for_curation_write(args):
     return kdir
 
 
-def _near_duplicate_learning(kdir, data, query_text):
-    """Closest existing-learning near-duplicate of `query_text`: (entry, ratio).
+def _curation_topic(raw_topic):
+    """The slug-safe stem BOTH curation verbs write under, or None if refused.
+
+    `--topic` is used VERBATIM for two things nobody can repair afterwards
+    without an `index remove` + re-add: the filename under `learnings/` or
+    `decisions/`, and the entry id. A prose topic therefore produced a file whose
+    name carries spaces and an id with spaces in it, and `worklog scan`'s
+    promotion check slugifies a marker before matching it against entry stems, so
+    such an entry can never be recognised as the promotion of the marker that
+    prompted it.
+
+    `learn` has normalized since 260710-learning-repair-p1; `decide` took the raw
+    string (identically on BOTH sides of the merge, so a pre-existing asymmetry
+    and not a port regression). ONE grammar for both handlers, for the same
+    structural reason `_kdir_for_curation_write` is shared: a normalization the
+    sibling verb skips is indistinguishable from no normalization for whoever
+    calls the sibling, and the skip is invisible at review time because each
+    handler reads fine on its own.
+
+    Both refusals and the normalization notice are written HERE (stderr), so a
+    caller spends ONE branch on the whole grammar rather than three. Returns the
+    normalized slug, or None after writing the reason. Read-only."""
+    if not raw_topic:
+        sys.stderr.write("agentware: --topic must not be empty\n")
+        return None
+    # Normalize to a slug-safe stem (^[a-z0-9][a-z0-9-]*$). A non-slug topic
+    # (spaces, punctuation, uppercase) silently produced broken ids AND
+    # filenames. Auto-slugify + notice instead of writing a malformed entry (the
+    # exact bug that left 4 unpromotable legacy learnings, and that hit `decide`
+    # live while promoting a `> DECISION:` marker during task 54).
+    topic = raw_topic if SLUG_RE.match(raw_topic) else _slugify(raw_topic)
+    if not topic:
+        sys.stderr.write(
+            "agentware: --topic %r has no slug-safe characters\n" % raw_topic)
+        return None
+    if topic != raw_topic:
+        sys.stderr.write(
+            "agentware: normalized --topic %r -> %r\n" % (raw_topic, topic))
+    return topic
+
+
+def _near_duplicate_refusal(kdir, data, query_text, category, noun, force=False):
+    """The message refusing `query_text` as a near-duplicate, or None to allow.
+
+    The PROBE (`_near_duplicate_entry`) answers "what is closest, and how close";
+    this answers the policy question "does that block the write", which is the
+    half both handlers need and neither should re-derive. `force` short-circuits
+    the probe entirely rather than discarding its verdict, so `--force` also
+    means "do not pay for the corpus scan". `noun` names the thing in the
+    operator-facing sentence ("learning" / "decision"); the learnings wording is
+    byte-identical to what `cmd_learn` printed before this was factored out.
+    Read-only; no index write."""
+    if force:
+        return None
+    entry, ratio = _near_duplicate_entry(kdir, data, query_text, category)
+    if entry is None or ratio < LEARN_NEAR_DUP_THRESHOLD:
+        return None
+    return ("agentware: near-duplicate of existing %s '%s' "
+            "(%.0f%% overlap): %s\n"
+            "  amend that entry, pick a more specific --topic, or pass "
+            "--force to record anyway.\n"
+            % (noun, entry.get("id"), ratio * 100.0, entry.get("path")))
+
+
+def _entry_probe_text(title, summary, tag_list, body):
+    """What a CANDIDATE entry is compared against — shaped like a corpus doc.
+
+    `build_corpus` gives every EXISTING entry `title + summary + tags + file
+    body` (`_entry_doc_text`), so a probe assembled any other way compares unlike
+    with unlike, and the ratio starts measuring the shape difference instead of
+    the content. `cmd_learn` has always assembled it this way; `decide` only
+    looks different because an operator's `--options/--choice/--rationale`
+    become body text through the renderer, so the RENDERED body is its analogue
+    of `--content`.
+
+    Measured, not assumed, on a decisions corpus: a near-verbatim duplicate
+    scores 0.81 doc-shaped against 0.75 when the rendered scaffold is dropped —
+    straddling LEARN_NEAR_DUP_THRESHOLD, i.e. the difference between a guard and
+    a decoration — while a genuinely distinct decision carrying that same
+    Options/Choice/Rationale scaffold scores 0.09, because BM25 discounts by IDF
+    a template every document in the sub-corpus shares. That second number is
+    what retires the worry that probing the scaffold would blanket-block."""
+    return "\n".join([title, summary or "", " ".join(tag_list), body])
+
+
+def _near_duplicate_entry(kdir, data, query_text, category="learnings"):
+    """Closest existing `category` near-duplicate of `query_text`: (entry, ratio).
 
     Retrieval reuses the SAME lexical machinery recall uses (`build_corpus` +
-    `bm25_scores`) scoped to the `learnings` sub-corpus. The new content is
+    `bm25_scores`) scoped to ONE category's sub-corpus — `learnings` for `learn`,
+    `decisions` for `decide` — so a decision is only ever compared against other
+    decisions (comparing across categories would measure the shared scaffold, not
+    the claim). The new content is
     appended as an ephemeral pseudo-doc so its BM25 SELF-score normalizes scale:
     `ratio = bm25(query, best_existing) / bm25(query, new_content)`, a corpus-
     independent [0,1] self-similarity (~1.0 == near-verbatim; distinct entries
@@ -121,11 +214,11 @@ def _near_duplicate_learning(kdir, data, query_text):
     if not q_tokens:
         return None, 0.0
     corpus = [(e, t) for (e, t) in build_corpus(kdir, data)
-              if e.get("category") == "learnings"]
+              if e.get("category") == category]
     if not corpus:
         return None, 0.0
     pseudo_id = "\x00new-learning"  # sentinel absent from any real corpus id
-    corpus.append(({"id": pseudo_id, "category": "learnings", "created": ""},
+    corpus.append(({"id": pseudo_id, "category": category, "created": ""},
                    query_text))
     scored = bm25_scores(corpus, q_tokens)
     self_score = 0.0
@@ -150,22 +243,9 @@ def cmd_learn(args):
         return 1
 
     raw_topic = (args.topic or "").strip()
-    if not raw_topic:
-        sys.stderr.write("agentware: --topic must not be empty\n")
-        return 1
-    # Normalize --topic to a slug-safe stem (^[a-z0-9][a-z0-9-]*$). A non-slug
-    # topic (spaces, punctuation, uppercase) silently produced broken ids AND
-    # filenames, and breaks worklog-scan promotion (which slugifies markers
-    # before matching learning stems). Auto-slugify + notice instead of writing a
-    # malformed entry (the exact bug that left 4 unpromotable legacy entries).
-    topic = raw_topic if SLUG_RE.match(raw_topic) else _slugify(raw_topic)
+    topic = _curation_topic(raw_topic)  # writes its own refusal/notice
     if not topic:
-        sys.stderr.write(
-            "agentware: --topic %r has no slug-safe characters\n" % raw_topic)
         return 1
-    if topic != raw_topic:
-        sys.stderr.write(
-            "agentware: normalized --topic %r -> %r\n" % (raw_topic, topic))
 
     body = sys.stdin.read() if args.content == "-" else args.content
     if not (body or "").strip():
@@ -237,18 +317,12 @@ def cmd_learn(args):
         # learnings via the SAME lexical retrieval recall uses. A high self-
         # normalized overlap means this likely restates an entry that already
         # exists — point at the match and refuse unless --force.
-        if not getattr(args, "force", False):
-            probe_text = "\n".join(
-                [title, args.summary or "", " ".join(tag_list), body])
-            dup_entry, ratio = _near_duplicate_learning(kdir, data, probe_text)
-            if dup_entry is not None and ratio >= LEARN_NEAR_DUP_THRESHOLD:
-                sys.stderr.write(
-                    "agentware: near-duplicate of existing learning '%s' "
-                    "(%.0f%% overlap): %s\n"
-                    "  amend that entry, pick a more specific --topic, or pass "
-                    "--force to record anyway.\n"
-                    % (dup_entry.get("id"), ratio * 100.0, dup_entry.get("path")))
-                return 1
+        dup = _near_duplicate_refusal(
+            kdir, data, _entry_probe_text(title, args.summary, tag_list, body),
+            "learnings", "learning", force=getattr(args, "force", False))
+        if dup:
+            sys.stderr.write(dup)
+            return 1
 
         fm = build_entry_frontmatter(
             {"id": eid, "title": title, "category": "learnings", "tags": tag_list,
@@ -294,9 +368,9 @@ def cmd_decide(args):
             sys.stderr.write("agentware: %s\n" % err)
             return 1
 
-        topic = (args.topic or "").strip()
+        raw_topic = (args.topic or "").strip()
+        topic = _curation_topic(raw_topic)  # writes its own refusal/notice
         if not topic:
-            sys.stderr.write("agentware: --topic must not be empty\n")
             return 1
 
         eid = "decide-%s" % topic
@@ -305,7 +379,10 @@ def cmd_decide(args):
         tag_list = index.parse_tags(args.tags) if getattr(args, "tags", None) else []
         if "decision" not in tag_list:
             tag_list = ["decision"] + tag_list
-        title = curation._topic_to_title(topic)
+        # Title derives from the ORIGINAL topic so readability survives
+        # auto-slugify (as in `cmd_learn`); byte-identical to the previous
+        # `_topic_to_title(topic)` whenever the topic was already a slug.
+        title = curation._topic_to_title(raw_topic)
         created = dates._today()
 
         entries = data.get("entries") or []
@@ -323,6 +400,17 @@ def cmd_decide(args):
 
         body = curation._render_decision_body(args.summary, args.options, args.choice,
                                      args.rationale, args.reversible)
+        # The same BM25 near-duplicate probe `learn` runs, scoped to the
+        # `decisions` sub-corpus. Rendering the body FIRST is what makes the
+        # probe doc-shaped (see _entry_probe_text); the render is pure, so
+        # hoisting it above a check that may refuse costs nothing but the call.
+        dup = _near_duplicate_refusal(
+            kdir, data, _entry_probe_text(title, args.summary, tag_list, body),
+            "decisions", "decision", force=getattr(args, "force", False))
+        if dup:
+            sys.stderr.write(dup)
+            return 1
+
         # Resolve author: explicit --author override, else the per-user handle, else
         # _operator_handle (power-user fallback, byte-identical to pre-team behavior).
         author = getattr(args, "author", None)
@@ -402,7 +490,8 @@ def register_decide(sub, fmt_parent):
         "decide", parents=[fmt_parent],
         help="record + register an autonomous decision (R-AUTO-03)")
     p_decide.add_argument("--topic", required=True,
-                          help="hyphenated slug; filename stem under decisions/")
+                          help="filename stem under decisions/ (free text is "
+                               "normalized to a hyphenated slug)")
     p_decide.add_argument("--summary", required=True, help="one-line summary")
     p_decide.add_argument("--options", required=True,
                           help="options that were weighed")
@@ -418,6 +507,9 @@ def register_decide(sub, fmt_parent):
                                "handle if set, else the operator handle)")
     p_decide.add_argument("--to-shared", dest="to_shared", action="store_true",
                           help="write org-wide into shared/ (curator only, CR-gated)")
+    p_decide.add_argument("--force", action="store_true",
+                          help="record even if a near-duplicate existing "
+                               "decision is detected")
     p_decide.set_defaults(func=cmd_decide)
 
 

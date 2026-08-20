@@ -2,11 +2,13 @@ usage: agentware decide [-h] [--format {text,json}] --topic TOPIC
                         --summary SUMMARY --options OPTIONS --choice CHOICE
                         --rationale RATIONALE --reversible REVERSIBLE
                         [--tags TAGS] [--author AUTHOR] [--to-shared]
+                        [--force]
 
 options:
   -h, --help            show this help message and exit
   --format {text,json}  output format (default: text)
-  --topic TOPIC         hyphenated slug; filename stem under decisions/
+  --topic TOPIC         filename stem under decisions/ (free text is
+                        normalized to a hyphenated slug)
   --summary SUMMARY     one-line summary
   --options OPTIONS     options that were weighed
   --choice CHOICE       the option chosen
@@ -18,3 +20,5 @@ options:
   --author AUTHOR       provenance author handle (default: the per-user handle
                         if set, else the operator handle)
   --to-shared           write org-wide into shared/ (curator only, CR-gated)
+  --force               record even if a near-duplicate existing decision is
+                        detected

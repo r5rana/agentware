@@ -54,6 +54,14 @@
       "post": "ADVISORY sidecar: also flag Extracted-Knowledge 'Suggested ID' entries in the sibling assessment.md that never reached the live index (the POST-phase knowledge leak). Report-only — it NEVER changes the exit code, so every gate that calls `worklog scan` WITHOUT the flag is byte-for-byte unaffected.",
       "verdict": "enriched",
       "reason": "The donor's text is the longer one here and states the invariant the flag rests on -- it never changes the exit code, so every gate calling `worklog scan` WITHOUT it is unaffected. That is a stronger promise than the pre text's parenthetical '(advisory)' and is worth keeping."
+    },
+    {
+      "node": "decide",
+      "action": "--topic",
+      "pre": "hyphenated slug; filename stem under decisions/",
+      "post": "filename stem under decisions/ (free text is normalized to a hyphenated slug)",
+      "verdict": "enriched",
+      "reason": "The verb genuinely changed, and the pre text had become WRONG rather than merely terse: aw-pre-merge's `decide` took --topic verbatim, so 'hyphenated slug' was an unenforced request the operator had to satisfy by hand or repair with `index remove` + re-add afterwards. Plan task 91 put both curation verbs on `learn`'s one slug grammar, so the help now states what the code guarantees. Restoring the pre text would under-describe a normalization the verb performs."
     }
   ],
   "session": [

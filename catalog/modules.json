@@ -1455,6 +1455,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_body_adjudication_shimretirement.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_body_differ.py"
     },
     {
@@ -2446,6 +2451,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_config_mode.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_decide_hardening.py"
     },
     {
       "layer": "tests",
@@ -4892,8 +4902,11 @@
     },
     {
       "anchor_symbols": [
+        "_curation_topic",
+        "_entry_probe_text",
         "_kdir_for_curation_write",
-        "_near_duplicate_learning",
+        "_near_duplicate_entry",
+        "_near_duplicate_refusal",
         "cmd_decide",
         "cmd_learn",
         "register_decide",
@@ -4915,7 +4928,7 @@
       "layer": "features",
       "name": "agentware_lib.features.curationcmd",
       "not_owns": "the pure entry WRITERS/renderers (_render_learning / _render_decision_body / _topic_to_title / _slugify) -> agentware_lib.knowledge.curation; the shared-write governance guard (guard_shared_write) -> agentware_lib.ops.fleet; the ACR source-weight prior (ACR_SOURCE_WEIGHTS) -> agentware_lib.retrieval.acr; the index CRUD (_do_add / save_index / load_index) -> agentware_lib.knowledge.index.",
-      "owns": "the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the ONE write prologue they share (_kdir_for_curation_write -- resolve the knowledge dir THEN apply the shared/ CR-gate, so neither handler can acquire a write target without passing the gate), and their argparse registrars (register_learn / register_decide) -- the orchestrating write-commands that validate input, guard shared-writes, render the entry body, write the file, and register it in the index.",
+      "owns": "the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the THREE input contracts they share -- the write prologue (_kdir_for_curation_write -- resolve the knowledge dir THEN apply the shared/ CR-gate, so neither handler can acquire a write target without passing the gate), the `--topic` grammar (SLUG_RE / _curation_topic -- one slug normalization + notice for both verbs, so neither can write a file or an id nobody can promote), and the near-duplicate policy (LEARN_NEAR_DUP_THRESHOLD / _near_duplicate_entry / _near_duplicate_refusal -- the category-scoped BM25 probe plus the refusal it earns) -- and their argparse registrars (register_learn / register_decide) -- the orchestrating write-commands that validate input, guard shared-writes, render the entry body, write the file, and register it in the index.",
       "path": "scripts/agentware_lib/features/curationcmd.py",
       "test_file": "tests/unit/features/test_curationcmd.py",
       "test_file_present": false,

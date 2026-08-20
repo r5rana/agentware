@@ -277,7 +277,13 @@ DIMENSIONS = [
         "donor_delta_evidence": ("the donor's content corpus_fingerprint is the "
                                  "decided cache-freshness authority, and its "
                                  "roster/injection lint is wired into index validate"),
-        "plan_tasks": [15, 22, 23, 24, 53, 57],
+        # 91 belongs here for the same reason the lock and the atomic write do:
+        # an entry whose id carries a space is durably WRITTEN and durably
+        # unreachable — `worklog scan` slugifies a marker before matching, so
+        # the entry can never be seen as that marker's promotion. That is an
+        # integrity defect in what the KB holds, not a CLI-surface question,
+        # and it is the write path that has to refuse it.
+        "plan_tasks": [15, 22, 23, 24, 53, 57, 91],
     },
     {
         "name": "loop_orchestration",
