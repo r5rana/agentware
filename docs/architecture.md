@@ -696,6 +696,7 @@ that a mutation reddens it — a gate that cannot be made to fail proves nothing
 | `agentware scaffold check` | The five wiring questions at once, from a clone, with no test runner: manifest entry, declared-verb/manifest agreement, mirrored owning test, a parity row per verb, a router row per module. | `scripts/agentware scaffold check` |
 | `tests/gates/test_ci_workflow.py` | CI runs the entrypoint and nothing else (no gate command may live in the YAML); every gate the plan names is a declared stage; and every stage is **effective** — its checker has a real `__main__` dispatch and goes red on a planted defect. | `python3 tests/_ci_gate.py --list` |
 | `tests/e2e/test_ci_bootstrap.py` | A fresh clone, from a directory asserted empty, reaches a working state with one documented command and no install step. | `python3 tests/_bootstrap_gate.py --from-empty` |
+| `tests/gates/test_commit_series.py` | The branch's HISTORY is publishable: one operator identity across author, committer and every trailer; every date inside the declared window and never committed-before-authored; every subject an engineering change; the series linear and never shorter than its floor. The portability gate scans the commit range for vendor *tokens* — this scans its *shape*. | `python3 tests/_commit_series.py` |
 
 **Everything above runs from one command.** `python3 tests/_ci_gate.py` is the
 stage table CI calls; `.github/workflows/ci.yml` contains no gate command of its

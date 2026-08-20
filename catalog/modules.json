@@ -1470,6 +1470,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_commit_series.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_constant_adjudication.py"
     },
     {
@@ -1886,6 +1891,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_ci_workflow.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_commit_series.py"
     },
     {
       "layer": "tests",

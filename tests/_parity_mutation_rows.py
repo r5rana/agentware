@@ -384,6 +384,18 @@ MUTATION_PROBES = {
         "find": "if __name__ == \"__main__\":\n    sys.exit(main())",
         "replace": "# the dispatch task 78 found missing, removed again\n"
     },
+    "mod:commit-series-single-identity": {
+        "kind": "replace",
+        "path": "tests/_commit_series.py",
+        "find": "        for role in (\"author\", \"committer\"):\n            if c[\"%s_name\" % role] != name:",
+        "replace": "        for role in (\"author\",):\n            if c[\"%s_name\" % role] != name:"
+    },
+    "mod:commit-series-identity-is-anchored-not-declared": {
+        "kind": "replace",
+        "path": "tests/_commit_series.py",
+        "find": "    for key in (\"name\", \"email\", \"emails\"):",
+        "replace": "    for key in ():"
+    },
     "mod:green-is-the-recorded-baseline": {
         "kind": "replace",
         "path": "tests/_suite_gate.py",

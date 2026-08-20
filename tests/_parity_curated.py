@@ -355,6 +355,38 @@ CURATED_ROWS = MERGE_ROWS + [
          "make recall emit non-JSON, break a steering rule): each is caught by "
          "its own step. Point the clone at a non-empty directory and it is "
          "REFUSED, since 'from an empty directory' is the claim under test"),
+    _row("mod:commit-series-single-identity", "modularity",
+         "The branch's HISTORY is publishable, not just its working tree: one "
+         "operator identity across the author field, the COMMITTER field (a "
+         "different field, set from a different config key, and the one a "
+         "rebase rewrites) and every email-shaped token in a subject, body or "
+         "trailer — plus tool-attribution lines like `Generated with`, which "
+         "carry no address at all and so are invisible to an email sweep. The "
+         "portability gate scans the commit range for VENDOR TOKENS; nothing "
+         "scanned the shape of the series, and three commits had in fact been "
+         "authored under a second personal address",
+         LOCAL, 82, "tests.gates.test_commit_series",
+         "narrow the identity arm to the author field alone (drop \"committer\" "
+         "from the role loop): test_a_foreign_committer_address_is_named goes "
+         "red against a synthetic repo whose author is correct and whose "
+         "committer is a CI bot — the exact residue a rebase leaves"),
+    _row("mod:commit-series-identity-is-anchored-not-declared", "modularity",
+         "The expected identity is ANCHORED, never written down: it is read at "
+         "runtime from the author of the commit the branch was cut from, and a "
+         "`name`/`email`/`emails` key in the fixture is a SCHEMA ERROR. That "
+         "removes two failures at once — operator data committed into a public "
+         "repository (R-LOC-03; the first version of this fixture wrote the "
+         "address in and _repo_standard's personal-data arm caught it) and the "
+         "one field a maintainer could widen to two entries to buy silence. A "
+         "stray identity can only be cleared by removing it from history. The "
+         "window's `first` is pinned by value and asserted equal to the range's "
+         "real earliest date for the same reason, and the count carries a floor "
+         "with no ceiling so a squash or reset that eats history reddens",
+         LOCAL, 82, "tests.gates.test_commit_series",
+         "empty the refused-key tuple in _identity_errors so a literal address "
+         "may be declared again: test_a_declared_address_is_a_schema_error and "
+         "test_a_declared_name_is_a_schema_error both go red, because writing "
+         "both addresses down would once more be a legal way to buy silence"),
     _row("docs:guidance-surface-contract", "docs_templates",
          "The guidance-surface contract check over every persona, skill, doc "
          "and always-on steering file: a retired path may be named only inside "

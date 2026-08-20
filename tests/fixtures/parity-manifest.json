@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 567,
+    "rows": 569,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
@@ -44,20 +44,20 @@
       "evaluation_quality": 4,
       "kb_integrity": 12,
       "loop_orchestration": 7,
-      "modularity": 15,
+      "modularity": 17,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 558,
+      "required": 560,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 80,
+      "curated": 82,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -288,7 +288,8 @@
         70,
         73,
         78,
-        79
+        79,
+        82
       ]
     }
   ],
@@ -3713,6 +3714,48 @@
           "path": ".github/workflows/ci.yml",
           "find": "      - name: Run the gate\n        run: python3 tests/_ci_gate.py",
           "replace": "      - name: Run the tests\n        run: python3 -m unittest discover -s tests/unit -t .\n\n      - name: Run the gate\n        run: python3 tests/_ci_gate.py"
+        }
+      }
+    },
+    {
+      "id": "mod:commit-series-identity-is-anchored-not-declared",
+      "dimension": "modularity",
+      "capability": "The expected identity is ANCHORED, never written down: it is read at runtime from the author of the commit the branch was cut from, and a `name`/`email`/`emails` key in the fixture is a SCHEMA ERROR. That removes two failures at once \u2014 operator data committed into a public repository (R-LOC-03; the first version of this fixture wrote the address in and _repo_standard's personal-data arm caught it) and the one field a maintainer could widen to two entries to buy silence. A stray identity can only be cleared by removing it from history. The window's `first` is pinned by value and asserted equal to the range's real earliest date for the same reason, and the count carries a floor with no ceiling so a squash or reset that eats history reddens",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 82,
+      "evidence": {
+        "test": "tests.gates.test_commit_series",
+        "mutation": "empty the refused-key tuple in _identity_errors so a literal address may be declared again: test_a_declared_address_is_a_schema_error and test_a_declared_name_is_a_schema_error both go red, because writing both addresses down would once more be a legal way to buy silence",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_commit_series.py",
+          "find": "    for key in (\"name\", \"email\", \"emails\"):",
+          "replace": "    for key in ():"
+        }
+      }
+    },
+    {
+      "id": "mod:commit-series-single-identity",
+      "dimension": "modularity",
+      "capability": "The branch's HISTORY is publishable, not just its working tree: one operator identity across the author field, the COMMITTER field (a different field, set from a different config key, and the one a rebase rewrites) and every email-shaped token in a subject, body or trailer \u2014 plus tool-attribution lines like `Generated with`, which carry no address at all and so are invisible to an email sweep. The portability gate scans the commit range for VENDOR TOKENS; nothing scanned the shape of the series, and three commits had in fact been authored under a second personal address",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 82,
+      "evidence": {
+        "test": "tests.gates.test_commit_series",
+        "mutation": "narrow the identity arm to the author field alone (drop \"committer\" from the role loop): test_a_foreign_committer_address_is_named goes red against a synthetic repo whose author is correct and whose committer is a CI bot \u2014 the exact residue a rebase leaves",
+        "probe": {
+          "kind": "replace",
+          "path": "tests/_commit_series.py",
+          "find": "        for role in (\"author\", \"committer\"):\n            if c[\"%s_name\" % role] != name:",
+          "replace": "        for role in (\"author\",):\n            if c[\"%s_name\" % role] != name:"
         }
       }
     },

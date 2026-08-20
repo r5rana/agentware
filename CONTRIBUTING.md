@@ -187,6 +187,14 @@ change**: what its message means and how to clear it.
   `test:`, `refactor:`, `perf:`, `build:`, `ci:`, `chore:`. Keep it under ~72
   characters and write it in the imperative.
 - **The body says why**, not what — the diff already says what.
+- **These two are a gate, not a style note.** `python3 tests/_commit_series.py`
+  reads the whole branch range and fails on a non-conventional or junk subject,
+  on a second author identity (in the author field, the *committer* field, or a
+  `Co-Authored-By:` / `Generated with` trailer), on a date outside the declared
+  window, and on a merge commit or a range that got shorter. Bounds live in
+  `tests/fixtures/commit-series.json`; the expected identity is *anchored* to
+  the author of the commit the branch was cut from and is never written down,
+  so a stray identity has to be removed from history rather than declared away.
 - **Open the PR against `main`** and fill in the template. Every checkbox in it
   names a check you can run locally in seconds; ticking one you did not run
   wastes a review round.

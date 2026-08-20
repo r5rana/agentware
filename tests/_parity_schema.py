@@ -364,8 +364,12 @@ DIMENSIONS = [
         # only worth what RUNNING them is worth, and task 78 found three of the
         # five documented checker commands could not fail at all. 79 closes the
         # last seam of the same kind — the parity ledger's own `mutation` field,
-        # which until then was a sentence nobody executed.
-        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78, 79],
+        # which until then was a sentence nobody executed. 82 extends the same
+        # "run it, do not assert it" discipline to the branch's own HISTORY:
+        # the portability gate scans the commit range for vendor tokens, and
+        # nothing scanned the SHAPE of the series — identity, dates, subjects,
+        # linearity — which is where a second author survives a scrubbed tree.
+        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78, 79, 82],
     },
 ]
 

@@ -183,6 +183,16 @@ STAGES = tuple(
                "that RUNS both CLIs; it is how the `config` report's dropped "
                "skill_promote line was found. Skips (rc 0) where the tag is "
                "absent, which is the state of a shallow checkout."),
+        _stage("commit-series", "commit series is publishable",
+               ("python3", "tests/_commit_series.py"), (FULL,),
+               "Task 82: the branch's history carries ONE operator identity in "
+               "the author field, the committer field and every trailer; every "
+               "date sits inside the declared window; every subject describes "
+               "an engineering change; and the series is linear and never "
+               "shorter than its floor. The portability gate scans the commit "
+               "range for vendor TOKENS -- nothing scanned the SHAPE of the "
+               "series, which is where a second identity and a tool's "
+               "attribution line survive a perfectly scrubbed working tree."),
         _stage("modularity-negative", "modularity negative test",
                ("python3", "-m", "unittest",
                 "tests.gates.test_modularity_negative", "-v"), (FULL,),

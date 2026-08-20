@@ -1,0 +1,30 @@
+{
+  "schema": "agentware/commit-series@1",
+  "range": {
+    "base_ref": "aw-pre-merge",
+    "head_ref": "HEAD",
+    "why": "The base is the TAG, not the branch name `main`. A branch name moves and a gate keyed on one silently changes what it is comparing; the tag is the published pre-merge state task 84 must still be able to point at."
+  },
+  "identity": {
+    "anchor": "base_ref_author",
+    "why": "ANCHORED, never written down. The expected identity is read at runtime from the author of the commit the branch was cut from, so the range must match the history it grew out of. A literal name or address here would be two mistakes at once: operator data committed into a public repository (R-LOC-03 -- the first version of this fixture wrote the address in and `_repo_standard`'s personal-data arm caught it), and the one field a maintainer could widen to two entries to silence a finding. With no such field, a stray identity can only be cleared by removing it from history -- which is what task 82 did to the three commits that carried a second personal address."
+  },
+  "window": {
+    "first": "2026-08-13",
+    "why": "Pinned by VALUE to the range's real earliest author date and asserted equal to it, so widening this bound to admit an out-of-window commit reddens on the other side. The end is deliberately NOT pinned: `today` is the bound (a commit dated tomorrow is a broken clock or a forgery), because an end date pinned by value must be re-stamped by the very commit that lands the stamp."
+  },
+  "count": {
+    "min": 128,
+    "why": "A floor with NO ceiling. The series may grow -- tasks 83 onward still commit -- but a range that holds fewer commits than this has lost history to a squash, a reset or a dropped branch, which is the failure a count can actually detect. The plan's pre-execution estimate of 70-80 commits was superseded by the loop authoring one commit per closed task as the work happened."
+  },
+  "subject_exemptions": [
+    {
+      "subject": "task 26: make the A/B eval arm layout-aware and fail loud on a partial HEAD",
+      "reason": "Pre-convention subject from before the series settled on conventional commits; the summary describes the engineering change accurately, and rewriting it would change a sha recorded in the worklog to fix prose."
+    },
+    {
+      "subject": "tests: capture the env-var and config-key parity fixture for both trees",
+      "reason": "Pre-convention subject using the plural type `tests:` rather than `test:`; same trade-off as the task-26 row -- accurate summary, and a rewrite would move a recorded sha to correct one letter."
+    }
+  ]
+}

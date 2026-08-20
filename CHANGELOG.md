@@ -49,6 +49,14 @@ tagged release yet, so everything shipped so far sits under `[Unreleased]`.
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml) calls exactly that, with
   no gate command of its own. A red in CI is reproduced locally by running the
   same line, and a gate cannot be added to one side without the other.
+- **A publishable-history gate.** `python3 tests/_commit_series.py` reads the
+  whole branch range and fails on a second author identity — in the author
+  field, the *committer* field, or a `Co-Authored-By:` / `Generated with`
+  trailer — on a date outside the declared window or committed before it was
+  authored, on a junk or non-conventional subject, and on a merge commit or a
+  range that got shorter. The portability gate scans the commit range for vendor
+  *tokens*; this scans the *shape* of the series, which is where a stray
+  identity survives a perfectly scrubbed working tree.
 - **A fresh-clone bootstrap proof.** One documented command,
   `python3 tests/_ci_gate.py --profile bootstrap`, takes a brand-new clone to a
   verified working state with no install step and no network — asserted from a
