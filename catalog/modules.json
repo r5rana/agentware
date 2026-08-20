@@ -6296,6 +6296,7 @@
     },
     {
       "anchor_symbols": [
+        "_backfill_existing_status_lines",
         "_backfill_plan_features",
         "_backfill_read_plan",
         "_backfill_stamp_plan",
@@ -6316,7 +6317,7 @@
       "layer": "features",
       "name": "agentware_lib.features.planbackfill",
       "not_owns": "the migration REGISTRY, the schema sidecar, the dispatch gate or the runner that calls this (agentware_lib.features.migratecmd — one schema authority, per its interlock docstring); the plan `> Status:` text primitives this rewrites (agentware_lib.ops.planauthor.planstate); the plan path + atomic write (agentware_lib.ops.planauthor.planedit); the loop-outcome derivation (agentware_lib.ops.derive); the live-session detector (agentware_lib.features.dreamgate); the `plan` registrar, which resolves this handler by (module, attr) at REGISTRATION time (agentware_lib.ops.planauthor.planedit.register_plan).",
-      "owns": "migration 001's BODY in full — the work-feature walk (_backfill_plan_features), the plan-shaped reader (_backfill_read_plan), the per-plan stamp (_backfill_stamp_plan), the idempotent runner (_run_state_backfill) and the `plan state-backfill` handler (cmd_plan_state_backfill) that makes the same logic runnable directly.",
+      "owns": "migration 001's BODY in full — the work-feature walk (_backfill_plan_features), the plan-shaped reader (_backfill_read_plan), the already-stamped guard that asks with the WRITER's own predicate (_backfill_existing_status_lines), the per-plan stamp (_backfill_stamp_plan), the idempotent runner (_run_state_backfill) and the `plan state-backfill` handler (cmd_plan_state_backfill) that makes the same logic runnable directly.",
       "path": "scripts/agentware_lib/features/planbackfill.py",
       "test_file": "tests/unit/features/test_planbackfill.py",
       "test_file_present": true,
@@ -8501,6 +8502,7 @@
         "_PLAN_TERMINAL_STATES",
         "_append_status_log",
         "_claim_age_hours",
+        "_header_field_rx",
         "_load_plan_tolerant",
         "_merge_plan_status",
         "_parse_claim",

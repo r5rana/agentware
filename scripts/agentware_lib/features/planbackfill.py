@@ -2,7 +2,9 @@
 
 Owns: migration 001's BODY in full — the work-feature walk
 (_backfill_plan_features), the plan-shaped reader (_backfill_read_plan), the
-per-plan stamp (_backfill_stamp_plan), the idempotent runner (_run_state_backfill)
+already-stamped guard that asks with the WRITER's own predicate
+(_backfill_existing_status_lines), the per-plan stamp (_backfill_stamp_plan), the
+idempotent runner (_run_state_backfill)
 and the `plan state-backfill` handler (cmd_plan_state_backfill) that makes the
 same logic runnable directly.
 Does NOT own: the migration REGISTRY, the schema sidecar, the dispatch gate or the
@@ -94,6 +96,35 @@ def _backfill_read_plan(path, feat):
     return text, None
 
 
+def _backfill_existing_status_lines(text):
+    """How many `> Status:` header lines this plan ALREADY carries — the guard
+    `_run_state_backfill` uses to honour "NEVER overwrites an existing status".
+
+    Asked as the UNION of the two predicates that describe the same line, because
+    neither alone is safe (feature 260813 task 97):
+
+      * `planstate._header_field_rx("Status")` is the WRITER's own removal
+        pattern. It is what `_set_header_line` DELETES with, so anything it sees
+        is a line this migration would destroy — including the annotated forms
+        the strict reader is blind to (`> Status: draft (not ready yet)`,
+        `> Status: **ready** (lints clean)`), which is the data loss this task
+        closes: found live by the task-64 rehearsal on two real hand-annotated
+        plans, where a human `**ready**` was replaced by a derived `done`.
+      * `planstate._read_plan_status` is the strict end-anchored READER. It is
+        kept in the union for the opposite edge: `> Status:draft` (no space after
+        the colon) parses THERE but is invisible to the writer's pattern, so
+        guarding on the writer alone would stamp a second header onto a plan that
+        already has one — a duplicate, which lint reports as an error.
+
+    A guard that over-triggers costs a skipped file; one that under-triggers costs
+    the file. This one over-triggers by construction.
+    """
+    rx = planstate._header_field_rx("Status")
+    loose = sum(1 for ln in (text or "").splitlines() if rx.match(ln))
+    strict = planstate._read_plan_status(text)[1]
+    return max(loose, strict)
+
+
 def _backfill_stamp_plan(kdir, feat, path, text, now_iso):
     """Stamp a derived `> Status:` + one status-log line onto ONE legacy plan.
     Returns the state written. Non-destructive: only ADDS the two lines."""
@@ -114,7 +145,10 @@ def _run_state_backfill(kdir, now_iso=None):
     """Stamp `> Status:` on every legacy work/*/plan.md AND work/auto/*/plan.md
     that lacks one, deriving `done` (metrics terminal `completed` > `.loop/.done` >
     all-tasks-✅, via derive_outcome) else `draft`. NEVER overwrites an existing
-    status; skips the live loop feature (is_session_active) and unparseable plans
+    status — asked with the WRITER's own predicate via
+    `_backfill_existing_status_lines`, so an ANNOTATED status line the strict
+    reader cannot parse still counts as existing rather than being deleted (task
+    97); skips the live loop feature (is_session_active) and unparseable plans
     (logged); appends a `backfilled by migration-001` status-log line per stamp.
     Idempotent + non-destructive. Returns a summary dict."""
     now_iso = now_iso or dates.utc_now_iso()
@@ -132,8 +166,7 @@ def _run_state_backfill(kdir, now_iso=None):
         if text is None:
             skipped_unparseable.append(feat)
             continue
-        _state, cnt = planstate._read_plan_status(text)
-        if cnt >= 1:
+        if _backfill_existing_status_lines(text) >= 1:
             skipped_existing.append(feat)   # NEVER overwrite an existing status
             continue
         if feat == live:
@@ -171,6 +204,7 @@ def cmd_plan_state_backfill(args):
 _EXPORTS = [
     "_backfill_plan_features",
     "_backfill_read_plan",
+    "_backfill_existing_status_lines",
     "_backfill_stamp_plan",
     "_run_state_backfill",
     "cmd_plan_state_backfill",

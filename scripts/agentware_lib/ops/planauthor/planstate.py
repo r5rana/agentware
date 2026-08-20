@@ -101,11 +101,30 @@ from agentware_lib.ops.plangraph import (   # noqa: F401  (re-export)
 _PLAN_STATUS_LOG_HEADING = "## Status log"
 
 
+def _header_field_rx(field):
+    """The writer's OWN predicate for "this line IS the `> Field:` header".
+
+    Published rather than left inline in `_set_header_line` because that writer
+    REMOVES every line it matches, so any read-side guard deciding whether a
+    header already exists must ask THIS question and not a stricter one. The
+    strict `_PLAN_STATUS_HEADER_RE` above is end-anchored on `[A-Za-z-]+`, so a
+    hand-annotated `> Status: draft (not ready yet)` or `> Status: **ready**`
+    reads as ABSENT through it while remaining fully visible — and deletable —
+    here (feature 260813 task 97; see the migration-001 guard in
+    `features.planbackfill` and the learning
+    `learn-a-read-side-guard-must-use-the-writes-own-predicate`).
+
+    Deliberately prefix-only (`:\\s`), matching the removal exactly: a guard that
+    over-triggers costs a skipped file, one that under-triggers costs the file.
+    """
+    return re.compile(r"^>\s*%s:\s" % re.escape(field))
+
+
 def _set_header_line(lines, field, value):
     """Set/replace/remove a toolkit-owned `> Field: value` header line (first
     match removed, new one inserted after its anchor). value=None removes it.
     Returns the mutated list."""
-    field_rx = re.compile(r"^>\s*%s:\s" % re.escape(field))
+    field_rx = _header_field_rx(field)
     out = [ln for ln in lines if not field_rx.match(ln)]
     if value is None:
         return out
@@ -117,7 +136,7 @@ def _set_header_line(lines, field, value):
     }.get(field, ())
     insert_idx = None
     for anchor in anchors:
-        arx = re.compile(r"^>\s*%s:\s" % re.escape(anchor))
+        arx = _header_field_rx(anchor)
         for i, ln in enumerate(out):
             if arx.match(ln):
                 insert_idx = i + 1
@@ -501,6 +520,7 @@ _EXPORTS = [
     "_PLAN_STATUS_HEADER_RE",
     "_PLAN_STATUS_LOG_HEADING",
     "_read_plan_status",
+    "_header_field_rx",
     "_set_header_line",
     "_append_status_log",
     "_PLAN_TERMINAL_STATES",

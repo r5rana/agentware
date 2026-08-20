@@ -18,6 +18,14 @@ preserved-surface freeze reads a moved id as a lost one.
 Test names are prefixed `test_backfill_` (a distinct -k handle) and are deliberately
 NOT renamed with the file: the freeze cannot tell a rename from a deletion.
 
+TASK 97 added four methods to the SAME class rather than a subclass or a second
+file: the annotated-status defect is a property of this body's already-stamped
+guard, and every one of them needs the identical synthetic-KB harness. They pin
+that "NEVER overwrites an existing status" is asked with the WRITER's own
+predicate — the read/write disagreement that let migration 001 DELETE the two
+hand-annotated `> Status:` lines the task-64 rehearsal found on the operator's
+real corpus.
+
 Runner: python3 -m unittest tests.unit.features.test_planbackfill -v
 """
 
@@ -55,6 +63,27 @@ def _legacy_plan(feature, done=True):
             "## Acceptance criteria\n\n- [ ] it works\n\n"
             "<promise>%s_COMPLETE</promise>\n"
             % (feature, feature, marks, feature.upper().replace("-", "_")))
+
+
+#: The two REAL hand-annotated status lines migration 001 destroyed when the
+#: task-64 rehearsal ran it over the operator's 1,157-entry corpus, verbatim from
+#: `work/260813-modular-core-adoption/evidence/task64/flat-from-0/diff.txt`. They
+#: are the fixture rather than a paraphrase because the defect is a REGEX
+#: disagreement: a hand-written approximation is exactly the well-formed input on
+#: which the two patterns agree, and would prove nothing.
+#:
+#: ONE token is changed: the operator's handle is replaced by the task-83
+#: `<neutralised>` placeholder, because the repo ships no operator identity
+#: (R-LOC-03) and the F-arm of `tests/_repo_standard.py` reports it. Nothing the
+#: regexes discriminate on moves — the parenthetical, the comma, the bold markup
+#: and the backticked flags are all still there, and those are what the strict
+#: end-anchored reader cannot parse.
+ANNOTATED_STATUS_LINES = (
+    "> Status: draft (not ready to be executed, TBD checked by <neutralised>, "
+    "created in a single batch by agent)",
+    "> Status: **ready** (lints clean `--strict`, premises ground `--strict`; "
+    "all cited refs re-verified against live code)",
+)
 
 
 class BackfillTestCase(unittest.TestCase):
@@ -166,6 +195,91 @@ class BackfillTestCase(unittest.TestCase):
         with open(os.path.join(self.kdir, ".schema")) as f:
             self.assertEqual(int(f.read().strip()),
                              self.registry.KB_SCHEMA_VERSION)
+
+    def _annotated_plan(self, feature, status_line):
+        base = _legacy_plan(feature, done=True).replace(
+            "> Created: 2026-01-01\n",
+            "> Created: 2026-01-01\n%s\n" % status_line)
+        return self.make(feature, text=base)
+
+    def test_backfill_skips_annotated_status_byte_identical(self):
+        """Each reproduced line: reported skipped_existing, file untouched."""
+        for i, line in enumerate(ANNOTATED_STATUS_LINES):
+            feat = "260101-annot%d" % i
+            path = self._annotated_plan(feat, line)
+            with open(path, "rb") as f:
+                before = f.read()
+            summary = self.mod._run_state_backfill(
+                self.kdir, now_iso="2026-07-10T00:00:00Z")
+            self.assertIn(feat, summary["skipped_existing"], line)
+            self.assertNotIn(feat, [s["feature"] for s in summary["stamped"]])
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), before, "migration rewrote %s" % line)
+
+    def test_backfill_annotated_status_survives_full_migration_chain(self):
+        """The two real plans survive a schema-0 -> HEAD `migrate --apply` chain.
+
+        The plan's criterion says "schema-0 -> 2"; the chain now runs to
+        `KB_SCHEMA_VERSION` (003 landed at task 90), and asserting the whole chain
+        is the superset — no later migration may rewrite these bytes either.
+        """
+        paths = {}
+        for i, line in enumerate(ANNOTATED_STATUS_LINES):
+            feat = "260101-chain%d" % i
+            paths[feat] = self._annotated_plan(feat, line)
+        before = {}
+        for feat, path in paths.items():
+            with open(path, "rb") as f:
+                before[feat] = f.read()
+        code, out, _e = self.run_cli(["migrate", "--apply"])
+        self.assertEqual(code, 0, out)
+        with open(os.path.join(self.kdir, ".schema")) as f:
+            self.assertEqual(int(f.read().strip()),
+                             self.registry.KB_SCHEMA_VERSION)
+        for feat, path in paths.items():
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), before[feat],
+                                 "migration chain rewrote %s" % feat)
+
+    def test_backfill_guard_asks_the_writers_own_question(self):
+        """The guard's predicate and the writer's REMOVAL must be one predicate.
+
+        Asserted as a coupling rather than by re-stating the regex: for every
+        shape, "the guard counts this line" must equal "the writer would delete
+        it" — the property whose absence WAS the bug. `> Status:draft` is the
+        deliberate exception in the other direction (the strict reader parses it,
+        the writer leaves it), and it must still count, or the migration stamps a
+        second header onto a plan that already has one.
+        """
+        for line in ANNOTATED_STATUS_LINES + ("> Status: running",
+                                              ">  Status:   done  ",
+                                              "> Status: draft <!-- keep -->"):
+            deleted = line not in self.planstate._set_header_line(
+                [line], "Status", "done")
+            self.assertTrue(deleted, "writer did not delete %r" % line)
+            self.assertGreaterEqual(
+                self.mod._backfill_existing_status_lines(line), 1,
+                "guard cannot see a line the writer deletes: %r" % line)
+        for line in ("> Statuses: draft", "text > Status: draft", "# Status: x"):
+            self.assertEqual(self.mod._backfill_existing_status_lines(line), 0,
+                             "guard over-matched %r" % line)
+
+    def test_backfill_unparseable_status_is_not_duplicated(self):
+        """`> Status:draft` (no space) parses for the READER, not for the writer.
+
+        Guarding on the writer's pattern ALONE would leave it in place and insert
+        a second header — a duplicate the plan lint reports as an error — so the
+        guard is the union of both predicates.
+        """
+        base = _legacy_plan("260101-nospace", done=True).replace(
+            "> Created: 2026-01-01\n", "> Created: 2026-01-01\n> Status:draft\n")
+        path = self.make("260101-nospace", text=base)
+        with open(path, "rb") as f:
+            before = f.read()
+        summary = self.mod._run_state_backfill(self.kdir)
+        self.assertIn("260101-nospace", summary["skipped_existing"])
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), before)
 
 
 if __name__ == "__main__":

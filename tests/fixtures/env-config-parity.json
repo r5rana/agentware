@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "67ac11fe0a48"
+      "git_head": "6d6ecc490686"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -4236,7 +4236,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/ops/planauthor/planstate.py",
-            "line": 211,
+            "line": 230,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -4645,7 +4645,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/ops/planauthor/planstate.py",
-            "line": 211,
+            "line": 230,
             "lang": "python",
             "form": "get()",
             "default": null,
