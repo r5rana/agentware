@@ -174,6 +174,21 @@ Every task runs this loop. Do not skip steps; do not stop until all subtasks are
 - MUST use the write tool for all file creation, never cat/heredoc or multiline echo. [R-CONV-03]
 - READ a file's references across the repo before you delete, rename, or move it. [R-CONV-04]
 
+## Modular architecture (anti-monolith)
+
+- ALWAYS declare a verb's handler, its registrar and its `__verbs__` entry in the ONE module owning that domain; NEVER add a central registry file. [R-MOD-01]
+- NEVER import upward across `core -> knowledge -> retrieval -> ops -> features -> cli` at module level; a function-local import with a stated reason is the ONLY escape hatch. [R-MOD-02]
+- MUST keep every file inside its manifest cap (entrypoint 120, procedural 250, module 600) and every function inside 120 lines / 12 branches. [R-MOD-03]
+- IF a file nears its cap THEN split it where the obligation changes; NEVER raise a cap or declare a debt row to fit the code. [R-MOD-04]
+- NEVER name a module `utils`, `helpers`, `common`, `misc` or `shared`; a module named for what it is NOT has no boundary. [R-MOD-05]
+- MUST give each `agentware_lib` module its owning unit file at `tests/unit/<layer>/test_<stem>.py`; a reference from another file is NOT ownership. [R-MOD-06]
+- RUN `python3 tests/_manifest_gen.py --write` after adding, moving or deleting any file; NEVER hand-edit `catalog/modules.json`. [R-MOD-07]
+- MUST declare a new capability as a curated row in `tests/_parity_curated.py` and regenerate with `python3 tests/_parity_manifest.py --out`; NEVER hand-edit the manifest. [R-MOD-08]
+- IF the capability belongs to an existing verb THEN extend that verb's module; add a new module ONLY for a domain no module owns. [R-MOD-09]
+- MUST place loop logic in `scripts/loop/*.sh`, dashboard code in `scripts/agentware_dashboard/` and web code in `webui/src/`; NEVER grow the entrypoint or `agentware.sh` instead. [R-MOD-10]
+- ALWAYS land a new unit whole in ONE change — module, verb declaration, manifest entry, mirrored unit file and parity row; NEVER land one missing any of them. [R-MOD-11]
+- IF a change fits no layer THEN STOP, decide its layer and record the `> DECISION:` before writing code; NEVER park it in the entrypoint or a grab-bag module. [R-MOD-12]
+
 ## Org-level KB (teams + shared + fleet observability)
 
 > Inert on a flat single-operator install: every rule below is conditioned on the org keys being set, and with `AGENTWARE_ORG_ROOT` unset the resolution is byte-identical to a flat install (R-ORG-04).
