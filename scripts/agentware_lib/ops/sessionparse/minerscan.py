@@ -1,11 +1,12 @@
 """agentware_lib.ops.sessionparse.minerscan — the mining PASSES (layer: ops).
 
-Owns: the passes that walk settled sessions and produce candidates — the reader
-(`_transcript_mine_read`), the record builder (`_transcript_build_record`), the
-recurrence pass (`_transcript_mine_recurrence`), the error-recovery pass
-(`_transcript_mine_error_recovery`), the queue-fingerprint reader
-(`_transcript_queue_fps`), the orchestrator (`_transcript_mine`) and its dream-step
-adapter (`_dream_step_transcript_mine`).
+Owns: the passes that turn a read window into candidates, and the orchestrator
+that persists them — the record builder (`_transcript_build_record`), the
+recurrence pass (`_transcript_mine_recurrence`, with `_recurrence_fold` and
+`_recurrence_latest`), the error-recovery pass
+(`_transcript_mine_error_recovery`, with the `_errrec_pairs` detector), the
+queue-fingerprint belt (`_transcript_queue_fps`, `_mine_new_lines`), the state
+advance (`_mine_advance_state`) and the orchestrator (`_transcript_mine`).
 
 WHY TWO PASSES AND NOT ONE
 They answer different questions and have different evidence bars. RECURRENCE asks
@@ -24,13 +25,15 @@ Deduplication runs against the queue's existing fingerprints (`_transcript_queue
 as well as the miner's own emitted set, so a candidate the operator already
 rejected does not return every night.
 
-Does NOT own: the cursor/caps (minerstate); record extraction and redaction
-(minerextract); error signatures (minererrors); the recurrence precision gate
-(minerfolds); the queue itself (ops.preferqueue).
-Layer deps: ops -> core + same-layer sessionparse siblings and ops.preferqueue.
+Does NOT own: the bounded corpus READ done outside the lock — the byte-offset
+reader, the two log readers, the session selection and `_transcript_mine_read`
+(ops.sessionparse.minerread); the cursor/caps (minerstate); record extraction and
+redaction (minerextract); error signatures (minererrors); the recurrence precision
+gate (minerfolds); the queue, its lock and its reader (ops.preferqueue).
+Layer deps: ops -> core + same-layer sessionparse siblings (minerread,
+minererrors, minerextract, minerfolds, minerstate), ops.preferqueue,
+ops.premisecheck, ops.prefergate and ops.planauthor.plankernelpath.
 Fan-in: 1 at landing (regen: python3 tests/_manifest_gen.py --write).
-
-The bodies are a PURE MOVE from the monolith — byte-identical, comments and all.
 """
 
 import json
@@ -48,9 +51,10 @@ from agentware_lib.ops.preferqueue import (
     PREFER_QUEUE_REL,
     _prefer_archive_fingerprints,
     _prefer_cand_fp,
+    _prefer_queue_lock,
+    _prefer_queue_records,
 )
 from agentware_lib.ops.premisecheck import (
-    _transcript_read_live,
     _transcript_recurrence_gate,
     _transcript_recurrence_relevant,
 )
@@ -60,7 +64,10 @@ from agentware_lib.ops.sessionparse.minererrors import (
     _transcript_errrec_key,
     _transcript_err_signature,
     _transcript_error_recovery_text,
-    _transcript_reconcile_errors,
+)
+from agentware_lib.ops.sessionparse.minerread import (
+    _transcript_mine_read,
+    _transcript_read_session,
 )
 from agentware_lib.ops.sessionparse.minerextract import (
     _transcript_redact_secrets,
@@ -68,13 +75,10 @@ from agentware_lib.ops.sessionparse.minerextract import (
 )
 from agentware_lib.ops.sessionparse.minerfolds import (
     MINER_RECURRENCE_N,
-    _parse_prompts_records,
     _transcript_is_err_status,
-    _transcript_list_session_ids,
     _transcript_norm_key,
 )
 from agentware_lib.ops.sessionparse.minerstate import (
-    MINER_SESSION_CAP,
     MINER_SOURCE_SESSIONS_CAP,
     MINER_RECURRENCE_RETIRED,
     MINER_TALLY_CAP,
@@ -85,110 +89,8 @@ from agentware_lib.ops.sessionparse.minerstate import (
     _transcript_prune_emitted,
     _transcript_prune_tally,
     _transcript_is_ok_status,
-    _transcript_session_settled,
     _transcript_write_state,
 )
-
-
-def _transcript_read_session(sdir, sid):
-    """A session's tool-call records for the error-recovery detector: the hook's
-    live.jsonl UNION the ERR records reconstructed from the durable transcript
-    (F-B), merged onto one timeline. Stable-sorted by ts, so within an identical
-    second the hook's own records keep their append order and a reconstruction
-    lands after them — the conservative tie-break (an ERR and its fix are never
-    the same second in practice, since a fix costs at least one model turn)."""
-    live = _transcript_read_live(os.path.join(sdir, "live.jsonl"))
-    errs = _transcript_reconcile_errors(sid, live)
-    if not errs:
-        return live
-    merged = live + errs
-    merged.sort(key=lambda r: str(r.get("ts") or ""))
-    return merged
-
-
-def _transcript_mine_read(kdir, state, backfill, session_cap):
-    """PURE, bounded corpus read done OUTSIDE the flock (F5 — the expensive I/O).
-    Advances NOTHING; returns what to fold under the lock:
-      prompts    : [(sid, turn_id, body, cwd)] new origin=human turns since offset
-      metrics    : [event_dict] new metrics events since offset (triage context)
-      scanned    : [(sid, [live_records], settled_bool)] bounded session selection
-      new_offsets: {'prompts': int, 'metrics': int} EOF actually read up to
-      mode       : 'backfill' | 'incremental'
-    Best-effort: any OSError degrades that ONE source to empty. No clock/network.
-    A stored offset past EOF (log rotation/truncation) resets to 0 — fp-dedup
-    guards a re-emit."""
-    logs = os.path.join(kdir, "logs")
-    offs = state.get("offsets") or {}
-    session_cap = max(0, int(session_cap or MINER_SESSION_CAP))
-
-    # --- prompts.log (recurrence source): forward byte offset, origin=human ---
-    prompts = []
-    logp = os.path.join(logs, "prompts.log")
-    p_new = int(offs.get("prompts") or 0)
-    try:
-        start = int(offs.get("prompts") or 0)
-        fsize = os.path.getsize(logp)
-        if start < 0 or start > fsize:
-            start = 0
-        with open(logp, "rb") as f:
-            f.seek(start)
-            raw = f.read()
-        p_new = start + len(raw)
-        for hdr, body in _parse_prompts_records(raw.decode("utf-8", "replace")):
-            if hdr.get("origin") != "human":
-                continue
-            b = (body or "").strip()
-            if not b:
-                continue
-            prompts.append((hdr.get("sid") or "", hdr.get("turn") or "", b,
-                            hdr.get("cwd") or ""))
-    except OSError:
-        prompts, p_new = [], int(offs.get("prompts") or 0)
-
-    # --- metrics.jsonl (triage context): forward byte offset ---
-    metrics = []
-    mpath = os.path.join(logs, "metrics.jsonl")
-    m_new = int(offs.get("metrics") or 0)
-    try:
-        start = int(offs.get("metrics") or 0)
-        fsize = os.path.getsize(mpath)
-        if start < 0 or start > fsize:
-            start = 0
-        with open(mpath, "rb") as f:
-            f.seek(start)
-            raw = f.read()
-        m_new = start + len(raw)
-        for line in raw.decode("utf-8", "replace").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                ev = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(ev, dict):
-                metrics.append(ev)
-    except OSError:
-        metrics, m_new = [], int(offs.get("metrics") or 0)
-
-    # --- sessions/<sid>/live.jsonl (error-recovery source): bounded selection ---
-    on_disk = set(_transcript_list_session_ids(kdir))
-    processed = set(state.get("processed_sessions") or [])
-    pending = set(state.get("backfill_pending") or [])
-    if backfill:
-        cand_sids = sorted(pending & on_disk)          # historical drain
-    else:
-        cand_sids = sorted(on_disk - processed - pending)  # only NEW sessions
-    cand_sids = cand_sids[:session_cap]
-    scanned = []
-    for sid in cand_sids:
-        sdir = os.path.join(logs, "sessions", sid)
-        scanned.append((sid,
-                        _transcript_read_session(sdir, sid),
-                        _transcript_session_settled(sdir)))
-    return {"prompts": prompts, "metrics": metrics, "scanned": scanned,
-            "new_offsets": {"prompts": p_new, "metrics": m_new},
-            "mode": "backfill" if backfill else "incremental"}
 
 
 def _transcript_build_record(kdir, sid, turn_id, text, signal, cwd="",
@@ -234,6 +136,56 @@ def _transcript_build_record(kdir, sid, turn_id, text, signal, cwd="",
     return rec
 
 
+def _recurrence_fold(prompts, tally):
+    """Fold this window's bodies INTO the persistent tally and return the keys
+    touched, in first-touch order.
+
+    Pure tabulation: each body normalises to a deterministic key whose value
+    carries the DISTINCT-session set (a body asked twice in ONE session counts
+    once, F4) and the most-recent occurrence. Set-based, so re-folding the same
+    window is idempotent — the property that lets the whole mine be crash-safe
+    without an abort. Mutates `tally` in place and LRU-moves each touched key to
+    the end. Emits nothing; emission is the caller's, and separating them is what
+    lets the fold keep running while emission is RETIRED.
+    """
+    touched = []          # keys folded this window, first-touch order (dedup)
+    for sid, turn_id, body, cwd in prompts:
+        key = _transcript_norm_key(body)
+        if not key:
+            continue
+        entry = tally.get(key)
+        if not isinstance(entry, dict):
+            entry = {"sessions": [], "latest": {}, "emitted": False}
+        sids = set(entry.get("sessions") or [])
+        sids.add(sid)
+        entry["sessions"] = sorted(sids)
+        entry["latest"] = {"sid": sid, "turn_id": turn_id, "text": body,
+                           "cwd": cwd}
+        tally.pop(key, None)          # LRU: re-insert at the end (most-recent)
+        tally[key] = entry
+        if key not in touched:
+            touched.append(key)
+    return touched
+
+
+def _recurrence_latest(entry):
+    """A tally entry's most-recent occurrence as the record fields, every one of
+    them coerced to its empty default.
+
+    A tally entry can be legacy, hand-edited or half-written (the `latest` sub-dict
+    is the newest of the three fields), and `_transcript_build_record` builds a
+    record that is APPENDED to a shared, producer-agnostic queue — so a None
+    reaching it becomes a null in another producer's reader. Coercing all of them
+    in one place is what makes "the record schema is always complete" checkable.
+    """
+    latest = entry.get("latest") or {}
+    return {"sid": latest.get("sid") or "",
+            "turn_id": latest.get("turn_id") or "",
+            "text": latest.get("text") or "",
+            "cwd": latest.get("cwd") or "",
+            "source_sessions": entry.get("sessions") or []}
+
+
 def _transcript_mine_recurrence(prompts, tally, kdir, emitted_keys=None,
                                 gate=None):
     """Recurrence detector (Q2). FOLD this window's origin=human bodies INTO the
@@ -270,23 +222,7 @@ def _transcript_mine_recurrence(prompts, tally, kdir, emitted_keys=None,
     if gate is None:
         gate = _transcript_recurrence_gate()
     ledger = set(emitted_keys)
-    touched = []          # keys folded this window, first-touch order (dedup)
-    for sid, turn_id, body, cwd in prompts:
-        key = _transcript_norm_key(body)
-        if not key:
-            continue
-        entry = tally.get(key)
-        if not isinstance(entry, dict):
-            entry = {"sessions": [], "latest": {}, "emitted": False}
-        sids = set(entry.get("sessions") or [])
-        sids.add(sid)
-        entry["sessions"] = sorted(sids)
-        entry["latest"] = {"sid": sid, "turn_id": turn_id, "text": body,
-                           "cwd": cwd}
-        tally.pop(key, None)          # LRU: re-insert at the end (most-recent)
-        tally[key] = entry
-        if key not in touched:
-            touched.append(key)
+    touched = _recurrence_fold(prompts, tally)
     out = []
     # RETIRED (260719): the recurrence arm emits NOTHING. The tally FOLD above is
     # preserved (harmless cumulative counting; zero behavior change to persisted
@@ -299,7 +235,8 @@ def _transcript_mine_recurrence(prompts, tally, kdir, emitted_keys=None,
         return out
     for key in touched:
         entry = tally[key]
-        count = len(entry.get("sessions") or [])
+        latest = _recurrence_latest(entry)
+        count = len(latest["source_sessions"])
         if count >= MINER_RECURRENCE_N and not entry.get("emitted"):
             if not _transcript_recurrence_relevant(key, gate):
                 continue              # F-C: noise. NOT flagged, NOT ledgered ->
@@ -310,14 +247,43 @@ def _transcript_mine_recurrence(prompts, tally, kdir, emitted_keys=None,
             entry["emitted"] = True   # fires EXACTLY once, even as count climbs
             ledger.add(key)
             emitted_keys.append(key)  # persistent, survives tally eviction
-            latest = entry.get("latest") or {}
             out.append(_transcript_build_record(
-                kdir, sid=latest.get("sid") or "",
-                turn_id=latest.get("turn_id") or "",
-                text=latest.get("text") or "", signal="recurrence",
-                cwd=latest.get("cwd") or "", recurrence_count=count,
-                source_sessions=entry.get("sessions") or []))
+                kdir, sid=latest["sid"], turn_id=latest["turn_id"],
+                text=latest["text"], signal="recurrence", cwd=latest["cwd"],
+                recurrence_count=count,
+                source_sessions=latest["source_sessions"]))
     return out
+
+
+def _errrec_pairs(records):
+    """The hit-and-fixed pairs in ONE session's timeline, as
+    `[(tool, target, error_signature)]` in recovery order.
+
+    DETECTION only, with no ledger and no emission: a tool call with an ERR status
+    FOLLOWED by a later ok call of the SAME tool AND primary target. A BARE error
+    with no later success yields nothing (conservative), an error with no target
+    is unpairable and ignored, and only the FIRST error signature per pair is
+    kept — a target that failed twice before recovering is one recovery, and its
+    signature is the failure that started it.
+    """
+    err_sig = {}          # (tool, target) -> first error signature seen
+    recovered = set()     # (tool, target) already paired (emit once)
+    pairs = []
+    for r in records:
+        if not isinstance(r, dict):
+            continue
+        tool = str(r.get("tool") or "")
+        target = _transcript_tool_target(r)
+        keyt = (tool, target)
+        st = r.get("status")
+        if _transcript_is_err_status(st):
+            if target and keyt not in err_sig:
+                err_sig[keyt] = _transcript_err_signature(r)
+        elif (_transcript_is_ok_status(st) and target
+              and keyt in err_sig and keyt not in recovered):
+            recovered.add(keyt)
+            pairs.append((tool, target, err_sig[keyt]))
+    return pairs
 
 
 def _transcript_mine_error_recovery(scanned, metrics, kdir, emitted_keys=None,
@@ -340,7 +306,10 @@ def _transcript_mine_error_recovery(scanned, metrics, kdir, emitted_keys=None,
     run — is suppressed; a genuinely-distinct signature still emits. Mutates
     `emitted_keys` in place (LRU append order; caller prunes + persists under
     the mine lock). Mode 'off' restores legacy per-session emission and neither
-    consults nor grows the ledger."""
+    consults nor grows the ledger.
+
+    Detection is `_errrec_pairs`; what is left here is the LEDGER, which is the
+    only part that spans sessions and the only part a mode can change."""
     if emitted_keys is None:
         emitted_keys = []
     if gate is None:
@@ -349,69 +318,90 @@ def _transcript_mine_error_recovery(scanned, metrics, kdir, emitted_keys=None,
     ledger = set(emitted_keys)
     out = []
     for sid, records, _settled in scanned:
-        err_sig = {}          # (tool, target) -> first error signature seen
-        recovered = set()     # (tool, target) already paired (emit once)
-        for r in records:
-            if not isinstance(r, dict):
-                continue
-            tool = str(r.get("tool") or "")
-            target = _transcript_tool_target(r)
-            keyt = (tool, target)
-            st = r.get("status")
-            if _transcript_is_err_status(st):
-                if target and keyt not in err_sig:
-                    err_sig[keyt] = _transcript_err_signature(r)
-            elif (_transcript_is_ok_status(st) and target
-                  and keyt in err_sig and keyt not in recovered):
-                recovered.add(keyt)
-                text = _transcript_error_recovery_text(tool, target,
-                                                       err_sig[keyt])
-                # A tier-3 (kernel-path / gate-loosening) candidate is still
-                # EMITTED so the downstream drain visibly REJECTS it, and is
-                # still LEDGERED so it stays bounded — but under its OWN key
-                # namespace, so a drain-rejected bait can never occupy (and thus
-                # blind) the key a LEGITIMATE same tool/class/signature recovery
-                # would derive. Exempting it from the ledger entirely would
-                # reopen an ungated once-per-session flood on the kernel path
-                # (adversarial-review rounds 1-2). Same tier-3 predicate the
-                # drain uses, so classification stays consistent.
-                tier3 = _pref_hits_kernel(text) or _pref_loosens_gate(text)
-                if mode != "off":
-                    fekey = _transcript_errrec_key(tool, target,
-                                                   err_sig[keyt], mode, tier3)
-                    if fekey in ledger:
-                        continue      # F-E: mode already emitted (any session)
-                    ledger.add(fekey)
-                    emitted_keys.append(fekey)  # persistent, cross-run
-                out.append(_transcript_build_record(
-                    kdir, sid=sid, turn_id="",
-                    text=text,
-                    signal="error-recovery", cwd="", source_sessions=[sid]))
+        for tool, target, signature in _errrec_pairs(records):
+            text = _transcript_error_recovery_text(tool, target, signature)
+            # A tier-3 (kernel-path / gate-loosening) candidate is still
+            # EMITTED so the downstream drain visibly REJECTS it, and is
+            # still LEDGERED so it stays bounded — but under its OWN key
+            # namespace, so a drain-rejected bait can never occupy (and thus
+            # blind) the key a LEGITIMATE same tool/class/signature recovery
+            # would derive. Exempting it from the ledger entirely would
+            # reopen an ungated once-per-session flood on the kernel path
+            # (adversarial-review rounds 1-2). Same tier-3 predicate the
+            # drain uses, so classification stays consistent.
+            tier3 = _pref_hits_kernel(text) or _pref_loosens_gate(text)
+            if mode != "off":
+                fekey = _transcript_errrec_key(tool, target, signature, mode,
+                                               tier3)
+                if fekey in ledger:
+                    continue          # F-E: mode already emitted (any session)
+                ledger.add(fekey)
+                emitted_keys.append(fekey)  # persistent, cross-run
+            out.append(_transcript_build_record(
+                kdir, sid=sid, turn_id="",
+                text=text,
+                signal="error-recovery", cwd="", source_sessions=[sid]))
     return out
 
 
 def _transcript_queue_fps(qpath):
     """Fingerprints already in the LIVE queue (any producer) — the dedup belt so
-    a mined candidate matching an existing Stop-hook fp is suppressed."""
-    fps = set()
-    if not os.path.isfile(qpath):
-        return fps
+    a mined candidate matching an existing Stop-hook fp is suppressed.
+
+    Reads through the queue's OWN reader (`_prefer_queue_records`) rather than a
+    seventh hand-rolled JSONL loop, so a change to what the queue considers a
+    record reaches the miner's dedup belt too. The reader is strict about ACCESS
+    by design; here an unreadable queue degrades to an EMPTY belt, because the
+    caller's next move is fp-dedup and a mine that cannot read the queue must
+    still be able to run — the append is idempotent under the archive fp set.
+    """
     try:
-        with open(qpath, encoding="utf-8") as qf:
-            for line in qf:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(rec, dict):
-                    fps.add(_prefer_cand_fp(rec.get("sid"), rec.get("turn_id"),
-                                            rec.get("text")))
+        records = _prefer_queue_records(qpath)
     except OSError:
         return set()
-    return fps
+    return {_prefer_cand_fp(rec.get("sid"), rec.get("turn_id"), rec.get("text"))
+            for rec in records}
+
+
+def _mine_new_lines(cands, seen):
+    """The JSONL lines for the candidates whose fp is not already in `seen`.
+
+    Mutates `seen` so a duplicate WITHIN one batch is suppressed too, not only a
+    duplicate against the queue and the archive: the two detectors run over the
+    same window and can independently derive the same (sid, turn, text).
+    """
+    out_lines = []
+    for rec in cands:
+        fp = _prefer_cand_fp(rec.get("sid"), rec.get("turn_id"),
+                             rec.get("text"))
+        if fp in seen:
+            continue
+        seen.add(fp)
+        out_lines.append(json.dumps(rec, ensure_ascii=False))
+    return out_lines
+
+
+def _mine_advance_state(state, read):
+    """Advance the authoritative state by what this window actually read.
+
+    Offsets advance MONOTONICALLY (`max`), never by assignment: two mines racing
+    on overlapping bytes must not be able to rewind the watermark, and a re-read
+    is safe because every append is fp-deduped. A session is marked processed only
+    once it has SETTLED (its Stop hook wrote main.jsonl) — an unsettled session is
+    left pending so a later window re-scans it, which is why an in-flight session's
+    recovery is never missed by being seen too early.
+    """
+    for key in ("prompts", "metrics"):
+        state["offsets"][key] = max(int(state["offsets"].get(key) or 0),
+                                    int(read["new_offsets"][key]))
+    processed = set(state.get("processed_sessions") or [])
+    pending = set(state.get("backfill_pending") or [])
+    for sid, _recs, settled in read["scanned"]:
+        if settled:                            # permanent skip once settled
+            processed.add(sid)
+            pending.discard(sid)
+    state["processed_sessions"] = sorted(processed)
+    state["backfill_pending"] = sorted(pending)
 
 
 def _transcript_mine(kdir, backfill=False, session_cap=None):
@@ -428,7 +418,13 @@ def _transcript_mine(kdir, backfill=False, session_cap=None):
 
     Concurrency-safe WITHOUT an abort: the tally is set-based (idempotent re-fold),
     `emitted` fires once, offsets advance monotonically (max), and every append is
-    fp-deduped — so even a re-read of overlapping bytes cannot double-emit."""
+    fp-deduped — so even a re-read of overlapping bytes cannot double-emit.
+
+    The lock is the queue's OWN `_prefer_queue_lock`, shared with the Stop-hook
+    producer and the four disposition verbs: a miner holding a DIFFERENT lock on
+    the same file would be no lock at all. It yields None when the lock cannot be
+    taken, which is this caller's "queued nothing" — an offline maintenance step
+    never raises into the cycle."""
     if not kdir:
         return 0
     try:
@@ -441,79 +437,48 @@ def _transcript_mine(kdir, backfill=False, session_cap=None):
         os.makedirs(os.path.dirname(qpath), exist_ok=True)
     except OSError:
         return 0
-    import fcntl
-    lockp = qpath + ".lock"
-    try:
-        lf = open(lockp, "a+")
-    except OSError:
-        return 0
-    try:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-    except OSError:
-        lf.close()
-        return 0
-    try:
-        state = _transcript_load_state(kdir)[0]    # AUTHORITATIVE (sole writer)
-        tally = state["tally"]
-        emitted_keys = state["emitted_keys"]       # persistent emit-once ledger
-        cands = _transcript_mine_recurrence(read["prompts"], tally, kdir,
-                                            emitted_keys,
-                                            _transcript_recurrence_gate())
-        err_emitted = state["err_emitted_keys"]    # F-E cross-session ledger
-        cands += _transcript_mine_error_recovery(read["scanned"],
-                                                 read["metrics"], kdir,
-                                                 err_emitted,
-                                                 _transcript_errrec_gate())
-        seen = _transcript_queue_fps(qpath)
-        seen |= _prefer_archive_fingerprints(
-            os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL))
-        out_lines = []
-        for rec in cands:
-            fp = _prefer_cand_fp(rec.get("sid"), rec.get("turn_id"),
-                                 rec.get("text"))
-            if fp in seen:
-                continue
-            seen.add(fp)
-            out_lines.append(json.dumps(rec, ensure_ascii=False))
-        if out_lines:                              # APPEND before the state write
-            with open(qpath, "a", encoding="utf-8") as qf:
-                qf.write("\n".join(out_lines) + "\n")
-        state["offsets"]["prompts"] = max(
-            int(state["offsets"].get("prompts") or 0),
-            int(read["new_offsets"]["prompts"]))
-        state["offsets"]["metrics"] = max(
-            int(state["offsets"].get("metrics") or 0),
-            int(read["new_offsets"]["metrics"]))
-        processed = set(state.get("processed_sessions") or [])
-        pending = set(state.get("backfill_pending") or [])
-        for sid, _recs, settled in read["scanned"]:
-            if settled:                            # permanent skip once settled
-                processed.add(sid)
-                pending.discard(sid)
-        state["processed_sessions"] = sorted(processed)
-        state["backfill_pending"] = sorted(pending)
-        _transcript_prune_tally(tally)
-        _transcript_prune_emitted(emitted_keys)    # SAME lock + state write
-        _transcript_prune_emitted(err_emitted)     # F-E ledger, same bound
-        _transcript_write_state(kdir, state)
-        return len(out_lines)
-    except Exception:
-        return 0
-    finally:
+    with _prefer_queue_lock(qpath) as lf:
+        if lf is None:
+            return 0
         try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        lf.close()
+            state = _transcript_load_state(kdir)[0]  # AUTHORITATIVE (sole writer)
+            tally = state["tally"]
+            emitted_keys = state["emitted_keys"]     # persistent emit-once ledger
+            cands = _transcript_mine_recurrence(read["prompts"], tally, kdir,
+                                                emitted_keys,
+                                                _transcript_recurrence_gate())
+            err_emitted = state["err_emitted_keys"]  # F-E cross-session ledger
+            cands += _transcript_mine_error_recovery(read["scanned"],
+                                                     read["metrics"], kdir,
+                                                     err_emitted,
+                                                     _transcript_errrec_gate())
+            seen = _transcript_queue_fps(qpath)
+            seen |= _prefer_archive_fingerprints(
+                os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL))
+            out_lines = _mine_new_lines(cands, seen)
+            if out_lines:                          # APPEND before the state write
+                with open(qpath, "a", encoding="utf-8") as qf:
+                    qf.write("\n".join(out_lines) + "\n")
+            _mine_advance_state(state, read)
+            _transcript_prune_tally(tally)
+            _transcript_prune_emitted(emitted_keys)  # SAME lock + state write
+            _transcript_prune_emitted(err_emitted)   # F-E ledger, same bound
+            _transcript_write_state(kdir, state)
+            return len(out_lines)
+        except Exception:
+            return 0
 
 
 _EXPORTS = [
-    "_transcript_read_session",
-    "_transcript_mine_read",
     "_transcript_build_record",
+    "_recurrence_fold",
+    "_recurrence_latest",
     "_transcript_mine_recurrence",
+    "_errrec_pairs",
     "_transcript_mine_error_recovery",
     "_transcript_queue_fps",
+    "_mine_new_lines",
+    "_mine_advance_state",
     "_transcript_mine",
 ]
 

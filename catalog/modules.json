@@ -1080,6 +1080,11 @@
     {
       "layer": "lib",
       "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/sessionparse/minerread.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
       "path": "scripts/agentware_lib/ops/sessionparse/minerscan.py"
     },
     {
@@ -2910,6 +2915,21 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_minererrors.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_minerread.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_minerscan.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_org_curator.py"
     },
     {
@@ -3116,6 +3136,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_scaffoldwire.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_sessionusage.py"
     },
     {
       "layer": "tests",
@@ -9191,6 +9216,7 @@
       "depended_on_by": [
         "agentware_lib.ops.checkupprobes",
         "agentware_lib.ops.planpremises",
+        "agentware_lib.ops.sessionparse.minerread",
         "agentware_lib.ops.sessionparse.minerscan"
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
@@ -9663,6 +9689,7 @@
         "_TRANSCRIPT_ERR_FRAME_RE",
         "_TRANSCRIPT_ERR_MSG_RE",
         "_parse_miner_errrec_dedup",
+        "_transcript_collect_blocks",
         "_transcript_err_cmd_binary",
         "_transcript_err_sig_norm",
         "_transcript_err_signature",
@@ -9671,10 +9698,14 @@
         "_transcript_error_recovery_text",
         "_transcript_errrec_gate",
         "_transcript_errrec_key",
+        "_transcript_live_err_keys",
         "_transcript_mask_volatile",
-        "_transcript_reconcile_errors"
+        "_transcript_reconcile_errors",
+        "_transcript_result_text",
+        "_transcript_scan_tool_pairs"
       ],
       "depended_on_by": [
+        "agentware_lib.ops.sessionparse.minerread",
         "agentware_lib.ops.sessionparse.minerscan"
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
@@ -9689,7 +9720,7 @@
       "owns": "how a failure seen in a session transcript becomes a STABLE, comparable signature — the frame/message recognisers (_TRANSCRIPT_ERR_FRAME_RE / _TRANSCRIPT_ERR_MSG_RE), the signature builder (`_transcript_err_signature`), the volatile-detail mask (`_transcript_mask_volatile`), the target classifiers (`_transcript_err_target_class` / `_transcript_err_url_host_class` / `_transcript_err_cmd_binary`), the dedup key and its gate (`_transcript_errrec_key` / `_transcript_errrec_gate` / `_parse_miner_errrec_dedup`), the recovery-text extractor and the reconciler that pairs an error with the fix that followed it.",
       "path": "scripts/agentware_lib/ops/sessionparse/minererrors.py",
       "test_file": "tests/unit/ops/test_minererrors.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -9748,6 +9779,7 @@
         "agentware_lib.ops.reviewconfig",
         "agentware_lib.ops.sessionparse.minererrors",
         "agentware_lib.ops.sessionparse.minerextract",
+        "agentware_lib.ops.sessionparse.minerread",
         "agentware_lib.ops.sessionparse.minerscan",
         "agentware_lib.ops.sessionparse.minerstate"
       ],
@@ -9764,13 +9796,44 @@
     },
     {
       "anchor_symbols": [
+        "_mine_read_metrics",
+        "_mine_read_prompts",
+        "_mine_read_since",
+        "_mine_select_sessions",
+        "_transcript_mine_read",
+        "_transcript_read_session"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.sessionparse.minerscan"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [
+        "agentware_lib.ops.premisecheck",
+        "agentware_lib.ops.sessionparse.minererrors",
+        "agentware_lib.ops.sessionparse.minerfolds",
+        "agentware_lib.ops.sessionparse.minerstate"
+      ],
+      "layer": "ops",
+      "name": "agentware_lib.ops.sessionparse.minerread",
+      "not_owns": "the mining PASSES, the record builder, the fp belt and the orchestrator (ops.sessionparse.minerscan); the cursor/caps/state (ops.sessionparse.minerstate); the prompts-record parser and the session lister (ops.sessionparse.minerfolds); the ERR reconstruction (ops.sessionparse.minererrors); the queue itself (ops.preferqueue).",
+      "owns": "everything the miner reads BEFORE it takes the queue lock — the forward-only byte-offset reader (`_mine_read_since`), the two log readers built on it (`_mine_read_prompts`, `_mine_read_metrics`), the bounded session selection (`_mine_select_sessions`), the per-session record merge (`_transcript_read_session`) and the pass that composes them into one window (`_transcript_mine_read`).",
+      "path": "scripts/agentware_lib/ops/sessionparse/minerread.py",
+      "test_file": "tests/unit/ops/test_minerread.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
+        "_errrec_pairs",
+        "_mine_advance_state",
+        "_mine_new_lines",
+        "_recurrence_fold",
+        "_recurrence_latest",
         "_transcript_build_record",
         "_transcript_mine",
         "_transcript_mine_error_recovery",
-        "_transcript_mine_read",
         "_transcript_mine_recurrence",
-        "_transcript_queue_fps",
-        "_transcript_read_session"
+        "_transcript_queue_fps"
       ],
       "depended_on_by": [
         "agentware_lib.features.dreamsteps.steptranscriptmine",
@@ -9787,15 +9850,16 @@
         "agentware_lib.ops.sessionparse.minererrors",
         "agentware_lib.ops.sessionparse.minerextract",
         "agentware_lib.ops.sessionparse.minerfolds",
+        "agentware_lib.ops.sessionparse.minerread",
         "agentware_lib.ops.sessionparse.minerstate"
       ],
       "layer": "ops",
       "name": "agentware_lib.ops.sessionparse.minerscan",
-      "not_owns": "the cursor/caps (minerstate); record extraction and redaction (minerextract); error signatures (minererrors); the recurrence precision gate (minerfolds); the queue itself (ops.preferqueue).",
-      "owns": "the passes that walk settled sessions and produce candidates — the reader (`_transcript_mine_read`), the record builder (`_transcript_build_record`), the recurrence pass (`_transcript_mine_recurrence`), the error-recovery pass (`_transcript_mine_error_recovery`), the queue-fingerprint reader (`_transcript_queue_fps`), the orchestrator (`_transcript_mine`) and its dream-step adapter (`_dream_step_transcript_mine`).",
+      "not_owns": "the bounded corpus READ done outside the lock — the byte-offset reader, the two log readers, the session selection and `_transcript_mine_read` (ops.sessionparse.minerread); the cursor/caps (minerstate); record extraction and redaction (minerextract); error signatures (minererrors); the recurrence precision gate (minerfolds); the queue, its lock and its reader (ops.preferqueue).",
+      "owns": "the passes that turn a read window into candidates, and the orchestrator that persists them — the record builder (`_transcript_build_record`), the recurrence pass (`_transcript_mine_recurrence`, with `_recurrence_fold` and `_recurrence_latest`), the error-recovery pass (`_transcript_mine_error_recovery`, with the `_errrec_pairs` detector), the queue-fingerprint belt (`_transcript_queue_fps`, `_mine_new_lines`), the state advance (`_mine_advance_state`) and the orchestrator (`_transcript_mine`).",
       "path": "scripts/agentware_lib/ops/sessionparse/minerscan.py",
       "test_file": "tests/unit/ops/test_minerscan.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -9828,6 +9892,7 @@
         "agentware_lib.ops.prefercmd",
         "agentware_lib.ops.sessionparse.minererrors",
         "agentware_lib.ops.sessionparse.minerextract",
+        "agentware_lib.ops.sessionparse.minerread",
         "agentware_lib.ops.sessionparse.minerscan"
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
@@ -9911,11 +9976,20 @@
         "_STAGE_PLAN_SIGNALS",
         "_STAGE_WORK_SIGNALS",
         "_USAGE_KEYS",
+        "_accumulate_turn_usage",
         "_cache_read_ratio",
         "_empty_usage",
         "_merge_models",
         "_merge_tools",
         "_merge_usage",
+        "_new_usage_agg",
+        "_scan_edit_target",
+        "_scan_line_markers",
+        "_scan_message_content",
+        "_scan_tool_use",
+        "_track_timestamps",
+        "_turn_input_total",
+        "_usage_int",
         "aggregate_jsonl"
       ],
       "depended_on_by": [
@@ -9931,7 +10005,7 @@
       "owns": "the deterministic aggregation of ONE raw JSONL transcript file into a metric fold (aggregate_jsonl) and everything that fold is built from -- the token-usage key tuples (_USAGE_KEYS/_INPUT_SIDE_KEYS), the transcript regexes (_FEATURE_RE/ _PLAN_PATH_RE/_PLAN_DOC_RE/_PROMISE_RE/_STAGE_LOOP_RE) and stage signal tuples (_STAGE_PLAN_SIGNALS/_STAGE_WORK_SIGNALS), the zero-usage constructor (_empty_usage), the three fold helpers (_merge_usage/_merge_tools/_merge_models) and the input-side cache-hit ratio (_cache_read_ratio).",
       "path": "scripts/agentware_lib/ops/sessionparse/sessionusage.py",
       "test_file": "tests/unit/ops/test_sessionusage.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {

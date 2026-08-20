@@ -76,23 +76,21 @@ MINER_ERRREC_DEDUP = "class"
 MINER_ERRREC_DEDUP_KEY = "AGENTWARE_MINER_ERRREC_DEDUP"
 
 
-def _transcript_reconcile_errors(sid, live):
-    """Reconstruct the ERR records log-tool.sh never wrote (review F-B).
+def _transcript_scan_tool_pairs(path):
+    """Read ONE durable transcript and return `(uses, results)`, or None if it
+    could not be read at all.
 
-    The PostToolUse hook does not fire on a FAILED Claude tool call (verified
-    2026-07-14 — see the MINER_TRANSCRIPT_* note), so live.jsonl holds successes
-    only and error-recovery was blind on the majority harness. The transcript
-    pairs a tool_use (name + input) to its tool_result (is_error + content) by
-    tool_use_id; every is_error:true pair becomes the record the hook would have
-    appended: {ts, tool, status:'ERR', agent, input, response}.
+    `uses` maps a tool_use_id to its `(name, input)`; `results` is the ordered
+    list of `(tool_use_id, block, timestamp)` for every tool_result the harness
+    marked `is_error: true`. Successful results are dropped here rather than
+    downstream, because this pass exists only to reconstruct the FAILURES the
+    PostToolUse hook never recorded.
 
-    Returns [] for a codex/absent-transcript session, so that producer's own
-    exit-code ERR path (codex-stream.py) is untouched. Best-effort (Q8): any
-    parse/IO fault degrades to [] rather than failing the mine. Read-only,
-    in-memory, no clock (INV-1) — ts comes from the transcript record itself."""
-    path = _transcript_claude_path(sid)
-    if not path:
-        return []
+    None and `({}, [])` are different facts and both callers care: an unreadable
+    transcript is a degradation, an empty one is a codex/absent session. Tolerant
+    of CONTENT throughout — a non-JSON line, a non-dict record, a message with no
+    content list, a non-dict block are all skipped — and strict about ACCESS only.
+    """
     uses, results = {}, []
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -106,33 +104,118 @@ def _transcript_reconcile_errors(sid, live):
                     continue
                 if not isinstance(rec, dict):
                     continue
-                msg = rec.get("message")
-                content = msg.get("content") if isinstance(msg, dict) else None
-                if not isinstance(content, list):
-                    continue
-                ts = rec.get("timestamp")
-                for blk in content:
-                    if not isinstance(blk, dict):
-                        continue
-                    btype = blk.get("type")
-                    if btype == "tool_use":
-                        bid = blk.get("id")
-                        if isinstance(bid, str) and bid:
-                            uses[bid] = (blk.get("name"), blk.get("input"))
-                    elif btype == "tool_result" and blk.get("is_error") is True:
-                        results.append((blk.get("tool_use_id"), blk, ts))
+                _transcript_collect_blocks(rec, uses, results)
     except OSError:
-        return []
+        return None
+    return uses, results
 
-    # Suppress a reconstruction the writer DID manage to record (a non-Bash tool
-    # that surfaced tool_response.success=false): key on (tool, target, ts) so a
-    # genuine second failure of the same target is still reconstructed.
-    seen = set()
+
+def _transcript_collect_blocks(rec, uses, results):
+    """Fold ONE transcript record's content blocks into the use/result tables.
+
+    Pairing is by `tool_use_id` and NOT by position: a tool_use and its result sit
+    in two different records (an assistant message, then a user message), and
+    intervening records are common. A tool_use whose id is missing or not a string
+    is dropped rather than keyed on a placeholder, or two unrelated calls would
+    pair with each other.
+    """
+    msg = rec.get("message")
+    content = msg.get("content") if isinstance(msg, dict) else None
+    if not isinstance(content, list):
+        return
+    ts = rec.get("timestamp")
+    for blk in content:
+        if not isinstance(blk, dict):
+            continue
+        btype = blk.get("type")
+        if btype == "tool_use":
+            bid = blk.get("id")
+            if isinstance(bid, str) and bid:
+                uses[bid] = (blk.get("name"), blk.get("input"))
+        elif btype == "tool_result" and blk.get("is_error") is True:
+            results.append((blk.get("tool_use_id"), blk, ts))
+
+
+def _transcript_live_err_keys(live):
+    """The `(tool, target, ts)` keys of the ERR records the writer DID manage to
+    record — a non-Bash tool that surfaced `tool_response.success=false`.
+
+    Reconstructing one of those again would double-count the same failure. The key
+    carries the TIMESTAMP so a genuine SECOND failure of the same target is still
+    reconstructed: only the same failure at the same second is a duplicate.
+    """
+    keys = set()
     for r in live:
         if isinstance(r, dict) and _transcript_is_err_status(r.get("status")):
-            seen.add((str(r.get("tool") or ""), _transcript_tool_target(r),
+            keys.add((str(r.get("tool") or ""), _transcript_tool_target(r),
                       _transcript_norm_ts(r.get("ts"))))
+    return keys
 
+
+def _transcript_result_text(body):
+    """A tool_result's `content` as TEXT with REAL newlines.
+
+    Anthropic's `content` is FREQUENTLY a list of blocks
+    (`[{"type":"text","text":"..."}]`) — the majority Claude shape. A raw
+    `json.dumps()` escapes a traceback's newlines to literal "\n", so
+    `_transcript_err_signature` sees ONE line, its frame/last-error logic is
+    bypassed, and two genuinely-distinct deep failures collapse onto the constant
+    JSON+preamble prefix -> one permanent F-E key (adversarial-review). Extracting
+    the text blocks with real newlines is what keeps signature selection working
+    on the actual error lines. A non-text block is serialised, a bare string kept,
+    and an unserialisable body degrades to "" rather than raising.
+    """
+    if isinstance(body, list):
+        parts = []
+        for b in body:
+            if isinstance(b, dict):
+                t = b.get("text")
+                if isinstance(t, str):
+                    parts.append(t)
+                else:
+                    try:
+                        parts.append(json.dumps(b, ensure_ascii=False))
+                    except (TypeError, ValueError):
+                        pass
+            elif isinstance(b, str):
+                parts.append(b)
+        return "\n".join(parts)
+    if isinstance(body, str):
+        return body
+    try:
+        return json.dumps(body, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return ""
+
+
+def _transcript_reconcile_errors(sid, live):
+    """Reconstruct the ERR records log-tool.sh never wrote (review F-B).
+
+    The PostToolUse hook does not fire on a FAILED Claude tool call (verified
+    2026-07-14 — see the MINER_TRANSCRIPT_* note), so live.jsonl holds successes
+    only and error-recovery was blind on the majority harness. The transcript
+    pairs a tool_use (name + input) to its tool_result (is_error + content) by
+    tool_use_id; every is_error:true pair becomes the record the hook would have
+    appended: {ts, tool, status:'ERR', agent, input, response}.
+
+    Returns [] for a codex/absent-transcript session, so that producer's own
+    exit-code ERR path (codex-stream.py) is untouched. Best-effort (Q8): any
+    parse/IO fault degrades to [] rather than failing the mine. Read-only,
+    in-memory, no clock (INV-1) — ts comes from the transcript record itself.
+
+    Three phases with no shared state, in three functions: SCAN the transcript
+    into pairs, derive the SUPPRESSION keys from what the writer already recorded,
+    and BUILD one record per surviving failure. The pairing is the only part that
+    needs both halves at once, and it is the only part left here.
+    """
+    path = _transcript_claude_path(sid)
+    if not path:
+        return []
+    pairs = _transcript_scan_tool_pairs(path)
+    if pairs is None:
+        return []
+    uses, results = pairs
+    seen = _transcript_live_err_keys(live)
     out = []
     for tuid, blk, ts in results:
         name, tinput = uses.get(tuid, (None, None))
@@ -143,38 +226,10 @@ def _transcript_reconcile_errors(sid, live):
                              ensure_ascii=False, sort_keys=True)
         except (TypeError, ValueError):
             continue
-        body = blk.get("content")
-        if isinstance(body, list):
-            # Anthropic tool_result `content` is FREQUENTLY a list of blocks
-            # ([{"type":"text","text":"..."}]) — the majority Claude shape. A raw
-            # json.dumps() escapes the traceback's newlines to literal "\n", so
-            # _transcript_err_signature sees ONE line, its frame/last-error logic
-            # is bypassed, and two genuinely-distinct deep failures collapse onto
-            # the constant JSON+preamble prefix -> one permanent F-E key
-            # (adversarial-review). Extract the text blocks with REAL newlines so
-            # signature selection works on the actual error lines.
-            parts = []
-            for b in body:
-                if isinstance(b, dict):
-                    t = b.get("text")
-                    if isinstance(t, str):
-                        parts.append(t)
-                    else:
-                        try:
-                            parts.append(json.dumps(b, ensure_ascii=False))
-                        except (TypeError, ValueError):
-                            pass
-                elif isinstance(b, str):
-                    parts.append(b)
-            body = "\n".join(parts)
-        elif not isinstance(body, str):
-            try:
-                body = json.dumps(body, ensure_ascii=False)
-            except (TypeError, ValueError):
-                body = ""
         rec = {"ts": _transcript_norm_ts(ts), "tool": str(name), "status": "ERR",
                "agent": "main", "input": _transcript_hook_trunc(inp),
-               "response": _transcript_resp_trunc(body)}
+               "response": _transcript_resp_trunc(
+                   _transcript_result_text(blk.get("content")))}
         key = (rec["tool"], _transcript_tool_target(rec), rec["ts"])
         if key in seen:
             continue
@@ -523,6 +578,10 @@ _EXPORTS = [
     "_transcript_err_sig_norm",
     "_transcript_errrec_key",
     "_transcript_error_recovery_text",
+    "_transcript_scan_tool_pairs",
+    "_transcript_collect_blocks",
+    "_transcript_live_err_keys",
+    "_transcript_result_text",
     "_transcript_reconcile_errors",
 ]
 

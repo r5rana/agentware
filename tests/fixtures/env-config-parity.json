@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "6d6ecc490686"
+      "git_head": "a6c265e7cb19"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -2047,7 +2047,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/ops/sessionparse/minererrors.py",
-            "line": 276,
+            "line": 331,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -2055,7 +2055,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/sessionparse/minererrors.py",
-            "line": 278,
+            "line": 333,
             "lang": "python",
             "form": "_read_config_key()",
             "default": null,

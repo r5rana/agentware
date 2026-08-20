@@ -92,16 +92,17 @@ def _empty_usage():
     return {k: 0 for k in _USAGE_KEYS}
 
 
-def aggregate_jsonl(path):
-    """Aggregate ONE JSONL transcript file (read-only).
+def _new_usage_agg():
+    """The zero-valued aggregate ONE transcript folds into.
 
-    Returns a dict with: turns (count of assistant lines), usage (summed token
-    keys), tools (tool_use name -> count), tool_calls (total), ts_first/ts_last
-    (raw ISO strings among lines that HAVE a timestamp), lines (parsed),
-    malformed (count of unparseable lines). Tolerates missing files, malformed
-    JSON, and lines whose `type` is not assistant/user.
+    A factory rather than a literal inside `aggregate_jsonl`, because the shape IS
+    the contract this module publishes: fourteen keys with fourteen different
+    meanings, six of which are annotated, and a reader who wants to know what a
+    metric row can contain should not have to read a 150-line loop to find out.
+    Every call returns a FRESH dict (the nested `usage`/`models`/`features` are
+    rebuilt too), so two aggregations can never share a mutable sub-object.
     """
-    agg = {
+    return {
         "turns": 0,
         "usage": _empty_usage(),
         "peak_input_tokens": 0,  # max single-turn input-side total (context fill)
@@ -130,6 +131,198 @@ def aggregate_jsonl(path):
         "lines": 0,
         "malformed": 0,
     }
+
+
+def _scan_line_markers(agg, raw):
+    """Fold the markers read off the RAW line, before it is parsed as JSON.
+
+    These four are deliberately pre-parse: a feature path, an AGENTWARE_STAGE
+    marker or a stage signal is counted wherever it appears in the transcript
+    (inside a nested string, a tool result, an injected reminder), and a line
+    that fails to parse still carries them. The loop_stage is FIRST-WINS — a
+    session's stage is set once, by the marker the loop exported at spawn, and a
+    later mention of a different stage cannot relabel it.
+    """
+    for feat in _FEATURE_RE.findall(raw):
+        agg["features"][feat] = agg["features"].get(feat, 0) + 1
+    if agg["loop_stage"] is None:
+        sm = _STAGE_LOOP_RE.search(raw)
+        if sm:
+            agg["loop_stage"] = sm.group(1)
+    if any(sig in raw for sig in _STAGE_PLAN_SIGNALS):
+        agg["stage_plan"] += 1
+    if any(sig in raw for sig in _STAGE_WORK_SIGNALS):
+        agg["stage_work"] += 1
+
+
+def _track_timestamps(agg, obj):
+    """Widen the [ts_first, ts_last] window with this record's timestamp.
+
+    Keeps the RAW ISO string beside the parsed datetime: the datetime is what
+    orders the window (string compare is wrong across offsets), the raw string is
+    what every consumer displays. A record with no timestamp, or one that does not
+    parse, widens nothing — the window covers the lines that HAVE a timestamp,
+    which is why an unparseable line is not a gap in it.
+    """
+    dt = sessioncache._parse_iso(obj.get("timestamp"))
+    if dt is None:
+        return
+    if agg["_first_dt"] is None or dt < agg["_first_dt"]:
+        agg["_first_dt"] = dt
+        agg["ts_first"] = obj.get("timestamp")
+    if agg["_last_dt"] is None or dt > agg["_last_dt"]:
+        agg["_last_dt"] = dt
+        agg["ts_last"] = obj.get("timestamp")
+
+
+def _usage_int(usage, key):
+    """One token count, or None when the field is absent or not a real number.
+
+    `bool` is excluded explicitly because it is an `int` in Python: a
+    `"input_tokens": true` would otherwise silently add 1 to the operator's bill.
+    A float is accepted and truncated, which is what the transcript occasionally
+    carries; a numeric STRING is not, because coercing it would make a malformed
+    transcript indistinguishable from a well-formed one.
+    """
+    v = usage.get(key)
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return int(v)
+    return None
+
+
+def _turn_input_total(usage):
+    """This turn's INPUT-side token total = what was loaded into the context
+    window on this turn. The MAX across turns is the peak fill, the signal behind
+    context-window-overflow / silent truncation."""
+    total = 0
+    for k in _INPUT_SIDE_KEYS:
+        v = _usage_int(usage, k)
+        if v is not None:
+            total += v
+    return total
+
+
+def _accumulate_turn_usage(agg, message):
+    """Fold ONE assistant turn's `usage` block into the totals and the per-model
+    split, and re-measure the peak context fill.
+
+    ALL usage is attributed to a model, so a turn whose `model` is absent, empty
+    or not a string is booked to the literal "unknown" rather than dropped — the
+    per-model split must sum to the total, or a cost report silently under-counts.
+    A message with no usage dict contributes nothing (it is still a turn).
+    """
+    usage = message.get("usage")
+    if not isinstance(usage, dict):
+        return
+    model = message.get("model")
+    if not isinstance(model, str) or not model:
+        model = "unknown"
+    per_model = agg["models"].get(model)
+    if per_model is None:
+        per_model = _empty_usage()
+        agg["models"][model] = per_model
+    for k in _USAGE_KEYS:
+        v = _usage_int(usage, k)
+        if v is None:
+            continue
+        agg["usage"][k] += v
+        per_model[k] += v
+    turn_in = _turn_input_total(usage)
+    if turn_in > agg["peak_input_tokens"]:
+        agg["peak_input_tokens"] = turn_in
+
+
+def _scan_edit_target(agg, name, inp):
+    """Classify ONE write-family tool call by the file it targeted.
+
+    A FULL Write of `work/<f>/plan.md` is plan AUTHORSHIP; an Edit of it is
+    status/marker maintenance and counts as NEITHER authoring nor execution;
+    writing or editing any NON-planning file is EXECUTION. That last line is what
+    separates a planner (writes a plan and hands off) from a worker (edits code)
+    — even when the same session did both, heavy code editing makes it a worker.
+    A non-write tool that merely names a file (a Read) classifies as nothing.
+    """
+    fp = inp.get("file_path") if isinstance(inp, dict) else None
+    if not isinstance(fp, str) or name not in (
+            "Write", "Edit", "MultiEdit", "NotebookEdit"):
+        return
+    if not _PLAN_DOC_RE.search(fp):
+        agg["code_edits"] += 1
+        return
+    if name != "Write":
+        return
+    pm = _PLAN_PATH_RE.search(fp)
+    if pm:
+        agg["plan_authored"][pm.group(1)] = True
+
+
+def _scan_tool_use(agg, item):
+    """Fold ONE tool_use block: the per-tool tally, the ACTION feature
+    attribution, the edit classification and the subagent-spawn flags.
+
+    ACTION attribution reads the tool INPUT only (an edited file path, a command
+    operating on `work/<f>`), which is what makes it immune to the injected
+    context that `_scan_line_markers`' passive MENTION count deliberately picks
+    up. A tool with no name is tallied under "<unknown>" rather than dropped, so
+    `tool_calls` and the tally can never disagree.
+    """
+    name = item.get("name") or "<unknown>"
+    agg["tools"][name] = agg["tools"].get(name, 0) + 1
+    agg["tool_calls"] += 1
+    inp = item.get("input")
+    inp_text = inp if isinstance(inp, str) else json.dumps(inp)
+    for feat in _FEATURE_RE.findall(inp_text or ""):
+        agg["action_features"][feat] = agg["action_features"].get(feat, 0) + 1
+    _scan_edit_target(agg, name, inp)
+    sub = inp.get("subagent_type") if isinstance(inp, dict) else None
+    if sub == "agentware-planner":
+        agg["planner_spawned"] = True
+    elif sub == "agentware-execution":
+        agg["executor_spawned"] = True
+
+
+def _scan_message_content(agg, content):
+    """Walk an assistant message's content blocks.
+
+    Only two block types carry signal. A `text` block can carry the agent's OWN
+    completion promise, which is the authoritative "this run finished" marker —
+    and it is read ONLY here, from the agent's own output, never from a `thinking`
+    block or a quoted user line. A `tool_use` block is the unit of action. Any
+    other block type, and any non-dict item, is skipped.
+    """
+    if not isinstance(content, list):
+        return
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        itype = item.get("type")
+        if itype == "text":
+            txt = item.get("text")
+            if isinstance(txt, str) and _PROMISE_RE.search(txt):
+                agg["promise_emitted"] = True
+            continue
+        if itype != "tool_use":
+            continue
+        _scan_tool_use(agg, item)
+
+
+def aggregate_jsonl(path):
+    """Aggregate ONE JSONL transcript file (read-only).
+
+    Returns a dict with: turns (count of assistant lines), usage (summed token
+    keys), tools (tool_use name -> count), tool_calls (total), ts_first/ts_last
+    (raw ISO strings among lines that HAVE a timestamp), lines (parsed),
+    malformed (count of unparseable lines). Tolerates missing files, malformed
+    JSON, and lines whose `type` is not assistant/user.
+
+    The body is the READ and the four folds it dispatches, in the order the
+    transcript licenses them: the raw-line markers survive a parse failure, the
+    timestamp window covers every well-formed record, and the usage + content
+    folds are assistant-only. Each fold is its own function because each answers a
+    different question about the same line, and a fifty-branch loop cannot say
+    which of its branches belongs to which question.
+    """
+    agg = _new_usage_agg()
     try:
         f = open(path, "r", encoding="utf-8")
     except (FileNotFoundError, IsADirectoryError, OSError):
@@ -140,16 +333,7 @@ def aggregate_jsonl(path):
             if not raw:
                 continue
             agg["lines"] += 1
-            for feat in _FEATURE_RE.findall(raw):
-                agg["features"][feat] = agg["features"].get(feat, 0) + 1
-            if agg["loop_stage"] is None:
-                sm = _STAGE_LOOP_RE.search(raw)
-                if sm:
-                    agg["loop_stage"] = sm.group(1)
-            if any(sig in raw for sig in _STAGE_PLAN_SIGNALS):
-                agg["stage_plan"] += 1
-            if any(sig in raw for sig in _STAGE_WORK_SIGNALS):
-                agg["stage_work"] += 1
+            _scan_line_markers(agg, raw)
             try:
                 obj = json.loads(raw)
             except (ValueError, TypeError):
@@ -158,96 +342,15 @@ def aggregate_jsonl(path):
             if not isinstance(obj, dict):
                 agg["malformed"] += 1
                 continue
-
-            dt = sessioncache._parse_iso(obj.get("timestamp"))
-            if dt is not None:
-                if agg["_first_dt"] is None or dt < agg["_first_dt"]:
-                    agg["_first_dt"] = dt
-                    agg["ts_first"] = obj.get("timestamp")
-                if agg["_last_dt"] is None or dt > agg["_last_dt"]:
-                    agg["_last_dt"] = dt
-                    agg["ts_last"] = obj.get("timestamp")
-
+            _track_timestamps(agg, obj)
             if obj.get("type") != "assistant":
                 continue
             agg["turns"] += 1
             message = obj.get("message")
             if not isinstance(message, dict):
                 continue
-            usage = message.get("usage")
-            if isinstance(usage, dict):
-                model = message.get("model")
-                if not isinstance(model, str) or not model:
-                    model = "unknown"
-                per_model = agg["models"].get(model)
-                if per_model is None:
-                    per_model = _empty_usage()
-                    agg["models"][model] = per_model
-                for k in _USAGE_KEYS:
-                    v = usage.get(k)
-                    if isinstance(v, (int, float)) and not isinstance(v, bool):
-                        agg["usage"][k] += int(v)
-                        per_model[k] += int(v)
-                # Per-turn input-side total = what was loaded into the context
-                # window on this turn; the MAX across turns is the peak fill, the
-                # signal behind context-window-overflow / silent truncation.
-                turn_in = 0
-                for k in _INPUT_SIDE_KEYS:
-                    v = usage.get(k)
-                    if isinstance(v, (int, float)) and not isinstance(v, bool):
-                        turn_in += int(v)
-                if turn_in > agg["peak_input_tokens"]:
-                    agg["peak_input_tokens"] = turn_in
-            content = message.get("content")
-            if isinstance(content, list):
-                for item in content:
-                    if not isinstance(item, dict):
-                        continue
-                    itype = item.get("type")
-                    if itype == "text":
-                        # The agent emitting a completion promise (its OWN output)
-                        # is the authoritative "this run finished" signal.
-                        txt = item.get("text")
-                        if isinstance(txt, str) and _PROMISE_RE.search(txt):
-                            agg["promise_emitted"] = True
-                        continue
-                    if itype != "tool_use":
-                        continue
-                    name = item.get("name") or "<unknown>"
-                    agg["tools"][name] = agg["tools"].get(name, 0) + 1
-                    agg["tool_calls"] += 1
-                    inp = item.get("input")
-                    inp_text = inp if isinstance(inp, str) else json.dumps(inp)
-                    # ACTION feature attribution: features named inside a tool
-                    # INPUT (an edited file path, a command operating on work/<f>).
-                    for feat in _FEATURE_RE.findall(inp_text or ""):
-                        agg["action_features"][feat] = \
-                            agg["action_features"].get(feat, 0) + 1
-                    fp = inp.get("file_path") if isinstance(inp, dict) else None
-                    if isinstance(fp, str) and name in (
-                            "Write", "Edit", "MultiEdit", "NotebookEdit"):
-                        if _PLAN_DOC_RE.search(fp):
-                            # A planning artifact (plan.md / design.md). A FULL Write
-                            # of plan.md is plan AUTHORSHIP; Edits are status/marker
-                            # maintenance and do NOT count as either authoring or
-                            # execution. Either way it is NOT a code edit.
-                            if name == "Write":
-                                pm = _PLAN_PATH_RE.search(fp)
-                                if pm:
-                                    agg["plan_authored"][pm.group(1)] = True
-                        else:
-                            # Editing/writing ANY non-planning file is EXECUTION.
-                            # This is what separates a planner (writes a plan and
-                            # hands off) from a worker (edits code) — even when the
-                            # same session did both, heavy code editing makes it a
-                            # worker, not a planner.
-                            agg["code_edits"] += 1
-                    sub = inp.get("subagent_type") if isinstance(inp, dict) \
-                        else None
-                    if sub == "agentware-planner":
-                        agg["planner_spawned"] = True
-                    elif sub == "agentware-execution":
-                        agg["executor_spawned"] = True
+            _accumulate_turn_usage(agg, message)
+            _scan_message_content(agg, message.get("content"))
     return agg
 
 
@@ -286,6 +389,15 @@ _EXPORTS = [
     '_STAGE_WORK_SIGNALS',
     '_cache_read_ratio',
     '_empty_usage',
+    '_new_usage_agg',
+    '_scan_line_markers',
+    '_track_timestamps',
+    '_usage_int',
+    '_turn_input_total',
+    '_accumulate_turn_usage',
+    '_scan_edit_target',
+    '_scan_tool_use',
+    '_scan_message_content',
     'aggregate_jsonl',
     '_merge_usage',
     '_merge_tools',

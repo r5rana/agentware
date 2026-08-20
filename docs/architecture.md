@@ -82,7 +82,7 @@ modules import it, i.e. what a change here ripples into).
 
 <!-- BEGIN GENERATED: module-map (python3 tests/_doc_sync.py --write) -->
 
-_205 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
+_206 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
 
 #### `core/` — 20 modules
 
@@ -157,7 +157,7 @@ _205 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.retrieval.vectorcache` | `tests/unit/retrieval/test_vectorcache.py` | 6 |
 | `agentware_lib.retrieval.workcorpus` | `tests/unit/retrieval/test_workcorpus.py` | 1 |
 
-#### `ops/` — 76 modules
+#### `ops/` — 77 modules
 
 | Module | Owning test | Fan-in |
 |--------|-------------|--------|
@@ -209,7 +209,7 @@ _205 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.ops.preferdispose` | `tests/unit/ops/test_preferdispose.py` | 1 |
 | `agentware_lib.ops.prefergate` | `tests/unit/ops/test_prefergate.py` | 6 |
 | `agentware_lib.ops.preferqueue` | `tests/unit/ops/test_preferqueue.py` | 5 |
-| `agentware_lib.ops.premisecheck` | `tests/unit/ops/test_premisecheck.py` | 3 |
+| `agentware_lib.ops.premisecheck` | `tests/unit/ops/test_premisecheck.py` | 4 |
 | `agentware_lib.ops.releasegate` | `tests/unit/ops/test_releasegate.py` | 0 |
 | `agentware_lib.ops.releasepreflight` | `tests/unit/ops/test_releasepreflight.py` | 0 |
 | `agentware_lib.ops.reviewaudit` | `tests/unit/ops/test_reviewaudit.py` | 1 |
@@ -223,11 +223,12 @@ _205 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.ops.scaffoldcmd` | `tests/unit/ops/test_scaffoldcmd.py` | 0 |
 | `agentware_lib.ops.scaffoldunit` | `tests/unit/ops/test_scaffoldunit.py` | 3 |
 | `agentware_lib.ops.scaffoldwire` | `tests/unit/ops/test_scaffoldwire.py` | 1 |
-| `agentware_lib.ops.sessionparse.minererrors` | `tests/unit/ops/test_minererrors.py` | 1 |
+| `agentware_lib.ops.sessionparse.minererrors` | `tests/unit/ops/test_minererrors.py` | 2 |
 | `agentware_lib.ops.sessionparse.minerextract` | `tests/unit/ops/test_minerextract.py` | 3 |
-| `agentware_lib.ops.sessionparse.minerfolds` | `tests/unit/ops/test_minerfolds.py` | 7 |
+| `agentware_lib.ops.sessionparse.minerfolds` | `tests/unit/ops/test_minerfolds.py` | 8 |
+| `agentware_lib.ops.sessionparse.minerread` | `tests/unit/ops/test_minerread.py` | 1 |
 | `agentware_lib.ops.sessionparse.minerscan` | `tests/unit/ops/test_minerscan.py` | 2 |
-| `agentware_lib.ops.sessionparse.minerstate` | `tests/unit/ops/test_minerstate.py` | 4 |
+| `agentware_lib.ops.sessionparse.minerstate` | `tests/unit/ops/test_minerstate.py` | 5 |
 | `agentware_lib.ops.sessionparse.sessioncache` | `tests/unit/ops/test_sessioncache.py` | 2 |
 | `agentware_lib.ops.sessionparse.sessionread` | `tests/unit/ops/test_sessionread.py` | 0 |
 | `agentware_lib.ops.sessionparse.sessionusage` | `tests/unit/ops/test_sessionusage.py` | 1 |
