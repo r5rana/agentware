@@ -24,6 +24,7 @@ import multiprocessing as mp
 import os
 import shutil
 import tempfile
+import threading
 import time
 import unittest
 
@@ -187,6 +188,69 @@ class StateLockTests(unittest.TestCase):
         self.assertEqual(sum(1 for r in results if r), 1,
                          "exactly one reclaimer must win the stale lock, got %r"
                          % results)
+
+    # --- B11 follow-up: DETERMINISTIC observers of the acquire critsec -------
+    # The two race tests above observe the critical section only through the
+    # OUTCOME of a contended reclaim, and that outcome is load-dependent: the
+    # residual window the critsec closes is sub-microsecond, so a mutation that
+    # removes the critsec reddens them on an idle machine and slips through on a
+    # loaded one (proven live — parity row `dream:donor-toctou-lock` reddened
+    # `..._stale_reclaim_race_exactly_one_holder` at task 79 and did NOT under a
+    # 4-job sweep at task 84, same tree, same commit). A capability whose only
+    # proof is a race is not proven. These two ask the question directly and
+    # answer it without racing anything.
+    @unittest.skipUnless(_FLOCK, "fcntl.flock required for cross-process serialization")
+    def test_pkgstatelock_acquire_creates_the_critsec_meta_lock(self):
+        """The acquire path goes THROUGH `_dream_acquire_critsec`, which is
+        observable with zero timing: the critsec opens a sibling `<lock>.acq`
+        meta-file to flock. No `.acq` after a successful acquire means the
+        critical section was never entered."""
+        acq = self._lock_path() + ".acq"
+        self.assertFalse(os.path.exists(acq))
+        self.assertTrue(self.mod.dream_acquire_lock(self.kdir, lock_rel=self.rel))
+        self.assertTrue(
+            os.path.exists(acq),
+            "no %s after acquire: dream_acquire_lock did not enter the "
+            "cross-process critical section" % os.path.basename(acq))
+
+    @unittest.skipUnless(_FLOCK, "fcntl.flock required for cross-process serialization")
+    def test_pkgstatelock_acquire_waits_on_a_held_critsec_meta_lock(self):
+        """The critsec meta-file is really FLOCKED, not merely created: while a
+        foreign LOCK_EX is held on `<lock>.acq`, an acquirer must BLOCK inside the
+        critical section and complete only once that lock is released. Determinism
+        is one-sided by construction — the blocked direction is guaranteed by flock
+        (no timeout can end it), and the mutated direction returns after an
+        os.open + write + fsync, four orders of magnitude inside the wait."""
+        import fcntl
+        path = self._lock_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        holder = open(path + ".acq", "a+")
+        self.addCleanup(holder.close)
+        fcntl.flock(holder.fileno(), fcntl.LOCK_EX)
+        released = []
+
+        def _unlock():
+            if not released:
+                released.append(True)
+                fcntl.flock(holder.fileno(), fcntl.LOCK_UN)
+        self.addCleanup(_unlock)
+
+        out = []
+        worker = threading.Thread(
+            target=lambda: out.append(
+                self.mod.dream_acquire_lock(self.kdir, lock_rel=self.rel)),
+            daemon=True)
+        worker.start()
+        worker.join(timeout=2.0)
+        self.assertTrue(
+            worker.is_alive(),
+            "dream_acquire_lock returned %r while the critsec meta-lock was held "
+            "by another owner — the acquire path is not serialized" % (out,))
+        self.assertEqual(out, [])
+        _unlock()
+        worker.join(timeout=30.0)
+        self.assertFalse(worker.is_alive(), "acquirer never resumed after release")
+        self.assertEqual(out, [True], "the acquirer should win the free lock")
 
     @unittest.skipUnless(_FLOCK, "fcntl.flock required for cross-process serialization")
     def test_pkgstatelock_no_lost_update_under_contention(self):
