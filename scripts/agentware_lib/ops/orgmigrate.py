@@ -58,7 +58,33 @@ config._entry_origin_team, which infers exactly that). Under `teams/<T>` the fie
 are derivable; at the org ROOT they are not — a flat corpus co-resident with a
 teams/ tree belongs to no team, and stamping the caller's team onto it would assert
 a provenance the layout does not support and pollute every future merged view. So
-the walk covers `teams/*` and `shared/` and deliberately stops there.
+the walk never reaches the org root's own corpus, from ANY calling position.
+
+WHY THE WALK IS ALSO SCOPED TO THE CALLER (task 98)
+---------------------------------------------------
+The paragraph above bounds WHICH corpora are derivable. It does not bound WHOSE,
+and until task 98 nothing did: the walk covered every `teams/*` folder on disk
+regardless of who issued it, so `migrate --apply` run by team A performed a
+read-modify-write on team B's entry files, at rc 0, with no lock team B's agent
+participates in — a direct R-ORG-02 violation by an ordinary team-loop verb, and
+R-ORG-03 for the `shared/` skeleton it seeded on the way past. Not corruption: the
+values written were the correct path-derived ones. The defect was AUTHORSHIP and
+LOCKING, and it multiplied — each team runs the migration once, so with N teams
+every team's files were rewritten N times.
+
+So the step now resolves the CALLER'S FACET first (_caller_facet) and acts only
+within it:
+
+  * a TEAM caller ensures and backfills ONLY its own `teams/<mine>/`;
+  * a SHARED-ROOT caller ONLY `shared/`;
+  * an ORG-ROOT caller — the admin position, where an org-wide migration actually
+    belongs — still performs the full `teams/*` + `shared/` walk.
+
+`summary["scope"]` names which of the three ran, so the narrowing is OBSERVABLE
+in the report rather than inferable only from what did not happen. A team caller
+still creates the `teams/` parent when it is absent, because its own shard cannot
+exist without it — that is the one org-root path a team caller may touch, and it
+is an ancestor of its own folder rather than a peer's corpus.
 """
 
 import os
@@ -85,10 +111,18 @@ SHARED_MAIN_STUB = (
 )
 
 
+#: The three positions this migration can be issued FROM, and the only three.
+#: `scope` in the summary is one of these (suffixed with `:<team>` for a team
+#: caller), so a narrowed run says so rather than being read off an empty list.
+FACET_TEAM = "team"
+FACET_SHARED = "shared"
+FACET_ORG = "org"
+
+
 def _empty_summary():
     """The migration's report shape. Every key is present whether or not the step
     engaged, so a caller (and the journal) never has to branch on absence."""
-    return {"engaged": False, "org_root": None, "reason": None,
+    return {"engaged": False, "org_root": None, "reason": None, "scope": None,
             "created": [], "stamped": [], "already": [], "conflicts": [],
             "skipped_no_frontmatter": []}
 
@@ -112,6 +146,37 @@ def _org_root_for(kdir):
         if os.path.isdir(os.path.join(parent, orgkeys.ORG_TEAMS_DIR)):
             return parent
     return None
+
+
+def _caller_facet(org_root, kdir):
+    """`(facet, team)` for the position this migration was ISSUED FROM.
+
+    The caller's POSITION decides, not its env: `kdir` is the corpus the caller is
+    actually operating on, so a curator working in `shared/` is a shared caller
+    even with AGENTWARE_TEAM exported, and a team kdir is a team caller even with
+    the org keys unset (the same asymmetry `_org_root_for` already relies on).
+    AGENTWARE_TEAM is consulted ONLY as a last resort, for a kdir that is neither
+    a shard, the shared root, nor the org root — where a declared team identity is
+    the narrowest thing left to honour. The fallthrough is FACET_ORG, which is the
+    admin position and the only one still licensed to walk the whole org.
+    """
+    team = config._infer_team_from_kdir(kdir)
+    if team:
+        return FACET_TEAM, team
+    norm = os.path.normpath(kdir or "")
+    if norm == os.path.normpath(os.path.join(org_root, orgkeys.ORG_SHARED_DIR)):
+        return FACET_SHARED, None
+    if norm == os.path.normpath(org_root):
+        return FACET_ORG, None
+    team = config.resolve_team()
+    if team:
+        return FACET_TEAM, team
+    return FACET_ORG, None
+
+
+def _scope_label(facet, team):
+    """The summary's `scope` string: `team:<name>`, `shared` or `org`."""
+    return "%s:%s" % (facet, team) if facet == FACET_TEAM else facet
 
 
 def _scaffold_shared_dir(org_root):
@@ -152,27 +217,50 @@ def _known_teams(org_root, kdir):
     return sorted(names)
 
 
-def _ensure_org_dirs(org_root, kdir, summary):
-    """Create `teams/`, each known `teams/<team>/` and `shared/` (idempotent).
+def _ensure_team_dirs(org_root, teams, summary):
+    """Scaffold each named `teams/<team>/`, creating the `teams/` parent first.
 
-    Records ONLY what was absent beforehand in `summary["created"]`, so a second
-    run reports an empty list — the observable half of idempotency.
+    The parent is ensured even for an empty list, because an org-root caller that
+    finds no teams on disk is still enabling team mode and the folder is the shape
+    it enables. Records ONLY what was absent beforehand in `summary["created"]`, so
+    a second run reports an empty list — the observable half of idempotency.
     """
     teams_dir = os.path.join(org_root, orgkeys.ORG_TEAMS_DIR)
     if not os.path.isdir(teams_dir):
         os.makedirs(teams_dir, exist_ok=True)
         summary["created"].append(orgkeys.ORG_TEAMS_DIR)
-    for team in _known_teams(org_root, kdir):
-        tdir = os.path.join(teams_dir, team)
-        existed = os.path.isdir(tdir)
+    for team in teams:
+        existed = os.path.isdir(os.path.join(teams_dir, team))
         _team._scaffold_team_dir(org_root, team)
         if not existed:
             summary["created"].append("%s/%s" % (orgkeys.ORG_TEAMS_DIR, team))
-    shared = os.path.join(org_root, orgkeys.ORG_SHARED_DIR)
-    existed = os.path.isdir(shared)
+
+
+def _ensure_shared_dir(org_root, summary):
+    """Scaffold `shared/`, recording it iff it was absent beforehand."""
+    existed = os.path.isdir(os.path.join(org_root, orgkeys.ORG_SHARED_DIR))
     _scaffold_shared_dir(org_root)
     if not existed:
         summary["created"].append(orgkeys.ORG_SHARED_DIR)
+
+
+def _ensure_org_dirs(org_root, kdir, facet, team, summary):
+    """Create exactly the directories the CALLER'S FACET licenses (idempotent).
+
+    A team caller gets its own shard and nothing else — not `shared/` (R-ORG-03
+    reserves it for a curator) and not another team's folder (R-ORG-02). A shared
+    caller gets `shared/`. Only the org-root caller gets the full layout, which is
+    also the only position from which "every team folder that should exist" is a
+    question the caller is entitled to answer.
+    """
+    if facet == FACET_TEAM:
+        _ensure_team_dirs(org_root, [team], summary)
+        return
+    if facet == FACET_SHARED:
+        _ensure_shared_dir(org_root, summary)
+        return
+    _ensure_team_dirs(org_root, _known_teams(org_root, kdir), summary)
+    _ensure_shared_dir(org_root, summary)
 
 
 def _insert_org_lines(text, additions):
@@ -250,22 +338,43 @@ def _backfill_corpus(root, display, origin, team, summary):
             summary[key].append("%s/%s" % (display, rel))
 
 
-def _backfill_org_frontmatter(org_root, summary):
-    """Walk `teams/*` and `shared/`, stamping the derivable org fields.
+def _backfill_team_corpus(org_root, team, summary):
+    """Stamp ONE team's shard — the whole of a team caller's write licence."""
+    _backfill_corpus(os.path.join(org_root, orgkeys.ORG_TEAMS_DIR, team),
+                     "%s/%s" % (orgkeys.ORG_TEAMS_DIR, team),
+                     "team", team, summary)
 
-    Scoped deliberately: an entry's team facet is a fact about where it lives, so
-    only the two corpora whose path determines it are walked (see the module
-    docstring). Entries at the org ROOT are left untouched.
-    """
-    teams_dir = os.path.join(org_root, orgkeys.ORG_TEAMS_DIR)
-    if os.path.isdir(teams_dir):
-        for team in sorted(d for d in os.listdir(teams_dir)
-                           if os.path.isdir(os.path.join(teams_dir, d))):
-            _backfill_corpus(os.path.join(teams_dir, team),
-                             "%s/%s" % (orgkeys.ORG_TEAMS_DIR, team),
-                             "team", team, summary)
+
+def _backfill_shared_corpus(org_root, summary):
+    """Stamp `shared/` — origin `shared`, and deliberately NO team facet."""
     _backfill_corpus(os.path.join(org_root, orgkeys.ORG_SHARED_DIR),
                      orgkeys.ORG_SHARED_DIR, "shared", None, summary)
+
+
+def _backfill_org_frontmatter(org_root, facet, team, summary):
+    """Stamp the derivable org fields within the CALLER'S FACET.
+
+    Twice scoped, for two different reasons that are easy to conflate:
+      * by DERIVABILITY — only corpora whose path determines the facet are ever
+        walked, so the org root's own entries are untouched from every position
+        (task 63's decision, unchanged);
+      * by AUTHORSHIP — a team caller reaches only its own shard and a shared
+        caller only `shared/`, because a read-modify-write on a corpus the caller
+        does not own is a cross-team write whatever values it stamps (task 98).
+    The org-wide walk survives at the ORG-ROOT position, where it belongs.
+    """
+    if facet == FACET_TEAM:
+        _backfill_team_corpus(org_root, team, summary)
+        return
+    if facet == FACET_SHARED:
+        _backfill_shared_corpus(org_root, summary)
+        return
+    teams_dir = os.path.join(org_root, orgkeys.ORG_TEAMS_DIR)
+    if os.path.isdir(teams_dir):
+        for name in sorted(d for d in os.listdir(teams_dir)
+                           if os.path.isdir(os.path.join(teams_dir, d))):
+            _backfill_team_corpus(org_root, name, summary)
+    _backfill_shared_corpus(org_root, summary)
 
 
 def _report(summary):
@@ -288,9 +397,9 @@ def _report(summary):
     if not (summary["created"] or summary["stamped"]):
         return
     sys.stderr.write(
-        "migration-002: team mode — created %d dir(s), stamped %d entr(ies), "
+        "migration-002: team mode [%s] — created %d dir(s), stamped %d entr(ies), "
         "%d cross-team conflict(s) left for `org lint`\n"
-        % (len(summary["created"]), len(summary["stamped"]),
+        % (summary["scope"], len(summary["created"]), len(summary["stamped"]),
            len(summary["conflicts"])))
 
 
@@ -300,9 +409,11 @@ def run_team_mode_scaffold(kdir):
     A true NO-OP on a flat install (no org root resolves) and on a mis-pointed one
     (an org root that does not exist, or that fails the org-project identity
     guard) — in both cases nothing is created and nothing is read, and `reason`
-    says which. Otherwise: create `teams/`, the known team folders and `shared/`,
-    then backfill the optional org frontmatter fields on the entries whose path
-    determines them, leaving every entry in place.
+    says which. Otherwise: resolve the CALLER'S FACET and create + backfill only
+    within it — a team caller its own `teams/<mine>/`, a shared caller `shared/`,
+    an org-root caller the full layout — leaving every entry in place. The facet
+    is reported as `summary["scope"]`, so a narrowed run is legible rather than
+    merely quieter (task 98; R-ORG-02 / R-ORG-03).
     """
     summary = _empty_summary()
     org_root = _org_root_for(kdir)
@@ -319,9 +430,11 @@ def run_team_mode_scaffold(kdir):
     if identity_error:
         summary["reason"] = identity_error
         return summary
+    facet, team = _caller_facet(org_root, kdir)
     summary["engaged"] = True
-    _ensure_org_dirs(org_root, kdir, summary)
-    _backfill_org_frontmatter(org_root, summary)
+    summary["scope"] = _scope_label(facet, team)
+    _ensure_org_dirs(org_root, kdir, facet, team, summary)
+    _backfill_org_frontmatter(org_root, facet, team, summary)
     _report(summary)
     return summary
 
@@ -331,7 +444,11 @@ def run_team_mode_scaffold(kdir):
 # tests still reach them as CLI.<name>. See the M3/_EXPORTS convention in the plan.
 _EXPORTS = [
     "SHARED_MAIN_STUB",
+    "FACET_TEAM",
+    "FACET_SHARED",
+    "FACET_ORG",
     "_org_root_for",
+    "_caller_facet",
     "_scaffold_shared_dir",
     "_insert_org_lines",
     "_report",

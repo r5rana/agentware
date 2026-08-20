@@ -14,113 +14,27 @@ Idempotency is likewise asserted as a BYTE claim (a second run changes no file),
 because "makedirs(exist_ok=True)" is idempotent for directories while the
 frontmatter writer beside it is where a second run could genuinely double-stamp.
 
+Task 98 scoped every one of those writes to the CALLER'S OWN shard, and several
+tests here were RE-AIMED at the position now entitled to make their claim — each
+says so in its own docstring. The scoping RULE itself is the sibling
+`test_orgmigrate_scope.py`; the shared header both parts import is
+`_orgmigrate_support.py`.
+
 Stdlib only, hermetic (every KB is a tempdir; the live knowledge base is never
 touched), deterministic.
 
 Runner: python3 -m unittest tests.unit.ops.test_orgmigrate -v
 """
 
-import hashlib
 import json
 import os
 import shutil
 import tempfile
 import unittest
-from unittest import mock
 
-try:
-    from tests._fixtures import (build_synthetic_kb, load_lib,
-                                 run_cli as _raw_run_cli)
-except ImportError:  # allow `python3 -m unittest tests.unit.ops.test_orgmigrate`
-    from _fixtures import (build_synthetic_kb, load_lib,
-                           run_cli as _raw_run_cli)
-
-ORGMIGRATE_MOD = "agentware_lib.ops.orgmigrate"
-MIGRATE_MOD = "agentware_lib.features.migratecmd"
-
-
-def tree_manifest(root, skip_rels=()):
-    """{relative path: sha256} for every file under `root`, minus `skip_rels`.
-
-    The evidence a no-op claim actually rests on: a content fingerprint per file,
-    so a rewritten byte anywhere in the corpus reddens the assertion even when the
-    file count, the entry count and the index all stay put.
-    """
-    out = {}
-    skip = set(skip_rels)
-    for dirpath, dirnames, files in os.walk(root):
-        dirnames[:] = sorted(dirnames)
-        for fn in sorted(files):
-            path = os.path.join(dirpath, fn)
-            rel = os.path.relpath(path, root).replace(os.sep, "/")
-            if rel in skip:
-                continue
-            with open(path, "rb") as handle:
-                out[rel] = hashlib.sha256(handle.read()).hexdigest()
-    return out
-
-
-def write_entry(path, fields, body="\nbody text\n"):
-    """Write one frontmatter-carrying entry file; `fields` is a list of (k, v)."""
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    lines = ["---"] + ["%s: %s" % (k, v) for k, v in fields] + ["---"]
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n" + body)
-
-
-STD_FIELDS = [("id", "learn-x"), ("title", "X"), ("category", "learnings"),
-              ("tags", "[a, b]"), ("created", "2026-08-01"),
-              ("author", "casey"), ("source", "auto"),
-              ("last_verified", "2026-08-01")]
-
-
-class OrgMigrateTestCase(unittest.TestCase):
-    """A tempdir org root + the module under test, with no env leakage."""
-
-    def setUp(self):
-        self.om = load_lib(ORGMIGRATE_MOD)
-        self.mig = load_lib(MIGRATE_MOD)
-        self.config = load_lib("agentware_lib.core.config")
-        self.org = tempfile.mkdtemp(prefix="agentware-org-")
-        self.addCleanup(shutil.rmtree, self.org, True)
-        # Every org key explicitly cleared, so a test that means "flat" cannot be
-        # silently rescued by the developer's own config/env.
-        patcher = mock.patch.dict(os.environ, {"AGENTWARE_ORG_ROOT": "",
-                                               "AGENTWARE_TEAM": "",
-                                               "AGENTWARE_ORG_PROJECT": "",
-                                               "AGENTWARE_ORG_PACKAGE": ""})
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
-    def org_mode(self, team="alpha", root=None):
-        """Point the org keys at this test's tree (env wins over config.env)."""
-        os.environ["AGENTWARE_ORG_ROOT"] = root if root is not None else self.org
-        os.environ["AGENTWARE_TEAM"] = team
-
-    def team_dir(self, team="alpha"):
-        return os.path.join(self.org, "teams", team)
-
-    def seed_team(self, team="alpha"):
-        """A team folder holding the four entry shapes the backfill must tell
-        apart: bare, already-stamped, foreign-team, and legacy (no block)."""
-        tdir = self.team_dir(team)
-        write_entry(os.path.join(tdir, "learnings", "plain.md"), STD_FIELDS)
-        write_entry(os.path.join(tdir, "learnings", "already.md"),
-                    STD_FIELDS + [("origin", "team"), ("team", team)])
-        write_entry(os.path.join(tdir, "learnings", "foreign.md"),
-                    STD_FIELDS + [("origin", "team"), ("team", "beta")])
-        os.makedirs(os.path.join(tdir, "decisions"), exist_ok=True)
-        with open(os.path.join(tdir, "learnings", "legacy.md"), "w",
-                  encoding="utf-8") as handle:
-            handle.write("# Legacy\n\n> **Created**: 2026-08-01\n\nbody\n")
-        return tdir
-
-    def run_cli(self, argv, kdir):
-        try:
-            return _raw_run_cli(argv, kdir)
-        except SystemExit as exc:
-            code = exc.code if isinstance(exc.code, int) else 1
-            return code, "", "SystemExit(%r)" % (exc.code,)
+from tests.unit.ops._orgmigrate_support import (  # noqa: F401
+    MIGRATE_MOD, ORGMIGRATE_MOD, STD_FIELDS, OrgMigrateTestCase,
+    build_synthetic_kb, load_lib, tree_manifest, write_entry)
 
 
 class RegistrationTest(OrgMigrateTestCase):
@@ -164,12 +78,18 @@ class RegistrationTest(OrgMigrateTestCase):
 
     def test_applying_through_the_runner_actually_executes_the_body(self):
         """The table row is only half the claim — the registered callable has to
-        RUN when `migrate --apply` does, or the step is listed and inert."""
+        RUN when `migrate --apply` does, or the step is listed and inert.
+
+        The evidence it ran was RE-AIMED at task 98 from "the org-root `shared/`
+        skeleton appeared" to "the caller's own entry got stamped": a team caller
+        no longer seeds `shared/`, and the caller's own stamp is the better proof
+        anyway — it exercises the backfill writer, not just makedirs.
+        """
         self.org_mode()
         tdir = self.seed_team()
         code, _out, err = self.run_cli(["migrate", "--apply"], tdir)
         self.assertEqual(code, 0, err)
-        self.assertTrue(os.path.isdir(os.path.join(self.org, "shared")))
+        self.assertFalse(os.path.isdir(self.shared_dir()))
         with open(os.path.join(tdir, "learnings", "plain.md"),
                   "r", encoding="utf-8") as handle:
             self.assertIn("\nteam: alpha\n", handle.read())
@@ -251,8 +171,21 @@ class OrgScaffoldTest(OrgMigrateTestCase):
         self.org_mode()
 
     def test_it_creates_the_shared_and_per_team_directories(self):
-        summary = self.om.run_team_mode_scaffold(self.team_dir())
+        """RE-AIMED at task 98 from a TEAM caller to the ORG-ROOT caller.
+
+        The assertion — the shared and per-team layout appears — is unchanged and
+        still the point; what moved is WHO is entitled to make it appear. Seeding
+        the org-root `shared/` skeleton from an ordinary team loop is the R-ORG-03
+        half of task 66's finding, so this claim now runs from the admin position,
+        where an org-wide migration belongs. The team caller's half of the split
+        is the sibling below, which asserts it does NOT reach `shared/`. Re-aimed
+        rather than deleted: dropping it would retire the only proof that the
+        layout is ever created at all.
+        """
+        self.admin_mode()
+        summary = self.om.run_team_mode_scaffold(self.org)
         self.assertTrue(summary["engaged"])
+        self.assertEqual(summary["scope"], "org")
         self.assertTrue(os.path.isdir(os.path.join(self.org, "shared")))
         self.assertTrue(os.path.isdir(os.path.join(self.org, "shared", "learnings")))
         self.assertTrue(os.path.isdir(os.path.join(self.team_dir(), "fleet")))
@@ -291,9 +224,14 @@ class OrgScaffoldTest(OrgMigrateTestCase):
 
     def test_the_shared_stub_trips_no_read_time_content_guard(self):
         """O8 scans every shared *.md for injection markers — including the one
-        file this migration itself seeds there."""
+        file this migration itself seeds there.
+
+        Issued from the ORG-ROOT position at task 98: the stub and the claim about
+        it are unchanged, but only that position seeds `shared/` now.
+        """
         orgkeys = load_lib("agentware_lib.core.orgkeys")
-        self.om.run_team_mode_scaffold(self.team_dir())
+        self.admin_mode()
+        self.om.run_team_mode_scaffold(self.org)
         with open(os.path.join(self.org, "shared", "MAIN.md"),
                   "r", encoding="utf-8") as handle:
             body = handle.read().lower()
@@ -421,12 +359,23 @@ class FrontmatterBackfillTest(OrgMigrateTestCase):
         self.assertEqual(tree_manifest(os.path.join(self.org, "learnings")), before)
 
     def test_a_shared_entry_gains_origin_shared_and_no_team(self):
-        self.om.run_team_mode_scaffold(self.tdir)
-        write_entry(os.path.join(self.org, "shared", "learnings", "s.md"), STD_FIELDS)
-        summary = self.om.run_team_mode_scaffold(self.tdir)
+        """RE-AIMED at task 98 from a TEAM caller to the SHARED-ROOT caller.
+
+        The claim is unchanged — a `shared/` entry gains `origin: shared` and no
+        team facet, because the shared corpus belongs to no team. What moved is
+        who performs the write: reaching into `shared/` from an ordinary team loop
+        is the R-ORG-03 half of task 66's finding. Re-aimed rather than deleted:
+        the shared origin rule is still the only thing distinguishing a curated
+        entry from a team one, and nothing else asserts it.
+        """
+        self.admin_mode()
+        self.om.run_team_mode_scaffold(self.org)
+        shared = os.path.join(self.org, "shared", "learnings", "s.md")
+        write_entry(shared, STD_FIELDS)
+        summary = self.om.run_team_mode_scaffold(os.path.join(self.org, "shared"))
+        self.assertEqual(summary["scope"], "shared")
         self.assertIn("shared/learnings/s.md", summary["stamped"])
-        with open(os.path.join(self.org, "shared", "learnings", "s.md"),
-                  "r", encoding="utf-8") as handle:
+        with open(shared, "r", encoding="utf-8") as handle:
             text = handle.read()
         self.assertIn("\norigin: shared\n", text)
         self.assertNotIn("\nteam:", text)

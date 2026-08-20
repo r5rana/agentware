@@ -13,19 +13,24 @@ that drove the gate FUNCTION stayed green, because a gate is only reachable if a
 verb reaches it. Testing the rule and testing the verb are different questions
 and only the second is the one an operator's run asks.
 
-WHAT THIS PROVED WHEN IT WAS WRITTEN
-------------------------------------
-Twenty-two of the twenty-three probed writers are clean. One is not:
-`migrate --apply`, run by team A, performs a read-modify-write on team B's entry
-files and seeds the org-root `shared/` skeleton. It is pinned by its own
+WHAT THIS PROVED WHEN IT WAS WRITTEN, AND WHAT CHANGED
+------------------------------------------------------
+Twenty-two of the twenty-three probed writers were clean. One was not:
+`migrate --apply`, run by team A, performed a read-modify-write on team B's entry
+files and seeded the org-root `shared/` skeleton. It was pinned by its own
 characterization test below and deferred as plan task 98 — the containment layer
-is what bounds it, and that is asserted here too: the staging allowlist refuses
-every one of those paths, so the leak is an uncommittable dirty tree rather than
+was what bounded it, and that was asserted here too: the staging allowlist refused
+every one of those paths, so the leak was an uncommittable dirty tree rather than
 a cross-team commit.
+
+Task 98 landed the fix: migration 002 now resolves the CALLER'S FACET and acts
+only within it. `migrate` is an ordinary roster row here now, covered by the same
+whole-roster rules as the other twenty-two, and the class that pinned the leak
+asserts containment outright instead. All twenty-three are clean.
 """
 
 from tests._org_writer_rows import (
-    KNOWN_OUTSIDE_SHARED, LEAKY, NON_WRITERS, UNPROBED_WRITERS, WRITERS)
+    NON_WRITERS, UNPROBED_WRITERS, WRITERS)
 from tests._org_writers import (
     COMMIT, Ctx, LOCAL, OrgTree, local_only_surface_nodes)
 from tests._paths import REPO_ROOT
@@ -130,15 +135,14 @@ class WritesLandInTheCallersShardTest(_OrgProbeCase):
     "Nowhere else" is a whole-org-tree sha256 manifest diff, not a list of paths
     someone thought to check. An assertion that only looks where it expects
     cannot see the write it did not expect, and that is the exact shape of the
-    leak this file found in `migrate`.
+    leak this file found in `migrate` (fixed at task 98; `migrate` is an ordinary
+    row in this loop now).
     """
 
     def test_each_writer_writes_only_inside_its_own_team_shard(self):
         from tests._org_writers import probe
         probed = 0
         for writer in WRITERS:
-            if writer.node == LEAKY:
-                continue  # pinned by its own characterization test below
             with self.subTest(writer=writer.node):
                 tree = OrgTree(tempfile.mkdtemp(prefix="aw-w-"), TEAMS)
                 self.addCleanup(shutil.rmtree, tree.root, True)
@@ -209,8 +213,6 @@ class CrossTeamRefusalTest(_OrgProbeCase):
 
     def test_each_writers_output_is_refused_by_the_other_teams_stage_gate(self):
         for writer in WRITERS:
-            if writer.node == LEAKY:
-                continue  # its own test, below, asserts the same refusal
             with self.subTest(writer=writer.node):
                 tree, produced = self._paths_from_both_teams(writer)
                 if writer.commits == COMMIT:
@@ -270,76 +272,79 @@ class CrossTeamRefusalTest(_OrgProbeCase):
         self.assertIn(LOCAL, classes)
 
 
-class MigrateReachesOutsideTheCallersShardTest(_OrgProbeCase):
-    """THE FINDING, pinned. `migrate --apply` is the one probed writer that
-    writes outside the caller's team folder — deferred as plan task 98.
+class MigrateStaysInsideTheCallersShardTest(_OrgProbeCase):
+    """THE FINDING, CLOSED. `migrate --apply` was the one probed writer that wrote
+    outside the caller's team folder; plan task 98 scoped it to the caller's own
+    shard, and this class — which used to pin the leak as a two-directional
+    ratchet — now asserts the containment outright.
 
-    Two distinct leaks, and the second is the serious one:
+    Two leaks were fixed and each keeps its own assertion, because they fail
+    independently:
 
-      * it seeds the org-root `shared/` skeleton, which R-ORG-03 reserves for a
+      * it seeded the org-root `shared/` skeleton, which R-ORG-03 reserves for a
         curator, from an ordinary team loop;
-      * it performs a read-modify-write on ANOTHER TEAM'S entry files, at rc 0,
+      * it performed a read-modify-write on ANOTHER TEAM'S entry files, at rc 0,
         with no lock the owning team's agent participates in. Each team runs the
-        migration once, so with N teams every team's files are rewritten N times.
+        migration once, so with N teams every team's files were rewritten N times.
 
-    Pinned as a RATCHET rather than forgiven: this fails if the leak GROWS and it
-    fails when the leak is FIXED, so whoever lands task 98 is brought here by a
-    red test rather than leaving a stale exemption behind.
+    `migrate` is an ordinary row in the roster now, so the whole-roster rules above
+    already cover it. This class stays for what they cannot construct: the other
+    team's UNSTAMPED entry. Without one, team B's shard holds nothing the backfill
+    would have rewritten even before the fix, and every containment assertion over
+    it passes vacuously — which is precisely why the leak went unseen until task 66
+    built this setup.
     """
 
     def _run_migrate(self):
         from tests._org_writers import probe
-        writer = [w for w in WRITERS if w.node == LEAKY][0]
+        writer = [w for w in WRITERS if w.node == "migrate"][0]
         ctx = self.ctx(TEAM_A, HANDLE_A)
         # An UNSTAMPED entry in the other team's shard: without one the backfill
-        # has nothing to rewrite there and the leak is invisible.
+        # has nothing to rewrite there and the containment claim is vacuous.
         theirs = os.path.join(self.tree.team_dir(TEAM_B), "learnings", "theirs.md")
         os.makedirs(os.path.dirname(theirs), exist_ok=True)
         with open(theirs, "w", encoding="utf-8") as handle:
             handle.write("---\nid: learn-theirs\nsummary: s\n---\n\n# theirs\n")
+        with open(theirs, encoding="utf-8") as handle:
+            before = handle.read()
         rc, out, err, touched = probe(writer, ctx)
         self.assertEqual(rc, 0, err or out)
-        return touched, theirs
+        return touched, theirs, before
 
-    def test_the_set_it_reaches_outside_its_own_shard_is_exactly_the_known_one(self):
-        touched, _theirs = self._run_migrate()
-        outside = sorted(self.outside(touched, TEAM_A))
-        expected = sorted(list(KNOWN_OUTSIDE_SHARED)
-                          + ["teams/%s/learnings/theirs.md" % TEAM_B])
-        self.assertEqual(outside, expected,
-                         "migration 002's out-of-shard write set moved — if this "
-                         "SHRANK, plan task 98 landed and this pin is the stale "
-                         "thing in front of it")
+    def test_it_writes_nothing_outside_the_callers_own_shard(self):
+        """The claim the removed `KNOWN_OUTSIDE_SHARED` tuple used to enumerate.
+        Whole-org-tree manifest diff, so a path nobody thought to name still
+        shows up."""
+        touched, _theirs, _before = self._run_migrate()
+        self.assertEqual(sorted(self.outside(touched, TEAM_A)), [],
+                         "migration 002 wrote outside teams/%s" % TEAM_A)
 
-    def test_the_other_teams_entry_is_rewritten_with_that_teams_stamp(self):
-        """Named precisely so the deferral is not mistaken for corruption: the
-        VALUES written are the correct path-derived ones. The defect is the
-        authorship and the lock, not the content."""
-        _touched, theirs = self._run_migrate()
+    def test_the_other_teams_unstamped_entry_is_left_byte_identical(self):
+        """The serious half, at the byte level. Named against the shape of the
+        original finding: the values it used to write were the CORRECT
+        path-derived ones, so an assertion about content would have passed
+        throughout — the defect was authorship and the lock, and only an
+        untouched-file claim can see it."""
+        _touched, theirs, before = self._run_migrate()
         with open(theirs, encoding="utf-8") as handle:
-            text = handle.read()
-        self.assertIn("\nteam: %s\n" % TEAM_B, text)
-        self.assertIn("\norigin: team\n", text)
+            self.assertEqual(handle.read(), before)
 
-    def test_the_containment_layer_still_refuses_every_leaked_path(self):
-        """What bounds the finding. The caller cannot COMMIT any of it, so the
-        blast radius is an uncommittable dirty tree, not a cross-team commit."""
-        touched, _theirs = self._run_migrate()
-        self.tree.stage_everything()
-        candidates = self.tree.candidates()
-        allow, rejected = kb_git_stage_allowlist(
-            self.tree.team_dir(TEAM_A), rel_prefix="teams/%s" % TEAM_A)
-        rej = dict(rejected)
-        leaked = [p for p in self.outside(touched, TEAM_A)
-                  if os.path.isfile(os.path.join(self.tree.org, p))
-                  and p in candidates]
-        self.assertIn("teams/%s/learnings/theirs.md" % TEAM_B, leaked,
-                      "the serious half of the leak is not even reaching the "
-                      "gate that bounds it")
-        for path in leaked:
-            self.assertNotIn(path, allow, path)
-            self.assertIn(path, rej, path)
-            self.assertIn(CROSS_TEAM_REASON, rej[path])
+    def test_the_org_root_shared_skeleton_is_not_seeded_by_a_team_loop(self):
+        """R-ORG-03: `shared/` is curator-gated, and a team's migration is not a
+        curator."""
+        self._run_migrate()
+        shared = os.path.join(self.tree.org, "shared")
+        self.assertFalse(os.path.isdir(shared),
+                         "a team loop seeded the curator-owned shared root")
+
+    def test_the_caller_own_shard_is_still_actually_migrated(self):
+        """NON-VACUITY. A migration that has stopped doing anything at all also
+        writes outside nobody's shard, and would satisfy every assertion above.
+        The caller's own `.schema` stamp is the proof it ran."""
+        touched, _theirs, _before = self._run_migrate()
+        mine = [p for p in touched if p.startswith("teams/%s/" % TEAM_A)]
+        self.assertTrue(mine, "migrate touched nothing in its own shard")
+        self.assertIn("teams/%s/.schema" % TEAM_A, touched)
 
 
 if __name__ == "__main__":

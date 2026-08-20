@@ -2785,6 +2785,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/_orgmigrate_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/_plan_lint_support.py"
     },
     {
@@ -2906,6 +2911,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_orgmigrate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_orgmigrate_scope.py"
     },
     {
       "layer": "tests",
@@ -8286,16 +8296,25 @@
     },
     {
       "anchor_symbols": [
+        "FACET_ORG",
+        "FACET_SHARED",
+        "FACET_TEAM",
         "SHARED_MAIN_STUB",
         "_backfill_corpus",
         "_backfill_org_frontmatter",
+        "_backfill_shared_corpus",
+        "_backfill_team_corpus",
+        "_caller_facet",
         "_empty_summary",
         "_ensure_org_dirs",
+        "_ensure_shared_dir",
+        "_ensure_team_dirs",
         "_insert_org_lines",
         "_known_teams",
         "_org_root_for",
         "_report",
         "_scaffold_shared_dir",
+        "_scope_label",
         "run_team_mode_scaffold",
         "stamp_entry_org_fields"
       ],

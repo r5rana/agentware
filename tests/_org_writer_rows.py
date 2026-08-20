@@ -253,27 +253,21 @@ WRITERS = (
        s_review_round, ["work/%s/adversarial-review.md" % NODE_A]),
 )
 
-#: `migrate` is the ONE probed writer that reaches outside the caller's shard,
-#: so it is asserted by its own characterization test rather than by the
-#: whole-roster containment rule. See KNOWN_OUTSIDE below and plan task 98.
-LEAKY = "migrate"
-
-#: EXACTLY what migration 002 writes outside `teams/<caller>/`, on a two-team org
-#: whose other team holds one unstamped entry. Pinned as a RATCHET, not forgiven:
-#: it fails if the set GROWS (a new leak) and it fails if it SHRINKS (the fix
-#: landed and this row is now the stale thing standing in front of it).
+#: Migration 002's out-of-shard write set — REMOVED at task 98, which scoped the
+#: migration to the caller's own shard. What stood here was `LEAKY = "migrate"`
+#: plus a `KNOWN_OUTSIDE_SHARED` tuple: a shrink-AND-grow ratchet over the exact
+#: set `migrate --apply` wrote outside `teams/<caller>/`, held deliberately as a
+#: two-directional pin so that fixing the leak would redden it and bring task 98's
+#: implementer here rather than leaving a stale exemption behind. It did exactly
+#: that. `migrate` is now an ordinary row in WRITERS above, carried by the
+#: whole-roster containment rule like every other writer, and the characterization
+#: test that pinned the leak became
+#: `MigrateStaysInsideTheCallersShardTest` — the same probe, asserting containment
+#: outright.
 #:
-#: `shared/*` is the org-root scaffold `_scaffold_shared_dir` seeds. The
-#: `teams/<other>/…` row is the serious half — a read-modify-write into ANOTHER
-#: TEAM'S entry file, by an ordinary team-loop verb, at rc 0. Diagnosed and
-#: deferred as plan task 98; the containment layer still holds, which is what
-#: bounds it: the staging allowlist refuses every one of these paths, so the
-#: leak is an uncommittable dirty tree rather than a cross-team commit.
-KNOWN_OUTSIDE_SHARED = (
-    "shared", "shared/.gitignore", "shared/MAIN.md", "shared/configurations",
-    "shared/decisions", "shared/index.json", "shared/learnings",
-    "shared/projects", "shared/prompts", "shared/references", "shared/skills",
-)
+#: This comment stays because the roster is where someone looks to ask "was
+#: `migrate` ever exempt from the containment rule?", and the answer being "yes,
+#: until task 98, and here is what it wrote" is worth more than the absence.
 
 #: Writes the knowledge dir, but not probeable as a subprocess from the suite.
 UNPROBED_WRITERS = {
