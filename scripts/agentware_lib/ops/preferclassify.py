@@ -45,6 +45,8 @@ from agentware_lib.ops.preferqueue import (
     PREFER_QUEUE_REL,
     _PREFER_QUEUE_CAP,
     _prefer_cand_fp,
+    _prefer_queue_lock,
+    _prefer_queue_records,
 )
 from agentware_lib.ops.planauthor.plannew import (
     WORKORDER_DRAFT_CAP,
@@ -170,6 +172,29 @@ def _prefer_emit_workorder(kdir, text, fp):
     return feature, None
 
 
+def _classify_section(lines, title, recs, key, fmt):
+    """Append ONE section of the classify report to `lines`, in place.
+
+    The four sections differ in exactly three things — heading, sort key and row
+    format — and in nothing else: each is a heading carrying its own count, a
+    blank line, the sorted rows or a literal `_none_`, and a trailing blank. They
+    were written out four times, which is how a report grows a section that
+    quietly formats or sorts differently from its siblings.
+
+    `_none_` rather than an omitted section is deliberate: a section that
+    disappears when empty reads as "not measured", and the operator cannot tell
+    an empty tier from a tier the drain never looked at.
+    """
+    lines.append("## %s (%d)" % (title, len(recs)))
+    lines.append("")
+    if recs:
+        for rec in sorted(recs, key=key):
+            lines.extend(fmt(rec))
+    else:
+        lines.append("_none_")
+    lines.append("")
+
+
 def _render_prefer_classify_report(recs, proposed_now, rejected_now,
                                    journaled_now, deferred_now):
     """Deterministic, report-only surface for the drain. FINAL-state sections
@@ -199,42 +224,25 @@ def _render_prefer_classify_report(recs, proposed_now, rejected_now,
         "> this run: proposed=%d rejected=%d journaled=%d deferred=%d"
         % (proposed_now, rejected_now, journaled_now, deferred_now),
         "",
-        "## Proposed steering prefs awaiting approve (%d)" % len(proposed),
-        "",
     ]
-    if proposed:
-        for r in sorted(proposed, key=lambda r: r.get("workorder") or ""):
-            wo = r.get("workorder") or "(unknown)"
-            lines.append("- %s — %s" % (wo, _first(r.get("text"))))
-            lines.append("  approve: `scripts/agentware prefer approve %s`" % wo)
-    else:
-        lines.append("_none_")
-    lines.append("")
-    lines.append("## Rejected — tier-3 kernel-path / gate-loosening (%d)"
-                 % len(rejected))
-    lines.append("")
-    if rejected:
-        for r in sorted(rejected, key=lambda r: _first(r.get("text"))):
-            lines.append("- %s" % _first(r.get("text")))
-    else:
-        lines.append("_none_")
-    lines.append("")
-    lines.append("## Journaled — tier-0/1 inert (%d)" % len(journaled))
-    lines.append("")
-    if journaled:
-        for r in sorted(journaled, key=lambda r: _first(r.get("text"))):
-            lines.append("- %s" % _first(r.get("text")))
-    else:
-        lines.append("_none_")
-    lines.append("")
-    lines.append("## Deferred — still queued (draft cap) (%d)" % len(queued))
-    lines.append("")
-    if queued:
-        for r in sorted(queued, key=lambda r: _first(r.get("text"))):
-            lines.append("- %s" % _first(r.get("text")))
-    else:
-        lines.append("_none_")
-    lines.append("")
+    def _proposed_rows(r):
+        wo = r.get("workorder") or "(unknown)"
+        return ["- %s — %s" % (wo, _first(r.get("text"))),
+                "  approve: `scripts/agentware prefer approve %s`" % wo]
+
+    def _text_row(r):
+        return ["- %s" % _first(r.get("text"))]
+
+    _by_text = lambda r: _first(r.get("text"))            # noqa: E731
+    _classify_section(lines, "Proposed steering prefs awaiting approve",
+                      proposed, lambda r: r.get("workorder") or "",
+                      _proposed_rows)
+    _classify_section(lines, "Rejected — tier-3 kernel-path / gate-loosening",
+                      rejected, _by_text, _text_row)
+    _classify_section(lines, "Journaled — tier-0/1 inert",
+                      journaled, _by_text, _text_row)
+    _classify_section(lines, "Deferred — still queued (draft cap)",
+                      queued, _by_text, _text_row)
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -265,6 +273,89 @@ def _prefer_rotate_split(recs):
     return kept, drop
 
 
+def _drain_classify_record(kdir, rec):
+    """Route ONE queued record by governance tier. Mutates `rec` in place and
+    returns the counter it advanced: `rejected`, `journaled`, `proposed` or
+    `deferred`.
+
+    DEFER IS NOT DROP, and it is the reason this returns a counter name rather
+    than a boolean: a tier-2 candidate that would exceed the draft cap, or whose
+    emitter refused, stays `status: queued` so the next cycle retries it. Only a
+    record whose tier is DECIDED is mutated.
+
+    The resurrection guard is the subtle arm. An existing workorder in a TERMINAL
+    state means this candidate was already disposed of (`prefer reject` cancels
+    it), so a re-queued copy is marked rejected rather than re-proposed —
+    otherwise a rejected idea returns as an approve-but-unrunnable dead end.
+    """
+    text = rec.get("text")
+    tier = _prefer_classify_tier(text)
+    if tier == 3:
+        rec["status"] = "rejected"
+        rec["tier"] = 3
+        return "rejected"
+    if tier == 1:
+        rec["status"] = "journaled"
+        rec["tier"] = 1
+        return "journaled"
+    # tier 2 — emit a suggested workorder (cap-aware, defer-not-drop)
+    if _count_auto_open_workorders(kdir) >= WORKORDER_DRAFT_CAP:
+        return "deferred"                     # leave queued; retry next cycle
+    fp = _prefer_cand_fp(rec.get("sid"), rec.get("turn_id"), text)
+    feature, err = _prefer_emit_workorder(kdir, text, fp)
+    if err is not None:
+        if not err.startswith("resolved:"):
+            return "deferred"                 # emitter refused -> stay queued
+        rec["status"] = "rejected"
+        rec["tier"] = 2
+        rec["rejected_reason"] = "workorder already %s" % err.split(":", 1)[1]
+        return "rejected"
+    rec["status"] = "proposed"
+    rec["tier"] = 2
+    rec["workorder"] = feature
+    return "proposed"
+
+
+def _drain_persist(kdir, qpath, recs, changed, body):
+    """Write everything the drain produced: the queue, the archive, the report.
+
+    Returns the report's relative path, or None when it could not be written.
+    Ordering matters and is the reason this is one function rather than three
+    call sites: the queue rewrite carries the archival split, so the archive
+    append must follow the records it removed being decided, and the report was
+    already rendered from the FULL pre-rotation view so the run summary stays
+    complete.
+
+    The archive and the report both degrade on OSError rather than failing the
+    drain — losing a rotation or a rendered report is recoverable next cycle,
+    while raising here would leave the offline dream cycle red for a report file.
+    """
+    kept, archived = recs, []
+    split = _prefer_rotate_split(recs)
+    if split is not None:
+        kept, archived = split
+    if changed or archived:
+        _atomic_write(qpath, "\n".join(
+            json.dumps(r, ensure_ascii=False) for r in kept) + "\n")
+    if archived:
+        try:
+            apath = os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL)
+            os.makedirs(os.path.dirname(apath), exist_ok=True)
+            with open(apath, "a", encoding="utf-8") as af:
+                af.write("\n".join(
+                    json.dumps(r, ensure_ascii=False) for r in archived) + "\n")
+        except OSError:
+            pass
+    rpath = os.path.join(kdir, PREFER_CLASSIFY_REPORT_REL)
+    try:
+        os.makedirs(os.path.dirname(rpath), exist_ok=True)
+        with open(rpath, "w", encoding="utf-8") as rf:
+            rf.write(body)
+    except OSError:
+        return None
+    return PREFER_CLASSIFY_REPORT_REL
+
+
 def _prefer_classify_drain(kdir):
     """Drain the prefer-queue by governance tier (see the block comment above).
     Best-effort + flock-serialized (shares the producer's `.lock`); returns the
@@ -277,127 +368,53 @@ def _prefer_classify_drain(kdir):
     qpath = os.path.join(kdir, PREFER_QUEUE_REL)
     if not os.path.isfile(qpath):
         return base
-    import fcntl
-    lockp = qpath + ".lock"
-    try:
-        lf = open(lockp, "a+")
-    except OSError:
-        return dict(base, status="error", errors=["cannot lock queue"])
-    try:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-    except OSError:
-        lf.close()
-        return dict(base, status="error", errors=["cannot lock queue"])
-    try:
-        recs = []
-        with open(qpath, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    recs.append(json.loads(line))
-                except ValueError:
-                    continue
-        proposed_n = rejected_n = journaled_n = deferred_n = 0
-        changed = False
-        for rec in recs:
-            if not isinstance(rec, dict) or rec.get("status") != "queued":
-                continue
-            text = rec.get("text")
-            tier = _prefer_classify_tier(text)
-            if tier == 3:
-                rec["status"] = "rejected"
-                rec["tier"] = 3
-                rejected_n += 1
-                changed = True
-            elif tier == 1:
-                rec["status"] = "journaled"
-                rec["tier"] = 1
-                journaled_n += 1
-                changed = True
-            else:  # tier 2 — emit a suggested workorder (cap-aware, defer-not-drop)
-                if _count_auto_open_workorders(kdir) >= WORKORDER_DRAFT_CAP:
-                    deferred_n += 1               # leave queued; retry next cycle
-                    continue
-                fp = _prefer_cand_fp(rec.get("sid"), rec.get("turn_id"), text)
-                feature, err = _prefer_emit_workorder(kdir, text, fp)
-                if err is not None:
-                    if err.startswith("resolved:"):
-                        # The workorder for this candidate is TERMINAL (rejected via
-                        # `prefer reject`, or superseded/done) — mark the re-queued
-                        # record rejected, do NOT re-propose it (audit: no
-                        # resurrection of a rejected candidate).
-                        rec["status"] = "rejected"
-                        rec["tier"] = 2
-                        rec["rejected_reason"] = ("workorder already %s"
-                                                  % err.split(":", 1)[1])
-                        rejected_n += 1
-                        changed = True
-                        continue
-                    deferred_n += 1               # emitter refused -> stay queued
-                    continue
-                rec["status"] = "proposed"
-                rec["tier"] = 2
-                rec["workorder"] = feature
-                proposed_n += 1
-                changed = True
-        # Render the report from this run's FULL record view BEFORE any archival
-        # rotation, so the run summary stays complete.
-        body = _render_prefer_classify_report(
-            recs, proposed_n, rejected_n, journaled_n, deferred_n)
-        # Bound the LIVE queue (Task 6, audit LOW): archive terminal records past
-        # the cap to a separate file so the live-queue read/rewrite stays bounded.
-        # The producer does NOT scan the whole archive, but DOES fold a BOUNDED
-        # tail of it into its dedup belt (`_prefer_archive_fingerprints`), so a
-        # watermark reset after archival still cannot re-queue an already-drained
-        # candidate. Below the cap nothing is archived (byte-identical small path).
-        kept, archived = recs, []
-        split = _prefer_rotate_split(recs)
-        if split is not None:
-            kept, archived = split
-        if changed or archived:
-            _atomic_write(qpath, "\n".join(
-                json.dumps(r, ensure_ascii=False) for r in kept) + "\n")
-        if archived:
-            try:
-                apath = os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL)
-                os.makedirs(os.path.dirname(apath), exist_ok=True)
-                with open(apath, "a", encoding="utf-8") as af:
-                    af.write("\n".join(
-                        json.dumps(r, ensure_ascii=False)
-                        for r in archived) + "\n")
-            except OSError:
-                pass
-        rpath = os.path.join(kdir, PREFER_CLASSIFY_REPORT_REL)
+    with _prefer_queue_lock(qpath) as lf:
+        if lf is None:
+            return dict(base, status="error", errors=["cannot lock queue"])
         try:
-            os.makedirs(os.path.dirname(rpath), exist_ok=True)
-            with open(rpath, "w", encoding="utf-8") as rf:
-                rf.write(body)
-            report_rel = PREFER_CLASSIFY_REPORT_REL
-        except OSError:
-            report_rel = None
-        result = dict(base, proposed=proposed_n, rejected=rejected_n,
-                      journaled=journaled_n, deferred=deferred_n)
-        if report_rel:
-            result["report"] = report_rel
-        return result
-    except Exception as exc:
-        return dict(base, status="error", errors=[str(exc)])
-    finally:
-        try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        lf.close()
+            # objects_only=False: the drain REWRITES the file it read, so a JSON
+            # line that is not an object must be carried through rather than
+            # silently deleted from another producer's queue.
+            recs = _prefer_queue_records(qpath, objects_only=False)
+            counts = {"proposed": 0, "rejected": 0,
+                      "journaled": 0, "deferred": 0}
+            changed = False
+            for rec in recs:
+                if not isinstance(rec, dict) or rec.get("status") != "queued":
+                    continue
+                outcome = _drain_classify_record(kdir, rec)
+                counts[outcome] += 1
+                changed = changed or outcome != "deferred"
+            # Render the report from this run's FULL record view BEFORE any
+            # archival rotation, so the run summary stays complete.
+            body = _render_prefer_classify_report(
+                recs, counts["proposed"], counts["rejected"],
+                counts["journaled"], counts["deferred"])
+            # Bound the LIVE queue (Task 6, audit LOW): archive terminal records
+            # past the cap to a separate file so the live-queue read/rewrite
+            # stays bounded. The producer does NOT scan the whole archive, but
+            # DOES fold a BOUNDED tail of it into its dedup belt
+            # (`_prefer_archive_fingerprints`), so a watermark reset after
+            # archival still cannot re-queue an already-drained candidate. Below
+            # the cap nothing is archived (byte-identical small path).
+            report_rel = _drain_persist(kdir, qpath, recs, changed, body)
+            result = dict(base, **counts)
+            if report_rel:
+                result["report"] = report_rel
+            return result
+        except Exception as exc:
+            return dict(base, status="error", errors=[str(exc)])
 
 
 _EXPORTS = [
     "PREFER_CLASSIFY_REPORT_REL",
     "_prefer_classify_tier",
     "_prefer_emit_workorder",
+    "_classify_section",
     "_render_prefer_classify_report",
     "_prefer_rotate_split",
+    "_drain_classify_record",
+    "_drain_persist",
     "_prefer_classify_drain",
 ]
 

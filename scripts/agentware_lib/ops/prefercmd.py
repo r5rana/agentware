@@ -57,6 +57,7 @@ from agentware_lib.ops.preferqueue import (
     PREFER_QUEUE_REL,
     _prefer_archive_tail_records,
     _prefer_cand_fp,
+    _prefer_queue_records,
     _prefer_scan_queue,
     _prefer_seed_cursor_cli,
 )
@@ -364,19 +365,12 @@ def _prefer_review_records(kdir):
     qpath = os.path.join(kdir, PREFER_QUEUE_REL)
     if os.path.isfile(qpath):
         try:
-            with open(qpath, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                    except ValueError:
-                        continue          # tolerate a torn/partial queue line
-                    if isinstance(rec, dict):
-                        recs.append(rec)
+            # Torn, partial and non-object lines are tolerated by the shared
+            # reader; an unreadable queue reviews as EMPTY here, because a
+            # read-only digest must still render what it CAN see.
+            recs.extend(_prefer_queue_records(qpath))
         except OSError:
-            pass                          # an unreadable queue reviews as empty
+            pass
     merged = {}
     for rec in recs:
         merged[_prefer_cand_fp(rec.get("sid"), rec.get("turn_id"),
@@ -400,59 +394,61 @@ def _prefer_review_collapse(text):
     return txt
 
 
-def cmd_prefer_review(args):
-    """`prefer review [--rejected|--approved|--all] [--format json]` — the
-    operator's read-only "what needs me?" digest over the prefer-queue.
+def _prefer_review_want(args):
+    """The candidate statuses this review selects.
 
-    DEFAULT = the OPEN set only: tier-2 candidates `proposed` but not yet
-    approved (i.e. a `work/auto/pref-…` workorder was emitted and is still
-    awaiting `prefer approve`). `--rejected` adds the tier-3 rejects, `--approved`
-    adds the approved, `--all` shows every state (incl. `queued`/`journaled`).
-
-    A dispatched READ-ONLY func, deliberately ABSENT from `_kb_writer_funcs()`
-    (exempt by OMISSION, like recall/query — see that docstring)."""
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    show_all = bool(getattr(args, "all", False))
+    DEFAULT is the OPEN set only — tier-2 candidates `proposed` but not yet
+    approved — because "what needs me?" is the question the verb answers; a
+    digest that shows everything by default is one the operator stops reading.
+    `--rejected` and `--approved` widen it additively, and `--all` (handled by the
+    caller) ignores the set entirely.
+    """
     want = set(_PREFER_REVIEW_DEFAULT_STATUSES)
     if getattr(args, "rejected", False):
         want.add("rejected")
     if getattr(args, "approved", False):
         want.add("approved")
-    items = []
-    for rec in _prefer_review_records(kdir):
-        status = rec.get("status") or "unknown"
-        if not show_all and status not in want:
-            continue
-        wo = rec.get("workorder") or None
-        item = {
-            "workorder": wo,
-            "status": status,
-            "signal": _prefer_review_signal(rec),
-            "sessions": _prefer_review_sessions(rec),
-            "project": rec.get("project"),
-            "ts": rec.get("ts") or "",
-            "text": rec.get("text") if isinstance(rec.get("text"), str) else "",
-        }
-        if wo:
-            # Report the workorder's presence rather than FILTERING on it: a
-            # proposed record whose workorder was removed is still an open item
-            # the operator must resolve — hiding it would silently shrink the
-            # open set (the exact failure `prefer review` exists to prevent).
-            item["workorder_exists"] = os.path.isdir(
-                os.path.join(kdir, "work", wo))
-            if status == "proposed":
-                item["approve"] = "scripts/agentware prefer approve %s" % wo
-        items.append(item)
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True,
-                   "scope": "all" if show_all else sorted(want),
-                   "count": len(items),
-                   "items": items},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-        return 0
+    return want
+
+
+def _prefer_review_item(kdir, rec):
+    """One queue record as a display item — the shape BOTH surfaces render from.
+
+    The workorder's existence is REPORTED, never filtered on: a proposed record
+    whose workorder directory was removed is still an open item the operator has
+    to resolve, and hiding it would silently shrink the open set — the exact
+    failure `prefer review` exists to prevent.
+
+    `text` is normalised to a str here so neither surface has to defend against a
+    non-string; the prose surface additionally collapses and caps it as untrusted
+    data (R-SEC-02).
+    """
+    status = rec.get("status") or "unknown"
+    wo = rec.get("workorder") or None
+    item = {
+        "workorder": wo,
+        "status": status,
+        "signal": _prefer_review_signal(rec),
+        "sessions": _prefer_review_sessions(rec),
+        "project": rec.get("project"),
+        "ts": rec.get("ts") or "",
+        "text": rec.get("text") if isinstance(rec.get("text"), str) else "",
+    }
+    if wo:
+        item["workorder_exists"] = os.path.isdir(
+            os.path.join(kdir, "work", wo))
+        if status == "proposed":
+            item["approve"] = "scripts/agentware prefer approve %s" % wo
+    return item
+
+
+def _prefer_review_print(items, show_all, want):
+    """Render the review as prose. Always returns 0 — a read-only digest.
+
+    The empty case names the SCOPE it looked at rather than saying "nothing":
+    "no proposed candidate(s)" tells the operator that rejected and journaled
+    candidates may still exist, which a bare "nothing awaiting you" does not.
+    """
     if not items:
         scope = "any state" if show_all else " / ".join(sorted(want))
         print("prefer review: nothing awaiting you (no %s candidate(s) in the "
@@ -476,6 +472,36 @@ def cmd_prefer_review(args):
         if item.get("approve"):
             print("  approve:   %s" % item["approve"])
     return 0
+
+
+def cmd_prefer_review(args):
+    """`prefer review [--rejected|--approved|--all] [--format json]` — the
+    operator's read-only "what needs me?" digest over the prefer-queue.
+
+    DEFAULT = the OPEN set only: tier-2 candidates `proposed` but not yet
+    approved (i.e. a `work/auto/pref-…` workorder was emitted and is still
+    awaiting `prefer approve`). `--rejected` adds the tier-3 rejects, `--approved`
+    adds the approved, `--all` shows every state (incl. `queued`/`journaled`).
+
+    A dispatched READ-ONLY func, deliberately ABSENT from `_kb_writer_funcs()`
+    (exempt by OMISSION, like recall/query — see that docstring)."""
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    show_all = bool(getattr(args, "all", False))
+    want = _prefer_review_want(args)
+    items = [_prefer_review_item(kdir, rec)
+             for rec in _prefer_review_records(kdir)
+             if show_all or (rec.get("status") or "unknown") in want]
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True,
+                   "scope": "all" if show_all else sorted(want),
+                   "count": len(items),
+                   "items": items},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+    return _prefer_review_print(items, show_all, want)
 
 
 

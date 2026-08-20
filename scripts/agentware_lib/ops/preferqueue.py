@@ -48,6 +48,7 @@ Fan-in: 3 at landing (regen: python3 tests/_manifest_gen.py --write).
 The bodies are a PURE MOVE from the monolith — byte-identical, comments and all.
 """
 
+import contextlib
 import hashlib
 import json
 import os
@@ -99,6 +100,92 @@ _PREFER_QUEUE_CAP = 500      # live-queue rotation threshold: terminal records p
 
                              # this are archived to a file the producer never reads
 _PREFER_CURSOR_CAP = 200     # per-session watermark-dict cap (oldest sids pruned)
+
+
+@contextlib.contextmanager
+def _prefer_queue_lock(qpath):
+    """Hold the prefer-queue's `.lock` for the duration of the block.
+
+    Yields the open lock handle, or **None** when the lock could not be taken, so
+    every caller decides its own degradation: the two producers run inside the
+    session-start and Stop hooks and return "queued nothing", the drain reports an
+    error status into the offline dream cycle, and the two disposition verbs tell
+    the operator. None of them may raise — a Stop hook that dies on steering
+    capture takes the session's own shutdown path with it.
+
+    One helper because the ladder was copy-pasted at five sites and its ORDER is
+    the load-bearing part: a flock that fails must close the handle it opened
+    (else the fd leaks for the life of the process), the unlock is best-effort
+    (a lock the OS already dropped is not something a caller can act on), and the
+    handle is closed exactly once on every path.
+    """
+    import fcntl
+    try:
+        lf = open(qpath + ".lock", "a+")
+    except OSError:
+        yield None
+        return
+    try:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+    except OSError:
+        lf.close()
+        yield None
+        return
+    try:
+        yield lf
+    finally:
+        try:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        lf.close()
+
+
+def _prefer_queue_records(qpath, objects_only=True):
+    """The records of a prefer-queue JSONL file, in file order.
+
+    Tolerant of CONTENT and strict about ACCESS, and the asymmetry is deliberate.
+    A blank line, a non-JSON line and (by default) a JSON line that is not an
+    object are skipped, because the queue is producer-agnostic: a future producer
+    or a hand-edit must never crash a reader. An OSError PROPAGATES, because
+    "the queue could not be read" and "the queue is empty" are different facts and
+    the callers report them differently — the resolver says so to the operator,
+    the producer's dedup belt degrades to an empty set.
+
+    `objects_only=False` keeps a non-object JSON value. The drain needs it: it
+    REWRITES the file it just read, so silently dropping a line it does not
+    understand would delete another producer's data rather than ignore it.
+    """
+    out = []
+    with open(qpath, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(rec, dict) or not objects_only:
+                out.append(rec)
+    return out
+
+
+def _queue_load_cursors(cpath):
+    """The per-session watermark dict, or `{}` for anything unreadable.
+
+    Every failure degrades to "no watermark" rather than raising: a missing file
+    (first run), a corrupt one (an interrupted write), and a payload that is not
+    a dict at all (a hand-edit) are the three shapes seen in practice, and the
+    honest answer to all three is to rescan from the top rather than to take down
+    a session-start or Stop hook.
+    """
+    try:
+        with open(cpath, encoding="utf-8") as cf:
+            cursors = json.load(cf) or {}
+    except (OSError, ValueError):
+        return {}
+    return cursors if isinstance(cursors, dict) else {}
 
 
 def _prefer_cand_fp(sid, turn_id, text):
@@ -167,14 +254,7 @@ def _queue_read_since_cursor(cpath, logp, sid):
     restarts from the top rather than silently reading nothing — the failure that
     would otherwise make the miner go quietly blind after a rotation.
     """
-    cursors = {}
-    try:
-        with open(cpath, encoding="utf-8") as cf:
-            cursors = json.load(cf) or {}
-    except (OSError, ValueError):
-        cursors = {}
-    if not isinstance(cursors, dict):
-        cursors = {}
+    cursors = _queue_load_cursors(cpath)
     start = 0
     try:
         start = int(cursors.get(sid, 0) or 0)
@@ -200,24 +280,103 @@ def _queue_seen_fingerprints(kdir, qpath):
     seen = set()
     if os.path.isfile(qpath):
         try:
-            with open(qpath, encoding="utf-8") as qf:
-                for line in qf:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                    except ValueError:
-                        continue
-                    if not isinstance(rec, dict):
-                        continue
-                    seen.add(_prefer_cand_fp(
-                        rec.get("sid"), rec.get("turn_id"), rec.get("text")))
+            records = _prefer_queue_records(qpath)
         except OSError:
-            seen = set()
+            records = []
+        seen = set(_prefer_cand_fp(rec.get("sid"), rec.get("turn_id"),
+                                   rec.get("text")) for rec in records)
     seen |= _prefer_archive_fingerprints(
         os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL))
     return seen
+
+
+def _queue_admitted_text(hdr, bodytext, sid):
+    """The admission chain for ONE parsed prompts.log record.
+
+    Returns `(text, cue_match)` for a turn that may be queued, else
+    `(None, None)`. Four independent reasons to refuse, in the order they must
+    run: the turn belongs to another session, it is not an origin=human turn, it
+    is empty, or it carries no preference cue.
+
+    REDACTION IS INSIDE THE CHAIN, not before or after it, because everything
+    downstream derives from the ONE redacted string — the cue match, the stored
+    text and the fingerprint (see REDACTION AT THIS BOUNDARY in the module
+    docstring). Returning the match rather than re-deriving it keeps
+    `matched_pattern` the exact match the admission decision was made on.
+
+    The operator-turn gate is the last step and is STRICTLY tighten-only: the cue
+    must ALSO survive in the operator-authored residual (blockquote quote-backs
+    stripped), so a keyword that appears only inside quoted-back agent text never
+    enqueues, while the returned text stays the full verbatim body.
+    """
+    if hdr.get("sid") != sid:
+        return None, None
+    if hdr.get("origin") != "human":
+        return None, None
+    body = (bodytext or "").strip()
+    if not body:
+        return None, None
+    body = _transcript_redact_secrets(body)
+    m = _PREFER_QUEUE_RE.search(body)
+    if not m:
+        return None, None
+    authored = _pref_operator_text(body)
+    if not authored or not _PREFER_QUEUE_RE.search(authored):
+        return None, None
+    return body, m
+
+
+def _queue_record(kdir, hdr, text, cue, sid, cwd):
+    """The queue record for an ADMITTED turn — the shared producer schema.
+
+    The project scope is resolved here rather than stored raw: the record carries
+    the canonical KB slug (or None for global), so every later reader — the
+    drain, `prefer review`, `--from-workorder` — sees one vocabulary. Context
+    resolution is best-effort by design; a checkout that cannot be resolved
+    scopes the candidate globally rather than failing the whole scan.
+    """
+    cwd_val = hdr.get("cwd") or cwd or ""
+    sig = None
+    if cwd_val:
+        try:
+            sig = _resolve_context(cwd_val).get("project_name") or None
+        except Exception:
+            sig = None
+    return {
+        "ts": _now_iso(),
+        "sid": sid,
+        "cwd": cwd_val,
+        "project": _canonical_project_key(kdir, sig),   # canonical slug or None
+        "turn_id": hdr.get("turn") or "",
+        "text": text,                 # INERT data — never executed/interpolated
+        "matched_pattern": cue.group(0).lower(),
+        "status": "queued",
+        "producer": PREFER_QUEUE_PRODUCER,
+    }
+
+
+def _queue_advance_cursor(cursors, sid, end):
+    """Advance this session's watermark to `end` and bound the dict. Returns it.
+
+    The watermark advances UNCONDITIONALLY so scanned-but-unmatched turns are
+    never re-walked (idempotent across consecutive Stops), and `sid` is re-
+    INSERTED at the end so dict order tracks LAST ACTIVITY: a plain
+    `cursors[sid] = end` update does not reorder, so a still-ACTIVE but
+    early-first-seen session could be evicted by the prune below and then, on a
+    re-seed to EOF, skip its own logged-but-unscanned turns.
+
+    The prune bounds the per-session dict at `_PREFER_CURSOR_CAP` by dropping the
+    LEAST-RECENTLY-ACTIVE sessions. With the LRU re-insert, eviction can only
+    reach genuinely idle sessions; the current sid is kept unconditionally.
+    """
+    cursors.pop(sid, None)
+    cursors[sid] = end
+    if len(cursors) > _PREFER_CURSOR_CAP:
+        keep = list(cursors)[-_PREFER_CURSOR_CAP:]
+        if sid not in keep:
+            keep = keep[1:] + [sid]
+        cursors = {k: cursors[k] for k in keep}
+    return cursors
 
 
 def _prefer_queue_scan(kdir, sid, cwd, prompts_path=None):
@@ -238,99 +397,38 @@ def _prefer_queue_scan(kdir, sid, cwd, prompts_path=None):
     except OSError:
         return 0
 
-    import fcntl
-    lockp = qpath + ".lock"
-    try:
-        lf = open(lockp, "a+")
-    except OSError:
-        return 0
-    try:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-    except OSError:
-        lf.close()
-        return 0
-    try:
-        cursors, start, end, chunk = _queue_read_since_cursor(cpath, logp, sid)
-        seen = _queue_seen_fingerprints(kdir, qpath)
-
-        out_lines = []
-        for hdr, bodytext in _parse_prompts_records(chunk):
-            if hdr.get("sid") != sid:
-                continue
-            if hdr.get("origin") != "human":
-                continue
-            body = (bodytext or "").strip()
-            if not body:
-                continue
-            # REDACT FIRST — see REDACTION AT THIS BOUNDARY in the module
-            # docstring for why this is here and not at the sinks. Everything
-            # below derives from the ONE redacted string.
-            body = _transcript_redact_secrets(body)
-            m = _PREFER_QUEUE_RE.search(body)
-            if not m:
-                continue
-            # Operator-turn gate (260719): the cue must ALSO survive in the operator-
-            # authored residual (blockquote quote-backs stripped), so a keyword only
-            # inside quoted-back agent text never enqueues. STRICTLY tighten-only (the
-            # original match above is unchanged); the full `body` is stored verbatim.
-            authored = _pref_operator_text(body)
-            if not authored or not _PREFER_QUEUE_RE.search(authored):
-                continue
-            turn_id = hdr.get("turn") or ""
-            fp = _prefer_cand_fp(sid, turn_id, body)
-            if fp in seen:
-                continue
-            seen.add(fp)
-            cwd_val = hdr.get("cwd") or cwd or ""
-            sig = None
-            if cwd_val:
-                try:
-                    sig = _resolve_context(cwd_val).get("project_name") or None
-                except Exception:
-                    sig = None
-            proj = _canonical_project_key(kdir, sig)
-            rec = {
-                "ts": _now_iso(),
-                "sid": sid,
-                "cwd": cwd_val,
-                "project": proj,          # canonical KB slug (Task 1) or None
-                "turn_id": turn_id,
-                "text": body,             # INERT data — never executed/interpolated
-                "matched_pattern": m.group(0).lower(),
-                "status": "queued",
-                "producer": PREFER_QUEUE_PRODUCER,
-            }
-            out_lines.append(json.dumps(rec, ensure_ascii=False))
-
-        if out_lines:
-            with open(qpath, "a", encoding="utf-8") as qf:
-                qf.write("\n".join(out_lines) + "\n")
-        # Advance the watermark to EOF unconditionally so scanned-but-unmatched
-        # turns are never re-walked (idempotent across consecutive Stops). Re-insert
-        # `sid` at the END so dict order tracks LAST-ACTIVITY (LRU): a plain
-        # `cursors[sid] = end` update does NOT reorder, so a still-ACTIVE but
-        # early-first-seen session could otherwise be evicted by the prune below and
-        # then, on a re-seed to EOF, skip its own logged-but-unscanned turns.
-        cursors.pop(sid, None)
-        cursors[sid] = end
-        # Bound the per-session watermark dict (Task 6): prune the LEAST-RECENTLY-
-        # ACTIVE sessions past the cap. With the LRU re-insert above, eviction hits
-        # only genuinely-idle sessions (never the current sid, always kept).
-        if len(cursors) > _PREFER_CURSOR_CAP:
-            keep = list(cursors)[-_PREFER_CURSOR_CAP:]
-            if sid not in keep:
-                keep = keep[1:] + [sid]
-            cursors = {k: cursors[k] for k in keep}
-        _atomic_write(cpath, json.dumps(cursors, ensure_ascii=False))
-        return len(out_lines)
-    except Exception:
-        return 0
-    finally:
+    with _prefer_queue_lock(qpath) as lf:
+        if lf is None:
+            return 0
         try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        lf.close()
+            cursors, start, end, chunk = _queue_read_since_cursor(
+                cpath, logp, sid)
+            seen = _queue_seen_fingerprints(kdir, qpath)
+
+            out_lines = []
+            for hdr, bodytext in _parse_prompts_records(chunk):
+                text, cue = _queue_admitted_text(hdr, bodytext, sid)
+                if text is None:
+                    continue
+                # Dedup BELT (the watermark is the braces): the fingerprint is
+                # checked before the record is built, so a re-queue is decided on
+                # the same three fields the archive belt uses.
+                fp = _prefer_cand_fp(sid, hdr.get("turn"), text)
+                if fp in seen:
+                    continue
+                seen.add(fp)
+                out_lines.append(json.dumps(
+                    _queue_record(kdir, hdr, text, cue, sid, cwd),
+                    ensure_ascii=False))
+
+            if out_lines:
+                with open(qpath, "a", encoding="utf-8") as qf:
+                    qf.write("\n".join(out_lines) + "\n")
+            _atomic_write(cpath, json.dumps(
+                _queue_advance_cursor(cursors, sid, end), ensure_ascii=False))
+            return len(out_lines)
+        except Exception:
+            return 0
 
 
 def _prefer_scan_queue(args):
@@ -369,43 +467,22 @@ def _prefer_seed_cursor(kdir, sid, prompts_path=None):
         os.makedirs(os.path.dirname(qpath), exist_ok=True)
     except OSError:
         return False
-    import fcntl
-    lockp = qpath + ".lock"
-    try:
-        lf = open(lockp, "a+")
-    except OSError:
-        return False
-    try:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-    except OSError:
-        lf.close()
-        return False
-    try:
-        cursors = {}
+    with _prefer_queue_lock(qpath) as lf:
+        if lf is None:
+            return False
         try:
-            with open(cpath, encoding="utf-8") as cf:
-                cursors = json.load(cf) or {}
-        except (OSError, ValueError):
-            cursors = {}
-        if not isinstance(cursors, dict):
-            cursors = {}
-        if sid in cursors:
-            return False        # idempotent: never clobber an advanced watermark
-        try:
-            fsize = os.path.getsize(logp)
-        except OSError:
-            fsize = 0
-        cursors[sid] = fsize
-        _atomic_write(cpath, json.dumps(cursors, ensure_ascii=False))
-        return True
-    except Exception:
-        return False
-    finally:
-        try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        lf.close()
+            cursors = _queue_load_cursors(cpath)
+            if sid in cursors:
+                return False    # idempotent: never clobber an advanced watermark
+            try:
+                fsize = os.path.getsize(logp)
+            except OSError:
+                fsize = 0
+            cursors[sid] = fsize
+            _atomic_write(cpath, json.dumps(cursors, ensure_ascii=False))
+            return True
+        except Exception:
+            return False
 
 
 def _prefer_seed_cursor_cli(args):
@@ -427,6 +504,12 @@ _EXPORTS = [
     "PREFER_QUEUE_PRODUCER",
     "_PREFER_QUEUE_CAP",
     "_PREFER_CURSOR_CAP",
+    "_prefer_queue_lock",
+    "_prefer_queue_records",
+    "_queue_load_cursors",
+    "_queue_admitted_text",
+    "_queue_record",
+    "_queue_advance_cursor",
     "_prefer_cand_fp",
     "_prefer_archive_tail_records",
     "_prefer_archive_fingerprints",

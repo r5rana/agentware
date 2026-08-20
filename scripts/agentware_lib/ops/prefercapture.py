@@ -54,6 +54,7 @@ from agentware_lib.ops.preferqueue import (
     PREFER_QUEUE_ARCHIVE_REL,
     PREFER_QUEUE_REL,
     _prefer_archive_tail_records,
+    _prefer_queue_records,
 )
 from agentware_lib.ops.planauthor.plankernelpath import _KERNEL_PATH_TOKENS, _pref_hits_kernel
 import agentware_lib.features.migratecmd as _kbmigrate
@@ -62,6 +63,49 @@ import contextlib
 import hashlib
 import shutil
 import sys
+
+
+def _prefer_forgettable(kdir, match, eid):
+    """May `prefer forget` delete this index entry? (audit MEDIUM)
+
+    A genuine capture is BOTH `preference`-tagged AND `source=user`. Without both
+    halves, `forget <any-id>` would remove any KB entry by id and unlink its `.md`
+    under a false "reversible" promise, so this is an authorization predicate and
+    not a convenience filter.
+
+    ORPHAN TOLERANCE is the one relaxation, and it is bounded: a genuine capture
+    whose `.md` is missing or unreadable cannot prove `source=user` from
+    frontmatter, so the capture-id prefix (`learn-pref-…`) stands in — the verb
+    must stay able to revoke its OWN orphaned capture. The strong check still
+    applies whenever the file exists, so a real non-capture never becomes
+    forgettable by deleting a file.
+    """
+    is_pref = "preference" in _entry_list_field(match, "tags")
+    is_user = _pref_entry_is_user_source(kdir, match)
+    if is_pref and not is_user:
+        mpath = match.get("path")
+        if not mpath or not os.path.isfile(os.path.join(kdir, mpath)):
+            is_user = str(eid).startswith("learn-pref-")
+    return is_pref and is_user
+
+
+def _prefer_archive_md(kdir, path, archive_dir):
+    """Copy a capture's `.md` to `archive_dir` BEFORE it is removed and unlinked.
+
+    Best-effort on purpose: the archive is what makes `prefer forget` genuinely
+    reversible, but a failure to write it must not block the revocation the
+    operator asked for. The caller reports what actually happened by checking for
+    the archived file rather than by assuming this succeeded, so the ack stays
+    honest either way.
+    """
+    if not (archive_dir and path):
+        return
+    try:
+        os.makedirs(archive_dir, exist_ok=True)
+        shutil.copy2(os.path.join(kdir, path),
+                     os.path.join(archive_dir, os.path.basename(path)))
+    except OSError:
+        pass
 
 
 def _prefer_delete_entry(kdir, eid, require_preference=False, archive_dir=None):
@@ -87,31 +131,13 @@ def _prefer_delete_entry(kdir, eid, require_preference=False, archive_dir=None):
                   if isinstance(e, dict) and e.get("id") == eid), None)
     if match is None:
         return None, None
-    if require_preference:
-        is_pref = "preference" in _entry_list_field(match, "tags")
-        is_user = _pref_entry_is_user_source(kdir, match)
-        # Orphan tolerance (audit LOW): a genuine capture whose `.md` is MISSING/
-        # unreadable cannot prove source=user via frontmatter, so fall back to the
-        # capture-id prefix (`learn-pref-…`) — the verb must stay able to revoke its
-        # OWN (orphaned) capture. The strong source=user check still applies whenever
-        # the `.md` exists, so a real non-capture is never newly forgettable.
-        if is_pref and not is_user:
-            mpath = match.get("path")
-            if not mpath or not os.path.isfile(os.path.join(kdir, mpath)):
-                is_user = str(eid).startswith("learn-pref-")
-        if not (is_pref and is_user):
-            return None, (
-                "refusing to forget '%s' — not a captured preference (source=user "
-                "AND tag=preference required). `prefer forget` only revokes "
-                "captures; use `index remove` for other entries." % eid)
+    if require_preference and not _prefer_forgettable(kdir, match, eid):
+        return None, (
+            "refusing to forget '%s' — not a captured preference (source=user "
+            "AND tag=preference required). `prefer forget` only revokes "
+            "captures; use `index remove` for other entries." % eid)
     path = match.get("path")
-    if archive_dir and path:
-        try:
-            os.makedirs(archive_dir, exist_ok=True)
-            shutil.copy2(os.path.join(kdir, path),
-                         os.path.join(archive_dir, os.path.basename(path)))
-        except OSError:
-            pass
+    _prefer_archive_md(kdir, path, archive_dir)
     ns = argparse.Namespace(id=eid, format="json")
     with open(os.devnull, "w", encoding="utf-8") as _dn, \
             contextlib.redirect_stdout(_dn):
@@ -161,6 +187,34 @@ def _prefer_write_migration_gate(kdir):
     return 1
 
 
+def _workorder_queue_hits(kdir, feature):
+    """Every queue record carrying `workorder == feature`. Returns (hits, err).
+
+    Two sources, in this order and for one reason: `approved` is a TERMINAL
+    status, so the rotation MAY archive the record between `prefer approve` and
+    the operator running the workorder. Reading the live queue alone would make
+    an approved candidate un-activatable purely because the queue got busy, so an
+    empty live result falls back to a BOUNDED tail of the archive.
+
+    An unreadable live queue is an ERROR rather than an empty result: silently
+    falling through to the archive would turn "I could not read your queue" into
+    "you never approved this", which is the wrong thing to tell an operator.
+    """
+    qpath = os.path.join(kdir, PREFER_QUEUE_REL)
+    recs = []
+    if os.path.isfile(qpath):
+        try:
+            recs = _prefer_queue_records(qpath)
+        except OSError:
+            return [], "cannot read the prefer-queue"
+    hits = [r for r in recs if r.get("workorder") == feature]
+    if not hits:
+        hits = [r for r in _prefer_archive_tail_records(
+            os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL))
+            if r.get("workorder") == feature]
+    return hits, None
+
+
 def _prefer_workorder_candidate(kdir, feature):
     """Resolve the APPROVED prefer-queue record whose `workorder` == `feature`.
 
@@ -184,28 +238,9 @@ def _prefer_workorder_candidate(kdir, feature):
     feature = (feature or "").strip()
     if not feature:
         return None, "no workorder id given"
-    qpath = os.path.join(kdir, PREFER_QUEUE_REL)
-    recs = []
-    if os.path.isfile(qpath):
-        try:
-            with open(qpath, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                    except ValueError:
-                        continue
-                    if isinstance(rec, dict):
-                        recs.append(rec)
-        except OSError:
-            return None, "cannot read the prefer-queue"
-    hits = [r for r in recs if r.get("workorder") == feature]
-    if not hits:
-        hits = [r for r in _prefer_archive_tail_records(
-            os.path.join(kdir, PREFER_QUEUE_ARCHIVE_REL))
-            if r.get("workorder") == feature]
+    hits, err = _workorder_queue_hits(kdir, feature)
+    if err is not None:
+        return None, err
     if not hits:
         return None, ("no queue candidate with workorder '%s' — see `prefer "
                       "list` or the classify report" % feature)
@@ -223,49 +258,59 @@ def _prefer_workorder_candidate(kdir, feature):
     return rec, None
 
 
-def _prefer_capture(args):
-    kdir = require_knowledge_dir()
-    if not kdir:
-        return 1
-    _mgate = _prefer_write_migration_gate(kdir)
-    if _mgate is not None:
-        return _mgate
-    text = (getattr(args, "text", None) or "").strip()
+def _capture_resolve_text(args, kdir):
+    """The preference text this capture will write. Returns `(text, rc)`, where a
+    non-None `rc` is the exit code to short-circuit on.
 
-    # `--from-workorder auto/pref-…` — resolve the candidate text + project scope
-    # from the APPROVED queue record instead of the command line (the loop-closing
-    # activation the emitted workorder runs). The resolved text then flows through
-    # the SAME refusals/noise-bar/supersede path as a hand-typed capture: mined
-    # text gets NO privileged route to a source=user pref.
+    Two routes, and the whole point is that they MERGE here rather than later.
+    `--from-workorder auto/pref-…` reads the exact text and resolved project
+    scope from the APPROVED queue record (the loop-closing activation the emitted
+    workorder runs) instead of the command line; the resolved text then flows
+    through the SAME refusals, noise bar and supersede path as a hand-typed
+    capture, so mined text gets NO privileged route to a `source=user` pref.
+
+    Passing both is refused rather than silently preferring one: the operator
+    means two different captures and only one of them would happen.
+    """
+    text = (getattr(args, "text", None) or "").strip()
     from_wo = (getattr(args, "from_workorder", None) or "").strip()
-    if from_wo:
+    if not from_wo:
         if text:
-            sys.stderr.write("agentware: pass either <text> or --from-workorder, "
-                             "not both\n")
-            return 1
-        rec, err = _prefer_workorder_candidate(kdir, from_wo)
-        if err is not None:
-            sys.stderr.write("agentware: %s\n" % err)
-            return 1
-        text = (rec.get("text") or "").strip()
-        # Scope from the record's resolved `project` (None -> global), unless the
-        # caller overrode it explicitly.
-        if not getattr(args, "scope_global", False) and not getattr(
-                args, "project", None):
-            proj_rec = rec.get("project")
-            if isinstance(proj_rec, str) and proj_rec.strip():
-                args.project = proj_rec.strip()
-            else:
-                args.scope_global = True
-    elif not text:
+            return text, None
         sys.stderr.write("agentware: prefer capture requires <text> or "
                          "--from-workorder <auto/pref-…>\n")
-        return 1
+        return None, 1
+    if text:
+        sys.stderr.write("agentware: pass either <text> or --from-workorder, "
+                         "not both\n")
+        return None, 1
+    rec, err = _prefer_workorder_candidate(kdir, from_wo)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return None, 1
+    # Scope from the record's resolved `project` (None -> global), unless the
+    # caller overrode it explicitly.
+    if not getattr(args, "scope_global", False) and not getattr(
+            args, "project", None):
+        proj_rec = rec.get("project")
+        if isinstance(proj_rec, str) and proj_rec.strip():
+            args.project = proj_rec.strip()
+        else:
+            args.scope_global = True
+    return (rec.get("text") or "").strip(), None
 
-    # The REFUSALS run BEFORE the noise bar: a capture naming a kernel/package
-    # path or weakening a gate is REFUSED with a nonzero exit even if it lacks a
-    # preference cue (never silently swallowed as "noise").
-    # (b) kernel-path refusal — nonzero, NO write.
+
+def _capture_refusals(text):
+    """The three gates every capture passes. Returns an exit code, or None to
+    proceed.
+
+    ORDER IS THE CONTRACT. The two REFUSALS run BEFORE the noise bar, so a
+    capture naming a kernel/package path or weakening a governance gate exits
+    NONZERO even when it carries no preference cue — routed to a human rather
+    than silently swallowed as "noise". The noise bar is the opposite shape: not
+    a preference is exit 0 with zero writes, because failing on it would make
+    every casual sentence an error.
+    """
     if _pref_hits_kernel(text):
         sys.stderr.write(
             "agentware: refusing to capture — this names a kernel/package path "
@@ -273,55 +318,111 @@ def _prefer_capture(args):
             "plan path, never a captured preference.\n"
             % ", ".join(_KERNEL_PATH_TOKENS))
         return 1
-    # (c) tighten-not-loosen — nonzero, NO write.
     if _pref_loosens_gate(text):
         sys.stderr.write(
             "agentware: refusing to capture — a preference may TIGHTEN but never "
             "LOOSEN a governance gate. Route a gate change through the human-"
             "authored self-extension path.\n")
         return 1
-    # (a) noise bar — nothing-captured, exit 0, ZERO writes.
     if not _pref_is_capturable(text):
         print("nothing captured: not a durable preference — say what a future "
               "session should always/never do (e.g. \"always pin dependency "
               "versions\").")
         return 0
+    return None
 
-    # Scope: --global forces global; --project <slug> scopes explicitly; else
-    # auto-resolve the checkout via the Task-1 normalizer, else GLOBAL (Q4).
+
+def _capture_scope(kdir, args):
+    """The canonical project slug this capture is scoped to, or None for global.
+
+    `--global` forces global; `--project <slug>` scopes explicitly; otherwise the
+    checkout is auto-resolved through the canonical normalizer and falls back to
+    GLOBAL (Q4) rather than inventing a scope.
+
+    An explicit `--project` naming no KB project WARNS and still captures. The
+    session-start injection filter resolves a scope only to an existing
+    `projects/<slug>/`, so such a preference would be captured yet never injected
+    — a silently dead pref. Warning beats refusing because an operator may
+    legitimately pre-scope a project they are about to register.
+    """
     if getattr(args, "scope_global", False):
-        proj = None
-    elif getattr(args, "project", None):
-        proj = _slugify(args.project) or None
-        # Never silently mis-scope (Q4): the session-start injection filter resolves
-        # a project scope ONLY to an existing projects/<slug>/ dir, so an explicit
-        # --project with no matching KB project would be captured yet NEVER injected
-        # (a silently-dead pref). Warn instead of accepting the dead scope; still
-        # capture so an operator MAY pre-scope a project they are about to register.
-        if proj and _canonical_project_key(kdir, proj) is None:
-            sys.stderr.write(
-                "agentware: warning — no KB project 'projects/%s/' exists; this "
-                "preference is captured but will NOT inject until that project is "
-                "registered (or re-capture with --global).\n" % proj)
-    else:
-        proj = _canonical_project_key(kdir, _current_project_signal())
+        return None
+    if not getattr(args, "project", None):
+        return _canonical_project_key(kdir, _current_project_signal())
+    proj = _slugify(args.project) or None
+    if proj and _canonical_project_key(kdir, proj) is None:
+        sys.stderr.write(
+            "agentware: warning — no KB project 'projects/%s/' exists; this "
+            "preference is captured but will NOT inject until that project is "
+            "registered (or re-capture with --global).\n" % proj)
+    return proj
 
-    # Exact supersede key: explicit --key, else the slugified preference text.
-    # Disambiguate on TRUNCATION: a bare 60-char cap lets two DISTINCT long
-    # preferences that merely share a 60-char slug prefix collapse to the SAME eid,
-    # so the exact-key supersede below would silently DELETE the unrelated prior
-    # capture (data loss). Append a stable short digest of the FULL key whenever the
-    # slug is actually truncated, so distinct texts never collide while short prefs
-    # keep their clean, human-readable id (and identical text/--key still supersede).
+
+def _capture_entry_id(args, text, proj):
+    """The supersede key: `(topic, entry_id)` for this capture.
+
+    Explicit `--key`, else the slugified preference text — that is what makes a
+    contradicting re-capture REPLACE its predecessor instead of stacking beside
+    it.
+
+    TRUNCATION IS DISAMBIGUATED, and the reason is data loss: a bare 60-char cap
+    lets two DISTINCT long preferences that merely share a 60-char slug prefix
+    collapse onto the same id, so the exact-key supersede would delete the
+    unrelated prior capture. A stable short digest of the FULL key is appended
+    only when the slug was actually truncated, so short prefs keep their clean,
+    human-readable id and identical text (or an identical `--key`) still
+    supersedes.
+    """
     raw_key = getattr(args, "key", None) or text
-    _full_slug = _slugify(raw_key)
-    keyslug = (_full_slug[:60]).strip("-") or "pref"
-    if len(_full_slug) > 60:
-        _kh = hashlib.sha1(raw_key.encode("utf-8")).hexdigest()[:8]
-        keyslug = ("%s-%s" % (keyslug, _kh)).strip("-")
+    full_slug = _slugify(raw_key)
+    keyslug = (full_slug[:60]).strip("-") or "pref"
+    if len(full_slug) > 60:
+        kh = hashlib.sha1(raw_key.encode("utf-8")).hexdigest()[:8]
+        keyslug = ("%s-%s" % (keyslug, kh)).strip("-")
+    topic = "pref-%s-%s" % (proj or "global", keyslug)
+    return topic, "learn-%s" % topic
+
+
+def _capture_tags(args, proj):
+    """The entry's tags: `preference` first, the project tag when scoped, then
+    the caller's extras, de-duplicated with first-wins order.
+
+    `preference` is not decoration — `prefer list` and the session-start digest
+    both select on it, so a capture that lost the tag would be written, injected
+    nowhere and invisible to the audit surface that exists to find it.
+    """
+    tags = ["preference"]
+    if proj:
+        tags.append("project-%s" % proj)
+    for t in (parse_tags(getattr(args, "tags", None)) or []):
+        if t not in tags:
+            tags.append(t)
+    return tags
+
+
+def _prefer_capture(args):
+    """`prefer capture` — the steering-capture WRITE path (R-CAP-01/02/03).
+
+    Five phases, each its own function: resolve the text (typed or activated from
+    an approved workorder), run the refusals, resolve the scope, derive the
+    supersede key, then write through `cmd_learn` under a suppressed stdout so
+    the ack contract is exactly one `captured: <what> -> <where>` line.
+    """
+    kdir = require_knowledge_dir()
+    if not kdir:
+        return 1
+    _mgate = _prefer_write_migration_gate(kdir)
+    if _mgate is not None:
+        return _mgate
+    text, rc = _capture_resolve_text(args, kdir)
+    if rc is not None:
+        return rc
+    rc = _capture_refusals(text)
+    if rc is not None:
+        return rc
+    proj = _capture_scope(kdir, args)
     scope_slug = proj or "global"
-    topic = "pref-%s-%s" % (scope_slug, keyslug)
-    eid = "learn-%s" % topic
+    topic, eid = _capture_entry_id(args, text, proj)
 
     # One exact-key supersede: drop a prior capture under the SAME key so a
     # contradicting re-capture REPLACES rather than stacks (offline-first).
@@ -330,13 +431,7 @@ def _prefer_capture(args):
         sys.stderr.write("agentware: %s\n" % err)
         return 1
 
-    tags = ["preference"]
-    if proj:
-        tags.append("project-%s" % proj)
-    for t in (parse_tags(getattr(args, "tags", None)) or []):
-        if t not in tags:
-            tags.append(t)
-
+    tags = _capture_tags(args, proj)
     body = ("%s\n\nOperator steering preference (source: user, scope: %s). "
             "Captured once via the steering-capture verb; in force every future "
             "session.\n" % (text, scope_slug))
@@ -405,9 +500,17 @@ def _prefer_forget(args):
 
 
 _EXPORTS = [
+    "_prefer_forgettable",
+    "_prefer_archive_md",
     "_prefer_delete_entry",
     "_prefer_write_migration_gate",
+    "_workorder_queue_hits",
     "_prefer_workorder_candidate",
+    "_capture_resolve_text",
+    "_capture_refusals",
+    "_capture_scope",
+    "_capture_entry_id",
+    "_capture_tags",
     "_prefer_capture",
     "_prefer_list",
     "_prefer_forget",

@@ -3000,6 +3000,31 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_prefercapture.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_preferclassify.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_prefercmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_preferdispose.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_preferqueue.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_premise_gate.py"
     },
     {
@@ -8871,12 +8896,20 @@
     },
     {
       "anchor_symbols": [
+        "_capture_entry_id",
+        "_capture_refusals",
+        "_capture_resolve_text",
+        "_capture_scope",
+        "_capture_tags",
+        "_prefer_archive_md",
         "_prefer_capture",
         "_prefer_delete_entry",
         "_prefer_forget",
+        "_prefer_forgettable",
         "_prefer_list",
         "_prefer_workorder_candidate",
-        "_prefer_write_migration_gate"
+        "_prefer_write_migration_gate",
+        "_workorder_queue_hits"
       ],
       "depended_on_by": [
         "agentware_lib.ops.preferclassify",
@@ -8904,12 +8937,15 @@
       "owns": "the capture WRITE and the entry lifecycle around it — `_prefer_capture`, entry deletion, the migration gate, the workorder candidate builder, and `prefer list` / `prefer forget`.",
       "path": "scripts/agentware_lib/ops/prefercapture.py",
       "test_file": "tests/unit/ops/test_prefercapture.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
         "PREFER_CLASSIFY_REPORT_REL",
+        "_classify_section",
+        "_drain_classify_record",
+        "_drain_persist",
         "_prefer_classify_drain",
         "_prefer_classify_tier",
         "_prefer_emit_workorder",
@@ -8940,16 +8976,19 @@
       "owns": "what happens to a queued candidate once a human looks at it — the tier classifier (`_prefer_classify_tier`), the drain that walks the queue (`_prefer_classify_drain`) and its dream-step adapter, the workorder emitter, and the classify report renderer with its rotation.",
       "path": "scripts/agentware_lib/ops/preferclassify.py",
       "test_file": "tests/unit/ops/test_preferclassify.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
         "_prefer_digest",
         "_prefer_review_collapse",
+        "_prefer_review_item",
+        "_prefer_review_print",
         "_prefer_review_records",
         "_prefer_review_sessions",
         "_prefer_review_signal",
+        "_prefer_review_want",
         "_register_prefer_capture",
         "_register_prefer_manage",
         "_register_prefer_producers",
@@ -8982,7 +9021,7 @@
       "owns": "the verb surface and the read-only summary — the `prefer` dispatcher (`cmd_prefer`), the `prefer mine` and `prefer review` handlers, the digest family (`_pref_digest_entries` / `_render_pref_digest` / `_prefer_digest` and their budgets) and the `register_prefer` registrar.",
       "path": "scripts/agentware_lib/ops/prefercmd.py",
       "test_file": "tests/unit/ops/test_prefercmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_prefer",
@@ -9023,6 +9062,9 @@
     {
       "anchor_symbols": [
         "_prefer_cancel_workorder",
+        "_reject_find_target",
+        "_reject_report",
+        "_reject_workorder_id",
         "cmd_prefer_approve",
         "cmd_prefer_reject"
       ],
@@ -9044,7 +9086,7 @@
       "owns": "the human disposition of a queued candidate — `cmd_prefer_approve`, `cmd_prefer_reject` and the workorder canceller (`_prefer_cancel_workorder`).",
       "path": "scripts/agentware_lib/ops/preferdispose.py",
       "test_file": "tests/unit/ops/test_preferdispose.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -9095,11 +9137,17 @@
         "_prefer_archive_fingerprints",
         "_prefer_archive_tail_records",
         "_prefer_cand_fp",
+        "_prefer_queue_lock",
+        "_prefer_queue_records",
         "_prefer_queue_scan",
         "_prefer_scan_queue",
         "_prefer_seed_cursor",
         "_prefer_seed_cursor_cli",
+        "_queue_admitted_text",
+        "_queue_advance_cursor",
+        "_queue_load_cursors",
         "_queue_read_since_cursor",
+        "_queue_record",
         "_queue_seen_fingerprints"
       ],
       "depended_on_by": [
@@ -9124,7 +9172,7 @@
       "owns": "the durable queue every preference candidate lands in before a human sees it — the queue/cursor/archive paths and caps, the candidate fingerprint (`_prefer_cand_fp`), the archive readers (`_prefer_archive_tail_records` / `_prefer_archive_fingerprints`), the scanner (`_prefer_queue_scan` / `_prefer_scan_queue`), the cursor seeder (`_prefer_seed_cursor` and its CLI).",
       "path": "scripts/agentware_lib/ops/preferqueue.py",
       "test_file": "tests/unit/ops/test_preferqueue.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {

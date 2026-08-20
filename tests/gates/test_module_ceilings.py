@@ -54,14 +54,14 @@ _NO_CORE_REASON = "scripts/agentware_lib is not present in this tree yet"
 #: The population ceiling for the whole ledger, pinned BY VALUE so that
 #: admitting a NEW row costs a deliberate edit here as well as in the fixture's
 #: own `ratchet.max_rows`. It may only ever be lowered, in the commit that pays
-#: the rows down. Task 67 measured 151; task 99 adjudicated them and this wave
-#: paid five down.
-ROW_CEILING = 146
+#: the rows down. Task 67 measured 151; task 99 adjudicated them, wave 1 paid
+#: five down and wave 2 paid the twelve of the steering-capture family.
+ROW_CEILING = 134
 
 #: The ceiling on the PAYDOWN half specifically. This is the number that has to
 #: reach zero: when it does, every remaining row is a decision that stands, and
 #: no row anywhere names a task at all. It only falls.
-PAYDOWN_CEILING = 116
+PAYDOWN_CEILING = 104
 
 #: A syntactically valid `invariant` for the synthetic rows below. It says what
 #: BREAKS if the branches are collapsed, which is the whole obligation.

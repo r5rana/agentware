@@ -46,6 +46,8 @@ from agentware_lib.ops.preferqueue import (
     PREFER_QUEUE_ARCHIVE_REL,
     PREFER_QUEUE_REL,
     _prefer_cand_fp,
+    _prefer_queue_lock,
+    _prefer_queue_records,
 )
 
 
@@ -69,27 +71,11 @@ def cmd_prefer_approve(args):
     if not os.path.isfile(qpath):
         sys.stderr.write("agentware: no prefer-queue to approve from\n")
         return 1
-    import fcntl
-    lockp = qpath + ".lock"
-    try:
-        lf = open(lockp, "a+")
-    except OSError:
-        sys.stderr.write("agentware: cannot lock the prefer-queue\n")
-        return 1
-    try:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-        recs = []
-        with open(qpath, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(rec, dict):        # skip a non-object queue line
-                    recs.append(rec)
+    with _prefer_queue_lock(qpath) as lf:
+        if lf is None:
+            sys.stderr.write("agentware: cannot lock the prefer-queue\n")
+            return 1
+        recs = _prefer_queue_records(qpath)   # non-object queue lines skipped
         hit = next((r for r in recs
                     if r.get("status") == "proposed"
                     and r.get("workorder") == target), None)
@@ -101,12 +87,6 @@ def cmd_prefer_approve(args):
         hit["status"] = "approved"
         _atomic_write(qpath, "\n".join(
             json.dumps(r, ensure_ascii=False) for r in recs) + "\n")
-    finally:
-        try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        lf.close()
     feat = target[len("auto/"):] if target.startswith("auto/") else target
     print("approved: %s — run it via the loop (e.g. ./agentware.sh %s) or claim "
           "the workorder." % (target, feat))
@@ -139,6 +119,69 @@ def _prefer_cancel_workorder(kdir, workorder, reason):
     return (True, "cancelled") if rc == 0 else (False, "refuse")
 
 
+def _reject_workorder_id(target):
+    """The bare `auto/pref-<slug>` workorder this reject may act on.
+
+    Returns `(wo, None)` or `(None, refusal)`. Defense in depth, and the reason
+    is the SINK: the resolved id feeds `cmd_plan_set_state`'s feature path, so a
+    traversal (`../…`), a nested path or any other namespace must be refused
+    before it reaches a path join. A bare slug is accepted and normalised, since
+    that is what `prefer review` prints beside every open item.
+    """
+    wo = target if target.startswith("auto/") else "auto/" + target
+    if not wo.startswith("auto/pref-") or "/" in wo[len("auto/"):]:
+        return None, ("agentware: prefer reject only targets an auto/pref-* "
+                      "workorder (got %r)\n" % target)
+    return wo, None
+
+
+def _reject_find_target(raw, wo):
+    """Locate the `proposed` record for workorder `wo` among RAW queue lines.
+
+    Returns `(index, record)` or `(None, None)`. It walks the raw lines rather
+    than parsed records precisely because the caller rewrites the file: every
+    other line has to survive byte-for-byte, so the index into the ORIGINAL split
+    is the thing the caller needs, not a position in a filtered list.
+
+    A blank line, a non-JSON line and a non-object line are skipped rather than
+    dropped — the queue is producer-agnostic, and a line this verb cannot read is
+    a line it must not destroy.
+    """
+    for i, line in enumerate(raw):
+        s = line.strip()
+        if not s:
+            continue
+        try:
+            rec = json.loads(s)
+        except ValueError:
+            continue
+        if (isinstance(rec, dict) and rec.get("status") == "proposed"
+                and rec.get("workorder") == wo):
+            return i, rec
+    return None, None
+
+
+def _reject_report(args, wo, cancelled, disp):
+    """Report a completed rejection on the caller's chosen surface.
+
+    The prose arm names the workorder's fate explicitly (cancelled / absent /
+    terminal) because "rejected" alone leaves the operator wondering whether
+    something is still running, and it says the plan.md was KEPT — that file is
+    the drain's re-emit sentinel, so its presence is deliberate rather than
+    leftover.
+    """
+    if getattr(args, "format", "text") == "json":
+        json.dump({"ok": True, "workorder": wo, "status": "rejected",
+                   "workorder_cancelled": cancelled, "workorder_state": disp},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return
+    note = {"cancelled": "workorder cancelled", "absent": "no workorder on disk",
+            "terminal": "workorder already terminal"}.get(disp, disp)
+    print("rejected: %s — candidate marked rejected; %s (plan.md kept as the "
+          "re-emit sentinel)." % (wo, note))
+
+
 def cmd_prefer_reject(args):
     """`prefer reject <workorder> [--reason …]` — reject a dream-proposed steering
     candidate as NOISE: the governed counterpart to `prefer approve`. Under the queue
@@ -161,10 +204,9 @@ def cmd_prefer_reject(args):
     # Namespace guard: only ever act on a bare `auto/pref-<slug>` workorder — the
     # target feeds cmd_plan_set_state's feature path, so refuse a traversal or any
     # other namespace (defense-in-depth).
-    wo = target if target.startswith("auto/") else "auto/" + target
-    if not wo.startswith("auto/pref-") or "/" in wo[len("auto/"):]:
-        sys.stderr.write("agentware: prefer reject only targets an auto/pref-* "
-                         "workorder (got %r)\n" % target)
+    wo, refusal = _reject_workorder_id(target)
+    if refusal is not None:
+        sys.stderr.write(refusal)
         return 1
     qpath = os.path.join(kdir, PREFER_QUEUE_REL)
     if not os.path.isfile(qpath):
@@ -172,15 +214,10 @@ def cmd_prefer_reject(args):
         return 1
     reason = (getattr(args, "reason", None) or "").strip() \
         or "operator-rejected as noise via `prefer reject`"
-    import fcntl
-    lockp = qpath + ".lock"
-    try:
-        lf = open(lockp, "a+")
-    except OSError:
-        sys.stderr.write("agentware: cannot lock the prefer-queue\n")
-        return 1
-    try:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+    with _prefer_queue_lock(qpath) as lf:
+        if lf is None:
+            sys.stderr.write("agentware: cannot lock the prefer-queue\n")
+            return 1
         # Read RAW lines and PRESERVE every one byte-for-byte; only the matched
         # target record's line is rewritten (never silently drop a malformed line).
         # Split on '\n' ONLY (NOT str.splitlines(), which also splits on U+2028/
@@ -189,19 +226,7 @@ def cmd_prefer_reject(args):
         # unrejectable). `"\n".join(raw)` is then a byte-exact round-trip.
         with open(qpath, encoding="utf-8") as f:
             raw = f.read().split("\n")
-        hit_idx, hit = None, None
-        for i, line in enumerate(raw):
-            s = line.strip()
-            if not s:
-                continue
-            try:
-                rec = json.loads(s)
-            except ValueError:
-                continue
-            if (isinstance(rec, dict) and rec.get("status") == "proposed"
-                    and rec.get("workorder") == wo):
-                hit_idx, hit = i, rec
-                break
+        hit_idx, hit = _reject_find_target(raw, wo)
         if hit is None:
             sys.stderr.write(
                 "agentware: no proposed candidate with workorder '%s' — see "
@@ -221,28 +246,16 @@ def cmd_prefer_reject(args):
         # `split("\n")` captured the file's trailing newline as a trailing "" element,
         # so join alone reproduces the exact byte structure (no extra newline).
         _atomic_write(qpath, "\n".join(raw))
-    finally:
-        try:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
-        lf.close()
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, "workorder": wo, "status": "rejected",
-                   "workorder_cancelled": cancelled, "workorder_state": disp},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        note = {"cancelled": "workorder cancelled", "absent": "no workorder on disk",
-                "terminal": "workorder already terminal"}.get(disp, disp)
-        print("rejected: %s — candidate marked rejected; %s (plan.md kept as the "
-              "re-emit sentinel)." % (wo, note))
+    _reject_report(args, wo, cancelled, disp)
     return 0
 
 
 _EXPORTS = [
     "cmd_prefer_approve",
     "_prefer_cancel_workorder",
+    "_reject_workorder_id",
+    "_reject_find_target",
+    "_reject_report",
     "cmd_prefer_reject",
 ]
 
