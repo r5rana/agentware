@@ -2450,6 +2450,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/_graphexec_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/_plan_graph_support.py"
     },
     {
@@ -2536,6 +2541,26 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_freshness_gen.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_graphexec.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_graphexec_arms.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_graphrun.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_graphtopo.py"
     },
     {
       "layer": "tests",
@@ -5904,8 +5929,23 @@
     },
     {
       "anchor_symbols": [
+        "_graph_deadline_exceeded",
+        "_graph_deadline_start",
         "_graph_execute",
-        "_graph_finish"
+        "_graph_execute_preflight",
+        "_graph_execute_seams",
+        "_graph_execute_selfext",
+        "_graph_execute_setup",
+        "_graph_execute_topology",
+        "_graph_finish",
+        "_graph_run_result",
+        "_graph_tick_finalize_or_merge",
+        "_graph_tick_halt_or_pause",
+        "_graph_tick_select",
+        "_graph_tick_spawn_wave",
+        "_graph_tick_stalled",
+        "_graph_tick_statuses",
+        "_graph_tick_terminal"
       ],
       "depended_on_by": [
         "agentware_lib.features.graphdag.graphrun"
@@ -5928,7 +5968,7 @@
       "owns": "`_graph_execute`, the driver that ticks the graph to completion, and `_graph_finish`, the terminal bookkeeping.",
       "path": "scripts/agentware_lib/features/graphdag/graphexec.py",
       "test_file": "tests/unit/features/test_graphexec.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -6069,6 +6109,10 @@
     },
     {
       "anchor_symbols": [
+        "_graph_cancel_each",
+        "_graph_cancel_emit",
+        "_graph_checkpoint_emit",
+        "_graph_checkpoint_resolve",
         "cmd_graph_cancel",
         "cmd_graph_checkpoint",
         "cmd_graph_resume",
@@ -6098,7 +6142,7 @@
       "owns": "the subverbs that start, observe, gate or stop a run -- `graph run`, `resume`, `status`, `checkpoint`, `cancel` and `teardown` (`cmd_graph_run` / `cmd_graph_resume` / `cmd_graph_status` / `cmd_graph_checkpoint` / `cmd_graph_cancel` / `cmd_graph_teardown`).",
       "path": "scripts/agentware_lib/features/graphdag/graphrun.py",
       "test_file": "tests/unit/features/test_graphrun.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -6135,7 +6179,10 @@
     },
     {
       "anchor_symbols": [
+        "_graph_assert_union_acyclic",
+        "_graph_declared_pairs",
         "_graph_derive_resource_edges",
+        "_graph_logical_rank",
         "_graph_manifest_write_sets",
         "_graph_ready_set",
         "_graph_transitive_successors",
@@ -6162,7 +6209,7 @@
       "owns": "the topological sort (`topo_order`), the dispatch frontier (`_graph_ready_set`), the blast-radius walk (`_graph_transitive_successors`), and the WRITE-SET machinery that turns declared file writes into implicit ordering edges -- `_graph_manifest_write_sets`, `_write_token_matches`, `_write_sets_overlap`, `_graph_derive_resource_edges` and the kernel-path guard `_graph_write_set_touches_kernel`.",
       "path": "scripts/agentware_lib/features/graphdag/graphtopo.py",
       "test_file": "tests/unit/features/test_graphtopo.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {

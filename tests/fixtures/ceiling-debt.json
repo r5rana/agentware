@@ -1,715 +1,685 @@
 {
- "schema": "agentware/ceiling-debt@2",
- "captured": "2026-08-21, branch merge/modularize, plan task 99 wave 5",
- "note": "SHRINK-ONLY, and every row carries a DECISION. Task 67 measured 151 ceiling violations tree-wide and owned every one of them to itself; task 99 adjudicated them. A row is either an EXEMPTION -- permanent, naming the invariant its count encodes, with no owner because there is no work to own -- or a PAYDOWN work order naming the concrete seam that removes it. There is no third state: `owner` is refused by the schema, so a row can never again sit here pointing at a task that has closed. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces, so the file only shrinks. `ratchet.max_rows` must equal the row count and `ratchet.max_paydown_rows` may only fall, both pinned by value in tests/gates/test_module_ceilings.py. NO file_over_cap row is accepted under scripts/agentware_lib/ (task 21 satisfied that cap outright), and no row may sit inside a package task 21 round 1 split. When the last row goes, the gate is simply green.",
- "ratchet": {
-  "max_rows": 115,
-  "max_paydown_rows": 85
- },
- "rows": [],
- "groups": [
-  {
-   "verdict": "exempt",
-   "reason": "ADJUDICATED PERMANENT (task 99). Each row's count is a property of the code rather than neglect: the branches are a closed taxonomy, a report-every-problem check set, or a per-field coercion of an untrusted external schema, and collapsing any pair of them is the defect the structure exists to prevent. The `invariant` on each row says which of those it is, in terms a reader can check against the body. These rows have no owner because there is no work to own -- but they are still CEILINGS: the declared value is the worst the location may be, and a location that improves must have its row lowered or removed in the same change.",
-   "rows": [
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_integrate_kb",
-     "value": 14,
-     "invariant": "Its branches ARE the ordered checkpoints of one git merge transaction: each turns a distinct failure (not-an-ancestor, checkout, refused merge, prose conflict, rebuild, nothing-lost gate, commit) into `merge --abort` plus one named status from the closed set {merged, skipped, prose-conflict, error}, so no path can fall through to commit and silently drop a lane's KB work."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphlane.py::_graph_merge_lane",
-     "value": 13,
-     "invariant": "Its branches are the abort arms of a fixed serial merge-queue stage order (package, then KB, then gates, then artifact commit), and each arm is the SOLE producer of one member of the closed status vocabulary the disposition reader consumes, so collapsing any two loses which stage aborted the integration. The whole body is thirty-eight lines against a cap of twelve branches."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphmanifest.py::graph_manifest_errors",
-     "value": 32,
-     "invariant": "It reports EVERY manifest defect rather than the first: each branch appends one error string naming its offender to an ordered list and continues, so the branch count IS the check count across schema, name, concurrency range, node and edge shape, checkpoint vocabulary, plan existence, self-extension implies manual, dangling and duplicate edges, and cycles."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphmanifest.py::graph_manifest_errors",
-     "value": 124,
-     "invariant": "Same report-all-checks property at line granularity: the length is linear in the check count because each check is one condition plus its offender-naming message literal, so 124 lines is the message text of about twenty checks and not extra logic. Splitting would fragment one ordered defect report across files to remove a four-line overage."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphstate.py::_graph_node_status",
-     "value": 23,
-     "invariant": "Its branches are the arms of a total verdict taxonomy: each maps one (plan state, terminal outcome, lane or merged, claim age) case onto exactly one (status, disposition, detail) triple and returns immediately, with an unknown plan state and an unknown outcome both defaulting to HALT. Collapsing a pair is the bug: done-and-merged, done-with-no-lane and done-awaiting-merge are three scheduler actions."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphstate.py::_graph_node_status",
-     "value": 146,
-     "invariant": "Same taxonomy at line granularity: the body is a decision table whose length is linear in its case count, each arm a short assignment block over one accumulator plus its return, with the comments recording which observed failure each arm exists to prevent. No arm shares mutable state with another, so splitting the table spans the fail-closed default across files without removing a case."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skillsync.py::_skill_reconcile",
-     "value": 26,
-     "invariant": "Its branches are the cells of a TOTAL transition matrix over recorded status in {absent, installed, quarantined, blocked, unknown} by whether the vetter blocks by whether the tree hash still matches the approved one, each cell writing one lockfile status and bumping one counter, with the trailing arm re-adjudicating an unknown status so no cell falls through. Collapsing a pair breaks a stated rule: a blocked skill must not be re-prompted, and an installed one still owes its cache-integrity check."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_github_issues_adapter",
-     "value": 14,
-     "invariant": "Every branch coerces exactly one field of an untrusted `gh issue list --json` export (item shape, the url/number/index reference chain, title, body, labels[].name) into either a total value or a REPORTED rejection, so the count is the external schema's optional-field count and dropping one either crashes on a malformed export or drops an issue in silence."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/knowledge/proposals.py::proposal_integrity_errors",
-     "value": 13,
-     "invariant": "It appends to an errors list and never returns early, so it reports EVERY violation of its three documented FAIL conditions (a leak, a malformed or missing ledger, a count mismatch) across every entry and every staged proposal: the branch count IS the check count plus the isinstance guards that let it survive a corrupt index instead of crashing on one."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/knowledge/worklog.py::skill_promotion_ids",
-     "value": 13,
-     "invariant": "Each branch admits exactly one SPELLING by which a promotion can clear an R-SI-03 marker (indexed skills-category id, indexed skills-proposed path id, its proposal-<slug> alias, an on-disk proposal slug, an on-disk skills/<name>/SKILL.md), so the count is the size of that closed alias set and dropping an arm re-opens the recorded bug where a finished run was killed by `worklog scan`."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/derive.py::derive_iteration_costs",
-     "value": 13,
-     "invariant": "Every branch is one field-level coercion of an untrusted metrics.jsonl line into the per-iteration record: the event-type discriminator, the `isinstance(it, int) and not bool` exclusion without which True fabricates iteration 1, the phase/stage/main fallback chain, the float() guard on wall time and the last-non-None-wins folds. Dropping one lets a malformed event invent or corrupt an iteration."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/fleet/fleetshard.py::cmd_fleet_emit",
-     "value": 16,
-     "invariant": "Nine branches are one `getattr(args, field, None) or default` per key of the committed terminal-event schema, which makes every emitted sink line TOTAL so no reader has to special-case a null; the rest are the never-block-the-loop degradations R-ORG-06 requires, so a terminal event is still emitted, or cleanly skipped, on every failure exit path."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/metrics/metricsaggregate.py::resolve_session_identity",
-     "value": 19,
-     "invariant": "Every branch either selects one arm of the closed session-identity taxonomy (kind in {loop, plan, work} by confidence in {high, provisional, pending} by terminal in {complete, ended, incomplete}) or coerces one untrusted row field into that closed set, and the ARM ORDER is the semantics, so collapsing any pair merges two identities the contract declares distinct."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/planpremises.py::_parse_premise_check",
-     "value": 17,
-     "invariant": "It is a TOTAL parse of an untrusted `check:` string into a CLOSED kind set: every branch is one kind of the grammar or one arity/domain constraint of that kind, and every return path lands on a declared kind or on one of the three sentinels, so nothing can fall through to a runnable kind. That totality is what stops an unparseable premise silently grounding the R-GND-01 gate."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/reviewschema.py::_review_normalize_finding",
-     "value": 20,
-     "invariant": "Every branch coerces one attacker-influenceable reviewer-output field into a closed set and RECORDS the coercion as a schema error rather than dropping it (required-field presence, dimension against the declared keys, severity fail-closed to high, verdict casefold), so the count is the field-by-closed-set count and removing one lets an off-enum token reach the blocking decision."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/sessionparse/minererrors.py::_transcript_err_target_class",
-     "value": 19,
-     "invariant": "It returns exactly one of three closed classes (url:, cmd:, path:) and every branch is one documented discrimination or volatility-masking rule of that taxonomy: the userinfo strip, tool-kind-is-authoritative, sigil-beats-space, the trailing-extension tiebreak, the numeric rotation peel. Collapsing a pair either leaks a credential fragment into a persistent ledger or mints an unbounded key class."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/team.py::registry_membership_errors",
-     "value": 13,
-     "invariant": "Every branch is either a shape coercion of one untrusted field of the hand-editable registry.json into a closed set or the emission of one of the three O5 error classes, and it reports EVERY bad row rather than the first, so it can never early-return past a branch. The whole body is eighteen lines: splitting it yields two eight-line halves and a four-line parent."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/acrgate.py::acr_gate_decision",
-     "value": 18,
-     "invariant": "Every boolean operand is one arm of the five-part ACR win gate and has a matching `passed` entry in the returned checks dict, so the branch count IS the number of independently reported gate conditions and collapsing any operand silently deletes a reported check while leaving the verdict looking equally well evidenced."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/ledger.py::redact_gold_path",
-     "value": 13,
-     "invariant": "The branches are the complete redaction ladder for a path that must never reach the committed public ledger absolute or operator-identifying (R-LOC-03): each is one rung (already relative, knowledge-dir relative, HOME relative, basename) or that rung's validity test, so no path through the function can return an absolute or identity-bearing string. The body is thirty-nine lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/skillpin.py::scope_entries_for_team",
-     "value": 15,
-     "invariant": "Its branches are the closed arms of the org recall-scoping table (flat corpus with no facet, shared only, all teams, the shared pseudo-team, a named team, and the default of the caller's own shard unioned with shared skills), each returning a DIFFERENT corpus and each returning immediately, so collapsing any pair IS the cross-shard leak R-ORG-02 forbids."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/hooks/codex_items.py::_tool_fields",
-     "value": 15,
-     "invariant": "Each arm maps exactly one member of the codex `item.completed` type vocabulary, which the upstream CLI owns and this package does not, onto the sinks' fixed (tool, input, response, status) tuple, coercing an untrusted exit code into the closed set {ok, ERR}. The count tracks the upstream type set, and a same-file helper extraction would additionally drop the body under its recorded floor."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/hooks/render-transcript.py::_render_content",
-     "value": 14,
-     "invariant": "Its arms ARE the Claude transcript content-block vocabulary (bare string, text, thinking, tool_use, tool_result), a schema this package does not own, each isinstance-coercing an untrusted block into the renderer's closed line vocabulary. One arm per schema member across a twenty-seven-line body: the count tracks the upstream block set, so it moves when that set does and not otherwise."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_body_adjudication.py",
-     "value": 701,
-     "invariant": "The file defines ZERO functions: every line is the adjudication row table, one row per adjudicated body divergence carrying host, floor and absorbers plus the hand-written rationale a reviewer needs beside its row. Its length measures the adjudicated-divergence count, not any procedure. The repo's own precedent for splitting it (the shim-retirement sibling) took a seam a SHARED adjudication reason already named; the residual rows each carry a reason of their own."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_cachefreshness_gate.py::_key_uses",
-     "value": 14,
-     "invariant": "Its branches ARE the closed grammar of a constant string key: the three AST forms a key can take (subscript slice, `.get(k, default)` first argument, dict-literal key) each paired with the Constant-and-is-a-string narrowing the metric charges as an extra boolean operand. The contract pins that boundary deliberately, so a key held in a variable stays invisible."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_dreampkg_gate.py::check_registry",
-     "value": 13,
-     "invariant": "It reports EVERY registry disagreement rather than the first (retired id, retired label, unknown ids, order mismatch, per-row label mismatch, missing-set mismatch), so its branches are exactly six independently appended problems plus the five comprehension filters that compute their operands, accumulating into one list with no early return past a check."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_env_config_capture.py::_row",
-     "value": 15,
-     "invariant": "Twelve of its branches sit INSIDE the returned dict literal, one conditional expression or comprehension filter per DERIVED COLUMN of the fixed capture-row schema (namespace, side, direction, unset-means, default, read sites, write sites), so the count is the row schema's derived-column count and not control flow. The body is a single return."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_indexreader_gate.py::normalizer_errors",
-     "value": 13,
-     "invariant": "It reports EVERY normalizer defect rather than the first (defined exactly once, layer-legal owner, string-element filtering, fresh-list construction, no raw-field return), so its branches are five independently appended errors plus the three walks and the isinstance narrowing that find them. Each message is a distinct documented failure mode."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_loop_callsites.py::strip_comment",
-     "value": 22,
-     "invariant": "Its branches ARE the quoting states of a shell tokenizer: one character loop and six mutually exclusive arms (backslash escape, single quote, double quote, brace open, brace close, comment start), whose boolean operands are exactly the state flags each arm must see cleared plus the word-boundary test. Any decomposition either threads the whole state tuple through helpers or loses the single-pass property."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_markdown_links.py::check_one",
-     "value": 16,
-     "invariant": "Its branches are the closed taxonomy of markdown link kinds: three skip classes (empty or external, placeholder, exempted file) and four distinct problem details (unreadable file, no such anchor here, no such file, no such anchor in the target), each arm ending in a continue or one problem append. Hoisting the loop body leaves thirteen branches in the classifier, still over the cap."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "tests/e2e/test_transcript_miner_e2e.py::test_error_recovery_only_go_live_spine",
-     "value": 153,
-     "invariant": "It is ONE ordered go-live scenario in a single knowledge dir where each stage asserts against state the previous stage mutated: seed, first mine run, then a NEW session on a SECOND run suppressed only by the cross-run ledger, then drain, review, approve, capture, digest, then an idempotent re-run. Splitting it into methods would either re-seed (destroying the cross-RUN claim, which is the point) or make correctness depend on undefined method ordering. It carries six branches, not 153."
-    }
-   ]
+  "schema": "agentware/ceiling-debt@2",
+  "captured": "2026-08-21, branch merge/modularize, plan task 99 wave 5",
+  "note": "SHRINK-ONLY, and every row carries a DECISION. Task 67 measured 151 ceiling violations tree-wide and owned every one of them to itself; task 99 adjudicated them. A row is either an EXEMPTION -- permanent, naming the invariant its count encodes, with no owner because there is no work to own -- or a PAYDOWN work order naming the concrete seam that removes it. There is no third state: `owner` is refused by the schema, so a row can never again sit here pointing at a task that has closed. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces, so the file only shrinks. `ratchet.max_rows` must equal the row count and `ratchet.max_paydown_rows` may only fall, both pinned by value in tests/gates/test_module_ceilings.py. NO file_over_cap row is accepted under scripts/agentware_lib/ (task 21 satisfied that cap outright), and no row may sit inside a package task 21 round 1 split. When the last row goes, the gate is simply green.",
+  "ratchet": {
+    "max_rows": 110,
+    "max_paydown_rows": 80
   },
-  {
-   "verdict": "paydown",
-   "owner": "task 99",
-   "reason": "ADJUDICATED AS WORK (task 99), with the seam named on the row. Each of these was read against its body and found to encode nothing: a guard-clause chain, a flag dispatch whose arms each re-implement their own renderer, a hand-rolled reader written at several sites, or repeated inline formatting. `seam` names the helpers that remove the row and the resulting parent count, so the row is a work order rather than a complaint, and a later reader does not have to re-derive the reading. Four rows name a BLOCKER that clears first -- a file already at its own cap, a hook tier with no unit file, or a webui toolchain that cannot verify a TypeScript split -- because working around one of those is how a paydown ships unverified. `ratchet.max_paydown_rows` may only fall, so this group cannot grow.",
-   "rows": [
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/curationcmd.py::cmd_decide",
-     "value": 17,
-     "seam": "Extract the refusal chain `_refuse_existing_entry` (duplicate id, duplicate path, file exists) and `_finish_curation_write` (index add plus unlink-on-error rollback plus emit), both shared with cmd_learn, which they duplicate today. Parent 17 -> 10."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/curationcmd.py::cmd_learn",
-     "value": 21,
-     "seam": "The same two helpers cmd_decide needs, plus `_learn_provenance(args)` for the --source/--author coercion block. Parent 21 -> 10."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/fanout.py::cmd_fanout_spin_up",
-     "value": 13,
-     "seam": "Extract `_spin_up_preflight(args)` (repo/kb-repo/base resolution and the work-tree guard) and `_print_spin_up_lanes(results, dry)`. Parent 13 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::cmd_fanout_merge_queue",
-     "value": 31,
-     "seam": "Extract `_mq_queue_opts(args)`, `_mq_dry_run_report(...)`, `_mq_prepare_integration(...)` and `_mq_process_lane(...) -> (result, halt_msg)`; the three halt arms stay intact inside the lane processor. Parent 31 -> 9."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::cmd_fanout_merge_queue",
-     "value": 149,
-     "seam": "Falls out of the same four-way split: the parent keeps load, preflight, loop and emit, about forty-five lines against the 120 cap."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/fanoutmq/mqteardown.py::cmd_fanout_teardown",
-     "value": 16,
-     "seam": "Extract `_teardown_one_lane(...) -> (status, detail)` and `_teardown_report(...)`; the R-GIT-02 safety gate is already factored into `_teardown_blocker` and is untouched. Parent 16 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphexec.py::_graph_execute",
-     "value": 62,
-     "seam": "Split setup from the tick loop: `_graph_execute_setup(...)`, then the per-tick `_graph_tick_statuses`, `_graph_tick_halt_or_pause`, `_graph_tick_finalize_or_merge`, `_graph_tick_select` and `_graph_tick_spawn_wave`. The ordered priority is preserved by the ORDER of the calls in the parent, and that order must be asserted by a test in the same change. Parent 62 -> 10."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphexec.py::_graph_execute",
-     "value": 243,
-     "seam": "Falls out of the same split. The split also surfaces a dead deadline guard whose body is `pass`, which is either wired or deleted in the same change rather than carried over."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphrun.py::cmd_graph_cancel",
-     "value": 15,
-     "seam": "Extract `_graph_cancel_each(...)`, which is byte-duplicated inside cmd_graph_checkpoint, plus `_graph_cancel_emit(...)`. Deduping SHRINKS the file. Parent 15 -> 9."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphrun.py::cmd_graph_checkpoint",
-     "value": 22,
-     "seam": "Three cuts: `_graph_checkpoint_resolve(...)` for the six-refusal guard chain, the shared `_graph_cancel_each(...)` above, and `_graph_checkpoint_emit(...)`. Parent 22 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/graphdag/graphtopo.py::_graph_derive_resource_edges",
-     "value": 18,
-     "seam": "Extract `_graph_logical_rank(manifest)`, `_graph_declared_pairs(manifest)` and `_graph_assert_union_acyclic(...)`; the cycle-proof orientation invariant lives in the rank comparison inside the pairwise loop and stays in the parent. Parent 18 -> 7."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/indexcmd.py::cmd_index_sync",
-     "value": 18,
-     "seam": "Two disjoint modes share one body and each re-implements its own renderer: extract `_sync_dry_report`, `_sync_prompt_row` and `_sync_fix_report`. Parent 18 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/mcp.py::_mcp_query_lookup",
-     "value": 18,
-     "seam": "Extract `_mcp_entry_maps(entries) -> (by_id, by_path)`, the first-wins index-building preamble; the four dispatch arms then fit under the cap untouched. Parent 18 -> 11."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/proposals/proposalpromote.py::_promote_frontmatter",
-     "value": 13,
-     "seam": "Extract `_frontmatter_block(text) -> (head, block, tail)`, the fence finder that is written a second time in features/skills.py; the four key-rewrite arms are already under cap. Parent 13 -> 8."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/proposals/proposalpromote.py::cmd_skill_promote",
-     "value": 16,
-     "seam": "Extract `_promote_preflight(...)` for the slug/kdir/proposal/reviewer/vet/destination gates and `_promote_emit(...)` for the two renderers. Parent 16 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::_propose_author",
-     "value": 17,
-     "seam": "Extract `_propose_dedup_guard(...)` and `_propose_emit(...)`; both are contiguous and independent of the ledger write. Parent 17 -> 10."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/setupcmd.py::cmd_init",
-     "value": 19,
-     "seam": "Five idempotent scaffold steps become five helpers (`_init_dirs`, `_init_seed_index`, `_init_rosters`, `_init_templates`, `_init_refuse_repoint`) plus `_init_report`. Parent 19 -> 3."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skillpropose.py::_existing_skill_coverage",
-     "value": 13,
-     "seam": "Three literally comment-delimited source ingestions feeding one add closure: `_coverage_from_skills_dir`, `_coverage_from_catalog` and `_coverage_from_index`. Parent 13 -> 2."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skillpropose.py::_skill_promote_run",
-     "value": 16,
-     "seam": "Seven branches are a parameter-default guard chain plus one inline four-way boolean: extract `_resolve_promote_params(...)` and `_promote_report_clean(report)`, leaving the outcome dispatch. Parent 16 -> 9."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skills.py::cmd_skill_add",
-     "value": 19,
-     "seam": "Extract `_resolve_add_source(args, data)` and unify the two near-identical render blocks into one `_emit_skill_add(...)`. Parent 19 -> 8. BLOCKED FIRST: features/skills.py is at 598 of its 600-line cap, so this lands only behind a features/skills/ package split."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skills.py::cmd_skill_validate",
-     "value": 29,
-     "seam": "Lines 322-339 re-implement the existing `_validate_skill_dir` inline: call it instead, and collapse the two duplicate renderers into one `_emit_validate(...)`. Parent 29 -> 8, and the file NET SHRINKS, which is what makes it landable at 598 of 600."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skills.py::read_skill_frontmatter",
-     "value": 15,
-     "seam": "Extract `_frontmatter_block(text)` (the same helper proposalpromote needs) and `_folded_scalar(block, i)`. Parent 15 -> 5. Same 598-of-600 file constraint."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/skillsync.py::cmd_skill_sync",
-     "value": 34,
-     "seam": "One helper per mode, each owning its own emit: `_skill_sync_reset`, `_skill_sync_approve`, `_skill_sync_reject`, `_skill_sync_uninstall` and `_skill_sync_reconcile_emit`. Parent 34 -> 9. Watch the file: skillsync.py is at 548 of 600 lines, so the helpers may need a sibling module."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/features/updatecmd.py::cmd_update",
-     "value": 32,
-     "seam": "Five mutually exclusive modes in one body: extract `_update_status_line`, `_update_upstream_info`, `_update_check_report` and `_update_apply_result`, leaving the flag dispatch plus the lock and defer. Parent 32 -> 7."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/features/updatecmd.py::cmd_update",
-     "value": 153,
-     "seam": "Falls out of the same four extractions; the parent keeps the dispatch, the session-active defer and the emit closure, about fifty-five lines against the 120 cap."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/knowledge/curation/curationingest.py::cmd_ingest",
-     "value": 20,
-     "seam": "Extract `_ingest_dispatch_adapter(...)`, `_ingest_select(valid, only)`, `_ingest_commit(...)` and `_ingest_print_text(...)`. Parent 20 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/knowledge/graph.py::cmd_query",
-     "value": 29,
-     "seam": "Extract `_lookup_maps(entries)`, `_direct_results(...)` for the id/path/tag/category arms and `_traverse_results(...)` for the three graph arms, which are near-verbatim copies of one another. Parent 29 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/knowledge/worklog.py::_category_stems",
-     "value": 13,
-     "seam": "Two independent stem SOURCES are fused in one body: extract `_indexed_category_stems(...)` and `_dir_md_stems(...)`, leaving the parent as their union. Parent 13 -> 1."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/audit.py::cmd_audit",
-     "value": 13,
-     "seam": "The checks are already a flat list literal, so no branch here is a check: extract `_audit_json_payload(...)` and `_audit_print_text(...)`. Parent 13 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/failureladder.py::derive_failures",
-     "value": 15,
-     "seam": "Four independent passes over one step list, each with its classifier already extracted: lift `_err_tallies(...)` and `_ladder_tally(...)`. The five R-FAIL tiers stay where they already live. Parent 15 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/fleet/fleettemplates.py::lint_templates",
-     "value": 22,
-     "seam": "Only about eight of the branches are the T1..T5 checks; extract the hand-rolled key scanner `_declared_frontmatter_keys(text)`, `_conflict_marker_line(text)` and `_lint_entry_contract(...)`. Parent 22 -> 8."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/kbpull.py::cmd_kb_git_pull",
-     "value": 13,
-     "seam": "Six of thirteen branches are the same first-line extraction idiom twice over: take the shared `_first_line`, and optionally fold the three preconditions into `_pull_preconditions(target)`. Parent 13 -> 7."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/kbsync.py::cmd_kb_git_push",
-     "value": 13,
-     "seam": "The precondition chain is copied across three verbs: extract `_resolve_sync_target(...)` folding the override, the work-tree check, the C-3 package-repo refusal and the upstream check, so the refusal is one enforced gate instead of three drifting copies. Parent 13 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/kbsync.py::kb_git_merge_continue",
-     "value": 13,
-     "seam": "Eleven of the thirteen branches ARE the fail-loud disposition set; the two that are not are the stderr first-line idiom copied four times in this file and twice in kbpull. Extract `_first_line(text, fallback)`. Parent 13 -> 11, with the disposition set intact."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/kbsync.py::kb_git_push_once",
-     "value": 22,
-     "seam": "The same `_first_line` helper (four sites here) plus `_resolve_derived_conflict(...)` for the rebuild, stage, nothing-lost, continue and push tail. Parent 22 -> 6, keeping the rc disposition set."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/metrics/metricspricing.py::apply_pricing",
-     "value": 16,
-     "seam": "Extract `_price_row_models(...)` and `_flag_cost_anomalies(by_day)`, and collapse the three identical finalize loops into one loop over the three rollups. Parent 16 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/orglint.py::lint_org",
-     "value": 47,
-     "seam": "The four rule blocks are already delimited by their own banner comments and all accumulate through the same err callback, so report-every-problem survives the split unchanged: extract `_lint_team_entries`, `_lint_shared_root`, `_lint_fleet_sinks` and `_lint_team_templates`. Parent 47 -> 4."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/ops/orglint.py::lint_org",
-     "value": 149,
-     "seam": "Falls out of the same four rule-block helpers; the parent keeps the org guard, the err closure, the team listing, the O5 loop and four calls, about forty-five lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/planauthor/workstamp.py::_stamp_work_artifact",
-     "value": 14,
-     "seam": "Extract `_prose_stamp_insert_index(lines)`: the insertion-index arithmetic is a distinct obligation with a scalar return that is far easier to test standalone than through a file write. Parent 14 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/planauthor/workstamp.py::cmd_work_stamp",
-     "value": 13,
-     "seam": "Extract `_stamp_work_tree(work_dir, team, author, do_fm) -> (scanned, stamped, fm_added)`. Parent 13 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/planpremises.py::plan_premises",
-     "value": 13,
-     "seam": "Extract `_premise_flush(cur, records)` for the flush block that is copy-pasted twice, and `_premise_absorb_row(cur, ln)` for the cite/check field rows. Parent 13 -> 7."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/premisecheck.py::_eval_check_path",
-     "value": 16,
-     "seam": "Six branches are the same ternary verdict/detail formatting three times over: extract `_path_verdict(ok, when_true, when_false)`, and optionally lift the mtime arm. The grounded, falsified and uncheckable discriminations survive either split. Parent 16 -> 10."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/premisecheck.py::_premise_cite_resolves",
-     "value": 14,
-     "seam": "Two independent resolvers in two paragraphs: extract `_cite_in_index(kdir, cite)` and `_cite_under_kdir(kdir, cite)`; the parent becomes their disjunction. Parent 14 -> 3."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/premisecheck.py::_premise_corpus_metric_value",
-     "value": 21,
-     "seam": "One dispatcher wrapping two unrelated folds with no shared state: extract `_corpus_metric_recurrence_keys(logs)` and `_corpus_metric_error_records(kdir, logs)`. Parent 21 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/releasegate.py::cmd_gate_release",
-     "value": 13,
-     "seam": "Two byte-identical skip emitters are literal copy-paste: extract one `_emit_skip(msg, as_json)` and `_print_gate_report(payload)`. Parent 13 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/staging.py::cmd_kb_git_commit",
-     "value": 17,
-     "seam": "Extract `kb_stage_paths_for_commit(target, tracked_derived)` — the prefix, allowlist, subtraction, rejection-reporting and absolute-path conversion. Parent 17 -> 11. BLOCKED FIRST: ops/staging.py is at 589 of 600 lines, so it must land in the sibling ops/kbstage.py that already owns path selection."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/steering.py::lint_steering",
-     "value": 19,
-     "seam": "The seam is already marked by the content-preservation banner: extract `_dsf_scan()` and `_content_preservation_errors(...)`, two halves with disjoint inputs. Parent 19 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/team.py::cmd_team",
-     "value": 24,
-     "seam": "A literal subcommand dispatch where each arm carries its own guards and its own duplicated emit: extract `_team_list(...)` and `_team_create_or_register(...)`. Parent 24 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/bench/benchledger.py::cmd_bench_lint",
-     "value": 25,
-     "seam": "Extract `_gold_coverage(...)` for the three aggregation loops and `_print_bench_lint_text(...)` for the duplicated pass/fail renderer. Parent 25 -> 8."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/bench/benchswe.py::cmd_bench_swe",
-     "value": 20,
-     "seam": "Extract `_print_swe_dry_run(...)`, `_run_swe_arm(...)` (the triple-nested execution engine, carrying its own timeout and OSError degradations) and `_print_swe_report(...)`. Parent 20 -> 8."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/evalcmd.py::_run_gold_fixture_suite",
-     "value": 13,
-     "seam": "Share rather than split: its record-and-gate block is a hand-copy of the one in the regression-gate module and should route through a suite-parameterised variant of it, with the guards and the report lifted into a SIBLING module. Parent 13 -> 6. Note evalcmd.py is at 592 of 600 lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/evalcmd.py::_run_longmemeval_suite",
-     "value": 18,
-     "seam": "The same shared record-and-gate helper, plus `_validate_lme_args(...)` and `_print_longmemeval_report(...)` in a sibling module. Parent 18 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/evalcmd.py::cmd_eval",
-     "value": 21,
-     "seam": "Make it the pure dispatcher its two existing suite helpers already imply: extract `_run_ablate_suite(...)` and `_run_default_suite(...)` into the same sibling module. Parent 21 -> 9."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/goldfixture.py::load_gold_fixture",
-     "value": 20,
-     "seam": "Two sequential validation phases sharing only the seen set: `_load_fixture_corpus(corpus)` and `_load_fixture_gold(gold_rows, seen)`. Each raises its own distinct ValueError, so the split moves branches rather than removing them, and each phase then sits well under the cap. Parent 20 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/pinpolicy.py::_apply_skill_pin",
-     "value": 22,
-     "seam": "Twenty-two branches in sixty lines. The learnings-are-never-evicted rule is a POSTCONDITION of one extractable repair step, not a per-branch taxonomy: extract `_first_qualifying_skill(...)`, `_protected_learning_ids(...)` and `_reprotect_learnings(...)`, and assert the postcondition directly in a test. Parent 22 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/recallcmd.py::build_recall_payload",
-     "value": 14,
-     "seam": "Extract `_budget_walk(...)` for the greedy walk, and replace the five-operand org-mode disjunction with a named `_team_scope_block(...)`. The skip-not-break INV-5 rule is one branch and stays. Parent 14 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/recallcmd.py::cmd_recall",
-     "value": 19,
-     "seam": "The work-scope arm is a whole second command inlined, ten of the nineteen branches: extract `_run_work_scope_recall(args, kdir, as_of)`. Parent 19 -> 10."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/vectorcache.py::build_vector_cache",
-     "value": 14,
-     "seam": "Three sequential phases: `_plan_vector_reuse(...)` and `_assemble_vectors(plan)`, keeping the embed batch inline. Parent 14 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/retrieval/workcorpus.py::_build_work_corpus_uncached",
-     "value": 17,
-     "seam": "Two unrelated obligations: extract `_enumerate_feature_dirs(work_dir)` (owning the auto/ container case) and `_feature_docs(feature_id, fpath)`. Parent 17 -> 3."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/hooks/codex-stream.py::main",
-     "value": 24,
-     "seam": "Only about ten branches are the event taxonomy: extract `_resolve_prompt(args)` and take the per-event dispatch arms into a new sibling scripts/hooks/codex_sinks.py, leaving main with the stdin loop. BLOCKED FIRST: the hook tier has no unit file of its own, so a hooks unit test lands before the seam does. Parent 24 -> about 8."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/hooks/codex-stream.py::main",
-     "value": 124,
-     "seam": "Four lines over the cap, and it falls out of the same split with no separate work. Same blocker: the hook unit tier lands first."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/hooks/render-transcript.py::main",
-     "value": 14,
-     "seam": "Extract `_render_entry(entry) -> list of lines` carrying the content-versus-carrier label rule, the header assembly and the empty-body filter, leaving main with open, read, join and the OSError handler. Directly unit-testable: an integration test already source-loads this module. Parent 14 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_cachefreshness_gate.py::_check_sole_writer",
-     "value": 16,
-     "seam": "Two independent collectors share one walk: extract the predicates `_preserves_fingerprint(node)` and `_sets_fingerprint(node)`, which absorb the isinstance-narrowing operands whole, leaving the walk and the two-label comparison. Parent 16 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_cachefreshness_gate.py::check_coupling",
-     "value": 14,
-     "seam": "Two disjoint properties in one body, and the file already delegates this way: extract `_check_preserve_signature(save, problems)` and `_check_drop_before_write(save, problems)`, leaving a three-call spine. Parent 14 -> 2."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_constant_differ.py",
-     "value": 611,
-     "seam": "The file carries its own four section banners. The fixture-BUILD half (the baseline construction and render/write chain) goes to a sibling `_constant_baseline.py`, leaving capture, gate and CLI at about 450 lines. The two halves are independently exercised and share only the row schema."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_constant_differ.py::check_divergent",
-     "value": 13,
-     "seam": "Two disjoint decision-kind arms separated by a return: extract `_check_equivalent(...)` for the equivalent arm, leaving the decided-value arm in the parent. Parent 13 -> 6."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_dreampkg_gate.py",
-     "value": 647,
-     "seam": "It mixes a read-only AST scanner with a subprocess behavioural probe, two different failure modes and two different runtimes: send the behavioural half to a sibling `_dreampkg_behaviour.py` that contributes its checks to the same CHECKS tuple, leaving the static gate at about 540 lines."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_fixtures.py",
-     "value": 1076,
-     "seam": "The largest row by 476 lines and the least table-like: three unrelated concerns in one file, one of them a 179-line class. Split at the two seams the file already banners: the synthetic-KB content (corpus, builders and the TestCase base) to `_kbfixtures.py`, and the CLI and module-loading shims to `_libloader.py`, leaving the loader entry points."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_indexsafety_gate.py::atomic_write_errors",
-     "value": 18,
-     "seam": "Two jobs sharing only one argument: extract the worklist closure `_reachable_chains(save, fns)` and `_direct_write_opens(save)`. Parent 18 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_indexsafety_gate.py::wiring_errors",
-     "value": 16,
-     "seam": "Three stacked concerns: extract `_parse_lib_trees()` and `_unlocked_save_sites(...)`, and promote the caller-lock closure to a module function taking the parsed trees, which the file's own comment already argues should be computed once. Parent 16 -> about 5."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_kbtarget_gate.py",
-     "value": 657,
-     "seam": "A static AST gate plus an out-of-process behavioural probe whose payload happens to be a string literal: the banner already delimits it. Send the two probe sources and their runner to a sibling `_kbtarget_probe.py`, leaving tree resolution, the static checks and the driver at about 530 lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_loop_wiring.py::evaluate",
-     "value": 25,
-     "seam": "Three independent sections reading disjoint inputs and sharing only the accumulator: extract `_capability_rows(...)`, `_injected_rows(...)` and `_script_cap_debt(...)`. Parent 25 -> about 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_mutation_canary.py::verdict",
-     "value": 13,
-     "seam": "A boolean mode parameter selects WHICH invariant is asserted, and the contract says so: extract `_live_seam_violations(...)` and `_terminal_seam_violations(...)`, leaving the shared preamble. Parent 13 -> 8."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_orgidentity_gate.py",
-     "value": 685,
-     "seam": "The file names its own six sections in banners, and the behavioural probe half is the only out-of-process one: send the probe source, its marker bodies and the two probe checks to a sibling `_orgidentity_probe.py` contributing to the same driver, leaving the static half at about 525 lines."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_preserved_freeze.py",
-     "value": 661,
-     "seam": "Its `main` dispatches three mutually exclusive modes that share only the fixture schema, and the derive half runs against two trees while the gate half runs against one. Send derivation and verification to a sibling `_preserved_derive.py` -- the file already imports a sibling scanner, so the pattern exists -- leaving the gate and CLI at about 330 lines. Task 99 wave 4 took a FIRST bite for a reason of its own -- paying down five test-ownership rows created five new path collisions, and recording their pins in the harness would have worsened this row -- so the pure-data pin table moved to `_preserved_pins.py` and the declared value falls 721 -> 661. The seam above is still the one that REMOVES the row."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_security_policy.py",
-     "value": 607,
-     "seam": "The import-graph resolution helpers are a total function of paths and sources, memoised on their own cache and knowing nothing about policies: they are a utility that drifted into the policy module. Send them to `_import_graph.py`, leaving the policy table, the coverage checks and the reporters at about 500 lines."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "tests/_surface_union.py",
-     "value": 618,
-     "seam": "Five over-cap functions inside one over-cap file, which is the accumulated-neglect signature rather than an invariant. Its own contract separates three CLI modes: send the verify half, which consumes only the fixture and the two captures, to a sibling `_surface_verify.py`, leaving derive and the superset gate at about 420 lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_surface_union.py::check_shape",
-     "value": 18,
-     "seam": "Three blank-line-separated sections reading disjoint inputs (counts, the path tree, the nodes' actions) and sharing only the problems list: extract `_count_problems`, `_tree_problems` and `_action_problems`. Parent 18 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_surface_union.py::check_tables",
-     "value": 14,
-     "seam": "Two independent fixture tables checked with near-identical shape, which is the seam: extract `_check_adjudication_rows(...)` and `_check_exclusion_rows(...)` over a shared `_required_fields(row, names)`, promoting the find closure to a module function. Parent 14 -> about 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_surface_union.py::check_values",
-     "value": 14,
-     "seam": "The per-field provenance decision is a pure function of its four arguments and never touches the loop variables: extract `_field_problem(field, act, lact, dact, where)` covering its three cases, which also gives those cases a name. Parent 14 -> 5."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_surface_union.py::derive",
-     "value": 13,
-     "seam": "Two phases separated by a fail-fast line: extract `_merge_node(path, ln, dn, problems)` for the per-path merge, leaving the fixture assembly. Parent 13 -> 4."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/_surface_union.py::superset_violations",
-     "value": 16,
-     "seam": "The choices rule is a distinct semantic (subset, not equality) that deserves its own named home: extract `_action_field_violations(want, got, where)` and `_missing_subcommands(...)`. Parent 16 -> 7."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "tests/unit/features/test_dream.py::test_guard_no_destructive_no_autopromotion",
-     "value": 14,
-     "seam": "Eight of its branches are ONE or-chain that is a policy allowlist written as an expression: the metric is counting DATA. Hoist it to a module-level `_SANCTIONED_MUTATIONS` table of (predicate, why) rows and assert membership, which also lets the other dream guards reuse the set instead of re-spelling it. Parent 14 -> about 6."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "webui/src/panels/modules/AgentPanels.tsx",
-     "value": 677,
-     "seam": "The directory is already one panel per file, with twenty siblings: split into PlannerPanel.tsx and WorkerPanel.tsx plus a shared AgentSessions.tsx, re-exported through the existing barrel so no consumer changes. BLOCKED FIRST: node_modules here is a hollow skeleton and `tsc -b` fails on missing type libs, so nothing in this tree can verify a TypeScript split until an install runs."
-    },
-    {
-     "kind": "file_over_cap",
-     "location": "webui/src/services/api/contract.ts",
-     "value": 1012,
-     "seam": "Already banner-sectioned into about twenty per-endpoint groups: split into services/api/contracts/<domain>.ts and leave contract.ts as a barrel plus the two registries; every consumer imports the one path, so the barrel keeps them byte-unchanged. The 1:1 mirror of the response shapes is preserved by a directory exactly as well as by a file. Same install blocker."
+  "rows": [],
+  "groups": [
+    {
+      "verdict": "exempt",
+      "reason": "ADJUDICATED PERMANENT (task 99). Each row's count is a property of the code rather than neglect: the branches are a closed taxonomy, a report-every-problem check set, or a per-field coercion of an untrusted external schema, and collapsing any pair of them is the defect the structure exists to prevent. The `invariant` on each row says which of those it is, in terms a reader can check against the body. These rows have no owner because there is no work to own -- but they are still CEILINGS: the declared value is the worst the location may be, and a location that improves must have its row lowered or removed in the same change.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_integrate_kb",
+          "value": 14,
+          "invariant": "Its branches ARE the ordered checkpoints of one git merge transaction: each turns a distinct failure (not-an-ancestor, checkout, refused merge, prose conflict, rebuild, nothing-lost gate, commit) into `merge --abort` plus one named status from the closed set {merged, skipped, prose-conflict, error}, so no path can fall through to commit and silently drop a lane's KB work."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphlane.py::_graph_merge_lane",
+          "value": 13,
+          "invariant": "Its branches are the abort arms of a fixed serial merge-queue stage order (package, then KB, then gates, then artifact commit), and each arm is the SOLE producer of one member of the closed status vocabulary the disposition reader consumes, so collapsing any two loses which stage aborted the integration. The whole body is thirty-eight lines against a cap of twelve branches."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphmanifest.py::graph_manifest_errors",
+          "value": 32,
+          "invariant": "It reports EVERY manifest defect rather than the first: each branch appends one error string naming its offender to an ordered list and continues, so the branch count IS the check count across schema, name, concurrency range, node and edge shape, checkpoint vocabulary, plan existence, self-extension implies manual, dangling and duplicate edges, and cycles."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphmanifest.py::graph_manifest_errors",
+          "value": 124,
+          "invariant": "Same report-all-checks property at line granularity: the length is linear in the check count because each check is one condition plus its offender-naming message literal, so 124 lines is the message text of about twenty checks and not extra logic. Splitting would fragment one ordered defect report across files to remove a four-line overage."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphstate.py::_graph_node_status",
+          "value": 23,
+          "invariant": "Its branches are the arms of a total verdict taxonomy: each maps one (plan state, terminal outcome, lane or merged, claim age) case onto exactly one (status, disposition, detail) triple and returns immediately, with an unknown plan state and an unknown outcome both defaulting to HALT. Collapsing a pair is the bug: done-and-merged, done-with-no-lane and done-awaiting-merge are three scheduler actions."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/graphdag/graphstate.py::_graph_node_status",
+          "value": 146,
+          "invariant": "Same taxonomy at line granularity: the body is a decision table whose length is linear in its case count, each arm a short assignment block over one accumulator plus its return, with the comments recording which observed failure each arm exists to prevent. No arm shares mutable state with another, so splitting the table spans the fail-closed default across files without removing a case."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillsync.py::_skill_reconcile",
+          "value": 26,
+          "invariant": "Its branches are the cells of a TOTAL transition matrix over recorded status in {absent, installed, quarantined, blocked, unknown} by whether the vetter blocks by whether the tree hash still matches the approved one, each cell writing one lockfile status and bumping one counter, with the trailing arm re-adjudicating an unknown status so no cell falls through. Collapsing a pair breaks a stated rule: a blocked skill must not be re-prompted, and an installed one still owes its cache-integrity check."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_github_issues_adapter",
+          "value": 14,
+          "invariant": "Every branch coerces exactly one field of an untrusted `gh issue list --json` export (item shape, the url/number/index reference chain, title, body, labels[].name) into either a total value or a REPORTED rejection, so the count is the external schema's optional-field count and dropping one either crashes on a malformed export or drops an issue in silence."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/knowledge/proposals.py::proposal_integrity_errors",
+          "value": 13,
+          "invariant": "It appends to an errors list and never returns early, so it reports EVERY violation of its three documented FAIL conditions (a leak, a malformed or missing ledger, a count mismatch) across every entry and every staged proposal: the branch count IS the check count plus the isinstance guards that let it survive a corrupt index instead of crashing on one."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/knowledge/worklog.py::skill_promotion_ids",
+          "value": 13,
+          "invariant": "Each branch admits exactly one SPELLING by which a promotion can clear an R-SI-03 marker (indexed skills-category id, indexed skills-proposed path id, its proposal-<slug> alias, an on-disk proposal slug, an on-disk skills/<name>/SKILL.md), so the count is the size of that closed alias set and dropping an arm re-opens the recorded bug where a finished run was killed by `worklog scan`."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/derive.py::derive_iteration_costs",
+          "value": 13,
+          "invariant": "Every branch is one field-level coercion of an untrusted metrics.jsonl line into the per-iteration record: the event-type discriminator, the `isinstance(it, int) and not bool` exclusion without which True fabricates iteration 1, the phase/stage/main fallback chain, the float() guard on wall time and the last-non-None-wins folds. Dropping one lets a malformed event invent or corrupt an iteration."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/fleet/fleetshard.py::cmd_fleet_emit",
+          "value": 16,
+          "invariant": "Nine branches are one `getattr(args, field, None) or default` per key of the committed terminal-event schema, which makes every emitted sink line TOTAL so no reader has to special-case a null; the rest are the never-block-the-loop degradations R-ORG-06 requires, so a terminal event is still emitted, or cleanly skipped, on every failure exit path."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/metrics/metricsaggregate.py::resolve_session_identity",
+          "value": 19,
+          "invariant": "Every branch either selects one arm of the closed session-identity taxonomy (kind in {loop, plan, work} by confidence in {high, provisional, pending} by terminal in {complete, ended, incomplete}) or coerces one untrusted row field into that closed set, and the ARM ORDER is the semantics, so collapsing any pair merges two identities the contract declares distinct."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/planpremises.py::_parse_premise_check",
+          "value": 17,
+          "invariant": "It is a TOTAL parse of an untrusted `check:` string into a CLOSED kind set: every branch is one kind of the grammar or one arity/domain constraint of that kind, and every return path lands on a declared kind or on one of the three sentinels, so nothing can fall through to a runnable kind. That totality is what stops an unparseable premise silently grounding the R-GND-01 gate."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/reviewschema.py::_review_normalize_finding",
+          "value": 20,
+          "invariant": "Every branch coerces one attacker-influenceable reviewer-output field into a closed set and RECORDS the coercion as a schema error rather than dropping it (required-field presence, dimension against the declared keys, severity fail-closed to high, verdict casefold), so the count is the field-by-closed-set count and removing one lets an off-enum token reach the blocking decision."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/sessionparse/minererrors.py::_transcript_err_target_class",
+          "value": 19,
+          "invariant": "It returns exactly one of three closed classes (url:, cmd:, path:) and every branch is one documented discrimination or volatility-masking rule of that taxonomy: the userinfo strip, tool-kind-is-authoritative, sigil-beats-space, the trailing-extension tiebreak, the numeric rotation peel. Collapsing a pair either leaks a credential fragment into a persistent ledger or mints an unbounded key class."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/team.py::registry_membership_errors",
+          "value": 13,
+          "invariant": "Every branch is either a shape coercion of one untrusted field of the hand-editable registry.json into a closed set or the emission of one of the three O5 error classes, and it reports EVERY bad row rather than the first, so it can never early-return past a branch. The whole body is eighteen lines: splitting it yields two eight-line halves and a four-line parent."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/acrgate.py::acr_gate_decision",
+          "value": 18,
+          "invariant": "Every boolean operand is one arm of the five-part ACR win gate and has a matching `passed` entry in the returned checks dict, so the branch count IS the number of independently reported gate conditions and collapsing any operand silently deletes a reported check while leaving the verdict looking equally well evidenced."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/ledger.py::redact_gold_path",
+          "value": 13,
+          "invariant": "The branches are the complete redaction ladder for a path that must never reach the committed public ledger absolute or operator-identifying (R-LOC-03): each is one rung (already relative, knowledge-dir relative, HOME relative, basename) or that rung's validity test, so no path through the function can return an absolute or identity-bearing string. The body is thirty-nine lines."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/skillpin.py::scope_entries_for_team",
+          "value": 15,
+          "invariant": "Its branches are the closed arms of the org recall-scoping table (flat corpus with no facet, shared only, all teams, the shared pseudo-team, a named team, and the default of the caller's own shard unioned with shared skills), each returning a DIFFERENT corpus and each returning immediately, so collapsing any pair IS the cross-shard leak R-ORG-02 forbids."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/codex_items.py::_tool_fields",
+          "value": 15,
+          "invariant": "Each arm maps exactly one member of the codex `item.completed` type vocabulary, which the upstream CLI owns and this package does not, onto the sinks' fixed (tool, input, response, status) tuple, coercing an untrusted exit code into the closed set {ok, ERR}. The count tracks the upstream type set, and a same-file helper extraction would additionally drop the body under its recorded floor."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/render-transcript.py::_render_content",
+          "value": 14,
+          "invariant": "Its arms ARE the Claude transcript content-block vocabulary (bare string, text, thinking, tool_use, tool_result), a schema this package does not own, each isinstance-coercing an untrusted block into the renderer's closed line vocabulary. One arm per schema member across a twenty-seven-line body: the count tracks the upstream block set, so it moves when that set does and not otherwise."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_body_adjudication.py",
+          "value": 701,
+          "invariant": "The file defines ZERO functions: every line is the adjudication row table, one row per adjudicated body divergence carrying host, floor and absorbers plus the hand-written rationale a reviewer needs beside its row. Its length measures the adjudicated-divergence count, not any procedure. The repo's own precedent for splitting it (the shim-retirement sibling) took a seam a SHARED adjudication reason already named; the residual rows each carry a reason of their own."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_cachefreshness_gate.py::_key_uses",
+          "value": 14,
+          "invariant": "Its branches ARE the closed grammar of a constant string key: the three AST forms a key can take (subscript slice, `.get(k, default)` first argument, dict-literal key) each paired with the Constant-and-is-a-string narrowing the metric charges as an extra boolean operand. The contract pins that boundary deliberately, so a key held in a variable stays invisible."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_dreampkg_gate.py::check_registry",
+          "value": 13,
+          "invariant": "It reports EVERY registry disagreement rather than the first (retired id, retired label, unknown ids, order mismatch, per-row label mismatch, missing-set mismatch), so its branches are exactly six independently appended problems plus the five comprehension filters that compute their operands, accumulating into one list with no early return past a check."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_env_config_capture.py::_row",
+          "value": 15,
+          "invariant": "Twelve of its branches sit INSIDE the returned dict literal, one conditional expression or comprehension filter per DERIVED COLUMN of the fixed capture-row schema (namespace, side, direction, unset-means, default, read sites, write sites), so the count is the row schema's derived-column count and not control flow. The body is a single return."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_indexreader_gate.py::normalizer_errors",
+          "value": 13,
+          "invariant": "It reports EVERY normalizer defect rather than the first (defined exactly once, layer-legal owner, string-element filtering, fresh-list construction, no raw-field return), so its branches are five independently appended errors plus the three walks and the isinstance narrowing that find them. Each message is a distinct documented failure mode."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_loop_callsites.py::strip_comment",
+          "value": 22,
+          "invariant": "Its branches ARE the quoting states of a shell tokenizer: one character loop and six mutually exclusive arms (backslash escape, single quote, double quote, brace open, brace close, comment start), whose boolean operands are exactly the state flags each arm must see cleared plus the word-boundary test. Any decomposition either threads the whole state tuple through helpers or loses the single-pass property."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_markdown_links.py::check_one",
+          "value": 16,
+          "invariant": "Its branches are the closed taxonomy of markdown link kinds: three skip classes (empty or external, placeholder, exempted file) and four distinct problem details (unreadable file, no such anchor here, no such file, no such anchor in the target), each arm ending in a continue or one problem append. Hoisting the loop body leaves thirteen branches in the classifier, still over the cap."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "tests/e2e/test_transcript_miner_e2e.py::test_error_recovery_only_go_live_spine",
+          "value": 153,
+          "invariant": "It is ONE ordered go-live scenario in a single knowledge dir where each stage asserts against state the previous stage mutated: seed, first mine run, then a NEW session on a SECOND run suppressed only by the cross-run ledger, then drain, review, approve, capture, digest, then an idempotent re-run. Splitting it into methods would either re-seed (destroying the cross-RUN claim, which is the point) or make correctness depend on undefined method ordering. It carries six branches, not 153."
+        }
+      ]
+    },
+    {
+      "verdict": "paydown",
+      "owner": "task 99",
+      "reason": "ADJUDICATED AS WORK (task 99), with the seam named on the row. Each of these was read against its body and found to encode nothing: a guard-clause chain, a flag dispatch whose arms each re-implement their own renderer, a hand-rolled reader written at several sites, or repeated inline formatting. `seam` names the helpers that remove the row and the resulting parent count, so the row is a work order rather than a complaint, and a later reader does not have to re-derive the reading. Four rows name a BLOCKER that clears first -- a file already at its own cap, a hook tier with no unit file, or a webui toolchain that cannot verify a TypeScript split -- because working around one of those is how a paydown ships unverified. `ratchet.max_paydown_rows` may only fall, so this group cannot grow.",
+      "rows": [
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/curationcmd.py::cmd_decide",
+          "value": 17,
+          "seam": "Extract the refusal chain `_refuse_existing_entry` (duplicate id, duplicate path, file exists) and `_finish_curation_write` (index add plus unlink-on-error rollback plus emit), both shared with cmd_learn, which they duplicate today. Parent 17 -> 10."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/curationcmd.py::cmd_learn",
+          "value": 21,
+          "seam": "The same two helpers cmd_decide needs, plus `_learn_provenance(args)` for the --source/--author coercion block. Parent 21 -> 10."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/fanout.py::cmd_fanout_spin_up",
+          "value": 13,
+          "seam": "Extract `_spin_up_preflight(args)` (repo/kb-repo/base resolution and the work-tree guard) and `_print_spin_up_lanes(results, dry)`. Parent 13 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::cmd_fanout_merge_queue",
+          "value": 31,
+          "seam": "Extract `_mq_queue_opts(args)`, `_mq_dry_run_report(...)`, `_mq_prepare_integration(...)` and `_mq_process_lane(...) -> (result, halt_msg)`; the three halt arms stay intact inside the lane processor. Parent 31 -> 9."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::cmd_fanout_merge_queue",
+          "value": 149,
+          "seam": "Falls out of the same four-way split: the parent keeps load, preflight, loop and emit, about forty-five lines against the 120 cap."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/fanoutmq/mqteardown.py::cmd_fanout_teardown",
+          "value": 16,
+          "seam": "Extract `_teardown_one_lane(...) -> (status, detail)` and `_teardown_report(...)`; the R-GIT-02 safety gate is already factored into `_teardown_blocker` and is untouched. Parent 16 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/indexcmd.py::cmd_index_sync",
+          "value": 18,
+          "seam": "Two disjoint modes share one body and each re-implements its own renderer: extract `_sync_dry_report`, `_sync_prompt_row` and `_sync_fix_report`. Parent 18 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/mcp.py::_mcp_query_lookup",
+          "value": 18,
+          "seam": "Extract `_mcp_entry_maps(entries) -> (by_id, by_path)`, the first-wins index-building preamble; the four dispatch arms then fit under the cap untouched. Parent 18 -> 11."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/proposals/proposalpromote.py::_promote_frontmatter",
+          "value": 13,
+          "seam": "Extract `_frontmatter_block(text) -> (head, block, tail)`, the fence finder that is written a second time in features/skills.py; the four key-rewrite arms are already under cap. Parent 13 -> 8."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/proposals/proposalpromote.py::cmd_skill_promote",
+          "value": 16,
+          "seam": "Extract `_promote_preflight(...)` for the slug/kdir/proposal/reviewer/vet/destination gates and `_promote_emit(...)` for the two renderers. Parent 16 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/proposals/proposeauthor.py::_propose_author",
+          "value": 17,
+          "seam": "Extract `_propose_dedup_guard(...)` and `_propose_emit(...)`; both are contiguous and independent of the ledger write. Parent 17 -> 10."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/setupcmd.py::cmd_init",
+          "value": 19,
+          "seam": "Five idempotent scaffold steps become five helpers (`_init_dirs`, `_init_seed_index`, `_init_rosters`, `_init_templates`, `_init_refuse_repoint`) plus `_init_report`. Parent 19 -> 3."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillpropose.py::_existing_skill_coverage",
+          "value": 13,
+          "seam": "Three literally comment-delimited source ingestions feeding one add closure: `_coverage_from_skills_dir`, `_coverage_from_catalog` and `_coverage_from_index`. Parent 13 -> 2."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillpropose.py::_skill_promote_run",
+          "value": 16,
+          "seam": "Seven branches are a parameter-default guard chain plus one inline four-way boolean: extract `_resolve_promote_params(...)` and `_promote_report_clean(report)`, leaving the outcome dispatch. Parent 16 -> 9."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skills.py::cmd_skill_add",
+          "value": 19,
+          "seam": "Extract `_resolve_add_source(args, data)` and unify the two near-identical render blocks into one `_emit_skill_add(...)`. Parent 19 -> 8. BLOCKED FIRST: features/skills.py is at 598 of its 600-line cap, so this lands only behind a features/skills/ package split."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skills.py::cmd_skill_validate",
+          "value": 29,
+          "seam": "Lines 322-339 re-implement the existing `_validate_skill_dir` inline: call it instead, and collapse the two duplicate renderers into one `_emit_validate(...)`. Parent 29 -> 8, and the file NET SHRINKS, which is what makes it landable at 598 of 600."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skills.py::read_skill_frontmatter",
+          "value": 15,
+          "seam": "Extract `_frontmatter_block(text)` (the same helper proposalpromote needs) and `_folded_scalar(block, i)`. Parent 15 -> 5. Same 598-of-600 file constraint."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/skillsync.py::cmd_skill_sync",
+          "value": 34,
+          "seam": "One helper per mode, each owning its own emit: `_skill_sync_reset`, `_skill_sync_approve`, `_skill_sync_reject`, `_skill_sync_uninstall` and `_skill_sync_reconcile_emit`. Parent 34 -> 9. Watch the file: skillsync.py is at 548 of 600 lines, so the helpers may need a sibling module."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/features/updatecmd.py::cmd_update",
+          "value": 32,
+          "seam": "Five mutually exclusive modes in one body: extract `_update_status_line`, `_update_upstream_info`, `_update_check_report` and `_update_apply_result`, leaving the flag dispatch plus the lock and defer. Parent 32 -> 7."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/features/updatecmd.py::cmd_update",
+          "value": 153,
+          "seam": "Falls out of the same four extractions; the parent keeps the dispatch, the session-active defer and the emit closure, about fifty-five lines against the 120 cap."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/knowledge/curation/curationingest.py::cmd_ingest",
+          "value": 20,
+          "seam": "Extract `_ingest_dispatch_adapter(...)`, `_ingest_select(valid, only)`, `_ingest_commit(...)` and `_ingest_print_text(...)`. Parent 20 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/knowledge/graph.py::cmd_query",
+          "value": 29,
+          "seam": "Extract `_lookup_maps(entries)`, `_direct_results(...)` for the id/path/tag/category arms and `_traverse_results(...)` for the three graph arms, which are near-verbatim copies of one another. Parent 29 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/knowledge/worklog.py::_category_stems",
+          "value": 13,
+          "seam": "Two independent stem SOURCES are fused in one body: extract `_indexed_category_stems(...)` and `_dir_md_stems(...)`, leaving the parent as their union. Parent 13 -> 1."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/audit.py::cmd_audit",
+          "value": 13,
+          "seam": "The checks are already a flat list literal, so no branch here is a check: extract `_audit_json_payload(...)` and `_audit_print_text(...)`. Parent 13 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/failureladder.py::derive_failures",
+          "value": 15,
+          "seam": "Four independent passes over one step list, each with its classifier already extracted: lift `_err_tallies(...)` and `_ladder_tally(...)`. The five R-FAIL tiers stay where they already live. Parent 15 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/fleet/fleettemplates.py::lint_templates",
+          "value": 22,
+          "seam": "Only about eight of the branches are the T1..T5 checks; extract the hand-rolled key scanner `_declared_frontmatter_keys(text)`, `_conflict_marker_line(text)` and `_lint_entry_contract(...)`. Parent 22 -> 8."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/kbpull.py::cmd_kb_git_pull",
+          "value": 13,
+          "seam": "Six of thirteen branches are the same first-line extraction idiom twice over: take the shared `_first_line`, and optionally fold the three preconditions into `_pull_preconditions(target)`. Parent 13 -> 7."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/kbsync.py::cmd_kb_git_push",
+          "value": 13,
+          "seam": "The precondition chain is copied across three verbs: extract `_resolve_sync_target(...)` folding the override, the work-tree check, the C-3 package-repo refusal and the upstream check, so the refusal is one enforced gate instead of three drifting copies. Parent 13 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/kbsync.py::kb_git_merge_continue",
+          "value": 13,
+          "seam": "Eleven of the thirteen branches ARE the fail-loud disposition set; the two that are not are the stderr first-line idiom copied four times in this file and twice in kbpull. Extract `_first_line(text, fallback)`. Parent 13 -> 11, with the disposition set intact."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/kbsync.py::kb_git_push_once",
+          "value": 22,
+          "seam": "The same `_first_line` helper (four sites here) plus `_resolve_derived_conflict(...)` for the rebuild, stage, nothing-lost, continue and push tail. Parent 22 -> 6, keeping the rc disposition set."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/metrics/metricspricing.py::apply_pricing",
+          "value": 16,
+          "seam": "Extract `_price_row_models(...)` and `_flag_cost_anomalies(by_day)`, and collapse the three identical finalize loops into one loop over the three rollups. Parent 16 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/orglint.py::lint_org",
+          "value": 47,
+          "seam": "The four rule blocks are already delimited by their own banner comments and all accumulate through the same err callback, so report-every-problem survives the split unchanged: extract `_lint_team_entries`, `_lint_shared_root`, `_lint_fleet_sinks` and `_lint_team_templates`. Parent 47 -> 4."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/agentware_lib/ops/orglint.py::lint_org",
+          "value": 149,
+          "seam": "Falls out of the same four rule-block helpers; the parent keeps the org guard, the err closure, the team listing, the O5 loop and four calls, about forty-five lines."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/planauthor/workstamp.py::_stamp_work_artifact",
+          "value": 14,
+          "seam": "Extract `_prose_stamp_insert_index(lines)`: the insertion-index arithmetic is a distinct obligation with a scalar return that is far easier to test standalone than through a file write. Parent 14 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/planauthor/workstamp.py::cmd_work_stamp",
+          "value": 13,
+          "seam": "Extract `_stamp_work_tree(work_dir, team, author, do_fm) -> (scanned, stamped, fm_added)`. Parent 13 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/planpremises.py::plan_premises",
+          "value": 13,
+          "seam": "Extract `_premise_flush(cur, records)` for the flush block that is copy-pasted twice, and `_premise_absorb_row(cur, ln)` for the cite/check field rows. Parent 13 -> 7."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/premisecheck.py::_eval_check_path",
+          "value": 16,
+          "seam": "Six branches are the same ternary verdict/detail formatting three times over: extract `_path_verdict(ok, when_true, when_false)`, and optionally lift the mtime arm. The grounded, falsified and uncheckable discriminations survive either split. Parent 16 -> 10."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/premisecheck.py::_premise_cite_resolves",
+          "value": 14,
+          "seam": "Two independent resolvers in two paragraphs: extract `_cite_in_index(kdir, cite)` and `_cite_under_kdir(kdir, cite)`; the parent becomes their disjunction. Parent 14 -> 3."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/premisecheck.py::_premise_corpus_metric_value",
+          "value": 21,
+          "seam": "One dispatcher wrapping two unrelated folds with no shared state: extract `_corpus_metric_recurrence_keys(logs)` and `_corpus_metric_error_records(kdir, logs)`. Parent 21 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/releasegate.py::cmd_gate_release",
+          "value": 13,
+          "seam": "Two byte-identical skip emitters are literal copy-paste: extract one `_emit_skip(msg, as_json)` and `_print_gate_report(payload)`. Parent 13 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/staging.py::cmd_kb_git_commit",
+          "value": 17,
+          "seam": "Extract `kb_stage_paths_for_commit(target, tracked_derived)` — the prefix, allowlist, subtraction, rejection-reporting and absolute-path conversion. Parent 17 -> 11. BLOCKED FIRST: ops/staging.py is at 589 of 600 lines, so it must land in the sibling ops/kbstage.py that already owns path selection."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/steering.py::lint_steering",
+          "value": 19,
+          "seam": "The seam is already marked by the content-preservation banner: extract `_dsf_scan()` and `_content_preservation_errors(...)`, two halves with disjoint inputs. Parent 19 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/ops/team.py::cmd_team",
+          "value": 24,
+          "seam": "A literal subcommand dispatch where each arm carries its own guards and its own duplicated emit: extract `_team_list(...)` and `_team_create_or_register(...)`. Parent 24 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/bench/benchledger.py::cmd_bench_lint",
+          "value": 25,
+          "seam": "Extract `_gold_coverage(...)` for the three aggregation loops and `_print_bench_lint_text(...)` for the duplicated pass/fail renderer. Parent 25 -> 8."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/bench/benchswe.py::cmd_bench_swe",
+          "value": 20,
+          "seam": "Extract `_print_swe_dry_run(...)`, `_run_swe_arm(...)` (the triple-nested execution engine, carrying its own timeout and OSError degradations) and `_print_swe_report(...)`. Parent 20 -> 8."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/evalcmd.py::_run_gold_fixture_suite",
+          "value": 13,
+          "seam": "Share rather than split: its record-and-gate block is a hand-copy of the one in the regression-gate module and should route through a suite-parameterised variant of it, with the guards and the report lifted into a SIBLING module. Parent 13 -> 6. Note evalcmd.py is at 592 of 600 lines."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/evalcmd.py::_run_longmemeval_suite",
+          "value": 18,
+          "seam": "The same shared record-and-gate helper, plus `_validate_lme_args(...)` and `_print_longmemeval_report(...)` in a sibling module. Parent 18 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/evalcmd.py::cmd_eval",
+          "value": 21,
+          "seam": "Make it the pure dispatcher its two existing suite helpers already imply: extract `_run_ablate_suite(...)` and `_run_default_suite(...)` into the same sibling module. Parent 21 -> 9."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/goldfixture.py::load_gold_fixture",
+          "value": 20,
+          "seam": "Two sequential validation phases sharing only the seen set: `_load_fixture_corpus(corpus)` and `_load_fixture_gold(gold_rows, seen)`. Each raises its own distinct ValueError, so the split moves branches rather than removing them, and each phase then sits well under the cap. Parent 20 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/pinpolicy.py::_apply_skill_pin",
+          "value": 22,
+          "seam": "Twenty-two branches in sixty lines. The learnings-are-never-evicted rule is a POSTCONDITION of one extractable repair step, not a per-branch taxonomy: extract `_first_qualifying_skill(...)`, `_protected_learning_ids(...)` and `_reprotect_learnings(...)`, and assert the postcondition directly in a test. Parent 22 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/recallcmd.py::build_recall_payload",
+          "value": 14,
+          "seam": "Extract `_budget_walk(...)` for the greedy walk, and replace the five-operand org-mode disjunction with a named `_team_scope_block(...)`. The skip-not-break INV-5 rule is one branch and stays. Parent 14 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/recallcmd.py::cmd_recall",
+          "value": 19,
+          "seam": "The work-scope arm is a whole second command inlined, ten of the nineteen branches: extract `_run_work_scope_recall(args, kdir, as_of)`. Parent 19 -> 10."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/vectorcache.py::build_vector_cache",
+          "value": 14,
+          "seam": "Three sequential phases: `_plan_vector_reuse(...)` and `_assemble_vectors(plan)`, keeping the embed batch inline. Parent 14 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/agentware_lib/retrieval/workcorpus.py::_build_work_corpus_uncached",
+          "value": 17,
+          "seam": "Two unrelated obligations: extract `_enumerate_feature_dirs(work_dir)` (owning the auto/ container case) and `_feature_docs(feature_id, fpath)`. Parent 17 -> 3."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/codex-stream.py::main",
+          "value": 24,
+          "seam": "Only about ten branches are the event taxonomy: extract `_resolve_prompt(args)` and take the per-event dispatch arms into a new sibling scripts/hooks/codex_sinks.py, leaving main with the stdin loop. BLOCKED FIRST: the hook tier has no unit file of its own, so a hooks unit test lands before the seam does. Parent 24 -> about 8."
+        },
+        {
+          "kind": "function_over_line_cap",
+          "location": "scripts/hooks/codex-stream.py::main",
+          "value": 124,
+          "seam": "Four lines over the cap, and it falls out of the same split with no separate work. Same blocker: the hook unit tier lands first."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "scripts/hooks/render-transcript.py::main",
+          "value": 14,
+          "seam": "Extract `_render_entry(entry) -> list of lines` carrying the content-versus-carrier label rule, the header assembly and the empty-body filter, leaving main with open, read, join and the OSError handler. Directly unit-testable: an integration test already source-loads this module. Parent 14 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_cachefreshness_gate.py::_check_sole_writer",
+          "value": 16,
+          "seam": "Two independent collectors share one walk: extract the predicates `_preserves_fingerprint(node)` and `_sets_fingerprint(node)`, which absorb the isinstance-narrowing operands whole, leaving the walk and the two-label comparison. Parent 16 -> 6."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_cachefreshness_gate.py::check_coupling",
+          "value": 14,
+          "seam": "Two disjoint properties in one body, and the file already delegates this way: extract `_check_preserve_signature(save, problems)` and `_check_drop_before_write(save, problems)`, leaving a three-call spine. Parent 14 -> 2."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_constant_differ.py",
+          "value": 611,
+          "seam": "The file carries its own four section banners. The fixture-BUILD half (the baseline construction and render/write chain) goes to a sibling `_constant_baseline.py`, leaving capture, gate and CLI at about 450 lines. The two halves are independently exercised and share only the row schema."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_constant_differ.py::check_divergent",
+          "value": 13,
+          "seam": "Two disjoint decision-kind arms separated by a return: extract `_check_equivalent(...)` for the equivalent arm, leaving the decided-value arm in the parent. Parent 13 -> 6."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_dreampkg_gate.py",
+          "value": 647,
+          "seam": "It mixes a read-only AST scanner with a subprocess behavioural probe, two different failure modes and two different runtimes: send the behavioural half to a sibling `_dreampkg_behaviour.py` that contributes its checks to the same CHECKS tuple, leaving the static gate at about 540 lines."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_fixtures.py",
+          "value": 1076,
+          "seam": "The largest row by 476 lines and the least table-like: three unrelated concerns in one file, one of them a 179-line class. Split at the two seams the file already banners: the synthetic-KB content (corpus, builders and the TestCase base) to `_kbfixtures.py`, and the CLI and module-loading shims to `_libloader.py`, leaving the loader entry points."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_indexsafety_gate.py::atomic_write_errors",
+          "value": 18,
+          "seam": "Two jobs sharing only one argument: extract the worklist closure `_reachable_chains(save, fns)` and `_direct_write_opens(save)`. Parent 18 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_indexsafety_gate.py::wiring_errors",
+          "value": 16,
+          "seam": "Three stacked concerns: extract `_parse_lib_trees()` and `_unlocked_save_sites(...)`, and promote the caller-lock closure to a module function taking the parsed trees, which the file's own comment already argues should be computed once. Parent 16 -> about 5."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_kbtarget_gate.py",
+          "value": 657,
+          "seam": "A static AST gate plus an out-of-process behavioural probe whose payload happens to be a string literal: the banner already delimits it. Send the two probe sources and their runner to a sibling `_kbtarget_probe.py`, leaving tree resolution, the static checks and the driver at about 530 lines."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_loop_wiring.py::evaluate",
+          "value": 25,
+          "seam": "Three independent sections reading disjoint inputs and sharing only the accumulator: extract `_capability_rows(...)`, `_injected_rows(...)` and `_script_cap_debt(...)`. Parent 25 -> about 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_mutation_canary.py::verdict",
+          "value": 13,
+          "seam": "A boolean mode parameter selects WHICH invariant is asserted, and the contract says so: extract `_live_seam_violations(...)` and `_terminal_seam_violations(...)`, leaving the shared preamble. Parent 13 -> 8."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_orgidentity_gate.py",
+          "value": 685,
+          "seam": "The file names its own six sections in banners, and the behavioural probe half is the only out-of-process one: send the probe source, its marker bodies and the two probe checks to a sibling `_orgidentity_probe.py` contributing to the same driver, leaving the static half at about 525 lines."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_preserved_freeze.py",
+          "value": 661,
+          "seam": "Its `main` dispatches three mutually exclusive modes that share only the fixture schema, and the derive half runs against two trees while the gate half runs against one. Send derivation and verification to a sibling `_preserved_derive.py` -- the file already imports a sibling scanner, so the pattern exists -- leaving the gate and CLI at about 330 lines. Task 99 wave 4 took a FIRST bite for a reason of its own -- paying down five test-ownership rows created five new path collisions, and recording their pins in the harness would have worsened this row -- so the pure-data pin table moved to `_preserved_pins.py` and the declared value falls 721 -> 661. The seam above is still the one that REMOVES the row."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_security_policy.py",
+          "value": 607,
+          "seam": "The import-graph resolution helpers are a total function of paths and sources, memoised on their own cache and knowing nothing about policies: they are a utility that drifted into the policy module. Send them to `_import_graph.py`, leaving the policy table, the coverage checks and the reporters at about 500 lines."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "tests/_surface_union.py",
+          "value": 618,
+          "seam": "Five over-cap functions inside one over-cap file, which is the accumulated-neglect signature rather than an invariant. Its own contract separates three CLI modes: send the verify half, which consumes only the fixture and the two captures, to a sibling `_surface_verify.py`, leaving derive and the superset gate at about 420 lines."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::check_shape",
+          "value": 18,
+          "seam": "Three blank-line-separated sections reading disjoint inputs (counts, the path tree, the nodes' actions) and sharing only the problems list: extract `_count_problems`, `_tree_problems` and `_action_problems`. Parent 18 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::check_tables",
+          "value": 14,
+          "seam": "Two independent fixture tables checked with near-identical shape, which is the seam: extract `_check_adjudication_rows(...)` and `_check_exclusion_rows(...)` over a shared `_required_fields(row, names)`, promoting the find closure to a module function. Parent 14 -> about 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::check_values",
+          "value": 14,
+          "seam": "The per-field provenance decision is a pure function of its four arguments and never touches the loop variables: extract `_field_problem(field, act, lact, dact, where)` covering its three cases, which also gives those cases a name. Parent 14 -> 5."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::derive",
+          "value": 13,
+          "seam": "Two phases separated by a fail-fast line: extract `_merge_node(path, ln, dn, problems)` for the per-path merge, leaving the fixture assembly. Parent 13 -> 4."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/_surface_union.py::superset_violations",
+          "value": 16,
+          "seam": "The choices rule is a distinct semantic (subset, not equality) that deserves its own named home: extract `_action_field_violations(want, got, where)` and `_missing_subcommands(...)`. Parent 16 -> 7."
+        },
+        {
+          "kind": "function_over_branch_cap",
+          "location": "tests/unit/features/test_dream.py::test_guard_no_destructive_no_autopromotion",
+          "value": 14,
+          "seam": "Eight of its branches are ONE or-chain that is a policy allowlist written as an expression: the metric is counting DATA. Hoist it to a module-level `_SANCTIONED_MUTATIONS` table of (predicate, why) rows and assert membership, which also lets the other dream guards reuse the set instead of re-spelling it. Parent 14 -> about 6."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "webui/src/panels/modules/AgentPanels.tsx",
+          "value": 677,
+          "seam": "The directory is already one panel per file, with twenty siblings: split into PlannerPanel.tsx and WorkerPanel.tsx plus a shared AgentSessions.tsx, re-exported through the existing barrel so no consumer changes. BLOCKED FIRST: node_modules here is a hollow skeleton and `tsc -b` fails on missing type libs, so nothing in this tree can verify a TypeScript split until an install runs."
+        },
+        {
+          "kind": "file_over_cap",
+          "location": "webui/src/services/api/contract.ts",
+          "value": 1012,
+          "seam": "Already banner-sectioned into about twenty per-endpoint groups: split into services/api/contracts/<domain>.ts and leave contract.ts as a barrel plus the two registries; every consumer imports the one path, so the barrel keeps them byte-unchanged. The 1:1 mirror of the response shapes is preserved by a directory exactly as well as by a file. Same install blocker."
+        }
+      ]
     }
-   ]
-  }
- ]
+  ]
 }

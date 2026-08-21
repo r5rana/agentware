@@ -151,6 +151,58 @@ def _write_sets_overlap(ws_a, ws_b):
     return False
 
 
+def _graph_logical_rank(manifest):
+    """`(nodes, rank)` where `rank` positions every node in the SINGLE
+    `topo_order` linearization of the manifest's LOGICAL sub-graph.
+
+    The filter to `kind == "logical"` is the load-bearing half: ranking over the
+    combined graph would feed already-derived resource edges back into the
+    orientation rule, so the rank would depend on the derivation it is supposed
+    to determine. Pure; raises ValueError if the logical sub-graph has a cycle."""
+    nodes, forward, _reverse = _graph_build(manifest)
+    logical_forward = {}
+    for src, edges in forward.items():
+        keep = [(k, d) for (k, d) in edges if k == "logical"]
+        if keep:
+            logical_forward[src] = keep
+    order = topo_order(logical_forward, nodes)
+    return nodes, {feat: i for i, feat in enumerate(order)}
+
+
+def _graph_declared_pairs(manifest):
+    """The set of `(from, to)` pairs the manifest DECLARES, of any edge kind.
+
+    Kind-blind on purpose: a pair already ordered by a hand-written `resource`
+    edge needs no derived twin, and emitting one would put two edges with the
+    same endpoints in the union. Malformed rows are skipped rather than raising —
+    `graph_manifest_errors` is the validator, and this fold must stay total so a
+    derivation over a half-edited manifest still answers. Pure."""
+    declared = set()
+    for e in (manifest.get("edges") or []):
+        if (isinstance(e, dict) and isinstance(e.get("from"), str)
+                and isinstance(e.get("to"), str)):
+            declared.add((e["from"], e["to"]))
+    return declared
+
+
+def _graph_assert_union_acyclic(manifest, derived):
+    """Defence-in-depth: `logical ∪ resource` MUST be acyclic — the whole point of
+    the linear-extension orientation. Raises ValueError naming every cycle.
+
+    This is an ASSERTION, not a validation: on the shipped orientation rule it can
+    never fire, and it exists so a future edit that reintroduces the pairwise
+    'logical-first-else-lexical' rule fails loudly at derivation time instead of
+    deadlocking a live run at tick 1. Pure."""
+    combined = {"nodes": manifest.get("nodes") or [],
+                "edges": list(manifest.get("edges") or []) + list(derived)}
+    _cn, comb_forward, _cr = _graph_build(combined)
+    cycles = find_cycles(comb_forward)
+    if cycles:
+        raise ValueError(
+            "resource-edge derivation produced a cycle: %s"
+            % "; ".join(" -> ".join(list(c) + [c[0]]) for c in cycles))
+
+
 def _graph_derive_resource_edges(manifest, write_sets=None):
     """Auto-derive resource (mutual-exclusion) edges for every pair of nodes with
     OVERLAPPING write-sets, oriented from the EARLIER to the LATER node in the
@@ -169,22 +221,10 @@ def _graph_derive_resource_edges(manifest, write_sets=None):
     (testability). Pure; raises ValueError if the LOGICAL sub-graph has a cycle
     (the caller validates first) OR — as a defence-in-depth assertion — if the
     union somehow produced a cycle."""
-    nodes, forward, _reverse = _graph_build(manifest)
-    logical_forward = {}
-    for src, edges in forward.items():
-        keep = [(k, d) for (k, d) in edges if k == "logical"]
-        if keep:
-            logical_forward[src] = keep
-    order = topo_order(logical_forward, nodes)
-    rank = {feat: i for i, feat in enumerate(order)}
-
+    nodes, rank = _graph_logical_rank(manifest)
     ws = (dict(write_sets) if write_sets is not None
           else _graph_manifest_write_sets(manifest))
-    declared = set()
-    for e in (manifest.get("edges") or []):
-        if (isinstance(e, dict) and isinstance(e.get("from"), str)
-                and isinstance(e.get("to"), str)):
-            declared.add((e["from"], e["to"]))
+    declared = _graph_declared_pairs(manifest)
 
     derived = []
     for i in range(len(nodes)):
@@ -198,18 +238,7 @@ def _graph_derive_resource_edges(manifest, write_sets=None):
             derived.append({"from": src, "to": dst, "kind": "resource",
                             "derived": True})
     derived.sort(key=lambda e: (e["from"], e["to"]))
-
-    # Defence-in-depth: `logical ∪ resource` MUST be acyclic (the whole point of
-    # the linear-extension orientation). Assert it, so a future edit that
-    # reintroduces the pairwise rule fails loudly instead of deadlocking a run.
-    combined = {"nodes": manifest.get("nodes") or [],
-                "edges": list(manifest.get("edges") or []) + derived}
-    _cn, comb_forward, _cr = _graph_build(combined)
-    cycles = find_cycles(comb_forward)
-    if cycles:
-        raise ValueError(
-            "resource-edge derivation produced a cycle: %s"
-            % "; ".join(" -> ".join(list(c) + [c[0]]) for c in cycles))
+    _graph_assert_union_acyclic(manifest, derived)
     return derived
 
 
@@ -270,6 +299,9 @@ def _graph_transitive_successors(manifest, node):
 
 _EXPORTS = [
     "topo_order",
+    "_graph_logical_rank",
+    "_graph_declared_pairs",
+    "_graph_assert_union_acyclic",
     "_graph_manifest_write_sets",
     "_write_token_matches",
     "_write_sets_overlap",

@@ -78,6 +78,126 @@ from agentware_lib.ops.planauthor.planstate import (
 )
 
 
+def _graph_cancel_each(features, reason, now_iso, *, handle=None, host=None):
+    """Cancel each of `features` through the SOLE state writer, returning
+    `(cancelled, not_cancelled)` partitioned by whether the write was accepted.
+
+    This body was byte-duplicated in `cmd_graph_cancel` and in
+    `cmd_graph_checkpoint`'s `abort-subtree` arm. It is ONE routine because the
+    two callers must make the same three promises, and a second copy is how one
+    of them silently stops:
+
+      * every cancel goes through `cmd_plan_set_state` with `actor="operator"`,
+        so the legal-edge matrix decides — a node with no legal edge to
+        `cancelled` (already `done`, already terminal) is REPORTED as
+        not-cancelled, never force-written;
+      * the writer's own stdout/stderr are swallowed, because an illegal edge is
+        an EXPECTED outcome here and its refusal message would read as an error;
+      * a raising writer is a refusal, not a crash — one node that cannot be
+        cancelled must not abandon the rest of the subtree half-cancelled.
+
+    Both output lists preserve the caller's iteration order. Writes nothing else.
+    """
+    cancelled, refused = [], []
+    for f in features:
+        ns = argparse.Namespace(
+            feature=f, state="cancelled", actor="operator", reason=reason,
+            superseded_by=None, handle=handle, host=host, now=now_iso,
+            format="text")
+        # An illegal cancel edge (e.g. a `done` successor) writes to stderr and
+        # returns non-zero; suppress that noise and record it as not-cancelled.
+        try:
+            with open(os.devnull, "w") as _dn, \
+                    contextlib.redirect_stdout(_dn), \
+                    contextlib.redirect_stderr(_dn):
+                rc = cmd_plan_set_state(ns)
+        except Exception:
+            rc = 1
+        (cancelled if rc == 0 else refused).append(f)
+    return cancelled, refused
+
+
+def _graph_cancel_emit(name, target, cancelled, refused, as_json):
+    """Render `graph cancel`'s report. The `not_cancelled` half is printed only
+    when it is non-empty, but is ALWAYS present in the json body: a machine
+    consumer that has to distinguish "no refusals" from "this build does not
+    report refusals" cannot, if the key comes and goes."""
+    if as_json:
+        json.dump({"ok": True, "graph": name, "node": target,
+                   "cancelled": cancelled, "not_cancelled": refused},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return
+    print("graph cancel '%s': cancelled %s"
+          % (name, ", ".join(cancelled) or "(none)"))
+    if refused:
+        print("  left as-is (no legal cancel edge): %s"
+              % ", ".join(refused))
+
+
+def _graph_checkpoint_resolve(kdir, name, node, verdict, actor):
+    """Resolve `graph checkpoint`'s six refusals BEFORE anything is written.
+
+    Returns `(ctx, err)` with exactly one of them None; `ctx` carries the
+    `manifest`, the node's checkpoint `policy` and the plan `text` the caller
+    appends to. Writes NOTHING on any path — that is the contract, not an
+    implementation detail: a checkpoint that refused after stamping the plan
+    would leave an approval recorded for a verdict the operator never gave.
+
+    The order is load-bearing and cheapest-first: the two pure argument checks
+    (verdict, actor) precede the manifest read, so a typo never touches the disk,
+    and the `manual`-policy check precedes the plan read, so the barrier the loop
+    can never clear is refused before the plan is even opened."""
+    if verdict not in _GRAPH_CHECKPOINT_VERDICTS:
+        return None, ("graph checkpoint: unknown verdict %r (one of: %s)\n"
+                      % (verdict, ", ".join(_GRAPH_CHECKPOINT_VERDICTS)))
+    if actor not in ("loop", "operator"):
+        return None, ("graph checkpoint: unknown actor %r (loop|operator)\n"
+                      % (actor,))
+    manifest, err = _graph_load_manifest(kdir, name)
+    if err:
+        return None, "graph checkpoint: %s\n" % err
+    node_by_feat = {n["feature"]: n for n in (manifest.get("nodes") or [])
+                    if isinstance(n, dict) and isinstance(n.get("feature"), str)}
+    if node not in node_by_feat:
+        return None, ("graph checkpoint: node %r is not in graph %r\n"
+                      % (node, name))
+    policy = node_by_feat[node].get("checkpoint", "none")
+    # A `manual` checkpoint accepts ONLY an operator verdict — the loop can never
+    # clear a manual barrier (a self-ext node is operator-run under R-PKG-03).
+    if policy == "manual" and actor != "operator":
+        return None, (
+            "graph checkpoint: node %r carries a 'manual' checkpoint — only an "
+            "operator may record a verdict (got actor %r); the loop can never "
+            "clear a manual barrier\n" % (node, actor))
+    text, terr = _load_plan_tolerant(kdir, node)
+    if terr is not None:
+        return None, "graph checkpoint: %s\n" % terr
+    return {"manifest": manifest, "policy": policy, "text": text}, None
+
+
+def _graph_checkpoint_emit(name, node, verdict, actor, policy, cancelled,
+                           refused, as_json):
+    """Render `graph checkpoint`'s report. The subtree lines appear only for
+    `abort-subtree`, because a `proceed` that printed `cancelled subtree: (none)`
+    reads as a cancellation that found nothing rather than as one never asked
+    for."""
+    if as_json:
+        json.dump({"ok": True, "graph": name, "node": node, "verdict": verdict,
+                   "actor": actor, "checkpoint": policy, "cancelled": cancelled,
+                   "not_cancelled": refused}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return
+    print("graph checkpoint '%s' node '%s': %s (by %s)"
+          % (name, node, verdict, actor))
+    if verdict == "abort-subtree":
+        print("  cancelled subtree: %s" % (", ".join(cancelled) or "(none)"))
+        if refused:
+            print("  left as-is (no legal cancel edge): %s"
+                  % ", ".join(refused))
+
+
 def cmd_graph_run(args):
     """Run a graph manifest through the deterministic wave executor (foreground).
 
@@ -237,81 +357,28 @@ def cmd_graph_checkpoint(args):
     actor = getattr(args, "actor", "operator") or "operator"
     as_json = getattr(args, "format", "text") == "json"
 
-    if verdict not in _GRAPH_CHECKPOINT_VERDICTS:
-        sys.stderr.write("graph checkpoint: unknown verdict %r (one of: %s)\n"
-                         % (verdict, ", ".join(_GRAPH_CHECKPOINT_VERDICTS)))
-        return 1
-    if actor not in ("loop", "operator"):
-        sys.stderr.write("graph checkpoint: unknown actor %r (loop|operator)\n"
-                         % (actor,))
-        return 1
-
-    manifest, err = _graph_load_manifest(kdir, name)
+    ctx, err = _graph_checkpoint_resolve(kdir, name, node, verdict, actor)
     if err:
-        sys.stderr.write("graph checkpoint: %s\n" % err)
-        return 1
-    node_by_feat = {n["feature"]: n for n in (manifest.get("nodes") or [])
-                    if isinstance(n, dict) and isinstance(n.get("feature"), str)}
-    if node not in node_by_feat:
-        sys.stderr.write("graph checkpoint: node %r is not in graph %r\n"
-                         % (node, name))
-        return 1
-    policy = node_by_feat[node].get("checkpoint", "none")
-
-    # A `manual` checkpoint accepts ONLY an operator verdict — the loop can never
-    # clear a manual barrier (a self-ext node is operator-run under R-PKG-03).
-    if policy == "manual" and actor != "operator":
-        sys.stderr.write(
-            "graph checkpoint: node %r carries a 'manual' checkpoint — only an "
-            "operator may record a verdict (got actor %r); the loop can never "
-            "clear a manual barrier\n" % (node, actor))
-        return 1
-
-    text, terr = _load_plan_tolerant(kdir, node)
-    if terr is not None:
-        sys.stderr.write("graph checkpoint: %s\n" % terr)
+        sys.stderr.write(err)
         return 1
 
     now_iso = getattr(args, "now", None) or _now_iso()
     entry = "- %s %s by %s (graph %s, checkpoint %s)" % (
-        now_iso, verdict, actor, name, policy)
-    lines = _append_checkpoint_log(text.splitlines(), entry)
-    out = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+        now_iso, verdict, actor, name, ctx["policy"])
+    lines = _append_checkpoint_log(ctx["text"].splitlines(), entry)
+    out = "\n".join(lines) + ("\n" if ctx["text"].endswith("\n") else "")
     _atomic_write(_plan_path(kdir, node), out)
 
     cancelled, refused = [], []
     if verdict == "abort-subtree":
-        reason = "graph %s checkpoint abort-subtree from %s" % (name, node)
-        for f in _graph_transitive_successors(manifest, node):
-            ns = argparse.Namespace(
-                feature=f, state="cancelled", actor="operator", reason=reason,
-                superseded_by=None, handle=getattr(args, "handle", None),
-                host=getattr(args, "host", None), now=now_iso, format="text")
-            # An illegal cancel edge (e.g. a `done` successor) writes to stderr and
-            # returns non-zero; suppress that noise and record it as not-cancelled.
-            try:
-                with open(os.devnull, "w") as _dn, \
-                        contextlib.redirect_stdout(_dn), \
-                        contextlib.redirect_stderr(_dn):
-                    rc = cmd_plan_set_state(ns)
-            except Exception:
-                rc = 1
-            (cancelled if rc == 0 else refused).append(f)
+        cancelled, refused = _graph_cancel_each(
+            _graph_transitive_successors(ctx["manifest"], node),
+            "graph %s checkpoint abort-subtree from %s" % (name, node),
+            now_iso, handle=getattr(args, "handle", None),
+            host=getattr(args, "host", None))
 
-    if as_json:
-        json.dump({"ok": True, "graph": name, "node": node, "verdict": verdict,
-                   "actor": actor, "checkpoint": policy, "cancelled": cancelled,
-                   "not_cancelled": refused}, sys.stdout,
-                  ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("graph checkpoint '%s' node '%s': %s (by %s)"
-              % (name, node, verdict, actor))
-        if verdict == "abort-subtree":
-            print("  cancelled subtree: %s" % (", ".join(cancelled) or "(none)"))
-            if refused:
-                print("  left as-is (no legal cancel edge): %s"
-                      % ", ".join(refused))
+    _graph_checkpoint_emit(name, node, verdict, actor, ctx["policy"],
+                           cancelled, refused, as_json)
     return 0
 
 
@@ -349,31 +416,10 @@ def cmd_graph_cancel(args):
     now_iso = getattr(args, "now", None) or _now_iso()
     reason = "graph %s cancel%s" % (
         name, (" from %s" % target) if target else "")
-    cancelled, refused = [], []
-    for f in victims:
-        ns = argparse.Namespace(
-            feature=f, state="cancelled", actor="operator", reason=reason,
-            superseded_by=None, handle=getattr(args, "handle", None),
-            host=getattr(args, "host", None), now=now_iso, format="text")
-        try:
-            with open(os.devnull, "w") as _dn, \
-                    contextlib.redirect_stdout(_dn), \
-                    contextlib.redirect_stderr(_dn):
-                rc = cmd_plan_set_state(ns)
-        except Exception:
-            rc = 1
-        (cancelled if rc == 0 else refused).append(f)
-    if as_json:
-        json.dump({"ok": True, "graph": name, "node": target,
-                   "cancelled": cancelled, "not_cancelled": refused},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("graph cancel '%s': cancelled %s"
-              % (name, ", ".join(cancelled) or "(none)"))
-        if refused:
-            print("  left as-is (no legal cancel edge): %s"
-                  % ", ".join(refused))
+    cancelled, refused = _graph_cancel_each(
+        victims, reason, now_iso, handle=getattr(args, "handle", None),
+        host=getattr(args, "host", None))
+    _graph_cancel_emit(name, target, cancelled, refused, as_json)
     return 0
 
 
@@ -421,6 +467,10 @@ def cmd_graph_teardown(args):
 
 
 _EXPORTS = [
+    "_graph_cancel_each",
+    "_graph_cancel_emit",
+    "_graph_checkpoint_resolve",
+    "_graph_checkpoint_emit",
     "cmd_graph_run",
     "cmd_graph_resume",
     "cmd_graph_status",
