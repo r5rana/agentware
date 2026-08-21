@@ -56,14 +56,14 @@ _NO_CORE_REASON = "scripts/agentware_lib is not present in this tree yet"
 #: own `ratchet.max_rows`. It may only ever be lowered, in the commit that pays
 #: the rows down. Task 67 measured 151; task 99 adjudicated them, wave 1 paid
 #: five down, wave 2 the twelve of the steering-capture family, wave 3 the seven
-#: of the sessionparse family and wave 4 the eight of the loop-observability
-#: family.
-ROW_CEILING = 119
+#: of the sessionparse family, wave 4 the eight of the loop-observability family
+#: and wave 5 the four of the adversarial-review family.
+ROW_CEILING = 115
 
 #: The ceiling on the PAYDOWN half specifically. This is the number that has to
 #: reach zero: when it does, every remaining row is a decision that stands, and
 #: no row anywhere names a task at all. It only falls.
-PAYDOWN_CEILING = 89
+PAYDOWN_CEILING = 85
 
 #: A syntactically valid `invariant` for the synthetic rows below. It says what
 #: BREAKS if the branches are collapsed, which is the whole obligation.

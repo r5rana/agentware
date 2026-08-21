@@ -3,9 +3,10 @@
 Owns: the test-module resolver and bounded subprocess runner
 (`_review_test_module` / `_review_subprocess_rc`), the gate chain that must pass
 before a fix is accepted (`_review_run_gate_chain`), the remediation driver
-(`_review_run_remediation`), the findings loader (`_review_load_findings`), the
-renderer (`_review_print_remediation`) and the `remediate` handler + registrar
-(`cmd_remediate` / `register_remediate`).
+(`_review_run_remediation`) with its two untrusted-output helpers
+(`_review_index_raw_fixes` / `_review_align_fixes`), the findings loader
+(`_review_load_findings`), the renderer (`_review_print_remediation`) and the
+`remediate` handler + registrar (`cmd_remediate` / `register_remediate`).
 Does NOT own: the fix status vocabulary and its normalizer -> ops.reviewschema;
 the fixer prompt -> ops.reviewprompts; the fixer persona and model axis ->
 ops.reviewconfig; agent spawning -> features.reviewagent; the audit that PRODUCED
@@ -126,6 +127,49 @@ def _review_run_gate_chain(regression_tests=None, cwd=None):
     return {"ok": all(s["ok"] for s in steps), "steps": steps}
 
 
+def _review_index_raw_fixes(raw_fixes):
+    """Index the fixer's returned fix objects by their declared `index`.
+
+    Everything here is DEFENSIVE PARSING of untrusted agent output, which is why
+    it is its own function: `fixes` may be absent or not a list, an element may
+    not be an object, and `index` may be missing or a value `int()` refuses.
+    None of those is an error — the alignment below falls back to position, and
+    a finding with no fix at all normalizes to 'unfixable'. Returns
+    `(raw_fixes, by_index)`: the coerced LIST (so a positional fallback has
+    something to index into) and the map."""
+    raw_fixes = raw_fixes if isinstance(raw_fixes, list) else []
+    by_index = {}
+    for rf in raw_fixes:
+        if isinstance(rf, dict) and rf.get("index") is not None:
+            try:
+                by_index[int(rf["index"])] = rf
+            except (TypeError, ValueError):
+                pass
+    return raw_fixes, by_index
+
+
+def _review_align_fixes(confirmed, raw_fixes, by_index):
+    """Align one normalized fix to EACH confirmed finding, by declared index and
+    then by position, and stamp the finding's summary + severity onto it.
+
+    The alignment is per-FINDING rather than per-returned-fix on purpose: the
+    result must carry a row for every confirmed finding, so a fixer that
+    answered two of three findings leaves the third as an explicit 'unfixable'
+    row instead of silently shortening the list — an omission that would
+    otherwise read as 'nothing to fix'."""
+    fixes = []
+    for i, finding in enumerate(confirmed):
+        raw = by_index.get(i)
+        if raw is None and i < len(raw_fixes) and isinstance(raw_fixes[i], dict) \
+                and raw_fixes[i].get("index") is None:
+            raw = raw_fixes[i]  # positional fallback when index omitted
+        fix = _review_normalize_fix(raw, index=i)
+        fix["finding_summary"] = finding.get("summary", "")
+        fix["severity"] = finding.get("severity", "")
+        fixes.append(fix)
+    return fixes
+
+
 def _review_run_remediation(findings, cfg, diff_text="", criteria_text="",
                             diff_range=None, run_gate_chain=True):
     """Run ONE remediation pass over the CONFIRMED-blocking findings and return a
@@ -155,25 +199,8 @@ def _review_run_remediation(findings, cfg, diff_text="", criteria_text="",
     out = _review_invoke_agent("fixer", REVIEW_FIXER_PERSONA, prompt, cfg,
                                retries=0)
     obj = _review_extract_json(out) or {}
-    raw_fixes = obj.get("fixes")
-    raw_fixes = raw_fixes if isinstance(raw_fixes, list) else []
-    by_index = {}
-    for rf in raw_fixes:
-        if isinstance(rf, dict) and rf.get("index") is not None:
-            try:
-                by_index[int(rf["index"])] = rf
-            except (TypeError, ValueError):
-                pass
-    fixes = []
-    for i, finding in enumerate(confirmed):
-        raw = by_index.get(i)
-        if raw is None and i < len(raw_fixes) and isinstance(raw_fixes[i], dict) \
-                and raw_fixes[i].get("index") is None:
-            raw = raw_fixes[i]  # positional fallback when index omitted
-        fix = _review_normalize_fix(raw, index=i)
-        fix["finding_summary"] = finding.get("summary", "")
-        fix["severity"] = finding.get("severity", "")
-        fixes.append(fix)
+    raw_fixes, by_index = _review_index_raw_fixes(obj.get("fixes"))
+    fixes = _review_align_fixes(confirmed, raw_fixes, by_index)
     all_applied = bool(fixes) and all(f["status"] == "fixed" for f in fixes)
     gate = None
     if all_applied and run_gate_chain:
@@ -330,6 +357,8 @@ _EXPORTS = [
     "_review_test_module",
     "_review_subprocess_rc",
     "_review_run_gate_chain",
+    "_review_index_raw_fixes",
+    "_review_align_fixes",
     "_review_run_remediation",
     "_review_load_findings",
     "_review_print_remediation",

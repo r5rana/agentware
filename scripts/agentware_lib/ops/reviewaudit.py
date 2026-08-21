@@ -1,7 +1,9 @@
 """agentware_lib.ops.reviewaudit -- the adversarial audit FAN-OUT and the `review` verb (layer: ops).
 
-Owns: the round driver that fans reviewers out across dimensions, verifies each
-finding and runs the coverage critic (`_review_run_audit`), the diff resolver
+Owns: the round driver (`_review_run_audit`) and its three STAGE functions --
+the reviewer fan-out (`_review_fanout_reviewers`), the adversarial verify pass
+(`_review_verify_findings`) and the coverage critic (`_review_run_critic`) --
+plus the diff resolver
 (`_review_resolve_diff`), the text renderer (`_review_print_text`) and the
 `review` handler + registrar (`cmd_review` / `register_review`).
 Does NOT own: the vocabulary -> ops.reviewschema; the config axes and the skip
@@ -91,27 +93,22 @@ from agentware_lib.ops.reviewschema import (
 )
 
 
-def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
-                      stream=None):
-    """Run ONE audit round over the `_review_invoke_agent` seam and return a
-    structured result:
-      {model, effort, fanout, dimensions:[keys], findings:[...verified...],
-       critic:{gaps, additional_findings}, confirmed_blocking:int, malformed:int}
-    Pure orchestration (the seam is monkeypatched in tests). A finding is
-    CONFIRMED-blocking only when the verify pass returns verdict=confirmed AND
-    severity in high/medium (_review_is_blocking). A verify response WITHOUT a
-    usable verdict — no JSON at all, OR a parsed dict whose verdict is not in
-    REVIEW_VERDICTS (e.g. the exit-0 error envelope {"error": "rate limited"})
-    — degrades the verdict to 'uncertain' (NEVER confirmed, so a garbled
-    verifier can never manufacture a blocker) AND, for a high/medium finding,
-    counts as verify_unavailable so the audit fails CLOSED rather than
-    silently clearing a real defect to uncertain-and-pass. Every soft-failed
-    verify/critic agent is NAMED on `stream` with its raw-output snippet."""
-    keys = [k for k in (dimensions or REVIEW_DIMENSION_KEYS)][: cfg["fanout"]]
+def _review_fanout_reviewers(keys, diff_text, criteria_text, cfg, stream=None):
+    """STAGE 1 of the round — fan out one READ-ONLY reviewer per dimension and
+    collect their normalized findings. Returns
+    `(raw_findings, malformed, reviewers_ok)`.
+
+    `reviewers_ok` counts ONLY the dimensions whose reviewer produced a FULLY
+    auditable result. It is deliberately not `len(keys)` minus the crashes: a
+    reviewer that returned no usable findings RESPONSE, and one that returned a
+    findings LIST holding non-objects, are two DIFFERENT degradations and
+    neither counts, which is what lets `audit_incomplete` fail the gate CLOSED
+    instead of reading a degraded round as a clean one. Both are NAMED on
+    `stream` with their raw-output snippet, because the dangerous failure here
+    is "clean", not "error"."""
     raw_findings = []
     malformed = 0
     reviewers_ok = 0   # dimensions whose reviewer actually RAN (parseable output)
-    # 1. Fan out: one READ-ONLY reviewer per dimension.
     for key in keys:
         prompt = _review_build_reviewer_prompt(key, diff_text, criteria_text, cfg)
         out = _review_invoke_agent("reviewer:%s" % key, REVIEW_REVIEWER_PERSONA,
@@ -145,7 +142,7 @@ def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
             # The reviewer did NOT produce a fully-auditable result, so it
             # does NOT count as run -> audit_incomplete -> cmd_review exit 3.
             # Any well-formed finding dicts in the same list are still kept
-            # and verified below (a real defect is never lost).
+            # and verified in stage 2 (a real defect is never lost).
             malformed += dropped
             _review_emit_malformed_items_diagnostic(
                 "reviewer:%s" % key, dropped, out, stream=stream)
@@ -158,7 +155,22 @@ def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
             if errs:
                 finding["_schema_errors"] = errs
             raw_findings.append(finding)
-    # 2. Adversarial-verify pass: INDEPENDENT agent per finding, default-REFUTE.
+    return raw_findings, malformed, reviewers_ok
+
+
+def _review_verify_findings(raw_findings, diff_text, cfg, stream=None):
+    """STAGE 2 of the round — the adversarial-verify pass: an INDEPENDENT agent
+    per finding, prompted to default-REFUTE. Stamps `verdict` (and, when the
+    verifier supplied a usable one, `verdict_rationale`) onto each finding IN
+    PLACE and returns `verify_unavailable`: the count of high/medium findings
+    whose verifier could NOT produce a verdict.
+
+    This is the stage that earns the gate its name, and the return value is the
+    fail-CLOSED half of it. A verify response without a usable verdict degrades
+    to 'uncertain' — NEVER 'confirmed', so a garbled verifier can never
+    manufacture a blocker — but for a BLOCKING-severity finding, silently
+    clearing it to uncertain-and-pass would be the fail-OPEN direction, so it is
+    counted here and the caller marks the audit incomplete."""
     verify_unavailable = 0   # high/med findings whose verifier could NOT run
     for finding in raw_findings:
         vout = _review_invoke_agent(
@@ -174,8 +186,8 @@ def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
             # that would otherwise parse, skip the unavailable branch, and
             # silently downgrade a high/medium finding to 'uncertain-and-PASS'
             # (fail-OPEN). Either way no independent verdict exists, so a
-            # blocking-severity finding is flagged unverifiable -> the audit
-            # is marked INCOMPLETE below (fail-CLOSED). NEVER silent: name
+            # blocking-severity finding is flagged unverifiable -> the CALLER
+            # marks the audit INCOMPLETE (fail-CLOSED). NEVER silent: name
             # the verifier + its raw-output snippet (a clean-exit soft-fail
             # emits no spawn diagnostic — this is its only trace).
             _review_emit_soft_fail_diagnostic(
@@ -190,9 +202,20 @@ def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
         rationale = vobj.get("verdict_rationale")
         if isinstance(rationale, str) and rationale.strip():
             finding["verdict_rationale"] = rationale.strip()
-    # 3. Completeness critic: names skipped dimensions/claims; may add findings
-    #    (surfaced as UNCERTAIN so they are called out but never silently block
-    #    without their own verify pass).
+    return verify_unavailable
+
+
+def _review_run_critic(keys, diff_text, criteria_text, raw_findings, cfg,
+                       stream=None):
+    """STAGE 3 of the round — the completeness critic: names skipped
+    dimensions/claims and MAY add findings. Returns
+    `{gaps:[...], additional_findings:[...]}`.
+
+    Its additions are surfaced as UNCERTAIN so they are called out but never
+    silently block without their own verify pass; the reviewers' blind spots are
+    correlated, so completeness needs its own pass, but a pass whose output
+    skipped stage 2 must not be able to fail the gate on its own. Degrading to a
+    no-op critic is report-only and is NEVER silent."""
     cout = _review_invoke_agent(
         "critic", REVIEW_REVIEWER_PERSONA,
         _review_build_critic_prompt(keys, diff_text, criteria_text,
@@ -215,6 +238,35 @@ def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
             continue
         finding.setdefault("verdict", "uncertain")
         critic["additional_findings"].append(finding)
+    return critic
+
+
+def _review_run_audit(diff_text, criteria_text, cfg, dimensions=None,
+                      stream=None):
+    """Run ONE audit round over the `_review_invoke_agent` seam and return a
+    structured result:
+      {model, effort, fanout, dimensions:[keys], findings:[...verified...],
+       critic:{gaps, additional_findings}, confirmed_blocking:int, malformed:int}
+    Pure orchestration (the seam is monkeypatched in tests). The three stages —
+    fan out, adversarially VERIFY, then CRITICIZE the coverage — are three
+    functions for the reason the module docstring gives: collapsing any two of
+    them produces a gate that agrees with itself. A finding is
+    CONFIRMED-blocking only when the verify pass returns verdict=confirmed AND
+    severity in high/medium (_review_is_blocking). A verify response WITHOUT a
+    usable verdict — no JSON at all, OR a parsed dict whose verdict is not in
+    REVIEW_VERDICTS (e.g. the exit-0 error envelope {"error": "rate limited"})
+    — degrades the verdict to 'uncertain' (NEVER confirmed, so a garbled
+    verifier can never manufacture a blocker) AND, for a high/medium finding,
+    counts as verify_unavailable so the audit fails CLOSED rather than
+    silently clearing a real defect to uncertain-and-pass. Every soft-failed
+    verify/critic agent is NAMED on `stream` with its raw-output snippet."""
+    keys = [k for k in (dimensions or REVIEW_DIMENSION_KEYS)][: cfg["fanout"]]
+    raw_findings, malformed, reviewers_ok = _review_fanout_reviewers(
+        keys, diff_text, criteria_text, cfg, stream=stream)
+    verify_unavailable = _review_verify_findings(
+        raw_findings, diff_text, cfg, stream=stream)
+    critic = _review_run_critic(keys, diff_text, criteria_text, raw_findings,
+                                cfg, stream=stream)
     confirmed_blocking = sum(1 for f in raw_findings if _review_is_blocking(f))
     # FAIL-CLOSED signal (Q7 "nothing skipped"): the audit did NOT fully run if
     # there were no dimensions, ANY dimension's reviewer produced no usable output,
@@ -404,6 +456,9 @@ def register_review(sub, fmt_parent):
 
 
 _EXPORTS = [
+    "_review_fanout_reviewers",
+    "_review_verify_findings",
+    "_review_run_critic",
     "_review_run_audit",
     "_review_resolve_diff",
     "_review_print_text",

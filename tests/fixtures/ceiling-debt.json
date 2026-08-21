@@ -1,10 +1,10 @@
 {
  "schema": "agentware/ceiling-debt@2",
- "captured": "2026-08-21, branch merge/modularize, plan task 99 wave 4",
+ "captured": "2026-08-21, branch merge/modularize, plan task 99 wave 5",
  "note": "SHRINK-ONLY, and every row carries a DECISION. Task 67 measured 151 ceiling violations tree-wide and owned every one of them to itself; task 99 adjudicated them. A row is either an EXEMPTION -- permanent, naming the invariant its count encodes, with no owner because there is no work to own -- or a PAYDOWN work order naming the concrete seam that removes it. There is no third state: `owner` is refused by the schema, so a row can never again sit here pointing at a task that has closed. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces, so the file only shrinks. `ratchet.max_rows` must equal the row count and `ratchet.max_paydown_rows` may only fall, both pinned by value in tests/gates/test_module_ceilings.py. NO file_over_cap row is accepted under scripts/agentware_lib/ (task 21 satisfied that cap outright), and no row may sit inside a package task 21 round 1 split. When the last row goes, the gate is simply green.",
  "ratchet": {
-  "max_rows": 119,
-  "max_paydown_rows": 89
+  "max_rows": 115,
+  "max_paydown_rows": 85
  },
  "rows": [],
  "groups": [
@@ -468,30 +468,6 @@
      "location": "scripts/agentware_lib/ops/releasegate.py::cmd_gate_release",
      "value": 13,
      "seam": "Two byte-identical skip emitters are literal copy-paste: extract one `_emit_skip(msg, as_json)` and `_print_gate_report(payload)`. Parent 13 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/reviewaudit.py::_review_run_audit",
-     "value": 26,
-     "seam": "The body is numbered 1/2/3 in place: extract `_review_fanout_reviewers(...)`, `_review_verify_findings(...)` and `_review_run_critic(...)`. Every fail-closed degradation path stays intact inside its own phase. Parent 26 -> 4."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/ops/reviewaudit.py::_review_run_audit",
-     "value": 139,
-     "seam": "Falls out of the same three-phase split; the parent keeps the slice, three calls, the incompleteness fold and the envelope, about thirty-five lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/reviewremediate.py::_review_run_remediation",
-     "value": 20,
-     "seam": "Nine of twenty branches are defensive parsing of the fixer's returned JSON: extract `_review_index_raw_fixes(raw_fixes)` and `_review_align_fixes(...)`. Parent 20 -> 11."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/reviewreport.py::_review_render_report",
-     "value": 31,
-     "seam": "Pure line-buffer formatting, splittable at its own markdown headings: `_review_report_header_lines`, `_review_report_findings_lines`, `_review_report_critic_lines` and `_review_report_remediation_lines`. Parent 31 -> 4."
     },
     {
      "kind": "function_over_branch_cap",

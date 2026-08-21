@@ -3,7 +3,10 @@
 Owns: the report location (`REVIEW_REPORT_REL`) and workorder provenance tag
 (`REVIEW_WORKORDER_GENERATED_BY`), the finding presenters
 (`_review_finding_locator` / `_review_finding_oneline` /
-`_review_report_model_effort`), the renderer (`_review_render_report`), the
+`_review_report_model_effort`), the renderer (`_review_render_report`) and its
+four section builders (`_review_report_header_lines` /
+`_review_report_findings_lines` / `_review_report_critic_lines` /
+`_review_report_remediation_lines`, with `_review_report_fix_lines`), the
 cross-round finding algebra (`_review_finding_key` / `_review_collect_findings` /
 `_review_material_findings` / `_review_low_findings`), the worklog callout
 (`_review_callout_marker` / `_review_append_worklog_callout`), the low-severity
@@ -113,15 +116,12 @@ def _review_report_model_effort(rounds, cfg=None):
     return (model or REVIEW_DEFAULT_MODEL, effort or REVIEW_DEFAULT_EFFORT)
 
 
-def _review_render_report(rounds, cfg=None, feature=None, outcome=None):
-    """Render the durable `adversarial-review.md` call-out report for a full gate
-    run: header (model/effort/rounds/outcome) + per round the dimensions audited,
-    findings + verdicts, completeness-critic gaps/additions, and the remediation
-    (fixes + regression tests + gate chain). Deterministic (no clocks); every
-    untrusted string is collapsed to a single line."""
-    rounds = rounds or []
+def _review_report_header_lines(rounds, cfg=None, feature=None, outcome=None):
+    """The report's document header: the title, the provenance paragraph naming
+    what the gate actually did, and the model/effort/rounds/outcome bullets.
+    Returns a fresh line buffer the caller extends."""
     model, effort = _review_report_model_effort(rounds, cfg)
-    lines = [
+    return [
         "# Adversarial review — %s" % (
             _review_one_line(feature, 120) or "self-extension diff"),
         "",
@@ -138,71 +138,117 @@ def _review_render_report(rounds, cfg=None, feature=None, outcome=None):
         "- outcome: %s" % (_review_one_line(outcome, 80) or "-"),
         "",
     ]
+
+
+def _review_report_findings_lines(r, audit):
+    """One round's heading, its audit counters and its findings section.
+
+    The heading travels WITH the findings rather than staying in the driver
+    because a round that found nothing still needs its `## Round N` and its
+    `_none_` — a round rendered without a heading would silently merge into the
+    previous one's findings list, which is the one formatting bug in a call-out
+    report that changes what a reader believes."""
+    lines = ["## Round %s" % r.get("round", "?"), ""]
+    dims = ", ".join(str(d) for d in (audit.get("dimensions") or [])) or "-"
+    lines.append("- dimensions audited: %s" % dims)
+    lines.append("- confirmed blocking (high/med): %s"
+                 % audit.get("confirmed_blocking", 0))
+    lines.append("- malformed reviewer payloads: %s"
+                 % audit.get("malformed", 0))
+    lines.append("")
+    findings = [f for f in (audit.get("findings") or [])
+                if isinstance(f, dict)]
+    lines.append("### Findings (%d)" % len(findings))
+    lines.append("")
+    if findings:
+        for f in findings:
+            lines.append("- %s" % _review_finding_oneline(f))
+            fs = _review_one_line(f.get("failure_scenario", ""), 300)
+            if fs:
+                lines.append("  - failure: %s" % fs)
+    else:
+        lines.append("_none_")
+    lines.append("")
+    return lines
+
+
+def _review_report_critic_lines(audit):
+    """One round's completeness-critic section: the gaps it named and the
+    findings it ADDED, which are surfaced as uncertain because they never had a
+    verify pass of their own. An empty gaps list still prints its `0`, so a
+    critic that ran and found nothing is distinguishable from one that never
+    ran (the count is the only trace the report carries of the difference)."""
+    critic = audit.get("critic") or {}
+    gaps = [g for g in (critic.get("gaps") or [])]
+    addl = [f for f in (critic.get("additional_findings") or [])
+            if isinstance(f, dict)]
+    lines = ["### Completeness critic", "", "- gaps named: %d" % len(gaps)]
+    for g in gaps:
+        lines.append("  - %s" % (_review_one_line(g, 200) or "(empty)"))
+    lines.append("- additional findings (surfaced uncertain): %d" % len(addl))
+    for f in addl:
+        lines.append("  - %s" % _review_finding_oneline(f))
+    lines.append("")
+    return lines
+
+
+def _review_report_fix_lines(fx):
+    """The one-or-two lines for a single fix row. Every field is UNTRUSTED agent
+    output and is collapsed to a single bounded line, so no fix can forge a
+    heading, a bullet or a second marker inside the report."""
+    lines = ["  - #%s [%s] %s — reg-test: %s" % (
+        fx.get("index"),
+        _review_one_line(fx.get("status", "?"), 20) or "?",
+        _review_one_line(fx.get("finding_summary", ""), 160) or "(no summary)",
+        _review_one_line(fx.get("regression_test", ""), 120) or "-")]
+    nt = _review_one_line(fx.get("notes", ""), 200)
+    if nt:
+        lines.append("    notes: %s" % nt)
+    return lines
+
+
+def _review_report_remediation_lines(rem):
+    """One round's remediation section, or NO section at all when that round has
+    no remediation artifact — an audit-only round (the final re-audit, or a
+    round the loop never got to remediate) must not grow an empty `###
+    Remediation` heading claiming zero fixes were requested."""
+    if not rem:
+        return []
+    fixes = [x for x in (rem.get("fixes") or []) if isinstance(x, dict)]
+    lines = ["### Remediation", "",
+             "- confirmed requested: %s" % rem.get("requested", 0),
+             "- all fixed: %s" % rem.get("all_fixed", False)]
+    gc = rem.get("gate_chain")
+    if gc:
+        steps = ", ".join(
+            "%s=%s" % (s.get("name"), s.get("ok"))
+            for s in (gc.get("steps") or []) if isinstance(s, dict))
+        lines.append("- gate chain ok: %s (%s)" % (gc.get("ok"), steps))
+    for fx in fixes:
+        lines.extend(_review_report_fix_lines(fx))
+    lines.append("")
+    return lines
+
+
+def _review_render_report(rounds, cfg=None, feature=None, outcome=None):
+    """Render the durable `adversarial-review.md` call-out report for a full gate
+    run: header (model/effort/rounds/outcome) + per round the dimensions audited,
+    findings + verdicts, completeness-critic gaps/additions, and the remediation
+    (fixes + regression tests + gate chain). Deterministic (no clocks); every
+    untrusted string is collapsed to a single line. The sections are separate
+    functions splitting at the report's OWN markdown headings, so the driver is
+    the document's table of contents and nothing else."""
+    rounds = rounds or []
+    lines = _review_report_header_lines(rounds, cfg, feature, outcome)
     if not rounds:
         lines.append("_No audit rounds ran (no self-extension diff, or the gate "
                      "was skipped)._")
         return "\n".join(lines).rstrip("\n") + "\n"
     for r in rounds:
         audit = r.get("audit") or {}
-        rem = r.get("remediation")
-        lines.append("## Round %s" % r.get("round", "?"))
-        lines.append("")
-        dims = ", ".join(str(d) for d in (audit.get("dimensions") or [])) or "-"
-        lines.append("- dimensions audited: %s" % dims)
-        lines.append("- confirmed blocking (high/med): %s"
-                     % audit.get("confirmed_blocking", 0))
-        lines.append("- malformed reviewer payloads: %s"
-                     % audit.get("malformed", 0))
-        lines.append("")
-        findings = [f for f in (audit.get("findings") or [])
-                    if isinstance(f, dict)]
-        lines.append("### Findings (%d)" % len(findings))
-        lines.append("")
-        if findings:
-            for f in findings:
-                lines.append("- %s" % _review_finding_oneline(f))
-                fs = _review_one_line(f.get("failure_scenario", ""), 300)
-                if fs:
-                    lines.append("  - failure: %s" % fs)
-        else:
-            lines.append("_none_")
-        lines.append("")
-        critic = audit.get("critic") or {}
-        gaps = [g for g in (critic.get("gaps") or [])]
-        addl = [f for f in (critic.get("additional_findings") or [])
-                if isinstance(f, dict)]
-        lines.append("### Completeness critic")
-        lines.append("")
-        lines.append("- gaps named: %d" % len(gaps))
-        for g in gaps:
-            lines.append("  - %s" % (_review_one_line(g, 200) or "(empty)"))
-        lines.append("- additional findings (surfaced uncertain): %d" % len(addl))
-        for f in addl:
-            lines.append("  - %s" % _review_finding_oneline(f))
-        lines.append("")
-        if rem:
-            fixes = [x for x in (rem.get("fixes") or []) if isinstance(x, dict)]
-            lines.append("### Remediation")
-            lines.append("")
-            lines.append("- confirmed requested: %s" % rem.get("requested", 0))
-            lines.append("- all fixed: %s" % rem.get("all_fixed", False))
-            gc = rem.get("gate_chain")
-            if gc:
-                steps = ", ".join(
-                    "%s=%s" % (s.get("name"), s.get("ok"))
-                    for s in (gc.get("steps") or []) if isinstance(s, dict))
-                lines.append("- gate chain ok: %s (%s)" % (gc.get("ok"), steps))
-            for fx in fixes:
-                lines.append("  - #%s [%s] %s — reg-test: %s" % (
-                    fx.get("index"),
-                    _review_one_line(fx.get("status", "?"), 20) or "?",
-                    _review_one_line(fx.get("finding_summary", ""), 160)
-                    or "(no summary)",
-                    _review_one_line(fx.get("regression_test", ""), 120) or "-"))
-                nt = _review_one_line(fx.get("notes", ""), 200)
-                if nt:
-                    lines.append("    notes: %s" % nt)
-            lines.append("")
+        lines.extend(_review_report_findings_lines(r, audit))
+        lines.extend(_review_report_critic_lines(audit))
+        lines.extend(_review_report_remediation_lines(r.get("remediation")))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
@@ -458,6 +504,11 @@ _EXPORTS = [
     "_review_finding_locator",
     "_review_finding_oneline",
     "_review_report_model_effort",
+    "_review_report_header_lines",
+    "_review_report_findings_lines",
+    "_review_report_critic_lines",
+    "_review_report_fix_lines",
+    "_review_report_remediation_lines",
     "_review_render_report",
     "_review_finding_key",
     "_review_collect_findings",

@@ -59,7 +59,7 @@ _NO_CORE_REASON = "scripts/agentware_lib is not present in this tree yet"
 #: The ceiling the fixture's counter may not exceed, pinned BY VALUE so that
 #: declaring a new testless module takes an edit here as well as in the fixture.
 #: It may only ever be lowered, in the same commit that pays rows down.
-OWNERSHIP_DEBT_CEILING = 174
+OWNERSHIP_DEBT_CEILING = 171
 
 MODULE_BODY = ('"""Owns: one scratch behaviour.\n\n'
                'Does NOT own: anything real.\n\n'

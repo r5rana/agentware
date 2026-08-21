@@ -3170,6 +3170,21 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_reviewaudit.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_reviewremediate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_reviewreport.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_scaffoldcheck.py"
     },
     {
@@ -9393,9 +9408,12 @@
     },
     {
       "anchor_symbols": [
+        "_review_fanout_reviewers",
         "_review_print_text",
         "_review_resolve_diff",
         "_review_run_audit",
+        "_review_run_critic",
+        "_review_verify_findings",
         "cmd_review",
         "register_review"
       ],
@@ -9416,10 +9434,10 @@
       "layer": "ops",
       "name": "agentware_lib.ops.reviewaudit",
       "not_owns": "the vocabulary -> ops.reviewschema; the config axes and the skip ledger -> ops.reviewconfig; the prompts -> ops.reviewprompts; the degradation diagnostics -> ops.reviewdiag; agent spawning, retries and the timeout breaker -> features.reviewagent; the untrusted-output readers -> features.reviewoutput; the remediation loop -> ops.reviewremediate; the report and worklog callout -> ops.reviewreport.",
-      "owns": "the round driver that fans reviewers out across dimensions, verifies each finding and runs the coverage critic (`_review_run_audit`), the diff resolver (`_review_resolve_diff`), the text renderer (`_review_print_text`) and the `review` handler + registrar (`cmd_review` / `register_review`).",
+      "owns": "the round driver (`_review_run_audit`) and its three STAGE functions -- the reviewer fan-out (`_review_fanout_reviewers`), the adversarial verify pass (`_review_verify_findings`) and the coverage critic (`_review_run_critic`) -- plus the diff resolver (`_review_resolve_diff`), the text renderer (`_review_print_text`) and the `review` handler + registrar (`cmd_review` / `register_review`).",
       "path": "scripts/agentware_lib/ops/reviewaudit.py",
       "test_file": "tests/unit/ops/test_reviewaudit.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_review",
@@ -9519,6 +9537,8 @@
     },
     {
       "anchor_symbols": [
+        "_review_align_fixes",
+        "_review_index_raw_fixes",
         "_review_load_findings",
         "_review_print_remediation",
         "_review_run_gate_chain",
@@ -9543,10 +9563,10 @@
       "layer": "ops",
       "name": "agentware_lib.ops.reviewremediate",
       "not_owns": "the fix status vocabulary and its normalizer -> ops.reviewschema; the fixer prompt -> ops.reviewprompts; the fixer persona and model axis -> ops.reviewconfig; agent spawning -> features.reviewagent; the audit that PRODUCED the findings -> ops.reviewaudit; the report -> ops.reviewreport.",
-      "owns": "the test-module resolver and bounded subprocess runner (`_review_test_module` / `_review_subprocess_rc`), the gate chain that must pass before a fix is accepted (`_review_run_gate_chain`), the remediation driver (`_review_run_remediation`), the findings loader (`_review_load_findings`), the renderer (`_review_print_remediation`) and the `remediate` handler + registrar (`cmd_remediate` / `register_remediate`).",
+      "owns": "the test-module resolver and bounded subprocess runner (`_review_test_module` / `_review_subprocess_rc`), the gate chain that must pass before a fix is accepted (`_review_run_gate_chain`), the remediation driver (`_review_run_remediation`) with its two untrusted-output helpers (`_review_index_raw_fixes` / `_review_align_fixes`), the findings loader (`_review_load_findings`), the renderer (`_review_print_remediation`) and the `remediate` handler + registrar (`cmd_remediate` / `register_remediate`).",
       "path": "scripts/agentware_lib/ops/reviewremediate.py",
       "test_file": "tests/unit/ops/test_reviewremediate.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_remediate",
@@ -9571,7 +9591,12 @@
         "_review_material_findings",
         "_review_read_json_file",
         "_review_render_report",
+        "_review_report_critic_lines",
+        "_review_report_findings_lines",
+        "_review_report_fix_lines",
+        "_review_report_header_lines",
         "_review_report_model_effort",
+        "_review_report_remediation_lines",
         "cmd_review_report",
         "register_review_report"
       ],
@@ -9590,10 +9615,10 @@
       "layer": "ops",
       "name": "agentware_lib.ops.reviewreport",
       "not_owns": "the vocabulary -> ops.reviewschema; the config axes -> ops.reviewconfig; the audit that produces rounds -> ops.reviewaudit; remediation -> ops.reviewremediate; the workorder emitter it calls -> ops.planauthor.plannew.",
-      "owns": "the report location (`REVIEW_REPORT_REL`) and workorder provenance tag (`REVIEW_WORKORDER_GENERATED_BY`), the finding presenters (`_review_finding_locator` / `_review_finding_oneline` / `_review_report_model_effort`), the renderer (`_review_render_report`), the cross-round finding algebra (`_review_finding_key` / `_review_collect_findings` / `_review_material_findings` / `_review_low_findings`), the worklog callout (`_review_callout_marker` / `_review_append_worklog_callout`), the low-severity workorder emitter (`_review_emit_low_workorder`), the artifact readers (`_review_read_json_file` / `_review_load_round_artifacts`) and the `review-report` handler + registrar (`cmd_review_report` / `register_review_report`).",
+      "owns": "the report location (`REVIEW_REPORT_REL`) and workorder provenance tag (`REVIEW_WORKORDER_GENERATED_BY`), the finding presenters (`_review_finding_locator` / `_review_finding_oneline` / `_review_report_model_effort`), the renderer (`_review_render_report`) and its four section builders (`_review_report_header_lines` / `_review_report_findings_lines` / `_review_report_critic_lines` / `_review_report_remediation_lines`, with `_review_report_fix_lines`), the cross-round finding algebra (`_review_finding_key` / `_review_collect_findings` / `_review_material_findings` / `_review_low_findings`), the worklog callout (`_review_callout_marker` / `_review_append_worklog_callout`), the low-severity workorder emitter (`_review_emit_low_workorder`), the artifact readers (`_review_read_json_file` / `_review_load_round_artifacts`) and the `review-report` handler + registrar (`cmd_review_report` / `register_review_report`).",
       "path": "scripts/agentware_lib/ops/reviewreport.py",
       "test_file": "tests/unit/ops/test_reviewreport.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_review_report",
