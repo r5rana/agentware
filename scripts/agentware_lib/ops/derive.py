@@ -3,7 +3,6 @@
 Owns: the PLAN-FREE derive_* reporting family -- the deterministic report
 derivations that depend ONLY on the already-extracted compute layer (ops.metrics),
 parse layer (ops.sessionparse) and tokenizer (retrieval.corpus):
-  * agent-activity rollup: derive_agent_activity;
   * authoring signals: derive_authoring;
   * context-tax report: _cache_read_per_turn + derive_context_tax (cache-read
     efficiency per turn + peak single-turn input / truncation-risk sizing);
@@ -18,7 +17,12 @@ parse layer (ops.sessionparse) and tokenizer (retrieval.corpus):
     metrics ledger via _metrics._read_metrics_jsonl and derive_agents the sessions via
     _sessionparse.collect_sessions.
 
-Does NOT own: the plan-lint ENFORCEMENT regexes/linter themselves (-> ops.planlint,
+Does NOT own: the per-agent ACTIVITY rollup -- derive_agent_activity and its identity
+selection / active-marker / breakdown helpers moved to ops.agentactivity in plan task 99
+wave 4, because an identity taxonomy plus a wall-clock reference instant is a second
+obligation and this file had reached 587 of its 600-line cap holding both; the name is
+re-imported here BY NAME so derive_agents and every by-name caller still resolve it. Also
+not owned: the plan-lint ENFORCEMENT regexes/linter themselves (-> ops.planlint,
 imported DOWN), the metrics COMPUTE layer (ops.metrics), transcript parse + the read
 cache (ops.sessionparse), the _read_metrics_jsonl ledger reader (-> ops.metrics with
 loopview), loop analytics/trace/health/alerts/failure-ladder (ops.loopview), and
@@ -38,8 +42,8 @@ cmd_metrics/cmd_dashboard + their registrars (deferred). Detail:
     free-references the FULL derive_* family -- now all owned here + resident-facade-
     reexported -- plus the resident _print_metrics_text/DASHBOARD_SERVER).
 
-Layer deps: ops.derive -> ops.metrics + ops.sessionparse + ops.planlint (same layer,
-downward) + retrieval.corpus (downward) + stdlib (datetime, os). No knowledge/features/
+Layer deps: ops.derive -> ops.agentactivity + ops.metrics + ops.sessionparse +
+ops.planlint (same layer, downward) + retrieval.corpus (downward) + stdlib (datetime, os). No knowledge/features/
 cli import.
 
 Determinism: read-only (INV-2). Pure functions of the parsed transcript rows +
@@ -57,8 +61,10 @@ Fan-in: 6 (modules that import this; see catalog/modules.json depended_on_by; re
 import datetime
 import os
 
+import agentware_lib.ops.agentactivity as _agentactivity
 import agentware_lib.ops.metrics as _metrics
 import agentware_lib.ops.sessionparse as _sessionparse
+from agentware_lib.ops.agentactivity import derive_agent_activity
 import agentware_lib.retrieval.corpus as _corpus
 from agentware_lib.ops.metrics import (
     _AGENT_ACTIVE_WINDOW_S, _DEFAULT_PRICES, _TRUNCATION_RISK_THRESHOLD,
@@ -67,101 +73,6 @@ from agentware_lib.ops.sessionparse import _USAGE_KEYS
 import agentware_lib.ops.planlint as _planlint
 from agentware_lib.ops.planlint import (
     _PLAN_TASK_LINE_RE, _PLAN_CHECKBOX_RE, _PLAN_HEADING_RE, _PLAN_PROMISE_RE)
-
-
-def derive_agent_activity(kdir, kind, rows=None, now=None):
-    """Per-agent (PLAN_AW / WORK_AW) activity rollup (pure, read-only, INV-2).
-
-    Selects sessions whose resolved IDENTITY (resolve_session_identity) is `kind`
-    — NOT a passive stage label — and folds them into: an ACTIVE marker (the
-    most-recent session within the active window), a chronological history (each
-    session carrying its honest name + complete/stopped/active status), cost/token
-    /turn aggregates, and per-day + per-feature breakdowns. Loop runs are excluded
-    here (they own the LOOP pillar). Noise (empty 0-turn) sessions are dropped.
-    Idle-resilient: full history shows with no live run."""
-    if rows is None:
-        rows = _sessionparse.collect_sessions(kdir)
-
-    sel = []
-    for r in rows:
-        if _metrics._is_noise_session(r):
-            continue
-        ident = _metrics.resolve_session_identity(r)
-        if ident["kind"] != kind:
-            continue
-        r = dict(r)            # never mutate the cached/shared row
-        r["_identity"] = ident
-        sel.append(r)
-
-    agg = _metrics.aggregate_metrics(sel)
-    _metrics.apply_pricing(sel, agg, _DEFAULT_PRICES)  # adds cost_usd onto the COPIES + agg
-
-    ordered = sorted(sel, key=lambda r: (r.get("start") or "",
-                                         r.get("session_id") or ""),
-                     reverse=True)
-    ref = now if now is not None else \
-        datetime.datetime.now(datetime.timezone.utc)
-    active = False
-    active_sid = None
-    if ordered:
-        last_dt = _sessionparse._parse_iso(ordered[0].get("end") or ordered[0].get("start"))
-        if last_dt is not None and \
-                (ref - last_dt).total_seconds() <= _AGENT_ACTIVE_WINDOW_S:
-            active = True
-            active_sid = ordered[0].get("session_id")
-
-    def _status(r):
-        if r.get("session_id") == active_sid:
-            return "active"
-        # complete (done signal) | incomplete (planner w/o plan) | ended (neutral).
-        return r["_identity"].get("terminal", "ended")
-
-    by_day = {}
-    by_feature = {}
-    for r in sel:
-        d = r.get("date")
-        if d:
-            slot = by_day.setdefault(d, {"sessions": 0, "total_tokens": 0,
-                                         "cost_usd": 0.0})
-            slot["sessions"] += 1
-            slot["total_tokens"] += r.get("total_tokens", 0)
-            slot["cost_usd"] = round(slot["cost_usd"] + r.get("cost_usd", 0.0), 6)
-        f = r["_identity"]["feature"] or _UNATTRIBUTED
-        fr = by_feature.setdefault(f, {"sessions": 0, "total_tokens": 0,
-                                       "cost_usd": 0.0})
-        fr["sessions"] += 1
-        fr["total_tokens"] += r.get("total_tokens", 0)
-        fr["cost_usd"] = round(fr["cost_usd"] + r.get("cost_usd", 0.0), 6)
-
-    incomplete = sum(1 for r in sel if _status(r) == "incomplete")
-    attributed = sum(1 for r in sel if r["_identity"]["feature"])
-    latest = ordered[0] if ordered else None
-
-    return {
-        "kind": kind,
-        "active": active,
-        "active_session": (_metrics._agent_session_view(latest, latest["_identity"],
-                                               _status(latest))
-                           if latest else None),
-        "session_count": len(sel),
-        "attributed_count": attributed,
-        "incomplete_count": incomplete,
-        "aggregate": {
-            "total_tokens": agg.get("total_tokens", 0),
-            "cost_usd": agg.get("cost_usd", 0.0),
-            "turns": agg.get("turns", 0),
-            "tool_calls": agg.get("tool_calls", 0),
-            "subagent_count": agg.get("subagent_count", 0),
-            "duration_seconds": agg.get("duration_seconds", 0.0),
-            "cache_read_ratio": agg.get("cache_read_ratio", 0.0),
-            "tokens": agg.get("tokens", _sessionparse._empty_usage()),
-        },
-        "by_day": by_day,
-        "by_feature": by_feature,
-        "sessions": [_metrics._agent_session_view(r, r["_identity"], _status(r))
-                     for r in ordered],
-        "features": sorted(k for k in by_feature if k != _UNATTRIBUTED),
-    }
 
 
 def derive_authoring(rows):
@@ -570,7 +481,6 @@ def derive_outcome(kdir, feature, events=None):
 
 
 _EXPORTS = [
-    'derive_agent_activity',
     'derive_authoring',
     '_cache_read_per_turn',
     'derive_context_tax',

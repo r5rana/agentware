@@ -82,7 +82,7 @@ modules import it, i.e. what a change here ripples into).
 
 <!-- BEGIN GENERATED: module-map (python3 tests/_doc_sync.py --write) -->
 
-_206 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
+_207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
 
 #### `core/` — 20 modules
 
@@ -157,10 +157,11 @@ _206 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.retrieval.vectorcache` | `tests/unit/retrieval/test_vectorcache.py` | 6 |
 | `agentware_lib.retrieval.workcorpus` | `tests/unit/retrieval/test_workcorpus.py` | 1 |
 
-#### `ops/` — 77 modules
+#### `ops/` — 78 modules
 
 | Module | Owning test | Fan-in |
 |--------|-------------|--------|
+| `agentware_lib.ops.agentactivity` | `tests/unit/ops/test_agentactivity.py` | 1 |
 | `agentware_lib.ops.alerts` | `tests/unit/ops/test_alerts.py` | 1 |
 | `agentware_lib.ops.audit` | `tests/unit/ops/test_audit.py` | 2 |
 | `agentware_lib.ops.checkupcmd` | `tests/unit/ops/test_checkupcmd.py` | 1 |

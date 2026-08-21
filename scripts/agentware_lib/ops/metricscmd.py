@@ -62,17 +62,26 @@ def _fmt_duration(seconds):
     return "%ds" % s
 
 
-def _print_metrics_text(rows, agg, flt):
+def _filter_desc(flt):
+    """The parenthesised filter description for the header line, or "" when no
+    filter is active. Built from a FIXED key order so two runs with the same
+    filters print the same header — a dict-order-dependent header would make the
+    text report undiffable against itself."""
     desc = []
-    if flt.get("session"):
-        desc.append("session=%s" % flt["session"])
-    if flt.get("feature"):
-        desc.append("feature=%s" % flt["feature"])
-    if flt.get("since"):
-        desc.append("since=%s" % flt["since"])
-    print("metrics: %d session%s%s" % (
-        len(rows), "" if len(rows) == 1 else "s",
-        ("  (%s)" % ", ".join(desc)) if desc else ""))
+    for key in ("session", "feature", "since"):
+        if flt.get(key):
+            desc.append("%s=%s" % (key, flt[key]))
+    if not desc:
+        return ""
+    return "  (%s)" % ", ".join(desc)
+
+
+def _print_session_rows(rows):
+    """One line per session, plus its per-tool tally when it made any calls.
+
+    A session with zero tool calls prints no tally line at all rather than an
+    empty one: the report is read by eye, and a run of `tool calls:` lines with
+    nothing after them is noise that hides the sessions that did work."""
     for r in rows:
         print("  %s  turns=%d  tools=%d  subagents=%d  tokens=%d  wall=%s"
               % (r["session_id"], r["turns"], r["tool_calls"],
@@ -82,15 +91,18 @@ def _print_metrics_text(rows, agg, flt):
             parts = ", ".join("%s=%d" % (k, r["tools"][k])
                               for k in sorted(r["tools"]))
             print("    tool calls: %s" % parts)
-    print("  ----")
-    print("  TOTAL  sessions=%d  turns=%d  tools=%d  subagents=%d  tokens=%d  wall=%s"
-          % (agg["session_count"], agg["turns"], agg["tool_calls"],
-             agg["subagent_count"], agg["total_tokens"],
-             _fmt_duration(agg["duration_seconds"])))
-    u = agg["tokens"]
-    print("    tokens: in=%d out=%d cache_creation=%d cache_read=%d"
-          % (u["input_tokens"], u["output_tokens"],
-             u["cache_creation_input_tokens"], u["cache_read_input_tokens"]))
+
+
+def _print_agg_extras(agg):
+    """The four OPTIONAL aggregate sections: cost, context tax, run outcome and
+    per-phase costs.
+
+    Each is present only when the corresponding derivation ran, so each is
+    guarded on its own key rather than on one "verbose" flag — `metrics
+    --session X` has no outcome (that is per-feature) and `--retrieval` has none
+    of them. The cost line's anomaly count and the context line's TRUNCATION-RISK
+    marker are sub-clauses that appear only when there is something to say, for
+    the same reason the tool tally is skipped when empty."""
     if "cost_usd" in agg:
         print("    cost: $%.4f  cache_read_ratio=%.3f%s"
               % (agg["cost_usd"], agg.get("cache_read_ratio", 0.0),
@@ -112,6 +124,27 @@ def _print_metrics_text(rows, agg, flt):
                           for ph in sorted(pc))
         if parts:
             print("    phase_costs: %s" % parts)
+
+
+def _print_metrics_text(rows, agg, flt):
+    """Render the metrics report as text: header, per-session lines, totals.
+
+    Pure presentation — every number is already computed. It prints rather than
+    returns, which is why its contract is pinned at the CLI boundary and not by a
+    return value."""
+    print("metrics: %d session%s%s" % (
+        len(rows), "" if len(rows) == 1 else "s", _filter_desc(flt)))
+    _print_session_rows(rows)
+    print("  ----")
+    print("  TOTAL  sessions=%d  turns=%d  tools=%d  subagents=%d  tokens=%d  wall=%s"
+          % (agg["session_count"], agg["turns"], agg["tool_calls"],
+             agg["subagent_count"], agg["total_tokens"],
+             _fmt_duration(agg["duration_seconds"])))
+    u = agg["tokens"]
+    print("    tokens: in=%d out=%d cache_creation=%d cache_read=%d"
+          % (u["input_tokens"], u["output_tokens"],
+             u["cache_creation_input_tokens"], u["cache_read_input_tokens"]))
+    _print_agg_extras(agg)
 
 
 #: The sidecar PACKAGE (plan task 69; it was a single 1,146-line file until then).
@@ -309,6 +342,7 @@ def register_dashboard(sub, fmt_parent):
 
 
 _EXPORTS = [
-    "_fmt_duration", "_print_metrics_text", "DASHBOARD_SERVER",
+    "_fmt_duration", "_filter_desc", "_print_session_rows",
+    "_print_agg_extras", "_print_metrics_text", "DASHBOARD_SERVER",
     "cmd_dashboard", "cmd_metrics",
 ]

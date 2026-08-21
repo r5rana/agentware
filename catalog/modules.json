@@ -735,6 +735,11 @@
     {
       "layer": "lib",
       "line_cap": 600,
+      "path": "scripts/agentware_lib/ops/agentactivity.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
       "path": "scripts/agentware_lib/ops/alerts.py"
     },
     {
@@ -1460,7 +1465,17 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_body_adjudication_loopobs.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_body_adjudication_shimretirement.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_siblings.py"
     },
     {
       "layer": "tests",
@@ -1706,6 +1721,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/_preserved_freeze.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_preserved_pins.py"
     },
     {
       "layer": "tests",
@@ -2820,6 +2840,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_agentactivity.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_checkup_aggregate.py"
     },
     {
@@ -2865,6 +2890,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_derive.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_fleetreport.py"
     },
     {
@@ -2895,6 +2925,21 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_loopanalytics.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_loophealth.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_looptrace.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_metrics.py"
     },
     {
@@ -2911,6 +2956,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_metrics_loop.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_metricscmd.py"
     },
     {
       "layer": "tests",
@@ -7411,6 +7461,28 @@
     },
     {
       "anchor_symbols": [
+        "_active_marker",
+        "_activity_breakdowns",
+        "_agent_status",
+        "_select_agent_sessions",
+        "derive_agent_activity"
+      ],
+      "depended_on_by": [
+        "agentware_lib.ops.derive"
+      ],
+      "dependency_direction": "ops -> core, knowledge, retrieval",
+      "depends_on": [],
+      "layer": "ops",
+      "name": "agentware_lib.ops.agentactivity",
+      "not_owns": "the identity MODEL itself (`resolve_session_identity` / `_agent_session_view` / `_is_noise_session` / `aggregate_metrics` / `apply_pricing` live in `ops.metrics`, imported DOWN as `_metrics`); transcript parse and the read cache (`ops.sessionparse`, as `_sessionparse`); and the rest of the `derive_*` reporting family — authoring, context tax, phase/iteration costs and the plan-file derivations — which stay in `ops.derive`. `ops.derive.derive_agents` is the one caller: it reads the sessions ONCE and asks for two slices.",
+      "owns": "the agent pillar's rollup — selecting the sessions belonging to ONE resolved agent identity (`plan` / `work` / `loop`), deciding whether that agent is ACTIVE right now, folding its per-day and per-feature breakdowns, and assembling the payload the Agents panel reads: `_select_agent_sessions`, `_active_marker`, `_agent_status`, `_activity_breakdowns` and `derive_agent_activity`.",
+      "path": "scripts/agentware_lib/ops/agentactivity.py",
+      "test_file": "tests/unit/ops/test_agentactivity.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
         "_ALERT_DEEP_LINKS",
         "_ALERT_NDCG_CRIT",
         "_ALERT_NDCG_WARN",
@@ -7715,7 +7787,6 @@
         "_cache_read_per_turn",
         "_phase_for_stage",
         "_plan_marker_status_counts",
-        "derive_agent_activity",
         "derive_agents",
         "derive_authoring",
         "derive_context_tax",
@@ -7735,16 +7806,17 @@
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
       "depends_on": [
+        "agentware_lib.ops.agentactivity",
         "agentware_lib.ops.planlint",
         "agentware_lib.retrieval.corpus"
       ],
       "layer": "ops",
       "name": "agentware_lib.ops.derive",
-      "not_owns": "the plan-lint ENFORCEMENT regexes/linter themselves (-> ops.planlint, imported DOWN), the metrics COMPUTE layer (ops.metrics), transcript parse + the read cache (ops.sessionparse), the _read_metrics_jsonl ledger reader (-> ops.metrics with loopview), loop analytics/trace/health/alerts/failure-ladder (ops.loopview), and cmd_metrics/cmd_dashboard + their registrars (deferred). Detail: * the metrics COMPUTE layer -- aggregate_metrics/apply_pricing/resolve_session_identity/ _agent_session_view/_cost_record/_finalize_record/_is_noise_session/ _context_window_for_rows + the _DEFAULT_PRICES/_AGENT_ACTIVE_WINDOW_S/_UNATTRIBUTED/ _TRUNCATION_RISK_THRESHOLD constants (agentware_lib.ops.metrics -- imported DOWN as _metrics; _TRUNCATION_RISK_THRESHOLD is a def-time default arg of derive_context_tax); * transcript parse + the single-instance read cache -- collect_sessions/_parse_iso/ _empty_usage/_merge_usage + _USAGE_KEYS (agentware_lib.ops.sessionparse -- imported DOWN as _sessionparse, so the LRU stays one instance); * the metrics-ledger reader _read_metrics_jsonl (RESIDENT; co-moves to ops.metrics with loopview, whose derive_loop_* consume it); * loop analytics/trace/health/alerts/failure-ladder (agentware_lib.ops.loopview); * cmd_metrics/cmd_dashboard + the metrics/dashboard registrars (deferred: cmd_metrics free-references the FULL derive_* family -- now all owned here + resident-facade- reexported -- plus the resident _print_metrics_text/DASHBOARD_SERVER).",
-      "owns": "the PLAN-FREE derive_* reporting family -- the deterministic report derivations that depend ONLY on the already-extracted compute layer (ops.metrics), parse layer (ops.sessionparse) and tokenizer (retrieval.corpus): * agent-activity rollup: derive_agent_activity; * authoring signals: derive_authoring; * context-tax report: _cache_read_per_turn + derive_context_tax (cache-read efficiency per turn + peak single-turn input / truncation-risk sizing); * per-phase cost attribution: the stage->phase PARTITION map _STAGE_TO_PHASE + _phase_for_stage + derive_phase_costs; * per-iteration cost attribution: derive_iteration_costs; * the PLAN-file derivations (wave-5 seam 9, unblocked once ops.planlint provided the plan regexes): _TERMINAL_OUTCOMES + _plan_marker_status_counts + derive_plan_size + derive_plan_authoring + derive_agents + derive_outcome. They read the plan-parsing regexes (_PLAN_TASK_LINE_RE/_PLAN_CHECKBOX_RE/_PLAN_HEADING_RE/_PLAN_PROMISE_RE by name + _planlint._parse_task_number) DOWN from ops.planlint; derive_outcome reads the metrics ledger via _metrics._read_metrics_jsonl and derive_agents the sessions via _sessionparse.collect_sessions.",
+      "not_owns": "the per-agent ACTIVITY rollup -- derive_agent_activity and its identity selection / active-marker / breakdown helpers moved to ops.agentactivity in plan task 99 wave 4, because an identity taxonomy plus a wall-clock reference instant is a second obligation and this file had reached 587 of its 600-line cap holding both; the name is re-imported here BY NAME so derive_agents and every by-name caller still resolve it. Also not owned: the plan-lint ENFORCEMENT regexes/linter themselves (-> ops.planlint, imported DOWN), the metrics COMPUTE layer (ops.metrics), transcript parse + the read cache (ops.sessionparse), the _read_metrics_jsonl ledger reader (-> ops.metrics with loopview), loop analytics/trace/health/alerts/failure-ladder (ops.loopview), and cmd_metrics/cmd_dashboard + their registrars (deferred). Detail: * the metrics COMPUTE layer -- aggregate_metrics/apply_pricing/resolve_session_identity/ _agent_session_view/_cost_record/_finalize_record/_is_noise_session/ _context_window_for_rows + the _DEFAULT_PRICES/_AGENT_ACTIVE_WINDOW_S/_UNATTRIBUTED/ _TRUNCATION_RISK_THRESHOLD constants (agentware_lib.ops.metrics -- imported DOWN as _metrics; _TRUNCATION_RISK_THRESHOLD is a def-time default arg of derive_context_tax); * transcript parse + the single-instance read cache -- collect_sessions/_parse_iso/ _empty_usage/_merge_usage + _USAGE_KEYS (agentware_lib.ops.sessionparse -- imported DOWN as _sessionparse, so the LRU stays one instance); * the metrics-ledger reader _read_metrics_jsonl (RESIDENT; co-moves to ops.metrics with loopview, whose derive_loop_* consume it); * loop analytics/trace/health/alerts/failure-ladder (agentware_lib.ops.loopview); * cmd_metrics/cmd_dashboard + the metrics/dashboard registrars (deferred: cmd_metrics free-references the FULL derive_* family -- now all owned here + resident-facade- reexported -- plus the resident _print_metrics_text/DASHBOARD_SERVER).",
+      "owns": "the PLAN-FREE derive_* reporting family -- the deterministic report derivations that depend ONLY on the already-extracted compute layer (ops.metrics), parse layer (ops.sessionparse) and tokenizer (retrieval.corpus): * authoring signals: derive_authoring; * context-tax report: _cache_read_per_turn + derive_context_tax (cache-read efficiency per turn + peak single-turn input / truncation-risk sizing); * per-phase cost attribution: the stage->phase PARTITION map _STAGE_TO_PHASE + _phase_for_stage + derive_phase_costs; * per-iteration cost attribution: derive_iteration_costs; * the PLAN-file derivations (wave-5 seam 9, unblocked once ops.planlint provided the plan regexes): _TERMINAL_OUTCOMES + _plan_marker_status_counts + derive_plan_size + derive_plan_authoring + derive_agents + derive_outcome. They read the plan-parsing regexes (_PLAN_TASK_LINE_RE/_PLAN_CHECKBOX_RE/_PLAN_HEADING_RE/_PLAN_PROMISE_RE by name + _planlint._parse_task_number) DOWN from ops.planlint; derive_outcome reads the metrics ledger via _metrics._read_metrics_jsonl and derive_agents the sessions via _sessionparse.collect_sessions.",
       "path": "scripts/agentware_lib/ops/derive.py",
       "test_file": "tests/unit/ops/test_derive.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -8122,8 +8194,13 @@
     {
       "anchor_symbols": [
         "_LOOP_PHASES",
+        "_fold_loop_events",
+        "_fold_main_event",
+        "_iteration_metrics",
         "_loop_analytics_for_feature",
         "_normalize_phase",
+        "_self_heal_count",
+        "_terminal_latency_s",
         "derive_loop_analytics",
         "derive_loop_throughput",
         "list_loop_features"
@@ -8143,7 +8220,7 @@
       "owns": "the loop-domain leaf primitives that nothing else loop-domain sits below — * the loop PHASE tuple + normalizer (_LOOP_PHASES / _normalize_phase); * feature discovery from the emission channel + work dir (list_loop_features); * per-feature throughput rollup over logs/metrics.jsonl (derive_loop_throughput); * the per-feature analytics fold + its dashboard deriver (_loop_analytics_for_feature -> derive_loop_analytics), moved in wave-5 seam 10 once ops.derive owned derive_outcome/derive_phase_costs.",
       "path": "scripts/agentware_lib/ops/loopanalytics.py",
       "test_file": "tests/unit/ops/test_loopanalytics.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -8153,6 +8230,10 @@
         "_LOOP_HEALTH_MAXITER_WARN",
         "_LOOP_HEALTH_NOPROGRESS_K",
         "_LOOP_HEALTH_SEVERITY",
+        "_dup_scope_sessions",
+        "_dup_signature_counts",
+        "_dup_status",
+        "_dup_worst_offender",
         "_longest_flat_run",
         "_loop_health_burn_check",
         "_loop_health_context_check",
@@ -8177,14 +8258,24 @@
       "owns": "the pure, read-only runaway-detection primitives (INV-2) -- * the severity ordering + worst-status fold (_LOOP_HEALTH_SEVERITY / _worst_status); * the four tunable thresholds (_LOOP_HEALTH_DUP_THRESHOLD / _NOPROGRESS_K / _MAXITER_WARN / _CONTEXT_WARN); * the four per-signal checks -- duplicate tool calls (_loop_health_dup_check), no-progress (_longest_flat_run + _loop_health_progress_check), token burn (_loop_health_burn_check), context-window (_loop_health_context_check); * the per-feature aggregator + its dashboard deriver (_loop_health_for_feature -> derive_loop_health), moved in wave-5 seam 10 once ops.loopanalytics owned _loop_analytics_for_feature.",
       "path": "scripts/agentware_lib/ops/loophealth.py",
       "test_file": "tests/unit/ops/test_loophealth.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
+        "_attach_step_durations",
+        "_attach_step_tokens",
+        "_collect_session_steps",
+        "_group_steps_by_iteration",
+        "_iter_main_assistant_tooluse",
+        "_iter_main_jsonl_objects",
         "_iteration_for_ts",
         "_main_tooluse_token_shares",
         "_main_tooluse_token_shares_uncached",
+        "_read_live_rows",
+        "_resolve_group_feature",
+        "_steps_from_live_rows",
+        "_steps_from_main_transcript",
         "_trace_io",
         "_trace_iteration_windows",
         "_trace_session_dirs",
@@ -8206,7 +8297,7 @@
       "owns": "the deterministic, read-only per-session trace derivation — * raw-IO trimming (_trace_io); * main-phase tool-use token shares, cached (_main_tooluse_token_shares + _main_tooluse_token_shares_uncached); * per-session step extraction, cached (_trace_steps_for_session + _trace_steps_for_session_uncached); * session-dir discovery + per-iteration windowing (_trace_session_dirs / _trace_iteration_windows / _iteration_for_ts); * the trace report (derive_trace).",
       "path": "scripts/agentware_lib/ops/looptrace.py",
       "test_file": "tests/unit/ops/test_looptrace.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -8290,8 +8381,11 @@
     {
       "anchor_symbols": [
         "DASHBOARD_SERVER",
+        "_filter_desc",
         "_fmt_duration",
+        "_print_agg_extras",
         "_print_metrics_text",
+        "_print_session_rows",
         "_report_retrieval",
         "cmd_dashboard",
         "cmd_metrics",
@@ -8312,7 +8406,7 @@
       "owns": "the two CLI surfaces over the metrics COMPUTE layer -- cmd_metrics (the read-only `metrics` handler: resolve kdir, load the price table, collect + aggregate + price sessions, attach the read-only derive_* rollups -- authoring / context-tax / plan-size / phase-costs / iterations / outcome -- then emit JSON or the text report), its text renderer (_print_metrics_text) + the wall-clock formatter (_fmt_duration), and cmd_dashboard (the thin localhost-only launcher that subprocess-execs the DASHBOARD_SERVER sidecar) + the DASHBOARD_SERVER path constant, plus the two parser registrars (register_metrics / register_dashboard).",
       "path": "scripts/agentware_lib/ops/metricscmd.py",
       "test_file": "tests/unit/ops/test_metricscmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_metrics",

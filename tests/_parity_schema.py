@@ -379,7 +379,10 @@ DIMENSIONS = [
         # the portability gate scans the commit range for vendor tokens, and
         # nothing scanned the SHAPE of the series — identity, dates, subjects,
         # linearity — which is where a second author survives a scrubbed tree.
-        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78, 79, 82, 83],
+        # 99 is the ceiling ratchet's own residual being ADJUDICATED and paid
+        # down: task 67 landed the gate, and a gate whose residual nobody owns is
+        # an allowlist, so the paydown belongs to this dimension too.
+        "plan_tasks": [21, 25, 32, 56, 67, 68, 69, 70, 73, 78, 79, 82, 83, 99],
     },
 ]
 

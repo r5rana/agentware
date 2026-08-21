@@ -39,7 +39,7 @@ import sys
 # — the same bootstrap `_parity_curated` uses for `_parity_merge_rows`.
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 
-from _body_adjudication_shimretirement import SHIM_RETIREMENT_ROWS  # noqa: E402
+from _body_adjudication_siblings import SIBLING_ROWS  # noqa: E402
 
 # --------------------------------------------------------------------------
 # DECOMPOSED -- the plan's own splits (tasks 21 and 22)
@@ -646,7 +646,7 @@ ADJUDICATIONS.update({
 # receivers), 40 rows, one reason, read as one file. Merged here so
 # `ADJUDICATIONS` stays the ONE name every consumer imports.
 
-ADJUDICATIONS.update(SHIM_RETIREMENT_ROWS)
+ADJUDICATIONS.update(SIBLING_ROWS)
 
 # --------------------------------------------------------------------------
 # DECOMPOSED -- task 91: one input grammar for BOTH curation verbs

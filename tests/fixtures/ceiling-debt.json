@@ -1,10 +1,10 @@
 {
  "schema": "agentware/ceiling-debt@2",
- "captured": "2026-08-20, branch merge/modularize, plan task 99",
+ "captured": "2026-08-21, branch merge/modularize, plan task 99 wave 4",
  "note": "SHRINK-ONLY, and every row carries a DECISION. Task 67 measured 151 ceiling violations tree-wide and owned every one of them to itself; task 99 adjudicated them. A row is either an EXEMPTION -- permanent, naming the invariant its count encodes, with no owner because there is no work to own -- or a PAYDOWN work order naming the concrete seam that removes it. There is no third state: `owner` is refused by the schema, so a row can never again sit here pointing at a task that has closed. A violation worse than its declared value, or at a location with no row, fails the gate; so does a row the tree no longer produces, so the file only shrinks. `ratchet.max_rows` must equal the row count and `ratchet.max_paydown_rows` may only fall, both pinned by value in tests/gates/test_module_ceilings.py. NO file_over_cap row is accepted under scripts/agentware_lib/ (task 21 satisfied that cap outright), and no row may sit inside a package task 21 round 1 split. When the last row goes, the gate is simply green.",
  "ratchet": {
-  "max_rows": 127,
-  "max_paydown_rows": 97
+  "max_rows": 119,
+  "max_paydown_rows": 89
  },
  "rows": [],
  "groups": [
@@ -375,12 +375,6 @@
     },
     {
      "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/derive.py::derive_agent_activity",
-     "value": 17,
-     "seam": "Extract `_select_agent_sessions(...)`, `_active_marker(...)` and `_activity_breakdowns(...)`. Parent 17 -> 5. BLOCKED FIRST: ops/derive.py is at 587 of 600 lines, so the helpers must land in a sibling module with its own owning unit file, not in place."
-    },
-    {
-     "kind": "function_over_branch_cap",
      "location": "scripts/agentware_lib/ops/failureladder.py::derive_failures",
      "value": 15,
      "seam": "Four independent passes over one step list, each with its classifier already extracted: lift `_err_tallies(...)` and `_ladder_tally(...)`. The five R-FAIL tiers stay where they already live. Parent 15 -> 6."
@@ -417,51 +411,9 @@
     },
     {
      "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/loopanalytics.py::_loop_analytics_for_feature",
-     "value": 43,
-     "seam": "One fold plus four independent derived-metric blocks: extract `_fold_loop_events(events)`, `_iteration_metrics(...)` and `_terminal_latency_s(...)`. Parent 43 -> 5."
-    },
-    {
-     "kind": "function_over_line_cap",
-     "location": "scripts/agentware_lib/ops/loopanalytics.py::_loop_analytics_for_feature",
-     "value": 128,
-     "seam": "Falls out of the same three helpers; the parent keeps the guard, the glue and the return literal, about fifty-five lines."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/loophealth.py::_loop_health_dup_check",
-     "value": 16,
-     "seam": "Extract `_dup_signature_counts(tr)` and `_dup_status(max_count, threshold, warn)`; the critical/at-risk/ok arms are only two of the sixteen branches. Parent 16 -> 9."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/looptrace.py::_main_tooluse_token_shares_uncached",
-     "value": 16,
-     "seam": "Its main.jsonl decode is a near-verbatim duplicate of the one in _trace_steps_for_session_uncached, same eight guards in the same order: extract the shared generator `_iter_main_assistant_tooluse(main_path)`. Parent 16 -> 6, and it pays down both rows."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/looptrace.py::_trace_steps_for_session_uncached",
-     "value": 33,
-     "seam": "Five sequential stages: `_read_live_rows`, `_steps_from_live_rows`, `_steps_from_main_transcript` (on the shared generator above), `_attach_step_tokens` and `_attach_step_durations`. Parent 33 -> 1, the primary-versus-fallback dispatch."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/looptrace.py::derive_trace",
-     "value": 19,
-     "seam": "A straight pipeline: extract `_resolve_group_feature(...)`, `_collect_session_steps(...)` and `_group_steps_by_iteration(...)`. Parent 19 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
      "location": "scripts/agentware_lib/ops/metrics/metricspricing.py::apply_pricing",
      "value": 16,
      "seam": "Extract `_price_row_models(...)` and `_flag_cost_anomalies(by_day)`, and collapse the three identical finalize loops into one loop over the three rollups. Parent 16 -> 6."
-    },
-    {
-     "kind": "function_over_branch_cap",
-     "location": "scripts/agentware_lib/ops/metricscmd.py::_print_metrics_text",
-     "value": 14,
-     "seam": "Pure rendering: extract `_filter_desc(flt)` and `_print_agg_extras(agg)` for the four optional sections. Parent 14 -> 4."
     },
     {
      "kind": "function_over_branch_cap",
@@ -718,8 +670,8 @@
     {
      "kind": "file_over_cap",
      "location": "tests/_preserved_freeze.py",
-     "value": 721,
-     "seam": "Its `main` dispatches three mutually exclusive modes that share only the fixture schema, and the derive half runs against two trees while the gate half runs against one. Send derivation and verification to a sibling `_preserved_derive.py` -- the file already imports a sibling scanner, so the pattern exists -- leaving the gate and CLI at about 330 lines."
+     "value": 661,
+     "seam": "Its `main` dispatches three mutually exclusive modes that share only the fixture schema, and the derive half runs against two trees while the gate half runs against one. Send derivation and verification to a sibling `_preserved_derive.py` -- the file already imports a sibling scanner, so the pattern exists -- leaving the gate and CLI at about 330 lines. Task 99 wave 4 took a FIRST bite for a reason of its own -- paying down five test-ownership rows created five new path collisions, and recording their pins in the harness would have worsened this row -- so the pure-data pin table moved to `_preserved_pins.py` and the declared value falls 721 -> 661. The seam above is still the one that REMOVES the row."
     },
     {
      "kind": "file_over_cap",

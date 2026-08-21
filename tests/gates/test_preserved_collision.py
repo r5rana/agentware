@@ -323,16 +323,18 @@ class DeterminismTest(unittest.TestCase):
                     REPO, successor.replace(".", "/") + ".py")), successor)
 
     def test_every_relayering_collision_is_pinned_and_its_donor_side_is_free(self):
-        """The hazard task 58 CREATED, gated live.
+        """The hazard task 58 CREATED and task 99 wave 4 EXTENDED, gated live.
 
-        Moving the local corpus onto the donor's layout puts seven local files
-        on paths a pending donor file already occupies. Each must be pinned to
-        two distinct destinations, the local side must be the file that is
-        actually there, and the donor side must still be free in BOTH trees --
-        an occupied donor destination means a port already landed on top of
-        something.
+        Moving the local corpus onto the donor's layout put seven local files on
+        paths a pending donor file already occupies; paying down five
+        test-ownership rows in task 99 wave 4 put five more there, because
+        R-MOD-06 fixes the owning file's path and the donor already holds it.
+        Each must be pinned to two distinct destinations, the local side must be
+        the file that is actually there, and the donor side must still be free in
+        BOTH trees -- an occupied donor destination means a port already landed
+        on top of something.
         """
-        self.assertEqual(len(RELAYERING_COLLISIONS), 7)
+        self.assertEqual(len(RELAYERING_COLLISIONS), 12)
         for rel in RELAYERING_COLLISIONS:
             pins = COLLISION_DESTINATIONS[rel]
             self.assertEqual(set(pins), {"local", "donor"}, rel)

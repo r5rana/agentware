@@ -577,6 +577,12 @@ MUTATION_PROBES = {
         "find": "        topic = _curation_topic(raw_topic)  # writes its own refusal/notice",
         "replace": "        topic = raw_topic",
     },
+    "mod:unit:agentactivity": {
+        "kind": "replace",
+        "path": "scripts/agentware_lib/ops/agentactivity.py",
+        "find": "        r = dict(r)            # never mutate the cached/shared row",
+        "replace": "        r = r",
+    },
 }
 
 

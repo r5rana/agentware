@@ -72,6 +72,19 @@ and reads as coverage that is not happening.
 > that polls only for a SUCCESS marker never returns. Tier-scoped `discover` is
 > fine; it is the whole-tree collection that is not.
 
+> **Restoring a mutated source file is not restoring the tree.** Any harness that
+> edits a module, runs a test, and writes the original text back — the
+> non-vacuity sweeps every paydown wave runs — must ALSO delete that module's
+> `__pycache__/*.pyc` and bump its mtime. CPython validates a cached `.pyc`
+> against the source's (mtime-seconds, size), never its contents, so a mutation
+> that preserves the BYTE LENGTH and is restored inside the same second leaves
+> bytecode compiled from the MUTANT that every later interpreter accepts as
+> current. Measured at task 99 wave 4: `==` → `!=` plus `✅` → `⬜` (both 3-byte
+> characters) left `tests.unit.ops.test_derive` failing on a clean tree for two
+> full suite runs. The dangerous direction is the quiet one — a leftover mutant
+> reddens the NEXT row's run, so the sweep reports a property GUARDED that
+> nothing guards. Run mutant subprocesses with `PYTHONDONTWRITEBYTECODE=1` too.
+
 `tests/` and every tier are packages (`__init__.py`), and each test module
 imports fixtures with a dual `tests._fixtures` / `_fixtures` fallback.
 

@@ -72,6 +72,78 @@ def _worst_status(statuses):
     return worst
 
 
+def _dup_scope_sessions(sess_dirs, feature):
+    """Narrow a shared session index to the sessions this feature OWNS.
+
+    AUTHORITATIVE attribution: count duplicate tool calls only from sessions whose
+    DOMINANT feature is this one. A broad substring match folds the single global
+    outlier session (e.g. "Read repeated 77×" while it discussed many features)
+    into EVERY feature's dup count, making 100% of runs read 'critical'.
+
+    `None` means "no index supplied" and is passed through untouched, because the
+    trace resolves its own scope in that case. An index that filters EMPTY is
+    returned empty rather than widened back: an empty scope reports `ok`, and
+    silently re-widening is how the false-critical returned."""
+    if sess_dirs is None:
+        return None
+    return [(sid, sdir) for (sid, sdir) in sess_dirs
+            if (_sessionparse.parse_session(sdir) or {}).get("feature") == feature]
+
+
+def _dup_signature_counts(tr):
+    """Count repeats per (session, iteration, tool, args) signature over a trace.
+
+    A genuine dead-loop is the SAME (tool, args) repeated within ONE session (or
+    iteration window). Counting across a feature's whole multi-session history
+    inflates normal re-reads/edits into a false 'critical', so the signature is
+    scoped by session (and iteration when the emission channel provides one).
+    This makes 'critical' actually mean "stuck repeating one call", not
+    "long-lived feature".
+
+    Returns the counts alone. The iteration the badge points at is READ OFF the
+    signature (`key[1]`) rather than tracked beside it: the iteration is PART of
+    the key, so every step folded into one signature shares it by construction
+    and a first-seen map could only ever hold that same value. It carried one
+    until task 99 wave 4, where the sweep proved the guard unkillable — see
+    `_loop_health_dup_check`. If the iteration ever LEAVES the signature, the
+    map has to come back, because then the value stops being derivable."""
+    counts = {}
+    for grp in tr.get("iterations", []):
+        for st in grp.get("steps", []):
+            key = (st.get("session_id"), st.get("iteration"),
+                   st.get("tool") or "<unknown>", st.get("args") or "")
+            counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _dup_worst_offender(counts):
+    """The (max_count, signature) with the most repeats — (0, None) when empty.
+
+    STRICTLY greater, so the first signature to reach a count keeps the title:
+    the scan walks the trace in order, which makes the winner the EARLIEST of any
+    tied offenders and the report reproducible across runs."""
+    max_count = 0
+    offender = None
+    for key, n in counts.items():
+        if n > max_count:
+            max_count, offender = n, key
+    return max_count, offender
+
+
+def _dup_status(max_count, threshold, warn):
+    """Map a repeat count onto the three-tier health status.
+
+    `warn` is the at-risk tier and is derived from the threshold by the caller,
+    so the two can never be configured into disagreeing. The tiers are ordered
+    and exhaustive: at-or-past the threshold is critical, at-or-past warn is
+    at-risk, anything else is ok."""
+    if max_count >= threshold:
+        return "critical"
+    if max_count >= warn:
+        return "at_risk"
+    return "ok"
+
+
 def _loop_health_dup_check(kdir, feature, threshold, sess_dirs=None,
                            events=None):
     """Duplicate/repeated tool-call detection — a dead-loop signal (R-FAIL-04).
@@ -81,51 +153,26 @@ def _loop_health_dup_check(kdir, feature, threshold, sess_dirs=None,
     when the same call repeats >= `threshold` times. Names the offending tool +
     the iteration it recurs in so the badge can point at the stuck step. Optional
     `sess_dirs`/`events` come from the shared single-pass index (avoid re-scan)."""
-    # AUTHORITATIVE attribution: count duplicate tool calls only from sessions whose
-    # DOMINANT feature is this one. A broad substring match folds the single global
-    # outlier session (e.g. "Read repeated 77×" while it discussed many features)
-    # into EVERY feature's dup count, making 100% of runs read 'critical'. Filter to
-    # dominant-feature sessions; keep the broad set only if the strict filter empties.
-    if sess_dirs is not None:
-        sess_dirs = [(sid, sdir) for (sid, sdir) in sess_dirs
-                     if (_sessionparse.parse_session(sdir) or {}).get("feature") == feature]
-    tr = _looptrace.derive_trace(kdir, feature=feature, sess_dirs=sess_dirs, events=events)
-    # A genuine dead-loop is the SAME (tool, args) repeated within ONE session (or
-    # iteration window). Counting across a feature's whole multi-session history
-    # inflates normal re-reads/edits into a false 'critical', so scope the signature
-    # by session (and iteration when the emission channel provides one). This makes
-    # 'critical' actually mean "stuck repeating one call", not "long-lived feature".
-    counts = {}
-    first_iter = {}
-    for grp in tr.get("iterations", []):
-        for st in grp.get("steps", []):
-            key = (st.get("session_id"), st.get("iteration"),
-                   st.get("tool") or "<unknown>", st.get("args") or "")
-            counts[key] = counts.get(key, 0) + 1
-            if key not in first_iter:
-                first_iter[key] = st.get("iteration")
-    max_count = 0
-    offender = None
-    for key, n in counts.items():
-        if n > max_count:
-            max_count, offender = n, key
+    sess_dirs = _dup_scope_sessions(sess_dirs, feature)
+    tr = _looptrace.derive_trace(kdir, feature=feature, sess_dirs=sess_dirs,
+                                 events=events)
+    counts = _dup_signature_counts(tr)
+    max_count, offender = _dup_worst_offender(counts)
     # offender is (session_id, iteration, tool, args); expose tool/iteration.
+    # Both come straight off the signature: the iteration is a COMPONENT of it,
+    # so the reported iteration is the one every folded step shared, and there is
+    # no second source that could disagree with the count beside it.
     offender_tool = offender[2] if offender else None
+    offender_iter = offender[1] if offender else None
     warn = max(2, threshold // 2 + 1)
-    if max_count >= threshold:
-        status = "critical"
-    elif max_count >= warn:
-        status = "at_risk"
-    else:
-        status = "ok"
     return {
         "name": "duplicate_tool_calls",
-        "status": status,
+        "status": _dup_status(max_count, threshold, warn),
         "flagged": max_count >= threshold,
         "max_repeat": max_count,
         "threshold": threshold,
         "tool": offender_tool,
-        "iteration": first_iter.get(offender) if offender else None,
+        "iteration": offender_iter,
         "detail": (("tool %r repeated %d times in one session"
                     % (offender_tool, max_count))
                    if (offender and max_count >= warn) else None),
@@ -365,6 +412,10 @@ _EXPORTS = [
     '_LOOP_HEALTH_CONTEXT_WARN',
     '_LOOP_HEALTH_SEVERITY',
     '_worst_status',
+    '_dup_scope_sessions',
+    '_dup_signature_counts',
+    '_dup_worst_offender',
+    '_dup_status',
     '_loop_health_dup_check',
     '_longest_flat_run',
     '_loop_health_progress_check',

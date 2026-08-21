@@ -111,27 +111,25 @@ def derive_loop_throughput(kdir, events=None):
     }
 
 
-def _loop_analytics_for_feature(kdir, feature, events=None, sessions_rows=None):
-    """Per-run loop analytics for ONE feature (pure, read-only). Folds the
-    metrics.jsonl emission into: per-phase wall split, iterations-to-completion,
-    a tasks-remaining burndown, iteration efficiency, self-heal count,
-    max-iteration utilization, pre/post-hook gate outcomes, promise/.done
-    latency, and the terminal outcome. Empty channel -> safe zero/None values."""
-    if events is None:
-        events = _metrics._read_metrics_jsonl(kdir, feature=feature)
-    outcome = _derive.derive_outcome(kdir, feature, events=events)
-    terminals = [e for e in events if e.get("event") == "terminal"]
-    terminal = terminals[-1] if terminals else {}
+def _fold_loop_events(events):
+    """Fold the emission channel for ONE feature into the four accumulators the
+    analytics are computed from: `{phase_wall, gates, iter_ts, max_seen,
+    iterations}`.
 
+    The 3 phases each run their OWN iteration counter (pre 1..3, main 1..N,
+    post 1..3), so their iteration numbers OVERLAP. The burndown is the MAIN
+    loop's tasks-remaining curve, so it folds main-phase events ONLY (keyed by
+    iteration: last remaining seen + summed done-delta); pre/post wall-time is
+    still attributed to phase_wall, and pre/post events drive the gate outcomes.
+
+    Every isinstance guard here is a coercion of an UNTRUSTED line: a non-numeric
+    `phase_wall_s` contributes zero rather than raising, and a `True` iteration
+    is rejected before it can masquerade as iteration 1. Terminal and transition
+    events are not folded — they are read separately by the caller."""
     phase_wall = {}
     gates = {"pre": [], "post": []}
     iter_ts = []
     max_seen = None
-    # The 3 phases each run their OWN iteration counter (pre 1..3, main 1..N,
-    # post 1..3), so their iteration numbers OVERLAP. The burndown is the MAIN
-    # loop's tasks-remaining curve, so it folds main-phase events ONLY (keyed by
-    # iteration: last remaining seen + summed done-delta); pre/post wall-time is
-    # still attributed to phase_wall, and pre/post events drive the gate outcomes.
     main_by_it = {}
     main_order = []
     for e in events:
@@ -159,23 +157,119 @@ def _loop_analytics_for_feature(kdir, feature, events=None, sessions_rows=None):
                        or e.get("result") == "complete"),
             })
         elif phase == "main":
-            it = e.get("iteration")
-            if not isinstance(it, int) or isinstance(it, bool):
-                continue
-            rec = main_by_it.get(it)
-            if rec is None:
-                rec = {"iteration": it, "tasks_remaining": None,
-                       "tasks_done_delta": 0}
-                main_by_it[it] = rec
-                main_order.append(it)
-            if e.get("tasks_remaining") is not None:
-                rec["tasks_remaining"] = e.get("tasks_remaining")
-            d = e.get("tasks_done_delta")
-            if isinstance(d, int) and not isinstance(d, bool):
-                rec["tasks_done_delta"] += d
-            sh = e.get("self_heal_count")
-            if isinstance(sh, int) and not isinstance(sh, bool):
-                rec["self_heal_count"] = sh
+            _fold_main_event(e, main_by_it, main_order)
+    return {"phase_wall": phase_wall, "gates": gates, "iter_ts": iter_ts,
+            "max_seen": max_seen,
+            "iterations": [main_by_it[i] for i in sorted(main_order)]}
+
+
+def _fold_main_event(e, main_by_it, main_order):
+    """Fold ONE main-phase event into its iteration record (in place).
+
+    `tasks_remaining` is LAST-WINS because a later event in the same iteration is
+    a later observation of the same quantity; `tasks_done_delta` is SUMMED
+    because each event reports its own increment. An event with no usable
+    iteration number is dropped entirely rather than filed under a default —
+    attributing work to the wrong iteration is worse than not counting it."""
+    it = e.get("iteration")
+    if not isinstance(it, int) or isinstance(it, bool):
+        return
+    rec = main_by_it.get(it)
+    if rec is None:
+        rec = {"iteration": it, "tasks_remaining": None,
+               "tasks_done_delta": 0}
+        main_by_it[it] = rec
+        main_order.append(it)
+    if e.get("tasks_remaining") is not None:
+        rec["tasks_remaining"] = e.get("tasks_remaining")
+    d = e.get("tasks_done_delta")
+    if isinstance(d, int) and not isinstance(d, bool):
+        rec["tasks_done_delta"] += d
+    sh = e.get("self_heal_count")
+    if isinstance(sh, int) and not isinstance(sh, bool):
+        rec["self_heal_count"] = sh
+
+
+def _iteration_metrics(iterations, terminal, max_seen):
+    """The four derived run-shape metrics: `{tasks_closed, n_iters, max_iter,
+    iteration_efficiency, max_iteration_utilization, self_heal_count}`.
+
+    Each has a TERMINAL-first, fold-second precedence, and the fallback is not a
+    nicety: the terminal event is written by the loop as it exits, so a run that
+    was killed has none, and every one of these numbers still has to be
+    answerable from the events that did land. `n_iters` also rejects a
+    non-positive terminal count, because a zero would make the efficiency ratio
+    a division by zero rather than an honest 'no iterations'."""
+    tasks_closed = sum((r.get("tasks_done_delta") or 0) for r in iterations)
+    n_iters = terminal.get("iterations_used")
+    if not isinstance(n_iters, int) or isinstance(n_iters, bool) or n_iters <= 0:
+        n_iters = len(iterations)
+    max_iter = terminal.get("max")
+    if not isinstance(max_iter, int) or isinstance(max_iter, bool):
+        max_iter = max_seen
+    return {
+        "tasks_closed": tasks_closed,
+        "n_iters": n_iters,
+        "max_iter": max_iter,
+        "iteration_efficiency": (round(tasks_closed / n_iters, 3)
+                                 if n_iters else None),
+        "max_iteration_utilization": (round(n_iters / max_iter, 3)
+                                      if (isinstance(max_iter, int)
+                                          and max_iter and n_iters) else None),
+        "self_heal_count": _self_heal_count(terminal, iterations),
+    }
+
+
+def _self_heal_count(terminal, iterations):
+    """How many self-heals the run performed.
+
+    The terminal event carries the authoritative running total, so it wins
+    outright — INCLUDING a terminal zero, which is why the fallback keys on
+    `is None` and not on falsiness. Without a terminal the count is recovered as
+    the MAX over the per-iteration observations rather than their sum: each
+    event reports the running total at that moment, so summing would multiply a
+    single heal by the number of iterations that saw it."""
+    self_heal = terminal.get("self_heal_count")
+    if self_heal is not None:
+        return self_heal
+    sh = [r.get("self_heal_count") for r in iterations
+          if isinstance(r.get("self_heal_count"), int)
+          and not isinstance(r.get("self_heal_count"), bool)]
+    return max(sh) if sh else 0
+
+
+def _terminal_latency_s(terminal, iter_ts):
+    """Wall-clock seconds from the run's FIRST emitted event to its terminal.
+
+    Both ends must exist and both must parse: a run with no terminal has not
+    finished and has no latency, and an unparseable stamp yields None rather than
+    a number derived from a guess. "No terminal" is accepted in either spelling —
+    `{}` (what the fold hands over) or `None` — and the falsy guard is there for
+    the second one, since the `.get` below raises on it."""
+    if not terminal or not iter_ts:
+        return None
+    t0 = _sessionparse._parse_iso(min(iter_ts))
+    t1 = _sessionparse._parse_iso(terminal.get("ts"))
+    if t0 is None or t1 is None:
+        return None
+    return round((t1 - t0).total_seconds(), 3)
+
+
+def _loop_analytics_for_feature(kdir, feature, events=None, sessions_rows=None):
+    """Per-run loop analytics for ONE feature (pure, read-only). Folds the
+    metrics.jsonl emission into: per-phase wall split, iterations-to-completion,
+    a tasks-remaining burndown, iteration efficiency, self-heal count,
+    max-iteration utilization, pre/post-hook gate outcomes, promise/.done
+    latency, and the terminal outcome. Empty channel -> safe zero/None values."""
+    if events is None:
+        events = _metrics._read_metrics_jsonl(kdir, feature=feature)
+    outcome = _derive.derive_outcome(kdir, feature, events=events)
+    terminals = [e for e in events if e.get("event") == "terminal"]
+    terminal = terminals[-1] if terminals else {}
+
+    fold = _fold_loop_events(events)
+    iterations = fold["iterations"]
+    metrics = _iteration_metrics(iterations, terminal, fold["max_seen"])
 
     # Per-phase TOKEN split from the already-parsed session rows (read-only): the
     # phase a session lands in is its AGENTWARE_STAGE (Task 3/5 classifier).
@@ -184,59 +278,28 @@ def _loop_analytics_for_feature(kdir, feature, events=None, sessions_rows=None):
     rows = (sessions_rows if sessions_rows is not None
             else _sessionparse.collect_sessions(kdir, feature=feature))
     by_phase = _derive.derive_phase_costs(rows)["by_phase"]
-    phase_tokens = {ph: by_phase[ph]["total_tokens"] for ph in by_phase}
-
-    iterations = [main_by_it[i] for i in sorted(main_order)]
-    burndown = [{
-        "iteration": r["iteration"],
-        "tasks_remaining": r.get("tasks_remaining"),
-        "tasks_done_delta": r.get("tasks_done_delta", 0),
-    } for r in iterations]
-
-    tasks_closed = sum((r.get("tasks_done_delta") or 0) for r in iterations)
-    n_iters = terminal.get("iterations_used")
-    if not isinstance(n_iters, int) or isinstance(n_iters, bool) or n_iters <= 0:
-        n_iters = len(iterations)
-    iteration_efficiency = round(tasks_closed / n_iters, 3) if n_iters else None
-
-    max_iter = terminal.get("max")
-    if not isinstance(max_iter, int) or isinstance(max_iter, bool):
-        max_iter = max_seen
-    max_util = (round(n_iters / max_iter, 3)
-                if (isinstance(max_iter, int) and max_iter and n_iters)
-                else None)
-
-    self_heal = terminal.get("self_heal_count")
-    if self_heal is None:
-        sh = [r.get("self_heal_count") for r in iterations
-              if isinstance(r.get("self_heal_count"), int)
-              and not isinstance(r.get("self_heal_count"), bool)]
-        self_heal = max(sh) if sh else 0
-
-    latency_s = None
-    if terminal and iter_ts:
-        t0 = _sessionparse._parse_iso(min(iter_ts))
-        t1 = _sessionparse._parse_iso(terminal.get("ts"))
-        if t0 is not None and t1 is not None:
-            latency_s = round((t1 - t0).total_seconds(), 3)
 
     return {
         "feature": feature,
         "outcome": (outcome or {}).get("outcome", "unknown"),
-        "iterations_to_completion": n_iters,
-        "max_iterations": max_iter,
-        "max_iteration_utilization": max_util,
-        "iteration_efficiency": iteration_efficiency,
-        "tasks_closed": tasks_closed,
+        "iterations_to_completion": metrics["n_iters"],
+        "max_iterations": metrics["max_iter"],
+        "max_iteration_utilization": metrics["max_iteration_utilization"],
+        "iteration_efficiency": metrics["iteration_efficiency"],
+        "tasks_closed": metrics["tasks_closed"],
         "tasks_total": terminal.get("tasks_total"),
         "tasks_done": terminal.get("tasks_done"),
-        "self_heal_count": self_heal,
+        "self_heal_count": metrics["self_heal_count"],
         "promise_status": terminal.get("promise_status"),
-        "latency_s": latency_s,
-        "burndown": burndown,
-        "phase_wall_s": phase_wall,
-        "phase_tokens": phase_tokens,
-        "gates": gates,
+        "latency_s": _terminal_latency_s(terminal, fold["iter_ts"]),
+        "burndown": [{
+            "iteration": r["iteration"],
+            "tasks_remaining": r.get("tasks_remaining"),
+            "tasks_done_delta": r.get("tasks_done_delta", 0),
+        } for r in iterations],
+        "phase_wall_s": fold["phase_wall"],
+        "phase_tokens": {ph: by_phase[ph]["total_tokens"] for ph in by_phase},
+        "gates": fold["gates"],
         "event_count": len(events),
     }
 
@@ -268,6 +331,11 @@ _EXPORTS = [
     '_normalize_phase',
     'list_loop_features',
     'derive_loop_throughput',
+    '_fold_loop_events',
+    '_fold_main_event',
+    '_iteration_metrics',
+    '_self_heal_count',
+    '_terminal_latency_s',
     '_loop_analytics_for_feature',
     'derive_loop_analytics',
 ]

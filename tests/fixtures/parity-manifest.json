@@ -34,7 +34,7 @@
     "curated_table": "tests/_parity_curated.py"
   },
   "counts": {
-    "rows": 573,
+    "rows": 574,
     "by_dimension": {
       "assets": 20,
       "cli_surface": 130,
@@ -44,20 +44,20 @@
       "evaluation_quality": 4,
       "kb_integrity": 13,
       "loop_orchestration": 7,
-      "modularity": 19,
+      "modularity": 20,
       "org_team": 7,
       "retrieval_policy": 7,
       "security_trust": 7,
       "test_corpus": 256
     },
     "by_status": {
-      "required": 564,
+      "required": 565,
       "excluded": 5,
       "superseded": 4
     },
     "by_verification": {
       "generated": 482,
-      "curated": 86,
+      "curated": 87,
       "absence_probe": 5
     },
     "donor_side_rows_by_dimension": {
@@ -292,7 +292,8 @@
         78,
         79,
         82,
-        83
+        83,
+        99
       ]
     }
   ],
@@ -4136,6 +4137,27 @@
           "path": "scripts/agentware_lib/retrieval/recallcmd.py",
           "find": "p_recall.add_argument(\"--strategy\", choices=(\"bm25\", \"bm25+acr\"),",
           "replace": "p_recall.add_argument(\"--strategy\", choices=(\"bm25\",),"
+        }
+      }
+    },
+    {
+      "id": "mod:unit:agentactivity",
+      "dimension": "modularity",
+      "capability": "The per-agent ACTIVITY rollup owns its own module (`agentware_lib.ops.agentactivity`, task 99 wave 4): identity-based session selection, the active-window marker, and the per-day / per-feature breakdowns, carved out of `ops.derive` and COPYING every row it stamps, because those rows are held in the shared parse cache",
+      "sides": [
+        "local"
+      ],
+      "status": "required",
+      "verification": "curated",
+      "task": 99,
+      "evidence": {
+        "test": "tests.unit.ops.test_agentactivity",
+        "mutation": "drop the defensive copy in `_select_agent_sessions` (`r = dict(r)` -> `r = r`): the rollup then stamps `_identity` and `cost_usd` onto the CACHED rows, and the no-mutation assertion reddens",
+        "probe": {
+          "kind": "replace",
+          "path": "scripts/agentware_lib/ops/agentactivity.py",
+          "find": "        r = dict(r)            # never mutate the cached/shared row",
+          "replace": "        r = r"
         }
       }
     },

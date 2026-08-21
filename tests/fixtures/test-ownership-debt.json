@@ -1,5 +1,5 @@
 {
- "captured": "2026-08-20",
+ "captured": "2026-08-21",
  "groups": [
   {
    "owner": "task 101",
@@ -542,11 +542,6 @@
     },
     {
      "kind": "module_without_granular_test",
-     "location": "scripts/agentware_lib/ops/derive.py",
-     "value": "tests/unit/ops/test_derive.py"
-    },
-    {
-     "kind": "module_without_granular_test",
      "location": "scripts/agentware_lib/ops/deriveretrieval.py",
      "value": "tests/unit/ops/test_deriveretrieval.py"
     },
@@ -597,21 +592,6 @@
     },
     {
      "kind": "module_without_granular_test",
-     "location": "scripts/agentware_lib/ops/loopanalytics.py",
-     "value": "tests/unit/ops/test_loopanalytics.py"
-    },
-    {
-     "kind": "module_without_granular_test",
-     "location": "scripts/agentware_lib/ops/loophealth.py",
-     "value": "tests/unit/ops/test_loophealth.py"
-    },
-    {
-     "kind": "module_without_granular_test",
-     "location": "scripts/agentware_lib/ops/looptrace.py",
-     "value": "tests/unit/ops/test_looptrace.py"
-    },
-    {
-     "kind": "module_without_granular_test",
      "location": "scripts/agentware_lib/ops/metrics/metricsaggregate.py",
      "value": "tests/unit/ops/test_metricsaggregate.py"
     },
@@ -624,11 +604,6 @@
      "kind": "module_without_granular_test",
      "location": "scripts/agentware_lib/ops/metrics/metricspricing.py",
      "value": "tests/unit/ops/test_metricspricing.py"
-    },
-    {
-     "kind": "module_without_granular_test",
-     "location": "scripts/agentware_lib/ops/metricscmd.py",
-     "value": "tests/unit/ops/test_metricscmd.py"
     },
     {
      "kind": "module_without_granular_test",
@@ -905,7 +880,7 @@
  ],
  "note": "The residual the test-corpus OWNERSHIP rule found on the day it was first enforced (plan task 71). Read tests/_test_ownership.py for the rule and the ratchet semantics. A row here is subtracted from the live scan; a testless module at an undeclared location and a row the tree no longer produces are both failures, so this file only shrinks. Rows are grouped: the group carries the owner and the paragraph, each row carries only what varies. `value` is the granular path that WOULD own the module, so a row states the remedy and not only the complaint. DO NOT hand-add a row: `ratchet.max_rows` must equal the row count AND stay at or below the ceiling pinned by value in tests/gates/test_test_ownership.py, so legalising a new testless module takes two deliberate edits in two files.",
  "ratchet": {
-  "max_rows": 179
+  "max_rows": 174
  },
  "rows": [],
  "schema": "agentware/test-ownership-debt@1"

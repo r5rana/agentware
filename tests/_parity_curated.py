@@ -468,4 +468,14 @@ CURATED_ROWS = MERGE_ROWS + [
          "make `cmd_decide` take `args.topic` verbatim again: the id/path "
          "space assertions and the normalization-notice assertion redden, and "
          "`test_learn_hardening` stays green — which is the asymmetry itself"),
+    _row("mod:unit:agentactivity", "modularity",
+         "The per-agent ACTIVITY rollup owns its own module "
+         "(`agentware_lib.ops.agentactivity`, task 99 wave 4): identity-based "
+         "session selection, the active-window marker, and the per-day / "
+         "per-feature breakdowns, carved out of `ops.derive` and COPYING every "
+         "row it stamps, because those rows are held in the shared parse cache",
+         LOCAL, 99, "tests.unit.ops.test_agentactivity",
+         "drop the defensive copy in `_select_agent_sessions` (`r = dict(r)` -> "
+         "`r = r`): the rollup then stamps `_identity` and `cost_usd` onto the "
+         "CACHED rows, and the no-mutation assertion reddens"),
 ]
