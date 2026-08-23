@@ -56,6 +56,91 @@ a given scored list pins identically on every run (INV-1).
 SKILL_PIN_FLOOR = 0.85
 
 
+def _first_qualifying_skill(scored, threshold):
+    """Index of the first SKILL scoring at or above `threshold` AND above zero,
+    or None when no entry qualifies.
+
+    `scored` is sorted by score descending, so the FIRST match is the best one
+    and the scan stops there — which is why this is a search rather than a max:
+    a later skill can never beat an earlier one, and walking on would only cost
+    time. The `> 0` test is not redundant with the threshold: a `pin_floor` of
+    0.0 makes `threshold` 0.0, and a zero-scoring skill matches `>= 0.0`.
+    """
+    for i, (entry, score) in enumerate(scored):
+        if entry.get("category") == "skills" and score >= threshold and score > 0:
+            return i
+    return None
+
+
+def _protected_learning_ids(scored, top_k):
+    """The identities of the learnings the caller can currently SEE — those
+    inside the PRE-pin `top_k` window. Empty when there is no window (`top_k`
+    None: the eval/gate path surfaces everything, so nothing can fall out).
+
+    Keyed on `id()` rather than the entry's `id` FIELD: the guarantee is about
+    the objects this call was handed, and two distinct entries may legitimately
+    carry the same id string in a corpus that has not been deduplicated. Must be
+    computed BEFORE the pin moves anything, since after the move the window no
+    longer describes what the caller saw.
+    """
+    if top_k is None:
+        return set()
+    return set(id(entry) for (entry, _s) in scored[:top_k]
+               if entry.get("category") == "learnings")
+
+
+def _window_victim(scored, top_k):
+    """The lowest-ranked window entry eligible for eviction, or None.
+
+    Eligible means: not a learning (evicting one is the very thing the repair
+    exists to prevent), not a skill (the pin just promoted one, and demoting a
+    skill to protect a learning would undo R-RET-03's precedence), and not
+    position 0 (which holds the pinned skill itself). The scan runs from the
+    window's BOTTOM upward, so the entry that loses its place is always the
+    least-well-ranked one that may lose it.
+
+    None means the window is learnings plus the pinned skill and nothing else:
+    there is no eviction that does not break one of the two rules, and the
+    caller must GIVE UP rather than pick the least-bad victim.
+    """
+    for wi in range(top_k - 1, 0, -1):
+        if scored[wi][0].get("category") not in ("learnings", "skills"):
+            return wi
+    return None
+
+
+def _reprotect_learnings(scored, protected, top_k):
+    """Restore the learnings-are-never-evicted guarantee after the pin move.
+
+    A single pin move pushes exactly ONE entry out of the `top_k` window, so at
+    most one protected learning can have fallen out and the repair runs at most
+    once — which is why both arms below leave immediately. If that entry is a
+    protected learning it is swapped back to the victim's rank and the victim is
+    pushed just past the window edge, preserving the rank order of everything
+    else. Mutates `scored` in place; returns nothing.
+
+    Owns its own preconditions rather than being guarded at the call site: this
+    is the ONE place that knows a repair is meaningless without a window
+    (`top_k` None), without anything to protect (`protected` empty), or when the
+    window covers the whole list (nothing can fall out of it).
+    """
+    if top_k is None or not protected or top_k >= len(scored):
+        return
+    in_window = set(id(e) for (e, _s) in scored[:top_k])
+    for oi in range(top_k, len(scored)):
+        e = scored[oi][0]
+        if id(e) not in protected or id(e) in in_window:
+            continue
+        victim = _window_victim(scored, top_k)
+        if victim is None:
+            return  # window is all learnings + the pinned skill; cannot protect
+        learning_item = scored.pop(oi)     # oi > victim -> victim index stable
+        victim_item = scored.pop(victim)
+        scored.insert(victim, learning_item)
+        scored.insert(top_k, victim_item)  # push the victim just out of window
+        return  # only one entry can fall out from a single pin move
+
+
 def _apply_skill_pin(scored, pin_floor, top_k=None):
     """Apply the threshold-gated skill pin to a scored list.
 
@@ -72,54 +157,39 @@ def _apply_skill_pin(scored, pin_floor, top_k=None):
     Callers that trim to `top_k` (recall_ranked) pass it; the eval/gate path
     (retrieve_bm25 with top_k=None) is guarded by the self-contained pin
     regression check.
+
+    That guarantee is a POSTCONDITION of one repair step, not a property of any
+    single branch, which is why the repair lives in `_reprotect_learnings` and is
+    asserted directly rather than inferred from the order this function returns.
+    Mutates `scored` in place AND returns it — every caller relies on the return
+    value, and one (`retrieve_bm25`) also reads the list it passed in.
     """
     if pin_floor is None or not scored:
         return scored
-    top_score = scored[0][1] if scored else 0.0
+    top_score = scored[0][1]
     if top_score <= 0:
         return scored
-    threshold = pin_floor * top_score
-    best_skill_idx = None
-    for i, (entry, score) in enumerate(scored):
-        if entry.get("category") == "skills" and score >= threshold and score > 0:
-            best_skill_idx = i
-            break  # sorted by score desc, first skill above threshold wins
+    best_skill_idx = _first_qualifying_skill(scored, pin_floor * top_score)
     if best_skill_idx is None or best_skill_idx == 0:
         return scored  # no qualifying skill, or already at top
     # Learnings surfaced BEFORE the pin (in the pre-pin top_k window) to protect.
-    protected = set()
-    if top_k is not None:
-        for entry, _s in scored[:top_k]:
-            if entry.get("category") == "learnings":
-                protected.add(id(entry))
+    protected = _protected_learning_ids(scored, top_k)
     # Pin: move the skill to position 0.
     skill_item = scored.pop(best_skill_idx)
     scored.insert(0, skill_item)
     # A single pin move pushes exactly one entry out of the window; if that entry
     # is a protected learning, swap it back in by evicting the lowest-ranked
     # non-learning, non-skill window entry instead.
-    if top_k is not None and protected and top_k < len(scored):
-        in_window = set(id(e) for (e, _s) in scored[:top_k])
-        for oi in range(top_k, len(scored)):
-            e = scored[oi][0]
-            if id(e) in protected and id(e) not in in_window:
-                victim = None
-                for wi in range(top_k - 1, 0, -1):  # never evict the pinned skill (idx 0)
-                    if scored[wi][0].get("category") not in ("learnings", "skills"):
-                        victim = wi
-                        break
-                if victim is None:
-                    break  # window is all learnings + the pinned skill; cannot protect
-                learning_item = scored.pop(oi)     # oi > victim -> victim index stable
-                victim_item = scored.pop(victim)
-                scored.insert(victim, learning_item)
-                scored.insert(top_k, victim_item)  # push the victim just out of window
-                break  # only one entry can fall out from a single pin move
+    _reprotect_learnings(scored, protected, top_k)
     return scored
 
 
 _EXPORTS = [
     "SKILL_PIN_FLOOR",
+    "_first_qualifying_skill",
+    "_protected_learning_ids",
+    "_window_victim",
+    "_reprotect_learnings",
     "_apply_skill_pin",
 ]
 

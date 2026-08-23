@@ -143,6 +143,33 @@ def _sanitize_commit_tag(tag):
     return tag or "kb"
 
 
+def _first_line(text, fallback):
+    """First NON-BLANK line of `text`, or `fallback` when there is none.
+
+    The ONE definition of an idiom the KB-git sync path writes at six sites —
+    four in `ops.kbsync` and two in `ops.kbpull` — where a git CompletedProcess's
+    stderr (or stdout) must be reduced to one line for a human note.
+
+    TWO-STAGE by design, and the two stages are NOT interchangeable. Callers
+    pass `cp.stderr or OUTER` as `text` and a possibly-DIFFERENT INNER as
+    `fallback`, because the sites distinguish an ABSENT stderr from a BLANK one:
+    an empty stderr means git said nothing and the caller supplies its own
+    description of what failed ("rebase failed"), while a stderr that is truthy
+    but whitespace-only means git DID write something that carried no
+    information, which the callers report differently again ("unknown", or the
+    empty string). Collapsing the two into one fallback silently rewrites those
+    notes, so the parameterization is the contract rather than an artifact of
+    the extraction — `tests/unit/ops/test_kbgit.py` pins both directions.
+
+    Blank interior lines are dropped rather than merely stripped, which matches
+    the `[l for l in … if l.strip()]` spelling two of the six sites used; the
+    other four spelled it without the filter, and the two agree on every input
+    because `.strip()` already removes every leading line boundary.
+    """
+    lines = [l for l in (text or "").strip().splitlines() if l.strip()]
+    return lines[0] if lines else fallback
+
+
 _EXPORTS = [
     "git_is_work_tree",
     "git_has_upstream",
@@ -152,6 +179,7 @@ _EXPORTS = [
     "git_toplevel",
     "git_changed_paths",
     "_sanitize_commit_tag",
+    "_first_line",
 ]
 
 __all__ = list(_EXPORTS)

@@ -64,35 +64,73 @@ from agentware_lib.ops.sessionparse.minerfolds import (
 )
 
 
+def _cite_in_index(cite, kdir):
+    """RESOLVER 1 — True iff `cite` matches a live index row's `id` or `path`.
+
+    INV-2: `_allow_rebuild=False` — a read-only verb must NEVER trigger
+    load_index's transparent index.json rebuild (which writes index.json /
+    FEATURES.md / rosters / the BM25 cache). A missing or corrupt index is NOT
+    an error here: it degrades to False so the caller falls through to
+    `_cite_under_kdir`, which is the whole reason the two resolvers are a
+    disjunction rather than a chain of guards.
+
+    The bare `except Exception` is wider than the loader's own contract on
+    purpose: `shared/` is the attacker-influenced half of an org corpus, so the
+    index is UNTRUSTED input, and a premise gate the loop pre-hook runs must not
+    be the thing that raises on it.
+
+    The `isinstance(e, dict)` guard is load-bearing for the same reason — an
+    index whose `entries` holds a bare string would otherwise raise
+    AttributeError inside the gate.
+    """
+    try:
+        data, err = load_index(kdir, _allow_rebuild=False)
+    except Exception:
+        return False
+    if err is not None or not isinstance(data, dict):
+        return False
+    for e in data.get("entries") or []:
+        if isinstance(e, dict) and (e.get("id") == cite
+                                    or e.get("path") == cite):
+            return True
+    return False
+
+
+def _cite_under_kdir(cite, kdir):
+    """RESOLVER 2 — True iff `cite` names an existing path INSIDE the knowledge
+    dir. Work artifacts (`work/<feature>/worklog.md`) are NOT indexed, so an RCA
+    citation resolves by filesystem existence and by nothing else.
+
+    Containment is checked BEFORE existence, and that order is the security
+    property: a `cite:` escaping the knowledge dir is unresolvable REGARDLESS of
+    whether the target exists, so the gate can never be used to probe for files
+    outside the KB. `kdir` itself resolves (`cand == base`), which is what makes
+    a `.` citation legal.
+    """
+    try:
+        base = os.path.abspath(kdir)
+        cand = os.path.abspath(os.path.join(base, cite))
+        if not (cand == base or cand.startswith(base + os.sep)):
+            return False
+        return os.path.exists(cand)
+    except (ValueError, OSError):
+        return False
+
+
 def _premise_cite_resolves(cite, kdir):
     """True iff `cite` resolves to a live KB entry (indexed id/path) OR a real file
     under the knowledge dir (work artifacts are NOT indexed, so an RCA under work/
     resolves by filesystem existence). Path traversal escaping the KB is refused
-    (unresolvable). Read-only."""
+    (unresolvable). Read-only.
+
+    The two resolvers are INDEPENDENT and the order between them is not a
+    fallback ladder: an indexed entry whose file has been deleted still
+    resolves, and an unindexed file still resolves. Only the empty-input guard
+    is shared, because neither resolver can answer without both operands.
+    """
     if not cite or not kdir:
         return False
-    # INV-2: _allow_rebuild=False — a read-only verb must NEVER trigger load_index's
-    # transparent index.json rebuild (which writes index.json / FEATURES.md /
-    # rosters / the BM25 cache). A missing/corrupt index simply degrades to the
-    # filesystem-existence fallback below.
-    try:
-        data, err = load_index(kdir, _allow_rebuild=False)
-    except Exception:
-        data, err = None, "load error"
-    if err is None and isinstance(data, dict):
-        for e in data.get("entries") or []:
-            if isinstance(e, dict) and (e.get("id") == cite
-                                        or e.get("path") == cite):
-                return True
-    try:
-        base = os.path.abspath(kdir)
-        cand = os.path.abspath(os.path.join(base, cite))
-        if (cand == base or cand.startswith(base + os.sep)) \
-                and os.path.exists(cand):
-            return True
-    except (ValueError, OSError):
-        pass
-    return False
+    return _cite_in_index(cite, kdir) or _cite_under_kdir(cite, kdir)
 
 
 def _eval_check_cite_live(rec, kdir):
@@ -150,7 +188,62 @@ def _premise_path_state(path):
         return "error"
 
 
+def _path_verdict(ok, detail_true, detail_false):
+    """The two-sided half of a path check: grounded/falsified plus the detail
+    that says which way it went.
+
+    Both details are computed by the CALLER and passed in, rather than being
+    formatted here from a template, because the three path modes phrase the same
+    binary differently ("exists" / "is ABSENT", "is absent" / "EXISTS",
+    "mtime(x) < iso" / "mtime(x) >= iso") and a shared template would either
+    lose that wording or grow a mode parameter that re-creates the dispatch this
+    helper exists to remove. Note the deliberate asymmetry the wording carries:
+    the FALSIFYING side is SHOUTED in the first two modes, because that string
+    is what an operator reads when the loop halts.
+
+    This helper NEVER returns `uncheckable`: every uncheckable arm is a
+    different KIND of outcome (no kdir, escape, stat error, unparseable bound)
+    and belongs to the caller that can name it.
+    """
+    return {"verdict": "grounded" if ok else "falsified",
+            "detail": detail_true if ok else detail_false}
+
+
+def _eval_path_mtime_before(cand, rel, iso, exists):
+    """The `path mtime-before <ISO> <rel>` arm — the ONLY time comparison in the
+    system, and an AUTHOR-SUPPLIED one (INV-1: never `now()`, so the same plan
+    against the same corpus always decides the same way).
+
+    Three separate uncheckable arms, and collapsing any pair of them is the bug
+    this shape exists to prevent: an ABSENT target has no mtime to compare, an
+    UNPARSEABLE bound is an authoring error, and a stat that fails on the SECOND
+    call (the tri-state probe already succeeded) is a genuine I/O fault. None of
+    the three is a falsification, because none of them is evidence that the
+    premise stopped holding.
+    """
+    if not exists:
+        return {"verdict": "uncheckable",
+                "detail": "%s absent (cannot compare mtime)" % rel}
+    bound = _parse_iso_to_epoch(iso)
+    if bound is None:
+        return {"verdict": "uncheckable", "detail": "unparseable ISO %r" % iso}
+    try:
+        mt = os.stat(cand).st_mtime
+    except OSError as exc:
+        return {"verdict": "uncheckable", "detail": "stat failed: %s" % exc}
+    return _path_verdict(mt < bound,
+                         "mtime(%s) < %s" % (rel, iso),
+                         "mtime(%s) >= %s" % (rel, iso))
+
+
 def _eval_check_path(parsed, kdir):
+    """Dispatch a parsed `path` check over the three closed modes.
+
+    Argument ORDER differs by mode and that is the grammar, not an accident:
+    `mtime-before` reads `<ISO> <rel>` so the bound sits beside the mode it
+    qualifies, while `exists`/`absent` read `<rel>` alone. The parser has
+    already enforced the arity, so indexing here is total.
+    """
     mode = parsed["args"][0]
     if mode == "mtime-before":
         iso, rel = parsed["args"][1], parsed["args"][2]
@@ -173,25 +266,84 @@ def _eval_check_path(parsed, kdir):
                 "detail": "cannot stat %s (permission or I/O error)" % rel}
     exists = state == "exists"
     if mode == "exists":
-        return {"verdict": "grounded" if exists else "falsified",
-                "detail": "%s %s" % (rel, "exists" if exists else "is ABSENT")}
+        return _path_verdict(exists, "%s exists" % rel, "%s is ABSENT" % rel)
     if mode == "absent":
-        return {"verdict": "grounded" if not exists else "falsified",
-                "detail": "%s %s" % (rel, "is absent" if not exists else "EXISTS")}
-    # mtime-before ISO — author-supplied bound, never now()
-    if not exists:
-        return {"verdict": "uncheckable",
-                "detail": "%s absent (cannot compare mtime)" % rel}
-    bound = _parse_iso_to_epoch(iso)
-    if bound is None:
-        return {"verdict": "uncheckable", "detail": "unparseable ISO %r" % iso}
+        return _path_verdict(not exists, "%s is absent" % rel,
+                             "%s EXISTS" % rel)
+    return _eval_path_mtime_before(cand, rel, iso, exists)
+
+
+def _corpus_metric_recurrence_keys(logs):
+    """FOLD 1 — how many normalised prompt keys reach MINER_RECURRENCE_N DISTINCT
+    sessions AND pass the F-C relevance gate. int, or None when the SOURCE is
+    unavailable.
+
+    Reuses the SAME folds the miner emits with (`_parse_prompts_records`,
+    `_transcript_norm_key`, `_transcript_recurrence_relevant`,
+    `MINER_RECURRENCE_N`, `_transcript_recurrence_gate`) WITHOUT building any
+    record, so grounding a premise can never mutate real miner state (INV-2).
+
+    THE NONE/0 SPLIT IS THE CONTRACT, and there are three ways to reach None and
+    one way to reach 0. An absent `prompts.log` and an unreadable one are both
+    ABSENCES of the source. The bare `except Exception` around the fold is the
+    third: `_parse_prompts_records` is tolerant of content, but a fold that
+    raises has produced a PARTIAL tally, and returning a partial count as if it
+    were a total is how a grounded premise gets falsified by a corpus fault. A
+    prompts.log that is present and parses to nothing is a genuine 0.
+    """
+    logp = os.path.join(logs, "prompts.log")
+    if not os.path.isfile(logp):
+        return None   # source absent -> uncheckable (fail-open), not a 0
     try:
-        mt = os.stat(cand).st_mtime
-    except OSError as exc:
-        return {"verdict": "uncheckable", "detail": "stat failed: %s" % exc}
-    ok = mt < bound
-    return {"verdict": "grounded" if ok else "falsified",
-            "detail": "mtime(%s) %s %s" % (rel, "<" if ok else ">=", iso)}
+        with open(logp, "rb") as f:
+            raw = f.read().decode("utf-8", "replace")
+    except OSError:
+        return None
+    gate = _transcript_recurrence_gate()
+    sessions_by_key = {}
+    try:
+        for hdr, body in _parse_prompts_records(raw):
+            if hdr.get("origin") != "human":
+                continue
+            b = (body or "").strip()
+            if not b:
+                continue
+            key = _transcript_norm_key(b)
+            if not key:
+                continue
+            sessions_by_key.setdefault(key, set()).add(hdr.get("sid") or "")
+    except Exception:
+        return None
+    return sum(1 for key, sids in sessions_by_key.items()
+               if len(sids) >= MINER_RECURRENCE_N
+               and _transcript_recurrence_relevant(key, gate))
+
+
+def _corpus_metric_error_records(kdir, logs):
+    """FOLD 2 — how many ERR-status records the KB's OWN session live.jsonl files
+    carry. int, or None when NOT ONE session live.jsonl exists.
+
+    `any_live` is the whole reason this is not a plain sum: a KB with sessions
+    but no live.jsonl anywhere has an UNAVAILABLE source, and reporting that as
+    0 would falsify every `claude-error-records >= n` premise ever written — the
+    exact D5 DoS the fail-open rule exists to prevent. A live.jsonl that exists
+    and carries no ERR record is a genuine 0.
+
+    The `isinstance(r, dict)` guard is not defensive tidiness: `_transcript_read_live`
+    yields whatever each line decodes to, so a JSON array line would otherwise
+    raise AttributeError inside a gate the loop pre-hook runs.
+    """
+    n, any_live = 0, False
+    for sid in _transcript_list_session_ids(kdir):
+        lpath = os.path.join(logs, "sessions", sid, "live.jsonl")
+        if not os.path.isfile(lpath):
+            continue
+        any_live = True
+        for r in _transcript_read_live(lpath):
+            if isinstance(r, dict) and _transcript_is_err_status(
+                    r.get("status")):
+                n += 1
+    return n if any_live else None
 
 
 def _premise_corpus_metric_value(metric, kdir):
@@ -217,52 +369,9 @@ def _premise_corpus_metric_value(metric, kdir):
     if not os.path.isdir(logs):
         return None
     if metric == "recurrence-keys-at-n":
-        # Reuse the SAME folds the miner emits with — _parse_prompts_records,
-        # _transcript_norm_key, _transcript_recurrence_relevant, MINER_RECURRENCE_N,
-        # _transcript_recurrence_gate — counting keys that reach N DISTINCT sessions
-        # AND pass the F-C relevance gate, WITHOUT building records (no side effects).
-        logp = os.path.join(logs, "prompts.log")
-        if not os.path.isfile(logp):
-            return None   # source absent -> uncheckable (fail-open), not a 0
-        try:
-            with open(logp, "rb") as f:
-                raw = f.read().decode("utf-8", "replace")
-        except OSError:
-            return None
-        gate = _transcript_recurrence_gate()
-        sessions_by_key = {}
-        try:
-            for hdr, body in _parse_prompts_records(raw):
-                if hdr.get("origin") != "human":
-                    continue
-                b = (body or "").strip()
-                if not b:
-                    continue
-                key = _transcript_norm_key(b)
-                if not key:
-                    continue
-                sessions_by_key.setdefault(key, set()).add(hdr.get("sid") or "")
-        except Exception:
-            return None
-        return sum(1 for key, sids in sessions_by_key.items()
-                   if len(sids) >= MINER_RECURRENCE_N
-                   and _transcript_recurrence_relevant(key, gate))
+        return _corpus_metric_recurrence_keys(logs)
     if metric == "claude-error-records":
-        # Count ERR-status records across the KB's own live.jsonl files (the fold
-        # _transcript_is_err_status). KB-scoped -> hermetic + deterministic. If NO
-        # session live.jsonl exists at all, the source is unavailable -> None
-        # (uncheckable / fail-open), never a 0 that could falsify a grounded premise.
-        n, any_live = 0, False
-        for sid in _transcript_list_session_ids(kdir):
-            lpath = os.path.join(logs, "sessions", sid, "live.jsonl")
-            if not os.path.isfile(lpath):
-                continue
-            any_live = True
-            for r in _transcript_read_live(lpath):
-                if isinstance(r, dict) and _transcript_is_err_status(
-                        r.get("status")):
-                    n += 1
-        return n if any_live else None
+        return _corpus_metric_error_records(kdir, logs)
     return None
 
 
@@ -287,7 +396,36 @@ def _eval_check_corpus_metric(parsed, kdir):
 
 def evaluate_premise(rec, kdir):
     """Evaluate ONE premise record against live state. Pure/read-only.
-    Returns {verdict ∈ grounded|falsified|uncheckable, detail, ...}."""
+    Returns {verdict ∈ grounded|falsified|uncheckable, detail, ...}.
+
+    THE FALLBACK PARSE, AND WHY THE IMPORT IS FUNCTION-LOCAL
+    -------------------------------------------------------
+    A record that arrives WITHOUT a usable `parsed` is parsed here. In the
+    monolith that needed no import at all: `_parse_premise_check` and this
+    function were two globals in ONE namespace. The strangler split put the
+    parser in `ops.planpremises` (the trust boundary) and the evaluator here
+    (the read-only I/O half) and left the fallback naming a symbol this module
+    does not bind — so from the split until task 99 wave 14 it raised
+    `NameError` instead of parsing. Nothing caught it because nothing in-tree
+    can reach it: `plan_premises` stamps `parsed` on EVERY record it emits, so
+    the only callers that take this arm are external ones reaching
+    `CLI.evaluate_premise` with a hand-built record, which is exactly the shape
+    the facade's `_EXPORTS` list promises still works.
+
+    The import is FUNCTION-LOCAL and stays that way. `ops.planpremises` imports
+    THIS module at module level, so a module-level import here would close an
+    import cycle and fix the package's load order; a call-time edge cannot
+    (R-MOD-02's documented escape hatch, the same one `ops/audit.py` uses).
+    The module's security seam is unaffected: this half still never DECIDES what
+    a premise may say — it asks the trust boundary, which is the only thing that
+    parses, so a check bearing a shell metacharacter is still rejected there and
+    still arrives as `__rejected__`.
+
+    Note the `or`, which is load-bearing: a FALSY `parsed` (None, or an empty
+    dict) re-parses rather than dispatching on a `kind` of None. Only a parse
+    result carrying a kind short-circuits it.
+    """
+    from agentware_lib.ops.planpremises import _parse_premise_check
     parsed = rec.get("parsed") or _parse_premise_check(rec.get("check") or "")
     kind = parsed.get("kind")
     if kind == "__rejected__":

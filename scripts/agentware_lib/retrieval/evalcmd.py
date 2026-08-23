@@ -1,8 +1,9 @@
 """agentware_lib.retrieval.evalcmd -- the `eval` verb: gold-set benchmark CLI.
 
 Owns: the ablation instrument (_ABLATE_METRIC_KEYS + evaluate_ablation), the
-`eval` CLI handler family (cmd_eval + the suite/gate sub-runners _run_acr_gate,
-_run_longmemeval_suite, _run_gold_fixture_suite and the ACR-gate text printers
+`eval` CLI handler family (cmd_eval as a pure dispatcher + the suite/gate
+sub-runners _run_acr_gate, _run_longmemeval_suite, _run_gold_fixture_suite,
+_run_ablate_suite, _run_default_suite and the ACR-gate text printers
 _ok / _print_acr_gate) and the `eval` parser registrar (register_eval, declared in
 this module's `__verbs__` and resolved from there by the assembler;
 handler+registrar travel together).
@@ -16,20 +17,24 @@ evaluate_gate/_record_and_gate/_gate_exit/_print_gate/_print_ab/run_ab_gate ->
 agentware_lib.retrieval.regressiongate), the LongMemEval scorer (evaluate_longmemeval +
 _LME_DEFAULT_REL -> agentware_lib.retrieval.longmemeval), the gold-fixture scorer
 (evaluate_gold_fixture/gold_fixture_path/GOLD_FIXTURE_SUITE ->
-agentware_lib.retrieval.goldfixture) or the scorecard writer (write_scorecard ->
-agentware_lib.retrieval.scorecard). Sibling FUNCTIONS are held via the _metrics_rank/
-_acrgate/_ledger/_regressiongate/_longmemeval/_goldfixture/_scorecard module aliases
+agentware_lib.retrieval.goldfixture), the scorecard writer (write_scorecard ->
+agentware_lib.retrieval.scorecard) or -- since task 99 wave 10 -- the suite GUARDS
+and human REPORT renderers (validate_scoring_args/validate_lme_args/
+record_and_gate_suite/print_{recorded_line,longmemeval_report,gold_fixture_report,
+ablate_report,default_report} -> agentware_lib.retrieval.evalsuites, a sibling this
+module imports and which never imports back, so evaluate_ablation can stay here). Sibling FUNCTIONS are held via the _metrics_rank/
+_acrgate/_ledger/_regressiongate/_longmemeval/_goldfixture/_scorecard/_evalsuites module aliases
 and referenced by ATTRIBUTE so the bytecode global-resolve gate never walks a foreign
 sibling function held in this module's __dict__; the sibling CONSTANTS the registrar +
-handlers read (ACR_GATE_MARGIN/ACR_GATE_ALPHA/HISTORY_REL/_LME_DEFAULT_REL/
+handlers read (ACR_GATE_MARGIN/ACR_GATE_ALPHA/HISTORY_REL/
 GOLD_FIXTURE_SUITE) are imported BY NAME (gate-clean -- constants have no code object --
 so register_eval and every handler body stay byte-verbatim). Nor the knowledge index --
 cmd_eval imports it LAZILY (`from agentware_lib.knowledge import index`) because
 retrieval->knowledge must stay function-local (layer discipline).
 
-Layer deps: retrieval -> core (config, dates; module level) + the sibling
-retrieval.{metrics_rank,acrgate,ledger,regressiongate,longmemeval,goldfixture,scorecard}
-(by module alias, attribute reads; the 5 constants by name) + knowledge.index LAZILY
+Layer deps: retrieval -> core (config; module level) + the sibling
+retrieval.{metrics_rank,acrgate,ledger,regressiongate,longmemeval,goldfixture,scorecard,evalsuites}
+(by module alias, attribute reads; the 3 remaining constants by name) + knowledge.index LAZILY
 (function-local, cmd_eval only). No ops/features/cli import. _EXPORTS lists the ablation
 instrument + the eval handler family for the entrypoint by-name facade (the dream
 eval-capture step reaches cmd_eval as a bare name; the flat legacy oracles reach the
@@ -41,8 +46,8 @@ import os
 import sys
 
 import agentware_lib.core.config as config
-import agentware_lib.core.dates as dates
 from agentware_lib.retrieval import acrgate as _acrgate
+from agentware_lib.retrieval import evalsuites as _evalsuites
 from agentware_lib.retrieval import goldfixture as _goldfixture
 from agentware_lib.retrieval import ledger as _ledger
 from agentware_lib.retrieval import longmemeval as _longmemeval
@@ -52,7 +57,6 @@ from agentware_lib.retrieval import scorecard as _scorecard
 from agentware_lib.retrieval.acrgate import ACR_GATE_MARGIN, ACR_GATE_ALPHA
 from agentware_lib.retrieval.goldfixture import GOLD_FIXTURE_SUITE
 from agentware_lib.retrieval.ledger import HISTORY_REL
-from agentware_lib.retrieval.longmemeval import _LME_DEFAULT_REL
 
 _ABLATE_METRIC_KEYS = (
     "recall_at_k", "precision_at_k", "ndcg_at_k", "mrr",
@@ -188,96 +192,32 @@ def _run_longmemeval_suite(args, kdir, data):
     immutable ledger row, and prints a human or JSON report. Read-only w.r.t. the
     KB except the append-only ledger.
     """
-    dataset_path = (getattr(args, "dataset", None)
-                    or os.path.join(kdir, _LME_DEFAULT_REL))
-    if not os.path.exists(dataset_path):
-        sys.stderr.write(
-            "agentware: longmemeval dataset not found: %s\n"
-            "  acquire it per benchmarks/longmemeval/DATASET.md, or pass "
-            "--dataset <path>\n" % dataset_path)
-        return 1
-    if args.top_k <= 0:
-        sys.stderr.write("agentware: --top-k must be a positive integer\n")
-        return 1
-    as_of = getattr(args, "as_of", None) or dates._today()
-    if not dates._is_valid_date(as_of):
-        sys.stderr.write("agentware: --as-of must be a YYYY-MM-DD date\n")
-        return 1
-    limit = getattr(args, "limit", None)
-    if limit is not None and limit <= 0:
-        sys.stderr.write("agentware: --limit must be a positive integer\n")
-        return 1
-
+    dataset_path, as_of, err = _evalsuites.validate_lme_args(args, kdir)
+    if err is not None:
+        return err
     try:
-        result = _longmemeval.evaluate_longmemeval(kdir, dataset_path, args.strategy,
-                                      args.top_k, as_of=as_of, limit=limit)
+        result = _longmemeval.evaluate_longmemeval(
+            kdir, dataset_path, args.strategy, args.top_k, as_of=as_of,
+            limit=getattr(args, "limit", None))
     except NotImplementedError as exc:
         sys.stderr.write("agentware: %s\n" % exc)
         return 2
     except (ValueError, OSError, json.JSONDecodeError) as exc:
+        # WIDER than the gold-fixture arm's, and deliberately so: this suite
+        # reads an operator-supplied dataset FILE, so an unreadable path
+        # (OSError) or a malformed one (JSONDecodeError) is an input problem to
+        # report, not a crash. The frozen fixture ships with the package, so
+        # there is nothing there for an OSError to mean.
         sys.stderr.write("agentware: %s\n" % exc)
         return 1
     result["gold_path"] = dataset_path
-
-    want_gate = getattr(args, "gate", False)
-    recorded, gate = None, None
-    if getattr(args, "record", False) or want_gate:
-        ledger_path = os.path.join(kdir, HISTORY_REL)
-        prior_rows = _ledger._read_ledger(ledger_path) if want_gate else None
-        recorded = _ledger.record_ledger_suite(kdir, data, result)
-        result["recorded"] = {
-            "path": ledger_path, "commit": recorded["commit"],
-            "run": recorded["run"], "reliability": recorded["reliability"],
-        }
-        if want_gate:
-            baseline = _regressiongate.gate_baseline(prior_rows, recorded["strategy"],
-                                     recorded.get("suite"),
-                                     recorded.get("corpus_fingerprint"))
-            passed, regressions = _regressiongate.evaluate_gate(
-                recorded["metrics"], recorded["reliability"], baseline,
-                args.tolerance)
-            gate = {
-                "passed": passed, "tolerance": args.tolerance,
-                "strategy": recorded["strategy"], "suite": "longmemeval",
-                "seeded": baseline is None, "baseline": baseline,
-                "regressions": [
-                    {"metric": m, "baseline": b, "current": c}
-                    for m, b, c in regressions],
-            }
-            result["gate"] = gate
-
+    recorded, gate = _evalsuites.record_and_gate_suite(
+        args, kdir, data, result, "longmemeval")
     if args.format == "json":
         json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return _regressiongate._gate_exit(gate)
-
-    m = result["metrics"]
-    k = result["top_k"]
-    ab = result["abstention"]
-    print("eval --suite longmemeval: strategy=%s  top_k=%d  answerable=%d" % (
-        result["strategy"], k, result["num_queries"]))
-    print("  dataset: %s" % dataset_path)
-    print("  as_of  : %s" % result["as_of"])
-    print("  Recall@%d     : %.4f" % (k, m["recall_at_k"]))
-    print("  Precision@%d  : %.4f" % (k, m["precision_at_k"]))
-    print("  nDCG@%d       : %.4f" % (k, m["ndcg_at_k"]))
-    print("  MRR           : %.4f" % m["mrr"])
-    print("  latency (ms)  : mean=%.3f  p50=%.3f" % (
-        m["latency_ms_mean"], m["latency_ms_p50"]))
-    print("  determinism   : %s" % ("ok" if result["determinism_ok"] else "FAIL"))
-    print("  per-category (Recall@%d / nDCG@%d / MRR / n):" % (k, k))
-    for cat in sorted(result["per_category"]):
-        c = result["per_category"][cat]
-        print("    %-26s R=%.4f  nDCG=%.4f  MRR=%.4f  n=%d" % (
-            cat, c["recall_at_k"], c["ndcg_at_k"], c["mrr"], c["num_queries"]))
-    print("  abstention (excluded from Recall; reported separately): %d" % (
-        ab["count"]))
-    for cat in sorted(ab["by_category"]):
-        print("    %-26s n=%d" % (cat, ab["by_category"][cat]))
-    if recorded is not None:
-        print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
-            os.path.join(kdir, HISTORY_REL), recorded["commit"],
-            recorded["reliability"], recorded["run"]))
+    _evalsuites.print_longmemeval_report(result, dataset_path, recorded, kdir)
     _regressiongate._print_gate(gate)
     return _regressiongate._gate_exit(gate)
 
@@ -291,13 +231,9 @@ def _run_gold_fixture_suite(args, kdir, data):
     row (suite="gold-fixture"). Read-only w.r.t. the KB except the append-only
     ledger.
     """
-    if args.top_k <= 0:
-        sys.stderr.write("agentware: --top-k must be a positive integer\n")
-        return 1
-    as_of = getattr(args, "as_of", None) or dates._today()
-    if not dates._is_valid_date(as_of):
-        sys.stderr.write("agentware: --as-of must be a YYYY-MM-DD date\n")
-        return 1
+    as_of, err = _evalsuites.validate_scoring_args(args)
+    if err is not None:
+        return err
     fixture_path = getattr(args, "gold", None) or _goldfixture.gold_fixture_path()
     try:
         result = _goldfixture.evaluate_gold_fixture(kdir, fixture_path, args.strategy,
@@ -306,60 +242,95 @@ def _run_gold_fixture_suite(args, kdir, data):
         sys.stderr.write("agentware: %s\n" % exc)
         return 2
     except ValueError as exc:
+        # NARROWER than the longmemeval arm's on purpose: the corpus ships
+        # FROZEN with the package, so a malformed one is a packaging defect and
+        # an OSError reading it is not an operator input to report -- both
+        # should surface as the crash they are rather than as exit 1.
         sys.stderr.write("agentware: %s\n" % exc)
         return 1
     result["gold_path"] = fixture_path
-
-    want_gate = getattr(args, "gate", False)
-    recorded, gate = None, None
-    if getattr(args, "record", False) or want_gate:
-        ledger_path = os.path.join(kdir, HISTORY_REL)
-        prior_rows = _ledger._read_ledger(ledger_path) if want_gate else None
-        recorded = _ledger.record_ledger_suite(kdir, data, result)
-        result["recorded"] = {
-            "path": ledger_path, "commit": recorded["commit"],
-            "run": recorded["run"], "reliability": recorded["reliability"],
-        }
-        if want_gate:
-            baseline = _regressiongate.gate_baseline(prior_rows, recorded["strategy"],
-                                     recorded.get("suite"),
-                                     recorded.get("corpus_fingerprint"))
-            passed, regressions = _regressiongate.evaluate_gate(
-                recorded["metrics"], recorded["reliability"], baseline,
-                args.tolerance)
-            gate = {
-                "passed": passed, "tolerance": args.tolerance,
-                "strategy": recorded["strategy"], "suite": GOLD_FIXTURE_SUITE,
-                "seeded": baseline is None, "baseline": baseline,
-                "regressions": [
-                    {"metric": m, "baseline": b, "current": c}
-                    for m, b, c in regressions],
-            }
-            result["gate"] = gate
-
+    recorded, gate = _evalsuites.record_and_gate_suite(
+        args, kdir, data, result, GOLD_FIXTURE_SUITE)
     if args.format == "json":
         json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return _regressiongate._gate_exit(gate)
-
-    m = result["metrics"]
-    k = result["top_k"]
-    print("eval --suite gold-fixture: strategy=%s  top_k=%d  queries=%d" % (
-        result["strategy"], k, result["num_queries"]))
-    print("  fixture: %s" % fixture_path)
-    print("  as_of  : %s" % result["as_of"])
-    print("  fingerprint: %s" % result.get("corpus_fingerprint"))
-    print("  Recall@%d     : %.4f" % (k, m["recall_at_k"]))
-    print("  Precision@%d  : %.4f" % (k, m["precision_at_k"]))
-    print("  nDCG@%d       : %.4f" % (k, m["ndcg_at_k"]))
-    print("  MRR           : %.4f" % m["mrr"])
-    print("  determinism   : %s" % ("ok" if result["determinism_ok"] else "FAIL"))
-    if recorded is not None:
-        print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
-            os.path.join(kdir, HISTORY_REL), recorded["commit"],
-            recorded["reliability"], recorded["run"]))
+    _evalsuites.print_gold_fixture_report(result, fixture_path, recorded, kdir)
     _regressiongate._print_gate(gate)
     return _regressiongate._gate_exit(gate)
+
+def _run_ablate_suite(args, kdir, data, gold, gold_path, as_of):
+    """Run `eval --ablate`: the same gold set through two strategies, with lift.
+
+    Split out of `cmd_eval` at task 99 wave 10. It stays in THIS module rather
+    than moving to `evalsuites` with its report, and the reason is a cycle:
+    `evaluate_ablation` -- the instrument this arm exists to run -- lives here,
+    and a sibling that called it would have to import this module while this
+    module imports it.
+
+    The same-strategy refusal is the arm's one input guard and is checked
+    BEFORE any scoring: `--baseline x --treatment x` reports a delta of exactly
+    zero for every metric, which reads as a measurement rather than a mistake.
+    """
+    baseline = getattr(args, "baseline", "tag")
+    treatment = getattr(args, "treatment", "bm25")
+    if baseline == treatment:
+        sys.stderr.write(
+            "agentware: --baseline and --treatment must differ (got %s)\n"
+            % baseline)
+        return 1
+    try:
+        result = evaluate_ablation(kdir, data, gold, args.top_k,
+                                   baseline=baseline, treatment=treatment,
+                                   as_of=as_of)
+        result["as_of"] = as_of
+    except NotImplementedError as exc:
+        sys.stderr.write("agentware: %s\n" % exc)
+        return 2
+    result["gold_path"] = gold_path
+    recorded, gate = _regressiongate._record_and_gate(
+        args, kdir, data, gold, gold_path, result)
+    if args.format == "json":
+        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return _regressiongate._gate_exit(gate)
+    _evalsuites.print_ablate_report(result, gold_path, recorded, kdir)
+    _regressiongate._print_gate(gate)
+    return _regressiongate._gate_exit(gate)
+
+
+def _run_default_suite(args, kdir, data, gold, gold_path, as_of):
+    """Run plain `eval`: score ONE strategy over the operator's own gold set.
+
+    Split out of `cmd_eval` at task 99 wave 10; it stays in this module for the
+    same reason as its ablate sibling, so the two arms of one command are not
+    split across two files.
+
+    This is the ONLY arm that can run the clean-HEAD A/B gate, and the A/B
+    verdict is a SECOND, independent gate: `_gate_exit(gate, ab)` takes both, so
+    a run that passes the regression gate and fails the A/B still exits
+    non-zero. Passing only `gate` there is a change no report can show.
+    """
+    try:
+        result = _metrics_rank.evaluate(kdir, data, gold, args.strategy, args.top_k, as_of=as_of)
+    except NotImplementedError as exc:
+        sys.stderr.write("agentware: %s\n" % exc)
+        return 2
+    result["gold_path"] = gold_path
+    result["as_of"] = as_of
+    recorded, gate = _regressiongate._record_and_gate(
+        args, kdir, data, gold, gold_path, result)
+    ab = (_regressiongate.run_ab_gate(args, kdir, result, gold_path)
+          if getattr(args, "ab", False) else None)
+    if args.format == "json":
+        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return _regressiongate._gate_exit(gate, ab)
+    _evalsuites.print_default_report(result, gold_path, recorded, kdir)
+    _regressiongate._print_gate(gate)
+    _regressiongate._print_ab(ab)
+    return _regressiongate._gate_exit(gate, ab)
+
 
 def cmd_eval(args):
     kdir = config.require_knowledge_dir()
@@ -382,13 +353,9 @@ def cmd_eval(args):
         sys.stderr.write("agentware: %s\n" % gerr)
         return 1
 
-    if args.top_k <= 0:
-        sys.stderr.write("agentware: --top-k must be a positive integer\n")
-        return 1
-    as_of = getattr(args, "as_of", None) or dates._today()
-    if not dates._is_valid_date(as_of):
-        sys.stderr.write("agentware: --as-of must be a YYYY-MM-DD date\n")
-        return 1
+    as_of, err = _evalsuites.validate_scoring_args(args)
+    if err is not None:
+        return err
 
     if getattr(args, "acr_gate", False):
         try:
@@ -398,89 +365,8 @@ def cmd_eval(args):
             return 2
 
     if getattr(args, "ablate", False):
-        baseline = getattr(args, "baseline", "tag")
-        treatment = getattr(args, "treatment", "bm25")
-        if baseline == treatment:
-            sys.stderr.write(
-                "agentware: --baseline and --treatment must differ (got %s)\n"
-                % baseline)
-            return 1
-        try:
-            result = evaluate_ablation(kdir, data, gold, args.top_k,
-                                       baseline=baseline, treatment=treatment,
-                                       as_of=as_of)
-            result["as_of"] = as_of
-        except NotImplementedError as exc:
-            sys.stderr.write("agentware: %s\n" % exc)
-            return 2
-        result["gold_path"] = gold_path
-        recorded, gate = _regressiongate._record_and_gate(args, kdir, data, gold, gold_path, result)
-        if args.format == "json":
-            json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-            return _regressiongate._gate_exit(gate)
-        k = result["top_k"]
-        base, treat = result["baseline"], result["treatment"]
-        bm, tm = result["strategies"][base], result["strategies"][treat]
-        d = result["delta"]
-        print("eval --ablate: %s (baseline) vs %s  top_k=%d  queries=%d" % (
-            base, treat, k, result["num_queries"]))
-        print("  gold: %s" % gold_path)
-        labels = [
-            ("Recall@%d" % k, "recall_at_k"),
-            ("Precision@%d" % k, "precision_at_k"),
-            ("nDCG@%d" % k, "ndcg_at_k"),
-            ("MRR", "mrr"),
-            ("latency_ms_mean", "latency_ms_mean"),
-            ("latency_ms_p50", "latency_ms_p50"),
-            ("ctx_tokens_mean", "context_tokens_mean"),
-        ]
-        print("  %-16s %12s %12s %12s" % ("metric", base, treat, "delta"))
-        for label, key in labels:
-            print("  %-16s %12.4f %12.4f %+12.4f" % (
-                label, bm[key], tm[key], d[key]))
-        if recorded is not None:
-            print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
-                os.path.join(kdir, HISTORY_REL), recorded["commit"],
-                recorded["reliability"], recorded["run"]))
-        _regressiongate._print_gate(gate)
-        return _regressiongate._gate_exit(gate)
-
-    try:
-        result = _metrics_rank.evaluate(kdir, data, gold, args.strategy, args.top_k, as_of=as_of)
-    except NotImplementedError as exc:
-        sys.stderr.write("agentware: %s\n" % exc)
-        return 2
-    result["gold_path"] = gold_path
-    result["as_of"] = as_of
-    recorded, gate = _regressiongate._record_and_gate(args, kdir, data, gold, gold_path, result)
-    ab = (_regressiongate.run_ab_gate(args, kdir, result, gold_path)
-          if getattr(args, "ab", False) else None)
-
-    if args.format == "json":
-        json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-        return _regressiongate._gate_exit(gate, ab)
-
-    m = result["metrics"]
-    k = result["top_k"]
-    print("eval: strategy=%s  top_k=%d  queries=%d" % (
-        result["strategy"], k, result["num_queries"]))
-    print("  gold: %s" % gold_path)
-    print("  Recall@%d     : %.4f" % (k, m["recall_at_k"]))
-    print("  Precision@%d  : %.4f" % (k, m["precision_at_k"]))
-    print("  nDCG@%d       : %.4f" % (k, m["ndcg_at_k"]))
-    print("  MRR           : %.4f" % m["mrr"])
-    print("  latency (ms)  : mean=%.3f  p50=%.3f" % (
-        m["latency_ms_mean"], m["latency_ms_p50"]))
-    print("  ctx tokens    : mean=%.1f" % m["context_tokens_mean"])
-    if recorded is not None:
-        print("  recorded: %s  commit=%s  reliability=%.2f  run=%s" % (
-            os.path.join(kdir, HISTORY_REL), recorded["commit"],
-            recorded["reliability"], recorded["run"]))
-    _regressiongate._print_gate(gate)
-    _regressiongate._print_ab(ab)
-    return _regressiongate._gate_exit(gate, ab)
+        return _run_ablate_suite(args, kdir, data, gold, gold_path, as_of)
+    return _run_default_suite(args, kdir, data, gold, gold_path, as_of)
 
 
 #: Verb declaration — the ONE place this verb is registered. Discovered by
@@ -588,5 +474,7 @@ _EXPORTS = [
     "_run_acr_gate",
     "_run_longmemeval_suite",
     "_run_gold_fixture_suite",
+    "_run_ablate_suite",
+    "_run_default_suite",
     "cmd_eval",
 ]

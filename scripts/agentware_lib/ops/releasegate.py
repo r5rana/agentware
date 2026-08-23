@@ -227,34 +227,58 @@ def _gate4_swe_task():
             "details": ["bench swe exists but full-run deferred to CI"]}
 
 
+def _emit_skip(msg, as_json):
+    """The ONE emitter for both of the gate's graceful no-ops. Returns 0.
+
+    A SKIP is `passed: true` on purpose: the gate makes no claim about a tree it
+    did not measure, and a caller that treated "not run" as "failed" would block
+    every environment the kill-switch exists for. The two call sites differ only
+    in their `reason`, which is why they are one function — they were byte-identical
+    copy-paste, and a divergence between them would be a silent change in what a
+    skip MEANS on one of the two paths.
+    """
+    if as_json:
+        json.dump({"passed": True, "skipped": True, "reason": msg},
+                  sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print(msg)
+    return 0
+
+
+def _print_gate_report(payload):
+    """The text render of a completed run: the verdict, then one line per gate
+    and every detail it reported. Unlike `audit`, a PASSING gate's details are
+    printed too — they carry the measured numbers the release decision rests on."""
+    print("RELEASE GATE %s" % ("PASSED" if payload["passed"] else "FAILED"))
+    for g in payload["gates"]:
+        print("  [%s] %s" % ("PASS" if g["passed"] else "FAIL", g["gate"]))
+        for d in g.get("details", []):
+            print("      %s" % d)
+
+
 def cmd_gate_release(args):
-    """Run the release gate harness. Exit 0 on pass, 1 on any failure."""
+    """Run the release gate harness. Exit 0 on pass, 1 on any failure.
+
+    Two graceful no-ops first (the kill-switch, then an absent workspace), then
+    the tiers, then ONE render of ONE payload — so the json document and the text
+    report can never disagree about which gates ran.
+    """
+    as_json = getattr(args, "format", "text") == "json"
+
     # Kill-switch
     if os.environ.get("AGENTWARE_DISABLE_RELEASE_GATE", "").strip():
-        msg = "release gate SKIPPED (AGENTWARE_DISABLE_RELEASE_GATE set)"
-        if getattr(args, "format", "text") == "json":
-            json.dump({"passed": True, "skipped": True, "reason": msg},
-                      sys.stdout, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print(msg)
-        return 0
+        return _emit_skip(
+            "release gate SKIPPED (AGENTWARE_DISABLE_RELEASE_GATE set)", as_json)
 
-    as_json = getattr(args, "format", "text") == "json"
     full = getattr(args, "full", False)
     tolerance = getattr(args, "tolerance", 0.02)
 
     # Graceful no-op when toolkit/workspace absent.
     kdir = config.resolve_knowledge_dir()
     if not kdir or not os.path.isdir(kdir):
-        msg = "release gate SKIPPED (no knowledge dir resolved)"
-        if as_json:
-            json.dump({"passed": True, "skipped": True, "reason": msg},
-                      sys.stdout, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print(msg)
-        return 0
+        return _emit_skip("release gate SKIPPED (no knowledge dir resolved)",
+                          as_json)
 
     data, err = index.load_index(kdir)
     if err is not None:
@@ -280,11 +304,7 @@ def cmd_gate_release(args):
         json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
-        print("RELEASE GATE %s" % ("PASSED" if all_passed else "FAILED"))
-        for g in gates:
-            print("  [%s] %s" % ("PASS" if g["passed"] else "FAIL", g["gate"]))
-            for d in g.get("details", []):
-                print("      %s" % d)
+        _print_gate_report(payload)
     return 0 if all_passed else 1
 
 

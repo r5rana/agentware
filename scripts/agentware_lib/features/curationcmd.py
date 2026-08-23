@@ -1,11 +1,13 @@
 """agentware_lib.features.curationcmd -- the learn/decide command surface (layer: features).
 
 Owns: the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the
-THREE input contracts they share -- the write prologue (_kdir_for_curation_write --
+FOUR input contracts they share -- the write prologue (_kdir_for_curation_write --
 resolve the knowledge dir THEN apply the shared/ CR-gate, so neither handler can
 acquire a write target without passing the gate), the `--topic` grammar
 (SLUG_RE / _curation_topic -- one slug normalization + notice for both verbs, so
-neither can write a file or an id nobody can promote), and the near-duplicate
+neither can write a file or an id nobody can promote), the display-title rule
+(_curation_title -- derived from the PRE-slug topic so readability survives
+normalization, with `learn`'s optional --title override), and the near-duplicate
 policy (LEARN_NEAR_DUP_THRESHOLD / _near_duplicate_entry / _near_duplicate_refusal
 -- the category-scoped BM25 probe plus the refusal it earns) -- and their argparse
 registrars (register_learn / register_decide) -- the orchestrating write-commands
@@ -16,11 +18,15 @@ Does NOT own: the pure entry WRITERS/renderers (_render_learning /
 _render_decision_body / _topic_to_title / _slugify) -> agentware_lib.knowledge.curation;
 the shared-write governance guard (guard_shared_write) -> agentware_lib.ops.fleet;
 the ACR source-weight prior (ACR_SOURCE_WEIGHTS) -> agentware_lib.retrieval.acr; the
-index CRUD (_do_add / save_index / load_index) -> agentware_lib.knowledge.index.
+index CRUD (_do_add / save_index / load_index) -> agentware_lib.knowledge.index;
+the SHARED WRITE CHAIN the two handlers run once they hold the index lock
+(_refuse_existing_entry / _finish_curation_write / _emit_curation_entry)
+-> agentware_lib.features.curationwrite.
 
 Layer deps: features.curationcmd -> core (config, dates, frontmatter, routing) +
 knowledge (index, curation) + ops (fleet as _fleet, for guard_shared_write) +
-retrieval (acr.ACR_SOURCE_WEIGHTS) -- ALL DOWNWARD for the features layer. Those two
+retrieval (acr.ACR_SOURCE_WEIGHTS) + the same-layer sibling curationwrite --
+ALL DOWNWARD or SIDEWAYS for the features layer. Those two
 cross-layer symbols are exactly why the handlers CANNOT live in knowledge.curation
 with the writers: knowledge->ops and knowledge->retrieval are UPWARD edges M12
 forbids, so the orchestrating HANDLERS belong in features (mirrors the
@@ -69,6 +75,12 @@ from agentware_lib.knowledge.worklog import all_entry_ids
 from agentware_lib.core.routing import _normalize_user_handle
 from agentware_lib.retrieval.bm25 import bm25_scores
 from agentware_lib.retrieval.corpus import build_corpus, tokenize
+# The shared write chain both verbs run inside the index lock. A SIBLING
+# module rather than three more functions here: the obligation changes at
+# the lock (see curationwrite's docstring), and this file is a 600-line
+# module that would otherwise have to be trimmed to fit rather than split.
+from agentware_lib.features.curationwrite import (
+    _refuse_existing_entry, _finish_curation_write, _emit_curation_entry)
 
 
 # A slug-safe learning topic stem: starts alnum, then alnum-or-hyphen.
@@ -150,6 +162,20 @@ def _curation_topic(raw_topic):
         sys.stderr.write(
             "agentware: normalized --topic %r -> %r\n" % (raw_topic, topic))
     return topic
+
+
+def _curation_title(raw_topic, override=None):
+    """The display title an entry gets: `--title` if given, else derived.
+
+    Derives from the ORIGINAL (pre-slug) topic, which is why it takes
+    `raw_topic` and not the normalized stem: readability has to survive
+    auto-slugify, and `_topic_to_title("ios-signing-note")` is not what the
+    operator typed. `decide` has no `--title` flag and passes no override, and
+    a blank/whitespace override falls through to the derived title rather than
+    writing an empty one -- both are the expression each handler already had,
+    so neither verb's output moves.
+    """
+    return (override or "").strip() or _topic_to_title(raw_topic)
 
 
 def _near_duplicate_refusal(kdir, data, query_text, category, noun, force=False):
@@ -237,6 +263,70 @@ def _near_duplicate_entry(kdir, data, query_text, category="learnings"):
     return best_entry, best_score / self_score
 
 
+def _learn_body(args):
+    """`learn`'s --content, read from stdin on '-': (body, refusal or None).
+
+    The stdin read stays OUTSIDE the index lock (it can block on a pipe nobody
+    is writing to), which is why it is a separate step from everything the
+    lock protects.
+    """
+    body = sys.stdin.read() if args.content == "-" else args.content
+    if not (body or "").strip():
+        return None, "agentware: --content must not be empty\n"
+    return body, None
+
+
+def _learn_provenance(args):
+    """`learn`'s (--source, --author): (source, author, refusal or None).
+
+    Both are OPTIONAL passthroughs whose omission must stay byte-identical to
+    the pre-provenance frontmatter — `source` falls back to
+    DEFAULT_ENTRY_SOURCE, and `author` to the per-user handle, whose own None
+    lets build_entry_frontmatter reach _operator_handle.
+
+    Unlike `decide`, an explicit --author that normalizes to nothing is
+    REFUSED rather than silently replaced by the resolved handle: a caller who
+    NAMED an author and got someone else's name on the entry would have no way
+    to notice. That asymmetry is deliberate and is why the two handlers keep
+    separate author code (see `_decide_author`).
+    """
+    src = getattr(args, "source", None)
+    if src is not None:
+        src_norm = src.strip().lower()
+        if src_norm not in ACR_SOURCE_WEIGHTS:
+            return None, None, ("agentware: invalid --source %r (use %s)\n"
+                                % (src, "|".join(sorted(ACR_SOURCE_WEIGHTS))))
+        src = src_norm
+    else:
+        src = DEFAULT_ENTRY_SOURCE
+    author = getattr(args, "author", None)
+    if author is not None:
+        author = _normalize_user_handle(author)
+        if not author:
+            return None, None, ("agentware: invalid --author (must contain at "
+                                "least one of A-Z a-z 0-9 . _ -)\n")
+    else:
+        author = resolve_user_handle()  # None => frontmatter uses _operator_handle
+    return src, author, None
+
+
+def _decide_author(args):
+    """`decide`'s author: --author if it normalizes, else the resolved handle.
+
+    Deliberately NOT `_learn_provenance`'s rule: `decide` treats an unusable
+    --author as ABSENT and falls back, where `learn` refuses. The difference
+    is pre-existing on both sides of the merge and load-bearing for the loop,
+    which promotes `> DECISION:` markers non-interactively and must not lose a
+    recorded decision to a malformed handle.
+    """
+    author = getattr(args, "author", None)
+    if author is not None:
+        author = routing._normalize_user_handle(author) or None
+    if not author:
+        author = routing.resolve_user_handle()  # None => _operator_handle
+    return author
+
+
 def cmd_learn(args):
     kdir = _kdir_for_curation_write(args)
     if not kdir:
@@ -247,9 +337,9 @@ def cmd_learn(args):
     if not topic:
         return 1
 
-    body = sys.stdin.read() if args.content == "-" else args.content
-    if not (body or "").strip():
-        sys.stderr.write("agentware: --content must not be empty\n")
+    body, body_err = _learn_body(args)
+    if body_err is not None:
+        sys.stderr.write(body_err)
         return 1
 
     # Optional provenance passthrough (feature 260625-team-mode-onboarding-fork).
@@ -257,27 +347,10 @@ def cmd_learn(args):
     # byte-identical to today — `source` stays DEFAULT_ENTRY_SOURCE and `author`
     # defaults to the per-user handle if configured, else _operator_handle(kdir)
     # (which is exactly today's behavior when no per-user handle is set).
-    src = getattr(args, "source", None)
-    if src is not None:
-        src_norm = src.strip().lower()
-        if src_norm not in ACR_SOURCE_WEIGHTS:
-            sys.stderr.write(
-                "agentware: invalid --source %r (use %s)\n"
-                % (src, "|".join(sorted(ACR_SOURCE_WEIGHTS))))
-            return 1
-        src = src_norm
-    else:
-        src = DEFAULT_ENTRY_SOURCE
-    author = getattr(args, "author", None)
-    if author is not None:
-        author = _normalize_user_handle(author)
-        if not author:
-            sys.stderr.write(
-                "agentware: invalid --author (must contain at least one of "
-                "A-Z a-z 0-9 . _ -)\n")
-            return 1
-    else:
-        author = resolve_user_handle()  # None => build_entry_frontmatter uses _operator_handle
+    src, author, prov_err = _learn_provenance(args)
+    if prov_err is not None:
+        sys.stderr.write(prov_err)
+        return 1
 
     eid = "learn-%s" % topic
     rel_path = "%s/%s.md" % (LEARNINGS_REL, topic)
@@ -287,7 +360,7 @@ def cmd_learn(args):
     # ORIGINAL (pre-slug) topic so readability survives auto-slugify. When topic
     # is already a slug and --title is omitted this is byte-identical to the prior
     # `_topic_to_title(topic)` (raw_topic == topic).
-    title = (getattr(args, "title", None) or "").strip() or _topic_to_title(raw_topic)
+    title = _curation_title(raw_topic, getattr(args, "title", None))
     created = _today()
 
     # Serialize the index read-modify-write against concurrent writers (B2). Load
@@ -300,17 +373,10 @@ def cmd_learn(args):
             sys.stderr.write("agentware: %s\n" % err)
             return 1
 
-        entries = data.get("entries") or []
-        if any(e.get("id") == eid for e in entries):
-            sys.stderr.write("agentware: duplicate id '%s'\n" % eid)
-            return 1
-        if any(e.get("path") == rel_path for e in entries):
-            sys.stderr.write("agentware: path already indexed: %s\n" % rel_path)
-            return 1
-        if os.path.exists(abs_path):
-            sys.stderr.write(
-                "agentware: learning file already exists (refusing to overwrite): %s\n"
-                % abs_path)
+        refusal = _refuse_existing_entry(
+            data, eid, rel_path, abs_path, "learning")
+        if refusal is not None:
+            sys.stderr.write(refusal)
             return 1
 
         # BM25 near-duplicate probe: self-query the new content against EXISTING
@@ -332,23 +398,16 @@ def cmd_learn(args):
         with open(abs_path, "w", encoding="utf-8") as f:
             f.write(_render_learning(fm, body))
 
-        entry, add_err = _do_add(
-            kdir, data, eid, title, "learnings", rel_path, tag_list, args.summary, created)
+        entry, add_err = _finish_curation_write(
+            kdir, data, eid, title, "learnings", rel_path, tag_list,
+            args.summary, created, abs_path)
         if add_err is not None:
-            try:
-                os.remove(abs_path)
-            except OSError:
-                pass
             sys.stderr.write("agentware: %s\n" % add_err)
             return 1
-
-        save_index(kdir, data)
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, "learning": entry}, sys.stdout,
-                  ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("LEARNED entry '%s' -> %s (registered in index)" % (eid, abs_path))
+    # OUTSIDE the lock: the emit touches no index state, and holding the global
+    # lock across a stdout write would serialize every writer on a pipe.
+    _emit_curation_entry(entry, eid, abs_path,
+                         getattr(args, "format", "text"), "learning", "LEARNED")
     return 0
 
 
@@ -382,20 +441,13 @@ def cmd_decide(args):
         # Title derives from the ORIGINAL topic so readability survives
         # auto-slugify (as in `cmd_learn`); byte-identical to the previous
         # `_topic_to_title(topic)` whenever the topic was already a slug.
-        title = curation._topic_to_title(raw_topic)
+        title = _curation_title(raw_topic)
         created = dates._today()
 
-        entries = data.get("entries") or []
-        if any(e.get("id") == eid for e in entries):
-            sys.stderr.write("agentware: duplicate id '%s'\n" % eid)
-            return 1
-        if any(e.get("path") == rel_path for e in entries):
-            sys.stderr.write("agentware: path already indexed: %s\n" % rel_path)
-            return 1
-        if os.path.exists(abs_path):
-            sys.stderr.write(
-                "agentware: decision file already exists (refusing to overwrite): "
-                "%s\n" % abs_path)
+        refusal = _refuse_existing_entry(
+            data, eid, rel_path, abs_path, "decision")
+        if refusal is not None:
+            sys.stderr.write(refusal)
             return 1
 
         body = curation._render_decision_body(args.summary, args.options, args.choice,
@@ -413,11 +465,7 @@ def cmd_decide(args):
 
         # Resolve author: explicit --author override, else the per-user handle, else
         # _operator_handle (power-user fallback, byte-identical to pre-team behavior).
-        author = getattr(args, "author", None)
-        if author is not None:
-            author = routing._normalize_user_handle(author) or None
-        if not author:
-            author = routing.resolve_user_handle()  # None => build_entry_frontmatter uses _operator_handle
+        author = _decide_author(args)
         fm = frontmatter.build_entry_frontmatter(
             {"id": eid, "title": title, "category": "decisions", "tags": tag_list,
              "created": created, "summary": args.summary},
@@ -426,24 +474,19 @@ def cmd_decide(args):
         with open(abs_path, "w", encoding="utf-8") as f:
             f.write(curation._render_learning(fm, body, back_label="Decisions"))
 
-        entry, add_err = index._do_add(
+        entry, add_err = _finish_curation_write(
             kdir, data, eid, title, "decisions", rel_path, tag_list,
-            args.summary, created)
+            args.summary, created, abs_path)
         if add_err is not None:
-            try:
-                os.remove(abs_path)
-            except OSError:
-                pass
             sys.stderr.write("agentware: %s\n" % add_err)
             return 1
 
-        index.save_index(kdir, data)
-        if getattr(args, "format", "text") == "json":
-            json.dump({"ok": True, "decision": entry}, sys.stdout,
-                      ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print("DECISION entry '%s' -> %s (registered in index)" % (eid, abs_path))
+        # INSIDE the lock, unlike `cmd_learn`: pre-existing on both sides of the
+        # merge, preserved because moving it would change how long `decide`
+        # holds the global index lock, which is behaviour and not shape.
+        _emit_curation_entry(entry, eid, abs_path,
+                             getattr(args, "format", "text"), "decision",
+                             "DECISION")
         return 0
 
 

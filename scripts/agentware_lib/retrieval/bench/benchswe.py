@@ -8,7 +8,9 @@ swe_score_task, _dirs_identical, swe_task_passed, swe_aggregate_arm,
 swe_aggregate_seeds, swe_regression_decision, swe_build_dry_run_plan,
 swe_build_ledger_row (deterministic given inputs; swe_score_task shells pytest
 against a copied repo; no wall-clock, no module-level mutable state) -- PLUS the
-`bench swe` CLI handler cmd_bench_swe, the only caller that spawns real agents.
+`bench swe` CLI handler cmd_bench_swe, the only caller that spawns real agents,
+and its four halves: the two renderers _print_swe_dry_run / _print_swe_report and
+the live-run engine _run_swe_arm -> _run_swe_task (one arm, one run).
 
 Does NOT own: the `bench scorecard` handler + the `bench` parser registrar
 (-> agentware_lib.retrieval.bench.benchcmd); the ledger gold_path redactor and
@@ -22,7 +24,7 @@ sibling function held in this module's __dict__); the scorecard render/write VIE
 Layer deps: retrieval -> core (config, dates; allowed at module level) + the
 sibling retrieval.ledger (by module alias, attribute reads). No knowledge, no
 ops/features/cli import. _EXPORTS lists the 14 SWE domain symbols + cmd_bench_swe
-for the entrypoint by-name facade.
+and its four halves for the entrypoint by-name facade.
 Fan-in: 1 (modules that import this; see catalog/modules.json depended_on_by; regen: python3 tests/_manifest_gen.py --write).
 """
 import json
@@ -344,6 +346,132 @@ def swe_build_ledger_row(run_ts, git_meta, suite_dir, arms_results, seeds):
     }
 
 
+def _print_swe_dry_run(plan, seeds, arms):
+    """The `--dry-run` plan in human form. Split out at task 99 wave 10.
+
+    Prints the same three things the JSON arm serializes -- the run arithmetic,
+    the per-task row, and the arm list -- and nothing else. It takes `seeds` and
+    `arms` rather than reading them off the plan because the plan records
+    `total_runs` and the task list, not the two inputs that produced them.
+    """
+    print("bench swe [dry-run]: %d tasks x %d seeds x %d arms = %d runs"
+          % (len(plan["tasks"]), seeds, len(arms), plan["total_runs"]))
+    for t in plan["tasks"]:
+        print("  - %s (kind=%s, timeout=%s, mutation=%s)"
+              % (t["id"], t["kind"], t["timeout"], t["expected_mutation"]))
+    print("  arms: %s" % ", ".join(arms))
+
+
+def _run_swe_task(suite_dir, task_id, seed, arm):
+    """Run ONE task, once, in one arm: spawn, grade, return (passed, turns, tokens).
+
+    The innermost body of the live run, split out at task 99 wave 10. Everything
+    here happens inside a scratch copy of the task's repo that is removed on the
+    way out, pass or fail -- the task fixtures are package data and this is the
+    only thing standing between a benchmark run and a mutated fixture tree.
+
+    TWO degradations are deliberate and are the reason the spawn has its own
+    try: an agent that TIMES OUT and one whose binary is missing (OSError) both
+    score ZERO turns and ZERO tokens and are then GRADED ANYWAY. Grading a
+    non-run is not a bug -- an abstain task passes by leaving the repo alone, so
+    a timed-out agent can legitimately pass it, and swallowing the run instead
+    would silently drop it from the denominator.
+
+    `arm == "no-context"` is the ablation: the agent is spawned with
+    AGENTWARE_KNOWLEDGE_DIR removed from its environment, which is the whole
+    independent variable of this benchmark.
+    """
+    import tempfile as _tf
+    task_dir_path = os.path.join(suite_dir, task_id)
+    meta = swe_load_task_meta(suite_dir, task_id)
+    scratch = _tf.mkdtemp(prefix="swe-run-%s-%d-" % (task_id, seed))
+    try:
+        scratch_repo = os.path.join(scratch, "repo")
+        shutil.copytree(os.path.join(task_dir_path, "repo"), scratch_repo)
+        with open(os.path.join(task_dir_path, "task.md"), encoding="utf-8") as f:
+            task_prompt = f.read()
+        agent_cmd = [
+            "claude", "-p", task_prompt,
+            "--agent", "agentware-execution",
+            "--dangerously-bypass-approvals-and-sandbox",
+        ]
+        env = dict(os.environ)
+        if arm == "no-context":
+            env.pop("AGENTWARE_KNOWLEDGE_DIR", None)
+        try:
+            proc = subprocess.run(
+                agent_cmd, cwd=scratch_repo,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True,
+                timeout=meta.get("timeout", 120),
+                env=env)
+            turns = 1
+            tokens = len(proc.stdout) // 4
+        except (subprocess.TimeoutExpired, OSError):
+            turns = 0
+            tokens = 0
+        result = swe_score_task(task_dir_path, scratch_repo)
+        return swe_task_passed(result, meta), turns, tokens
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _run_swe_arm(suite, suite_dir, seeds, arm):
+    """Run every task for every seed in ONE arm; return that arm's stats.
+
+    Split out at task 99 wave 10 from a triple-nested loop. The nesting order is
+    the measurement design and is not incidental: the pass RATE is per SEED (one
+    number per full sweep of the suite), while turns and tokens are averaged
+    over every individual RUN. Collapsing the two levels -- averaging rates over
+    runs instead of over seeds -- produces a number that looks like a pass rate
+    and is not one, which is what `swe_aggregate_seeds` then reports a spread
+    over.
+
+    A seed that ran no tasks at all scores 0.0 rather than dividing by zero, and
+    an arm that ran nothing scores 0 for both means, so an empty suite reports
+    zeroes instead of raising.
+    """
+    arm_pass_rates = []
+    total_turns = 0
+    total_tokens = 0
+    run_count = 0
+    for seed in range(seeds):
+        seed_passed = 0
+        seed_total = 0
+        for task_id in suite["tasks"]:
+            task_pass, turns, tokens = _run_swe_task(
+                suite_dir, task_id, seed, arm)
+            seed_total += 1
+            if task_pass:
+                seed_passed += 1
+            total_turns += turns
+            total_tokens += tokens
+            run_count += 1
+        arm_pass_rates.append(seed_passed / seed_total if seed_total else 0.0)
+    return {
+        "pass_rates": arm_pass_rates,
+        "turns_mean": total_turns / run_count if run_count else 0,
+        "tokens_mean": total_tokens / run_count if run_count else 0,
+    }
+
+
+def _print_swe_report(row, suite, seeds, arms):
+    """The completed-run report in human form. Split out at task 99 wave 10.
+
+    The delta line is printed on `is not None` rather than on truthiness: a
+    delta of exactly 0.0 -- the two arms scoring identically, which is the most
+    interesting negative result this benchmark can produce -- is falsy, and
+    dropping it would report "no difference measured" as "no measurement".
+    """
+    print("bench swe: completed %d tasks x %d seeds x %d arms"
+          % (len(suite["tasks"]), seeds, len(arms)))
+    for arm, stats in row.get("arms", {}).items():
+        print("  %s: pass_rate mean=%.2f (min=%.2f max=%.2f)"
+              % (arm, stats["mean"], stats["min"], stats["max"]))
+    if row.get("delta") is not None:
+        print("  delta: %+.4f" % row["delta"])
+
+
 def cmd_bench_swe(args):
     """`bench swe` -- SWE-task behavioral benchmark runner."""
     suite_dir = args.suite
@@ -372,75 +500,13 @@ def cmd_bench_swe(args):
         if fmt == "json":
             print(json.dumps(plan, indent=2, ensure_ascii=False))
         else:
-            print("bench swe [dry-run]: %d tasks x %d seeds x %d arms = %d runs"
-                  % (len(plan["tasks"]), seeds, len(arms), plan["total_runs"]))
-            for t in plan["tasks"]:
-                print("  - %s (kind=%s, timeout=%s, mutation=%s)"
-                      % (t["id"], t["kind"], t["timeout"],
-                         t["expected_mutation"]))
-            print("  arms: %s" % ", ".join(arms))
+            _print_swe_dry_run(plan, seeds, arms)
         return 0
 
     # Live run: spawn agents per task x seed x arm
-    import tempfile as _tf
     suite = swe_load_suite(suite_dir)
-    arms_results = {}
-    for arm in arms:
-        arm_pass_rates = []
-        total_turns = 0
-        total_tokens = 0
-        run_count = 0
-        for seed in range(seeds):
-            seed_passed = 0
-            seed_total = 0
-            for task_id in suite["tasks"]:
-                task_dir_path = os.path.join(suite_dir, task_id)
-                meta = swe_load_task_meta(suite_dir, task_id)
-                scratch = _tf.mkdtemp(prefix="swe-run-%s-%d-" % (task_id, seed))
-                try:
-                    scratch_repo = os.path.join(scratch, "repo")
-                    shutil.copytree(os.path.join(task_dir_path, "repo"),
-                                    scratch_repo)
-                    with open(os.path.join(task_dir_path, "task.md"),
-                              encoding="utf-8") as f:
-                        task_prompt = f.read()
-                    agent_cmd = [
-                        "claude", "-p", task_prompt,
-                        "--agent", "agentware-execution",
-                        "--dangerously-bypass-approvals-and-sandbox",
-                    ]
-                    env = dict(os.environ)
-                    if arm == "no-context":
-                        env.pop("AGENTWARE_KNOWLEDGE_DIR", None)
-                    try:
-                        proc = subprocess.run(
-                            agent_cmd, cwd=scratch_repo,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            universal_newlines=True,
-                            timeout=meta.get("timeout", 120),
-                            env=env)
-                        turns = 1
-                        tokens = len(proc.stdout) // 4
-                    except (subprocess.TimeoutExpired, OSError):
-                        turns = 0
-                        tokens = 0
-                    result = swe_score_task(task_dir_path, scratch_repo)
-                    task_pass = swe_task_passed(result, meta)
-                    seed_total += 1
-                    if task_pass:
-                        seed_passed += 1
-                    total_turns += turns
-                    total_tokens += tokens
-                    run_count += 1
-                finally:
-                    shutil.rmtree(scratch, ignore_errors=True)
-            rate = seed_passed / seed_total if seed_total else 0.0
-            arm_pass_rates.append(rate)
-        arms_results[arm] = {
-            "pass_rates": arm_pass_rates,
-            "turns_mean": total_turns / run_count if run_count else 0,
-            "tokens_mean": total_tokens / run_count if run_count else 0,
-        }
+    arms_results = {arm: _run_swe_arm(suite, suite_dir, seeds, arm)
+                    for arm in arms}
 
     run_ts = dates.utc_now_iso()
     g_meta = _ledger.git_info()
@@ -455,13 +521,7 @@ def cmd_bench_swe(args):
     if fmt == "json":
         print(json.dumps(row, indent=2, ensure_ascii=False))
     else:
-        print("bench swe: completed %d tasks x %d seeds x %d arms"
-              % (len(suite["tasks"]), seeds, len(arms)))
-        for arm, stats in row.get("arms", {}).items():
-            print("  %s: pass_rate mean=%.2f (min=%.2f max=%.2f)"
-                  % (arm, stats["mean"], stats["min"], stats["max"]))
-        if row.get("delta") is not None:
-            print("  delta: %+.4f" % row["delta"])
+        _print_swe_report(row, suite, seeds, arms)
     return 0
 
 
@@ -480,5 +540,9 @@ _EXPORTS = [
     "swe_regression_decision",
     "swe_build_dry_run_plan",
     "swe_build_ledger_row",
+    "_print_swe_dry_run",
+    "_run_swe_task",
+    "_run_swe_arm",
+    "_print_swe_report",
     "cmd_bench_swe",
 ]

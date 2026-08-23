@@ -10,7 +10,11 @@ _ingest_existing_dedup); the single registration path (_ingest_register, which
 funnels through build_entry_frontmatter -> _render_learning -> _do_add and NEVER
 writes index.json directly, R-KB-01); the dry-run staging writer
 (_ingest_write_staging, `work/` only) and the Rule-7 metric append
-(_ingest_emit_metric); the cmd_ingest handler and the `ingest` parser registrar
+(_ingest_emit_metric); the four stages cmd_ingest is assembled from -- the
+closed-set adapter dispatch (_ingest_dispatch_adapter), the `--only` selection
+(_ingest_select), the index critical section (_ingest_commit: load -> three-way
+dedup -> register -> save under ONE lock, and nothing else) and the text report
+(_ingest_print_text); the cmd_ingest handler and the `ingest` parser registrar
 (the registrar travels with its handler).
 Does NOT own: the learning/decision RENDERERS + _topic_to_title/_slugify ->
 agentware_lib.knowledge.curation.curationrender (reached through the
@@ -352,6 +356,109 @@ def _ingest_emit_metric(kdir, source, counts, ts=None):
         pass
 
 
+def _ingest_dispatch_adapter(source, path, extra_tags):
+    """Run the adapter `--source` names: (candidates, rejected, refusal|None).
+
+    The adapter table is a CLOSED set (INGEST_SOURCES): an unknown source is
+    REFUSED here rather than defaulting to one, and a ValueError raised by an
+    adapter over an operator-supplied path becomes the same shaped refusal, so
+    a bad path and a bad source leave by one route. READ-ONLY on the source
+    artifact (INV-2) and index-independent, which is why the caller runs it
+    OUTSIDE the index lock.
+    """
+    try:
+        if source == "docs":
+            candidates, rejected = _ingest_docs_adapter(path, extra_tags)
+        elif source == "github-issues":
+            candidates, rejected = _ingest_github_issues_adapter(path, extra_tags)
+        else:
+            return [], [], "agentware: unknown --source '%s'\n" % source
+    except ValueError as exc:
+        return [], [], "agentware: %s\n" % exc
+    return candidates, rejected, None
+
+
+def _ingest_select(valid, only):
+    """The candidates `--only` admits, in adapter order.
+
+    `only` is a comma-separated topic list; ABSENT it admits everything, which
+    is not the same as an empty selection -- `--only " , "` selects NOTHING,
+    because a blank segment is dropped rather than admitting a "" topic no
+    candidate carries. Pure; order is the adapter's, which is deterministic.
+    """
+    keep = None
+    if only:
+        keep = set(t.strip() for t in only.split(",") if t.strip())
+    return [c for c in valid if (keep is None or c["topic"] in keep)]
+
+
+def _ingest_commit(kdir, selected, do_commit):
+    """The index critical section: (committed, skipped, refusal|None).
+
+    Load -> dedup -> register -> save under ONE `_index_lock`, and NOTHING
+    else: adapter parsing, the staging write, the metric append and every line
+    of output are index-independent and stay outside, where they cannot hold
+    the global lock across file I/O that touches no index.
+
+    Dedup is THREE-WAY and the routes are distinct: an id already in the index,
+    a CONTENT fingerprint already in the index (a same-body/different-slug
+    import), or an id already taken by an earlier candidate in this same batch.
+    A registration error demotes that ONE candidate to `skipped` (carrying its
+    error) rather than failing the batch. With `do_commit` false nothing is
+    registered and the dedup verdicts are still computed -- which is what makes
+    the dry run a rehearsal of this path rather than a different one.
+    """
+    committed, skipped, seen_ids = [], [], set()
+    with _index_lock(kdir):
+        data, err = load_index(kdir)
+        if err is not None:
+            return [], [], "agentware: %s\n" % err
+        existing_ids, existing_fps = _ingest_existing_dedup(kdir, data)
+        for c in selected:
+            eid = "learn-%s" % c["topic"]
+            fp = _ingest_fingerprint(c["content"])
+            if eid in existing_ids or fp in existing_fps or eid in seen_ids:
+                skipped.append({"topic": c["topic"], "id": eid})
+                continue
+            seen_ids.add(eid)
+            if do_commit:
+                entry, add_err = _ingest_register(kdir, data, c)
+                if add_err is not None:
+                    skipped.append(
+                        {"topic": c["topic"], "id": eid, "error": add_err})
+                    continue
+                committed.append(entry)
+                existing_ids.add(eid)
+                existing_fps.add(fp)
+
+        if committed:
+            save_index(kdir, data)
+    return committed, skipped, None
+
+
+def _ingest_print_text(source, path, do_commit, counts, committed, rejected,
+                       staging_rel):
+    """The text report -- the `--format json` arm's exact counterpart.
+
+    Prints the five counts the json envelope carries under the same names, then
+    the staging dir, then one line per committed id and one per rejected item.
+    The MODE word is the only thing `--commit` changes here: the dry run walks
+    the same fold and reports the same verdicts.
+    """
+    mode = "COMMIT" if do_commit else "DRY-RUN"
+    print("INGEST %s [%s] %s" % (mode, source, path))
+    print("  candidates: %d  selected: %d  committed: %d  "
+          "skipped_dup: %d  rejected: %d"
+          % (counts["candidates"], counts["selected"], counts["committed"],
+             counts["skipped_dup"], counts["rejected"]))
+    print("  staging: %s" % staging_rel)
+    for e in committed:
+        print("  + %s" % e["id"])
+    for r in rejected:
+        print("  ! rejected %s: %s"
+              % (r.get("source_ref"), r.get("reason")))
+
+
 def cmd_ingest(args):
     """Deterministic curated capture from a LOCAL source artifact.
 
@@ -366,59 +473,26 @@ def cmd_ingest(args):
 
     source = args.source
     extra_tags = parse_tags(getattr(args, "tags", None))
-    try:
-        if source == "docs":
-            raw_candidates, adapter_rejected = _ingest_docs_adapter(
-                args.path, extra_tags)
-        elif source == "github-issues":
-            raw_candidates, adapter_rejected = _ingest_github_issues_adapter(
-                args.path, extra_tags)
-        else:
-            sys.stderr.write("agentware: unknown --source '%s'\n" % source)
-            return 1
-    except ValueError as exc:
-        sys.stderr.write("agentware: %s\n" % exc)
+    raw_candidates, adapter_rejected, adapter_err = _ingest_dispatch_adapter(
+        source, args.path, extra_tags)
+    if adapter_err is not None:
+        sys.stderr.write(adapter_err)
         return 1
 
     valid, validate_rejected = _ingest_validate(raw_candidates)
     rejected = adapter_rejected + validate_rejected
-
-    only = None
-    if getattr(args, "only", None):
-        only = set(t.strip() for t in args.only.split(",") if t.strip())
-    selected = [c for c in valid if (only is None or c["topic"] in only)]
+    selected = _ingest_select(valid, getattr(args, "only", None))
 
     do_commit = getattr(args, "commit", False)
-    committed_entries, skipped_dup, seen_ids = [], [], set()
     # Serialize the load->register->save against concurrent writers (B2). Load the
     # index INSIDE the lock so `--commit` dedups + registers against the freshest
     # committed state. Adapter parsing/validation above is index-independent and
     # stayed outside; the staging write below does not touch the index.
-    with _index_lock(kdir):
-        data, err = load_index(kdir)
-        if err is not None:
-            sys.stderr.write("agentware: %s\n" % err)
-            return 1
-        existing_ids, existing_fps = _ingest_existing_dedup(kdir, data)
-        for c in selected:
-            eid = "learn-%s" % c["topic"]
-            fp = _ingest_fingerprint(c["content"])
-            if eid in existing_ids or fp in existing_fps or eid in seen_ids:
-                skipped_dup.append({"topic": c["topic"], "id": eid})
-                continue
-            seen_ids.add(eid)
-            if do_commit:
-                entry, add_err = _ingest_register(kdir, data, c)
-                if add_err is not None:
-                    skipped_dup.append(
-                        {"topic": c["topic"], "id": eid, "error": add_err})
-                    continue
-                committed_entries.append(entry)
-                existing_ids.add(eid)
-                existing_fps.add(fp)
-
-        if committed_entries:
-            save_index(kdir, data)
+    committed_entries, skipped_dup, commit_err = _ingest_commit(
+        kdir, selected, do_commit)
+    if commit_err is not None:
+        sys.stderr.write(commit_err)
+        return 1
 
     staging_rel = _ingest_write_staging(kdir, source, valid)
 
@@ -445,18 +519,8 @@ def cmd_ingest(args):
         json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
-        mode = "COMMIT" if do_commit else "DRY-RUN"
-        print("INGEST %s [%s] %s" % (mode, source, args.path))
-        print("  candidates: %d  selected: %d  committed: %d  "
-              "skipped_dup: %d  rejected: %d"
-              % (len(valid), len(selected), len(committed_entries),
-                 len(skipped_dup), len(rejected)))
-        print("  staging: %s" % staging_rel)
-        for e in committed_entries:
-            print("  + %s" % e["id"])
-        for r in rejected:
-            print("  ! rejected %s: %s"
-                  % (r.get("source_ref"), r.get("reason")))
+        _ingest_print_text(source, args.path, do_commit, counts,
+                           committed_entries, rejected, staging_rel)
     return 0
 
 

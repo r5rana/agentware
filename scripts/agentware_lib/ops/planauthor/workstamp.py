@@ -69,6 +69,34 @@ def _is_derived_roster(path):
     return "Auto-generated roster" in head and "DO NOT edit" in head
 
 
+def _prose_stamp_insert_index(lines, body_start):
+    """The index in `lines` where the `> Team:` prose stamp belongs.
+
+    Scalar in, scalar out — the arithmetic is a distinct obligation from the file
+    write it used to be buried in, and this is the shape that can be tested
+    directly instead of through a read-modify-write. Two clauses, each separately
+    observable:
+
+      1. An H1 is looked for in the next FIVE lines ONLY. Past that window the
+         stamp goes at `body_start`, because an artifact with a long preamble
+         would otherwise be stamped in the middle of its own prose.
+      2. Exactly ONE blank line after the H1 is skipped. A second blank survives
+         BELOW the stamp, which is what keeps a re-stamped artifact from slowly
+         losing its paragraph breaks.
+
+    `body_start` is the caller's answer to "where does the body begin" — after a
+    complete frontmatter block, or 0. It is passed rather than derived so this
+    stays a pure index function over lines it does not have to re-parse.
+    """
+    for i in range(body_start, min(body_start + 5, len(lines))):
+        if lines[i].startswith("# "):
+            insert_at = i + 1
+            if insert_at < len(lines) and lines[insert_at].strip() == "":
+                insert_at += 1
+            return insert_at
+    return body_start
+
+
 def _stamp_work_artifact(path, team, author):
     """Idempotently ensure a work artifact's header carries `Team: <team>`.
 
@@ -109,19 +137,15 @@ def _stamp_work_artifact(path, team, author):
     # SAME pass BEFORE this stamping runs, so an artifact with any preamble
     # before its H1 would otherwise push the H1 past the 5-line window and
     # mis-insert the prose stamp at line 0, corrupting the frontmatter.
-    body_start = 0
-    if lines and lines[0].strip() == "---":
-        for i in range(1, len(lines)):
-            if lines[i].strip() == "---":
-                body_start = i + 1
-                break
-    insert_at = body_start
-    for i in range(body_start, min(body_start + 5, len(lines))):
-        if lines[i].startswith("# "):
-            insert_at = i + 1
-            if insert_at < len(lines) and lines[insert_at].strip() == "":
-                insert_at += 1
-            break
+    #
+    # An INCOMPLETE block is not a block: `_frontmatter_block` returns None for a
+    # fence that is never closed, so `body_start` stays 0 and the H1 search runs
+    # from the top — over the `---` line itself. That is the shipped behaviour
+    # and it is pinned by a test rather than repaired here, because repairing it
+    # is a behaviour change and this is a refactor.
+    parts = frontmatter._frontmatter_block(text)
+    body_start = 0 if parts is None else len(parts[1]) + 2
+    insert_at = _prose_stamp_insert_index(lines, body_start)
     new = lines[:insert_at] + [stamp.rstrip("\n")] + lines[insert_at:]
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(new))
@@ -162,20 +186,20 @@ def _ensure_work_frontmatter(path, team, origin="team"):
             return False
         # Rewrite/insert team+origin lines inside the existing block, preserving
         # every other line + the body byte-for-byte.
-        lines = text.split("\n")
-        # locate the closing '---' (second one)
-        close = None
-        for i in range(1, len(lines)):
-            if lines[i].strip() == "---":
-                close = i
-                break
-        if close is None:
-            return False  # malformed; don't touch
-        block = lines[1:close]
+        parts = frontmatter._frontmatter_block(text)
+        if parts is None:
+            return False  # malformed; don't touch (unreachable: fields is not None)
+        _head, block, tail = parts
         block = [ln for ln in block
                  if ln.split(":", 1)[0].strip() not in ("team", "origin")]
         block += ["team: %s" % team, "origin: %s" % origin]
-        new = ["---"] + block + ["---"] + lines[close + 1:]
+        # The fences are re-emitted NORMALISED (`---`), not preserved from
+        # `_head`/`tail[0]`: an indented or padded fence that `.strip()` accepted
+        # on the way in is rewritten to the canonical form on the way out. That
+        # is the shipped behaviour of this writer and the ONE place in the family
+        # where the fence is not passed through verbatim, so it is spelled out
+        # rather than inherited from the split.
+        new = ["---"] + block + ["---"] + tail[1:]
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(new))
         return True
@@ -184,6 +208,57 @@ def _ensure_work_frontmatter(path, team, origin="team"):
     with open(path, "w", encoding="utf-8") as f:
         f.write(fm + text)
     return True
+
+
+def _stamp_work_tree(work_dir, team, author, do_fm):
+    """Walk `work_dir` and stamp every markdown artifact -> (scanned, stamped, fm_added).
+
+    THREE counters, not one, and they are deliberately different numbers: a file
+    is SCANNED whether or not it changed, STAMPED only when the prose header
+    moved, and counted in FM_ADDED only when the machine-readable block did. A
+    caller reporting one of them as another is a bug no single-artifact fixture
+    can see.
+
+    Covers ALL `.md` artifacts (plan/worklog/assessment/design/notes/REPORT/…),
+    not a fixed allowlist, so provenance stays complete and a team rename
+    self-repairs. The ONE exclusion is a genuinely DERIVED roster, detected by
+    CONTENT and not by filename: a hand-authored `index.md` with real
+    `id:`/`category:` frontmatter is an artifact like any other and is stamped.
+
+    `--frontmatter` runs FIRST on each file, because it PREPENDS the machine
+    block and reading the pass in that order is how the artifact ends up
+    described. The two writers COMMUTE, though, and saying otherwise would be a
+    claim nothing can check: `_ensure_work_frontmatter` prepends, and
+    `_prose_stamp_insert_index` shifts `body_start` by exactly the block length,
+    so the H1 window lands on the same ORIGINAL lines either way. Measured at
+    task 99 wave 16 over 540 exhaustive artifacts (block shape x H1 position x
+    trailing blanks x existing stamp) and 20,000 random ones: zero differ. The
+    order is therefore a READING choice, not a correctness one, and the property
+    that IS asserted is the commutation.
+
+    An absent `work_dir` is not an error, and the `isdir` test is a FAST PATH
+    rather than a guard: `os.walk` on a missing path — or on a plain file —
+    yields nothing and raises nothing, so removing the test changes no answer.
+    It is kept because it states at the reader's eye level that a shard which
+    has not opened a feature yet is a normal case, and its owning test says the
+    branch cannot be observed instead of pretending to guard it.
+    """
+    scanned, stamped, fm_added = 0, 0, 0
+    if not os.path.isdir(work_dir):
+        return scanned, stamped, fm_added
+    for root, _dirs, files in os.walk(work_dir):
+        for fn in files:
+            if not fn.endswith(".md"):
+                continue
+            fpath = os.path.join(root, fn)
+            if fn == "index.md" and _is_derived_roster(fpath):
+                continue
+            scanned += 1
+            if do_fm and _ensure_work_frontmatter(fpath, team):
+                fm_added += 1
+            if _stamp_work_artifact(fpath, team, author):
+                stamped += 1
+    return scanned, stamped, fm_added
 
 
 def cmd_work_stamp(args):
@@ -206,32 +281,9 @@ def cmd_work_stamp(args):
         print("work stamp: no-op (flat KB — no team facet)")
         return 0
     author = getattr(args, "author", None) or routing.resolve_user_handle()
-    do_fm = getattr(args, "frontmatter", False)
-    work_dir = os.path.join(kdir, "work")
-    stamped, scanned, fm_added = 0, 0, 0
-    if os.path.isdir(work_dir):
-        for root, _dirs, files in os.walk(work_dir):
-            for fn in files:
-                # ALL markdown work artifacts (not a fixed allowlist). Skip only a
-                # genuinely DERIVED roster (rebuild artifact), detected by CONTENT
-                # not filename: an authored `index.md` (e.g. a hand-written
-                # artifacts index with real `id:`/`category:` frontmatter) must be
-                # stamped like any other artifact. Rosters are only ever written at
-                # <KNOWLEDGE_SUBDIR>/index.md, never under work/, so this is belt-
-                # and-suspenders — but content detection is robust regardless.
-                if not fn.endswith(".md"):
-                    continue
-                fpath = os.path.join(root, fn)
-                if fn == "index.md" and _is_derived_roster(fpath):
-                    continue
-                scanned += 1
-                # --frontmatter FIRST (prepends the machine-readable YAML block),
-                # THEN the human `> Team:` prose stamp — so both layers carry the
-                # team and the prose line lands after the block, in the body.
-                if do_fm and _ensure_work_frontmatter(fpath, team):
-                    fm_added += 1
-                if _stamp_work_artifact(fpath, team, author):
-                    stamped += 1
+    scanned, stamped, fm_added = _stamp_work_tree(
+        os.path.join(kdir, "work"), team, author,
+        getattr(args, "frontmatter", False))
     if getattr(args, "format", "text") == "json":
         json.dump({"team": team, "scanned": scanned, "stamped": stamped,
                    "frontmatter_added": fm_added}, sys.stdout)

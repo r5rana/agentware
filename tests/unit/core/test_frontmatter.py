@@ -254,6 +254,162 @@ class OperatorHandleTests(SyntheticKBTestCase):
         self.assertIsNone(mod._resolve_operator_handle(bare))
 
 
+class FrontmatterBlockTests(SyntheticKBTestCase):
+    """The package's ONE fence finder (task 99 w16).
+
+    It replaced nine hand-written copies, so what it must get right is exactly
+    what those nine had to agree on: the three outcomes, the FIRST close, and a
+    lossless round trip. Every rewriter in the package rests on this.
+    """
+
+    def _fm(self):
+        # `_frontmatter_block` is deliberately NOT on the facade surface (it has
+        # no monolith counterpart and every caller is in-package), so it is
+        # reached through the module rather than through `load_cli()`.
+        load_cli()
+        import agentware_lib.core.frontmatter as fm
+        return fm
+
+    def _split(self, text):
+        return self._fm()._frontmatter_block(text)
+
+    def test_the_three_parts_rejoin_to_the_input_byte_for_byte(self):
+        for text in ("---\nid: x\n---\n\n# T\n\nbody\n",
+                     "---\n---\n",
+                     "---\nid: x\n---",
+                     "  ---\nid: x\n---   \n\ntail\n",
+                     "---\na: 1\n---\n\n---\n\nafter a rule\n"):
+            head, block, tail = self._split(text)
+            self.assertEqual("\n".join(head + block + tail), text, text)
+
+    def test_no_opening_fence_is_none(self):
+        self.assertIsNone(self._split("# Title\n\nbody\n"))
+        self.assertIsNone(self._split(""))
+        # A fence on the SECOND line is not a leading fence.
+        self.assertIsNone(self._split("\n---\nid: x\n---\n"))
+
+    def test_an_unclosed_fence_is_none_too_down_a_different_arm(self):
+        self.assertIsNone(self._split("---\nid: x\n\n# T\n"))
+        self.assertIsNone(self._split("---\n"))
+
+    def test_touching_fences_are_a_real_empty_block(self):
+        head, block, tail = self._split("---\n---\n\n# T\n")
+        self.assertEqual(block, [])
+        self.assertEqual(head, ["---"])
+        self.assertEqual(tail[0], "---")
+
+    def test_the_close_is_the_first_one_so_a_body_rule_stays_in_the_tail(self):
+        head, block, tail = self._split("---\na: 1\n---\n\n# T\n\n---\n\nz\n")
+        self.assertEqual(block, ["a: 1"])
+        self.assertIn("---", tail[1:])
+        self.assertEqual(tail[-2], "z")
+
+    def test_an_indented_open_is_accepted_and_returned_verbatim(self):
+        head, block, _tail = self._split("  ---\nid: x\n---\n")
+        self.assertEqual(head, ["  ---"])
+        self.assertEqual(block, ["id: x"])
+
+    def test_a_padded_close_is_accepted_and_returned_verbatim(self):
+        _head, block, tail = self._split("---\nid: x\n---   \n\nb\n")
+        self.assertEqual(block, ["id: x"])
+        self.assertEqual(tail[0], "---   ")
+
+    def test_the_head_is_always_exactly_one_line(self):
+        for text in ("---\n---\n", "---\na\nb\n---\n", "  ---\n---\n"):
+            head, _b, _t = self._split(text)
+            self.assertEqual(len(head), 1, text)
+
+    def test_split_frontmatter_and_the_fence_agree_about_what_is_a_block(self):
+        # The two are one decision now; a document either has a block for both
+        # or for neither. This is the pin that keeps them from drifting apart
+        # again the way the nine copies did.
+        fm = self._fm()
+        for text in ("# T\n", "---\nid: x\n", "---\n---\n", "---\nid: x\n---\n",
+                     "  ---\nid: x\n---\n", "", "\n---\nid: x\n---\n"):
+            fields, _body = fm.split_frontmatter(text)
+            self.assertEqual(fields is None, self._split(text) is None, text)
+
+
+class UpsertRelatesLineTests(SyntheticKBTestCase):
+    """Owning tests for `_fm_upsert_relates_line` — added at task 99 w16.
+
+    The wave's mutation sweep found this function had NO test in its own
+    module's file: two of its three properties were guarded only by
+    `tests/unit/knowledge/test_relate.py`, which tests the VERB, and the third
+    was guarded nowhere at all. That is precisely the difference a
+    `test-ownership` row is about — a suite that reddens when the feature breaks
+    is not a suite that reddens when this function alone breaks — and it is why
+    the wave adopted the shared fence here rather than leaving a ninth copy.
+    """
+
+    def _fm(self):
+        load_cli()
+        import agentware_lib.core.frontmatter as fm
+        return fm
+
+    def _upsert(self, text, tokens):
+        return self._fm()._fm_upsert_relates_line(text, tokens)
+
+    def test_a_new_line_is_inserted_as_the_last_field_before_the_close(self):
+        out = self._upsert("---\nid: x\ntags: [a]\n---\n\n# T\n",
+                           ["depends-on:b"])
+        self.assertEqual(out.split("\n")[3], "relates: [depends-on:b]")
+        self.assertEqual(out.split("\n")[4], "---")
+
+    def test_an_existing_line_is_replaced_in_place(self):
+        # In PLACE: `relates` keeps its position, and the field after it stays
+        # after it. Appending instead would reorder the block.
+        out = self._upsert(
+            "---\nid: x\nrelates: [relates-to:old]\ntags: [a]\n---\n\n# T\n",
+            ["depends-on:b", "blocks:c"])
+        lines = out.split("\n")
+        self.assertEqual(lines[2], "relates: [depends-on:b, blocks:c]")
+        self.assertEqual(lines[3], "tags: [a]")
+        self.assertEqual(out.count("relates: "), 1)
+
+    def test_the_key_test_is_equality_not_a_prefix(self):
+        # UNGUARDED before this test: `relatesx:` is a different field, and a
+        # `startswith` test would overwrite it and leave the real `relates`
+        # line absent.
+        out = self._upsert("---\nid: x\nrelatesx: [relates-to:old]\n---\n\n# T\n",
+                           ["depends-on:b"])
+        self.assertIn("relatesx: [relates-to:old]", out)
+        self.assertIn("relates: [depends-on:b]", out)
+        self.assertEqual(out.count("relatesx: "), 1)
+
+    def test_a_key_with_surrounding_space_still_matches(self):
+        out = self._upsert("---\n  relates : [relates-to:old]\n---\n", ["blocks:c"])
+        self.assertEqual(out.count("relates"), 1)
+        self.assertIn("relates: [blocks:c]", out)
+
+    def test_a_document_with_no_fence_is_returned_unchanged(self):
+        text = "# T\n\nbody\n"
+        self.assertEqual(self._upsert(text, ["depends-on:b"]), text)
+
+    def test_an_unclosed_fence_is_returned_unchanged(self):
+        text = "---\nid: x\n\n# T\n"
+        self.assertEqual(self._upsert(text, ["depends-on:b"]), text)
+
+    def test_an_empty_token_list_still_writes_an_empty_line(self):
+        # The caller decides whether to call; this function does not silently
+        # decline to record "no edges".
+        out = self._upsert("---\nid: x\n---\n", [])
+        self.assertIn("relates: []", out)
+
+    def test_the_body_survives_including_a_horizontal_rule(self):
+        out = self._upsert("---\nid: x\n---\n\n# T\n\n---\n\ntail\n",
+                           ["depends-on:b"])
+        self.assertTrue(out.rstrip().endswith("tail"))
+        self.assertIn("\n---\n\ntail", out)
+
+    def test_the_emitted_line_round_trips_through_the_parser(self):
+        fm = self._fm()
+        out = self._upsert("---\nid: x\n---\n",
+                           ["depends-on:b", "relates-to:c"])
+        fields, _body = fm.split_frontmatter(out)
+        self.assertEqual(fields["relates"], ["depends-on:b", "relates-to:c"])
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

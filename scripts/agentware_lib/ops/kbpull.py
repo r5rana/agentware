@@ -48,7 +48,8 @@ from agentware_lib.knowledge.index import (
     _is_sync_candidate)
 from agentware_lib.features.skilllock import (
     _skill_cache_dir, load_skill_lock, save_skill_lock)
-from agentware_lib.ops.kbgit import git_has_upstream, git_toplevel
+from agentware_lib.ops.kbgit import (
+    _first_line, git_has_upstream, git_toplevel)
 
 
 def git_pull_ff(target):
@@ -159,6 +160,39 @@ def _skill_reconcile_after_pull(kdir):
     return True
 
 
+def _pull_preconditions(target):
+    """The three preconditions a fast-forward pull requires, IN ORDER.
+
+    Returns True when the pull may proceed. Each unmet precondition PRINTS its
+    own notice and returns False, which the caller turns into a graceful rc-0
+    skip — an unmet precondition never blocks work (C-4).
+
+    The order is load-bearing, and is the reason this is ONE function rather
+    than three inline guards that could be reordered without anyone noticing: a
+    repo with no upstream is reported as such even when it is ALSO dirty,
+    because "you have no remote to pull from" is the actionable fact and
+    "commit your work first" would send the operator to fix the wrong thing.
+    """
+    # C-4: degrade to local-only (never block) when the KB is not a git repo.
+    if not git_is_work_tree(target):
+        print("kb-git pull: %s is not a git work tree — skipping pull "
+              "(local-only)." % target)
+        return False
+
+    if not git_has_upstream(target):
+        print("kb-git pull: no upstream tracking branch — skipping pull "
+              "(local-only).")
+        return False
+
+    # Precondition: a clean tree. Prior writes must be committed first so a
+    # fast-forward can never clobber or conflict with uncommitted edits.
+    if not git_is_clean(target):
+        print("kb-git pull: work tree has uncommitted changes — skipping pull "
+              "(commit first; never pulling onto uncommitted writes).")
+        return False
+    return True
+
+
 def cmd_kb_git_pull(args):
     """Fast-forward the KB repo from its upstream at a safe point.
 
@@ -178,35 +212,17 @@ def cmd_kb_git_pull(args):
         if not target:
             return 1
 
-    # C-4: degrade to local-only (never block) when the KB is not a git repo.
-    if not git_is_work_tree(target):
-        print("kb-git pull: %s is not a git work tree — skipping pull "
-              "(local-only)." % target)
-        return 0
-
-    if not git_has_upstream(target):
-        print("kb-git pull: no upstream tracking branch — skipping pull "
-              "(local-only).")
-        return 0
-
-    # Precondition: a clean tree. Prior writes must be committed first so a
-    # fast-forward can never clobber or conflict with uncommitted edits.
-    if not git_is_clean(target):
-        print("kb-git pull: work tree has uncommitted changes — skipping pull "
-              "(commit first; never pulling onto uncommitted writes).")
+    if not _pull_preconditions(target):
         return 0
 
     before = _git_head(target)
     cp = git_pull_ff(target)
     if cp.returncode != 0:
-        detail = [l for l in (cp.stderr or "").strip().splitlines() if l.strip()]
-        first = detail[0] if detail else "fetch failed"
         print("kb-git pull: skipped — %s (offline or diverged; not blocking "
-              "work)." % first)
+              "work)." % _first_line(cp.stderr, "fetch failed"))
         return 0
 
-    out_lines = [l for l in (cp.stdout or "").strip().splitlines() if l.strip()]
-    summary = out_lines[0] if out_lines else "up to date"
+    summary = _first_line(cp.stdout, "up to date")
     # Trigger (ii): a fast-forward that ADVANCED HEAD and changed tracked entry
     # `.md` files makes the DERIVED index stale — teammates' pulled entries would
     # be silently dropped by recall (they are not in our old index.json) until the
@@ -221,8 +237,8 @@ def cmd_kb_git_pull(args):
     return 0
 
 
-_EXPORTS = ["git_fetch", "git_pull_ff", "cmd_kb_git_pull",
-             "_kb_entry_files_changed", "_rebuild_kb_after_pull",
-             "_skill_reconcile_after_pull"]
+_EXPORTS = ["git_fetch", "git_pull_ff", "_pull_preconditions",
+             "cmd_kb_git_pull", "_kb_entry_files_changed",
+             "_rebuild_kb_after_pull", "_skill_reconcile_after_pull"]
 
 __all__ = list(_EXPORTS)

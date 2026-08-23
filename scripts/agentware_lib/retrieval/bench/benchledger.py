@@ -5,7 +5,9 @@ handlers: the append-only-safe gold_path redactor + `bench redact` / `bench lint
 Owns: redact_ledger_gold_paths -- the ONLY sanctioned mutation of the append-only
 benchmark ledger (it may touch ONLY the `gold_path` field) -- plus the two
 handlers built on the ledger/gold surface: cmd_bench_redact (PII scrub + derived
-scorecard regeneration) and cmd_bench_lint (gold-set staleness + coverage ratio).
+scorecard regeneration) and cmd_bench_lint (gold-set staleness + coverage ratio)
+with its two halves -- the single-pass coverage fold _gold_coverage and the
+human report _print_bench_lint_text.
 
 Does NOT own: the SWE-task domain logic + the `bench swe` runner
 (-> agentware_lib.retrieval.bench.benchswe); the `bench scorecard` handler + the
@@ -114,6 +116,91 @@ def cmd_bench_redact(args):
     return 0
 
 
+def _gold_coverage(gold, entries):
+    """Fold the gold set against the index into ONE coverage reading.
+
+    The three loops `cmd_bench_lint` used to run inline are one obligation --
+    answering "what does this gold set reach, what does it miss, and what does
+    it name that is not there" -- and they walked the same two collections
+    three times. Split out at task 99 wave 10.
+
+    Returns a dict with `covered` / `uncovered` / `dangling` id sets and the
+    `clusters` map (tag -> uncovered ids). Pure; read-only; no I/O.
+
+    `covered` is every id the gold set REFERENCES, which is NOT the same as
+    every id the gold set reaches: a dangling id is in BOTH `covered` and
+    `dangling`. That is deliberate and load-bearing, not an oversight to tidy
+    up in a refactor -- `covered` exists to compute `uncovered = entry_ids -
+    covered`, a set difference over index ids that a dangling id cannot affect,
+    and the report prints its size as "covered: N entries". Narrowing it to
+    `covered & entry_ids` would leave `uncovered` identical and silently change
+    that ONE printed number on exactly the runs that also print a DANGLING
+    line. This is the shape a same-looking body changes and no metric moves.
+
+    `clusters` reads tags through `frontmatter._entry_list_field`, which keeps
+    STRING tags only -- `setdefault(<dict>, ...)` on a poisoned entry is an
+    unhashable-type crash, and this reader is the guard against it.
+    """
+    entry_ids = {e["id"] for e in entries}
+    covered, dangling = set(), set()
+    for q in gold:
+        for eid in q.get("expected_ids", []):
+            covered.add(eid)
+            if eid not in entry_ids:
+                dangling.add(eid)
+    uncovered = entry_ids - covered
+    clusters = {}
+    for e in entries:
+        if e["id"] in uncovered:
+            for t in frontmatter._entry_list_field(e, "tags")[:2]:
+                clusters.setdefault(t, []).append(e["id"])
+    return {"covered": covered, "uncovered": uncovered,
+            "dangling": dangling, "clusters": clusters}
+
+
+def _print_bench_lint_text(cov, n_queries, n_entries, ratio, threshold, ok):
+    """The human `bench lint` report. Split out at task 99 wave 10.
+
+    Two properties live here rather than in the caller and are worth naming,
+    because both are invisible in a report that merely looks right:
+
+      * the VERDICT IS TWO-PART. A run can fail for a low ratio, for a dangling
+        expected_id, or for both, and each prints its OWN failure line -- so a
+        healthy ratio with a dangling id still fails, and says why.
+      * the CLUSTER BLOCK IS BOUNDED. It prints only for 1..30 uncovered
+        entries. Above that the list is a wall rather than a work order, and
+        the bound is the reason the report stays readable on a large KB.
+
+    Prints; returns nothing. `ok` is passed in rather than recomputed so the
+    text and JSON arms can never disagree about the verdict.
+    """
+    print("bench lint: %d queries / %d entries = %.2f coverage (threshold: %.2f)"
+          % (n_queries, n_entries, ratio, threshold))
+    if cov["dangling"]:
+        print("  DANGLING expected_ids (not in index): %s"
+              % sorted(cov["dangling"]))
+    print("  covered: %d entries | uncovered: %d entries"
+          % (len(cov["covered"]), len(cov["uncovered"])))
+    if cov["uncovered"] and len(cov["uncovered"]) <= 30:
+        top_clusters = sorted(cov["clusters"].items(),
+                              key=lambda x: -len(x[1]))[:5]
+        if top_clusters:
+            print("  top uncovered clusters (by tag):")
+            for tag, ids in top_clusters:
+                print("    %s (%d entries): %s" % (
+                    tag, len(ids), ", ".join(sorted(ids)[:3]) +
+                    ("..." if len(ids) > 3 else "")))
+    if ok:
+        print("BENCH LINT PASSED")
+    else:
+        if ratio < threshold:
+            print("BENCH LINT FAILED: coverage %.2f < threshold %.2f"
+                  % (ratio, threshold))
+        if cov["dangling"]:
+            print("BENCH LINT FAILED: %d dangling expected_ids reference "
+                  "entries not in index" % len(cov["dangling"]))
+
+
 def cmd_bench_lint(args):
     """`bench lint` -- gold-set staleness and coverage-ratio check.
 
@@ -142,83 +229,36 @@ def cmd_bench_lint(args):
         gold = json.load(f)
 
     entries = idx.get("entries") or []
-    entry_ids = {e["id"] for e in entries}
     n_entries = len(entries)
     n_queries = len(gold)
     threshold = getattr(args, "min_coverage", 0.25)
-
-    # Coverage ratio
     ratio = n_queries / n_entries if n_entries > 0 else 0.0
+    cov = _gold_coverage(gold, entries)
 
-    # Find which entries have gold coverage
-    covered_ids = set()
-    for q in gold:
-        for eid in q.get("expected_ids", []):
-            covered_ids.add(eid)
-    uncovered_ids = entry_ids - covered_ids
+    # The verdict is TWO-part: a healthy ratio with a dangling expected_id is
+    # still a failure, and the `and not dangling` is the whole reason.
+    ok = ratio >= threshold and not cov["dangling"]
 
-    # Validate expected_ids actually exist
-    dangling = set()
-    for q in gold:
-        for eid in q.get("expected_ids", []):
-            if eid not in entry_ids:
-                dangling.add(eid)
-
-    # Group uncovered by tag clusters for actionable reporting
-    tag_clusters = {}
-    for e in entries:
-        if e["id"] in uncovered_ids:
-            # STRING tags only — `tag_clusters.setdefault(<dict>, ...)` on a
-            # poisoned entry is an unhashable-type crash.
-            for t in frontmatter._entry_list_field(e, "tags")[:2]:
-                tag_clusters.setdefault(t, []).append(e["id"])
-
-    # Output
-    fmt = getattr(args, "format", "text")
-    ok = ratio >= threshold and not dangling
-
-    if fmt == "json":
-        result = {
+    if getattr(args, "format", "text") == "json":
+        print(json.dumps({
             "entries": n_entries,
             "gold_queries": n_queries,
             "coverage_ratio": round(ratio, 4),
             "threshold": threshold,
-            "covered_entries": len(covered_ids),
-            "uncovered_entries": len(uncovered_ids),
-            "dangling_expected_ids": sorted(dangling),
+            "covered_entries": len(cov["covered"]),
+            "uncovered_entries": len(cov["uncovered"]),
+            "dangling_expected_ids": sorted(cov["dangling"]),
             "pass": ok,
-        }
-        print(json.dumps(result, indent=2))
+        }, indent=2))
     else:
-        print("bench lint: %d queries / %d entries = %.2f coverage (threshold: %.2f)"
-              % (n_queries, n_entries, ratio, threshold))
-        if dangling:
-            print("  DANGLING expected_ids (not in index): %s" % sorted(dangling))
-        print("  covered: %d entries | uncovered: %d entries"
-              % (len(covered_ids), len(uncovered_ids)))
-        if uncovered_ids and len(uncovered_ids) <= 30:
-            top_clusters = sorted(tag_clusters.items(),
-                                  key=lambda x: -len(x[1]))[:5]
-            if top_clusters:
-                print("  top uncovered clusters (by tag):")
-                for tag, ids in top_clusters:
-                    print("    %s (%d entries): %s" % (
-                        tag, len(ids), ", ".join(sorted(ids)[:3]) +
-                        ("..." if len(ids) > 3 else "")))
-        if ok:
-            print("BENCH LINT PASSED")
-        else:
-            if ratio < threshold:
-                print("BENCH LINT FAILED: coverage %.2f < threshold %.2f"
-                      % (ratio, threshold))
-            if dangling:
-                print("BENCH LINT FAILED: %d dangling expected_ids reference "
-                      "entries not in index" % len(dangling))
+        _print_bench_lint_text(cov, n_queries, n_entries, ratio, threshold, ok)
     return 0 if ok else 1
 
 
 _EXPORTS = [
     "redact_ledger_gold_paths",
     "cmd_bench_redact",
+    "_gold_coverage",
+    "_print_bench_lint_text",
     "cmd_bench_lint",
 ]

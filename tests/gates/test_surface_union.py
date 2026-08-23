@@ -225,6 +225,58 @@ class ExclusionTest(unittest.TestCase):
         self.assertTrue(any("top_k" in p for p in UNION.check_tables(tampered)))
 
 
+class CheckValuesBitesTest(unittest.TestCase):
+    """`check_values` RECOMPUTES every value from the two sources.
+
+    It is the one check that stayed in `_surface_union` when task 99 wave 19
+    split the judging half out, because it is the one that reads
+    ``ADJUDICATIONS`` -- and the sweep that split ran found its three arms
+    unguarded on BOTH sides of the split: the suite drove it on the clean
+    fixture only, which a deleted check satisfies just as well. Each test below
+    moves ONE value off what the sources say and asserts the check names it.
+
+    Its two adjudication arms are already guarded above, by
+    `test_an_unadjudicated_divergence_fails_derivation_loudly` and
+    `test_a_fixture_contradicting_its_adjudication_is_caught`.
+    """
+
+    def setUp(self):
+        self.capture = load_module("aw_surface_capture_cv", "_surface_capture.py")
+        self.local, self.donor = load(LOCAL_FIXTURE), load(DONOR_FIXTURE)
+
+    def values(self, fixture):
+        return UNION.check_values(fixture, self.local, self.donor, self.capture)
+
+    def test_the_committed_fixture_recomputes_clean(self):
+        self.assertEqual(self.values(load(UNION_FIXTURE)), [])
+
+    def test_a_wrong_sides_value_is_caught(self):
+        """`sides` is DERIVED provenance, so it is recomputed, never trusted."""
+        tampered = copy.deepcopy(load(UNION_FIXTURE))
+        action_of(tampered, ["recall"], "top_k")["sides"] = "donor"
+        problems = self.values(tampered)
+        self.assertTrue(any("sides" in p and "is wrong" in p for p in problems),
+                        problems)
+
+    def test_an_agreed_field_moved_off_the_agreed_value_is_caught(self):
+        """Both sides said the same thing; the union may not say another."""
+        tampered = copy.deepcopy(load(UNION_FIXTURE))
+        action_of(tampered, ["recall"], "top_k")["default"] = 999
+        problems = self.values(tampered)
+        self.assertTrue(any("!= agreed" in p for p in problems), problems)
+
+    def test_a_one_sided_field_moved_off_its_source_is_caught(self):
+        """An action only one tree had still has exactly one right answer."""
+        union = load(UNION_FIXTURE)
+        target = next(
+            (n["path"], a["dest"]) for n in union["nodes"] for a in n["actions"]
+            if a["sides"] in ("local", "donor") and a["option_strings"])
+        tampered = copy.deepcopy(union)
+        action_of(tampered, target[0], target[1])["default"] = "not-the-source"
+        problems = self.values(tampered)
+        self.assertTrue(any("!= source" in p for p in problems), problems)
+
+
 class SupersetGateTest(unittest.TestCase):
     """The gate downstream tasks build on must redden in BOTH directions."""
 

@@ -76,7 +76,18 @@ _GROUND_TRUTH_WRITERS = {
 }
 _EXPECTED_INDEX_WRITER_DEFS = {
     # def name -> owning dispatch command (None = primitive/helper of below)
-    "cmd_init": "cmd_init",                       # bootstrap (pre-initialization)
+    # `cmd_init` was here until task 99 wave 17. Same shape as `cmd_learn` /
+    # `cmd_decide` / `cmd_ingest` at wave 13 and `_relate_commit_index` at task
+    # 38: the OWNING COMMAND is unchanged and the write did not go away, it moved
+    # ONE FRAME DOWN into the receiver the ceiling paydown named.
+    # `_init_seed_index` is `init`'s seed step -- absent-only, so it NEVER
+    # clobbers a populated index, which is why it stays a bootstrap exemption
+    # (`cmd_init` is still the owning command in `_INDEX_WRITER_EXEMPT_COMMANDS`
+    # below, and `init` runs BEFORE a KB has a schema to be gated against). The
+    # old name is REMOVED rather than left beside the new one, so this set keeps
+    # meaning "the functions that actually write" -- a stale entry here is a
+    # function the gate believes it is policing and is not.
+    "_init_seed_index": "cmd_init",               # bootstrap (pre-initialization)
     "cmd_index_add": "cmd_index_add",
     "cmd_index_remove": "cmd_index_remove",
     "cmd_index_sync": "cmd_index_sync",
@@ -107,9 +118,24 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     "_rebuild_kb_after_pull": None,
     "cmd_index_rebuild": "cmd_index_rebuild",
     "_attach_migrate_structure": "cmd_attach",   # arbitrary candidate path
-    "cmd_learn": "cmd_learn",
-    "cmd_decide": "cmd_decide",
-    "cmd_ingest": "cmd_ingest",
+    # `cmd_learn`, `cmd_decide` and `cmd_ingest` were here until task 99 wave
+    # 13. Same shape as `_relate_commit_index` at task 38 and
+    # `_resolve_derived_conflict` at wave 8: the OWNING COMMANDS are unchanged
+    # and the writes did not go away, they moved ONE FRAME DOWN into the
+    # receivers the ceiling paydown named. `_finish_curation_write` is the
+    # shared register-or-roll-back step BOTH curation verbs now call inside the
+    # index lock, and `_ingest_commit` is `ingest`'s critical section. The old
+    # names are REMOVED rather than left beside the new ones, so this set keeps
+    # meaning "the functions that actually write" -- a stale entry here is a
+    # function the gate believes it is policing and is not.
+    #
+    # The map takes ONE owning command per writer, and `_finish_curation_write`
+    # has two. It is keyed to `cmd_learn`; `cmd_decide`'s registration is not
+    # left unasserted by that choice -- `_GROUND_TRUTH_WRITERS` above pins the
+    # whole registry by name, and `test_schemaguard_registry_matches_ground_
+    # truth` fails if either verb falls out of it.
+    "_finish_curation_write": "cmd_learn",
+    "_ingest_commit": "cmd_ingest",
     # relate verb's index writer. PORTED at task 38 into
     # agentware_lib/knowledge/relatecmd.py, where the monolith's single ~150-line
     # `_declare_relation` was split at its four existing stages to satisfy the
@@ -117,7 +143,16 @@ _EXPECTED_INDEX_WRITER_DEFS = {
     # OWNING COMMAND is unchanged, which is the only thing this map governs.
     "_relate_commit_index": "cmd_relate",
 
-    "kb_git_push_once": "cmd_kb_git_commit",     # git-sync rebuild-before-commit
+    # `kb_git_push_once` was here until task 99 wave 8. Same shape as
+    # `_relate_commit_index` at task 38: the OWNING COMMAND is unchanged and the
+    # write did not go away, it moved ONE FRAME DOWN into the receiver the
+    # ceiling paydown named (`_resolve_derived_conflict`, which holds the whole
+    # derived-conflict resolution: rebuild -> scoped stage -> nothing-lost gate
+    # -> rebase --continue -> push). The old name is REMOVED rather than left
+    # beside the new one, so this set keeps meaning "the functions that actually
+    # write" -- a stale entry here is a function the gate believes it is
+    # policing and is not.
+    "_resolve_derived_conflict": "cmd_kb_git_commit",  # git-sync rebuild-before-commit
     "kb_git_merge_continue": "cmd_kb_git_merge_continue",
     "_mq_integrate_kb": "cmd_fanout_merge_queue",
     # `_dream_step_kb_pull` was here until the monolith was deleted. It is NOT a

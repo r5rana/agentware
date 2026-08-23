@@ -6,7 +6,9 @@ PROVISIONING (_fanout_provision_lane), the KB merge-policy installer + its .gita
 managed block (_fanout_gitattributes_block / _strip_managed_block / _install_merge_policy /
 cmd_fanout_merge_policy), lane OUTCOME reporting (_count_open_plan_markers / _lane_outcome /
 cmd_fanout_list), the single post-merge GATE runner (_run_gate), the lane SPIN-UP command
-(cmd_fanout_spin_up), and the fanout constants (FANOUT_FEATURE_RE / FANOUT_MERGE_UNION_PATHS /
+(cmd_fanout_spin_up) with the two pieces it is assembled from (_spin_up_preflight, the
+whole-command repo/base resolution + work-tree guard; _print_spin_up_lanes, its text
+renderer), and the fanout constants (FANOUT_FEATURE_RE / FANOUT_MERGE_UNION_PATHS /
 FANOUT_GITATTR_BEGIN / FANOUT_GITATTR_END).
 
 Does NOT own: the merge-queue + teardown orchestration (_is_ancestor / _ensure_integration_branch /
@@ -412,6 +414,53 @@ def _run_gate(cmd, repo, kb_repo):
         return 1, str(exc)
 
 
+def _spin_up_preflight(args):
+    """Resolve the two repos + the two base refs, and prove both repos are git
+    work trees. Returns (context, error); on error context is None and the
+    string is the operator-facing reason WITHOUT the `fanout spin-up: ` prefix
+    the caller adds.
+
+    Everything here is checked BEFORE the lane loop opens, because every failure
+    it can find is fatal for EVERY feature named on the command line, not for
+    one of them — reporting it per-lane would repeat one message N times and
+    still provision nothing. The two base refs default through each other
+    (`--kb-base` falls back to `--base`, which falls back to HEAD) so a caller
+    who pins one side pins both unless they say otherwise.
+    """
+    repo = _resolve_repo_arg(getattr(args, "repo", None), REPO_ROOT)
+    kb_repo = _resolve_repo_arg(getattr(args, "kb_repo", None),
+                                config.resolve_knowledge_dir())
+    if not kb_repo:
+        return None, ("no KB repo (pass --kb-repo or set "
+                      "AGENTWARE_KNOWLEDGE_DIR).")
+    base = getattr(args, "base", None) or "HEAD"
+    kb_base = getattr(args, "kb_base", None) or base
+
+    for label, path in (("package", repo), ("KB", kb_repo)):
+        if not kbgit.git_is_work_tree(path):
+            return None, ("%s repo is not a git work tree: %s" % (label, path))
+
+    return {"repo": repo, "kb_repo": kb_repo,
+            "base": base, "kb_base": kb_base}, None
+
+
+def _print_spin_up_lanes(results, dry):
+    """Render the provisioned lanes as text, four lines each.
+
+    Error rows are SKIPPED: `_fanout_provision_lane`'s failure already went to
+    stderr with the feature named, and they carry no worktree/branch/env keys to
+    print anyway. The json form keeps them, because it has no stderr to defer to.
+    """
+    for r in results:
+        if r["action"] == "error":
+            continue
+        tag = "[dry-run] would create" if dry else r["action"]
+        print("fanout spin-up: %s %s" % (r["feature"], tag))
+        print("  feat worktree: %s (%s)" % (r["worktree"], r["feat_branch"]))
+        print("  kb   worktree: %s (%s)" % (r["kb_path"], r["kb_branch"]))
+        print("  env file:      %s" % r["env_file"])
+
+
 def cmd_fanout_spin_up(args):
     """Provision one or more isolated lanes (package + KB worktrees + env file).
 
@@ -420,25 +469,19 @@ def cmd_fanout_spin_up(args):
     AGENTWARE_KNOWLEDGE_DIR to the KB worktree. Idempotent (an intact existing
     lane is a no-op), refuses to clobber a branch/worktree it does not own, and
     --dry-run prints the plan and writes nothing.
+
+    This body is the LOOP: a whole-command preflight, then one
+    `_fanout_provision_lane` per feature. An invalid or unprovisionable feature
+    sets rc without stopping the others, so a batch spin-up provisions every
+    lane it can and reports the ones it could not.
     """
     fmt_json = getattr(args, "format", "text") == "json"
     dry = getattr(args, "dry_run", False)
 
-    repo = _resolve_repo_arg(getattr(args, "repo", None), REPO_ROOT)
-    kb_repo = _resolve_repo_arg(getattr(args, "kb_repo", None),
-                                config.resolve_knowledge_dir())
-    if not kb_repo:
-        sys.stderr.write("fanout spin-up: no KB repo (pass --kb-repo or set "
-                         "AGENTWARE_KNOWLEDGE_DIR).\n")
+    ctx, perr = _spin_up_preflight(args)
+    if perr:
+        sys.stderr.write("fanout spin-up: %s\n" % perr)
         return 1
-    base = getattr(args, "base", None) or "HEAD"
-    kb_base = getattr(args, "kb_base", None) or base
-
-    for label, path in (("package", repo), ("KB", kb_repo)):
-        if not kbgit.git_is_work_tree(path):
-            sys.stderr.write("fanout spin-up: %s repo is not a git work tree: "
-                             "%s\n" % (label, path))
-            return 1
 
     data, err = load_lanes()
     if err:
@@ -452,8 +495,9 @@ def cmd_fanout_spin_up(args):
                              "(allowed: [A-Za-z0-9_-]).\n" % feature)
             rc = 1
             continue
-        lane = _fanout_lane_paths(feature, repo, kb_repo)
-        action, lerr = _fanout_provision_lane(data, lane, base, kb_base, dry)
+        lane = _fanout_lane_paths(feature, ctx["repo"], ctx["kb_repo"])
+        action, lerr = _fanout_provision_lane(data, lane, ctx["base"],
+                                              ctx["kb_base"], dry)
         if lerr:
             sys.stderr.write("fanout spin-up: %s: %s\n" % (feature, lerr))
             rc = 1
@@ -471,14 +515,7 @@ def cmd_fanout_spin_up(args):
                   ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
-        for r in results:
-            if r["action"] == "error":
-                continue
-            tag = "[dry-run] would create" if dry else r["action"]
-            print("fanout spin-up: %s %s" % (r["feature"], tag))
-            print("  feat worktree: %s (%s)" % (r["worktree"], r["feat_branch"]))
-            print("  kb   worktree: %s (%s)" % (r["kb_path"], r["kb_branch"]))
-            print("  env file:      %s" % r["env_file"])
+        _print_spin_up_lanes(results, dry)
     return rc
 
 
@@ -503,5 +540,7 @@ _EXPORTS = [
     "_lane_outcome",
     "cmd_fanout_list",
     "_run_gate",
+    "_spin_up_preflight",
+    "_print_spin_up_lanes",
     "cmd_fanout_spin_up",
 ]

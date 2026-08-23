@@ -2,7 +2,9 @@
 
 Owns: the completion-gate worklog scanner — the LEARNED/DECISION/PROMOTED marker
 regexes (LEARNED_RE, DECISION_RE, PROMOTED_RE), the promotion-resolution closure
-(promoted_ids, _real_ids, _category_stems, learning_stems, decision_stems,
+(promoted_ids, _real_ids, _category_stems -- the filtered UNION of its two
+INDEPENDENT stem sources, _indexed_category_stems (what the index registered) and
+_dir_md_stems (what is on disk) -- learning_stems, decision_stems,
 skill_promotion_ids, _learned_real_ids, _is_promoted), the scanner itself
 (scan_worklog), and the `worklog scan` command surface (cmd_worklog_scan +
 register_worklog). Pure + read-only over the live index PLUS the on-disk
@@ -108,11 +110,14 @@ def _real_ids(stems, id_prefix):
     return ids
 
 
-def _category_stems(kdir, data, category, id_prefix, subdir):
-    """Filename/id stems of every entry in `category` (for promotion checks).
+def _indexed_category_stems(data, category, id_prefix):
+    """Stems the INDEX knows for `category`: each entry's filename stem and, when
+    its id carries `id_prefix`, the id with that prefix stripped.
 
-    Generic over the marker family so `> LEARNED:` (learnings) and `> DECISION:`
-    (decisions) share one implementation.
+    Both are added — an entry filed as `learnings/a-thing.md` under the id
+    `learn-a-thing` contributes one stem, and one whose id and filename DISAGREE
+    contributes two, because a marker may name either. Lowercased, because a
+    marker's slug is matched case-insensitively.
     """
     stems = set()
     for e in (data.get("entries") or []):
@@ -124,11 +129,37 @@ def _category_stems(kdir, data, category, id_prefix, subdir):
         eid = e.get("id") or ""
         if eid.startswith(id_prefix):
             stems.add(eid[len(id_prefix):].lower())
+    return stems
+
+
+def _dir_md_stems(kdir, subdir):
+    """Stems ON DISK under `<kdir>/<subdir>`: every `*.md` except `index.md`.
+
+    The second, INDEPENDENT source. An entry written but not yet registered is
+    invisible to the index and visible here, which is why the two are unioned
+    rather than one being derived from the other. An absent subdir — or one that
+    is a FILE — contributes nothing rather than raising.
+    """
+    stems = set()
     d = os.path.join(kdir, subdir)
     if os.path.isdir(d):
         for fn in os.listdir(d):
             if fn.endswith(".md") and fn != "index.md":
                 stems.add(fn[:-3].lower())
+    return stems
+
+
+def _category_stems(kdir, data, category, id_prefix, subdir):
+    """Filename/id stems of every entry in `category` (for promotion checks).
+
+    The UNION of the two independent sources above, minus the empty stem (an
+    entry whose id is exactly the prefix, or a file named `.md`, would otherwise
+    contribute a stem that matches every marker). Generic over the marker family
+    so `> LEARNED:` (learnings) and `> DECISION:` (decisions) share one
+    implementation.
+    """
+    stems = _indexed_category_stems(data, category, id_prefix)
+    stems |= _dir_md_stems(kdir, subdir)
     return {s for s in stems if s}
 
 

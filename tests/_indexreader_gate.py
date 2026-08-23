@@ -102,7 +102,14 @@ REQUIRED_NORMALIZED = (
      "audit's tag-map->entry back-ref"),
     ("ops/fleet/fleetreport.py", "_fleet_top_learning_tags",
      "fleet issues tag histogram (tag_counts[t] is unhashable on a dict element)"),
-    ("retrieval/bench/benchledger.py", "cmd_bench_lint", "bench lint tag clusters"),
+    # Task 99 wave 10 re-aimed this row from `cmd_bench_lint` onto the helper
+    # the cluster fold moved into. The site is the SAME read and the guard is
+    # the same call; what changed is which function owns it. That is exactly
+    # the shape a name-anchored safety pin goes stale on — the row would have
+    # reported "does not call _entry_list_field" on a handler that no longer
+    # reads a list field at all, which reads as a REGRESSION rather than as a
+    # move. The pin follows the read.
+    ("retrieval/bench/benchledger.py", "_gold_coverage", "bench lint tag clusters"),
 )
 
 # Every REMAINING raw read of a list field, each with the reason it is safe.
@@ -122,10 +129,15 @@ RAW_READ_EXEMPT = (
     ("knowledge/index/indexvalidate.py", "_entry_optional_errors", "relates",
      "the strict list-field gate: normalizing here would MASK the poison"),
     # -- the SKILL CATALOG, a different document with a different schema -------
-    ("features/skillpropose.py", "_existing_skill_coverage", "tags",
+    # The pin FOLLOWS THE READ (task 99 wave 11): the raw catalog read moved out
+    # of `_existing_skill_coverage` into the named source ingestion
+    # `_coverage_from_catalog` when the ceiling row was paid down. Re-aimed
+    # rather than re-run: leaving it on the parent would have reported a MOVE as
+    # a REGRESSION at the new site AND as a stale row at the old one.
+    ("features/skillpropose.py", "_coverage_from_catalog", "tags",
      "catalog/skills.json rows, not index.json entries — a different document "
-     "with its own schema; the SAME function reads real index entries three "
-     "lines below and routes those through _entry_list_field"),
+     "with its own schema; the SIBLING ingestion `_coverage_from_index` reads "
+     "real index entries and routes those through _entry_list_field"),
     # -- a frontmatter FIELDS dict, always parser-normalized to a list ---------
     ("core/frontmatter.py", "render_frontmatter", "tags", "parser product, not an index entry"),
     ("core/frontmatter.py", "render_frontmatter", "relates", "parser product, not an index entry"),
@@ -160,7 +172,9 @@ RAW_READ_EXEMPT = (
      "_declare_relation's own result dict, never a loaded entry"),
     # -- not the index at all --------------------------------------------------
     ("features/skills.py", "cmd_skill_search", "tags", "the skill CATALOG, not the index"),
-    ("features/skills.py", "cmd_skill_add", "tags", "the skill CATALOG, not the index"),
+    # Re-aimed at task 99 wave 11 for the same reason: the catalog read moved
+    # from `cmd_skill_add` into `_skill_add_kb`, the INDEXED-destination arm.
+    ("features/skills.py", "_skill_add_kb", "tags", "the skill CATALOG, not the index"),
     ("knowledge/curation/curationingest.py", "_ingest_register", "tags",
      "an ingest candidate this module built"),
     ("knowledge/curation/curationingest.py", "_ingest_write_staging", "tags",

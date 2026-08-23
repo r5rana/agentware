@@ -400,7 +400,74 @@ def _audit_stale_proposal(kdir, stale_report):
             else {"proposed": False, "reason": perr})
 
 
+def _audit_index_checks(kdir, data):
+    """The FLAT check list run over a corpus whose index loaded. One row per
+    check, in report order.
+
+    Deliberately a flat literal and NOT a table driven by a loop: a length proxy
+    cannot see a check that is silently absent from a literal, so the list is
+    kept where its length IS the check count and each row names its own reader.
+    """
+    from agentware_lib.features.dream import _audit_dream_health_check
+    # Imported HERE beside the dream check for the same reason: both are
+    # audit checks that live in another module, and both are needed only on
+    # the index-loaded path. Its absence from the list below is what a length
+    # proxy cannot see — the checks are a flat literal, so a dropped line is a
+    # silently missing check, not an error.
+    from agentware_lib.ops.checkuphealth import _audit_pkg_version_check
+    ve = index.validate_index(kdir, data)
+    un = index.scan_unindexed(kdir, data)
+    te = index.tag_consistency_errors(data)
+    tce = index.template_conformance_errors(kdir, data)
+    oe = index.orphaned_learning_errors(kdir, data)
+    return [
+        {"name": "index_validate", "ok": not ve, "details": ve},
+        {"name": "filesystem_sync", "ok": not un, "details": un},
+        {"name": "tag_consistency", "ok": not te, "details": te},
+        {"name": "template_conformance", "ok": not tce, "details": tce},
+        {"name": "orphaned_learnings", "ok": not oe, "details": oe},
+        _audit_steering_lint_check(),
+        _audit_personal_data_check(kdir),
+        _audit_bm25_cache_check(kdir, data),
+        _audit_mode_b_health_check(kdir, data),
+        _audit_graph_integrity_check(kdir, data),
+        _audit_provenance_coverage_check(kdir, data),
+        _audit_dream_health_check(kdir),
+        _audit_pkg_version_check(kdir),
+    ]
+
+
+def _audit_json_payload(ok, checks, stale_report, proposal):
+    """The `--format json` document. The two optional sections are OMITTED when
+    their flag was off rather than emitted as null, so a consumer can tell "not
+    asked for" from "asked for and empty"."""
+    payload = {"ok": ok, "checks": checks}
+    if stale_report is not None:
+        payload["stale_report"] = stale_report
+    if proposal is not None:
+        payload["proposal"] = proposal
+    return payload
+
+
+def _audit_print_text(ok, checks, stale_report, proposal):
+    """The text render: the verdict line, one line per check, and the details of
+    the FAILING ones only — a passing check has nothing to say."""
+    print("AUDIT %s (%d check(s)):" % ("PASSED" if ok else "FAILED", len(checks)))
+    for c in checks:
+        print("  [%s] %s" % ("ok" if c["ok"] else "FAIL", c["name"]))
+        if not c["ok"]:
+            for d in c["details"]:
+                print("      - %s" % d)
+    _print_stale_section(stale_report, proposal)
+
+
 def cmd_audit(args):
+    """`agentware audit` — run every consistency check in one pass.
+
+    Assemble, then render: the check list is built once and BOTH modes render
+    the same list, so a check can never be reported in one format and missing
+    from the other.
+    """
     kdir = config.require_knowledge_dir()
     if not kdir:
         return 1
@@ -409,33 +476,7 @@ def cmd_audit(args):
     if err is not None:
         checks = [{"name": "index_validate", "ok": False, "details": [err]}]
     else:
-        from agentware_lib.features.dream import _audit_dream_health_check
-        # Imported HERE beside the dream check for the same reason: both are
-        # audit checks that live in another module, and both are needed only on
-        # the index-loaded path. Its absence from the list below is what a length
-        # proxy cannot see — the checks are a flat literal, so a dropped line is a
-        # silently missing check, not an error.
-        from agentware_lib.ops.checkuphealth import _audit_pkg_version_check
-        ve = index.validate_index(kdir, data)
-        un = index.scan_unindexed(kdir, data)
-        te = index.tag_consistency_errors(data)
-        tce = index.template_conformance_errors(kdir, data)
-        oe = index.orphaned_learning_errors(kdir, data)
-        checks = [
-            {"name": "index_validate", "ok": not ve, "details": ve},
-            {"name": "filesystem_sync", "ok": not un, "details": un},
-            {"name": "tag_consistency", "ok": not te, "details": te},
-            {"name": "template_conformance", "ok": not tce, "details": tce},
-            {"name": "orphaned_learnings", "ok": not oe, "details": oe},
-            _audit_steering_lint_check(),
-            _audit_personal_data_check(kdir),
-            _audit_bm25_cache_check(kdir, data),
-            _audit_mode_b_health_check(kdir, data),
-            _audit_graph_integrity_check(kdir, data),
-            _audit_provenance_coverage_check(kdir, data),
-            _audit_dream_health_check(kdir),
-            _audit_pkg_version_check(kdir),
-        ]
+        checks = _audit_index_checks(kdir, data)
         # Rule-7 observability: advisory graph-health signal (append-only,
         # gitignored, read-only w.r.t. the KB/index).
         _append_graph_health_metric(kdir, data)
@@ -446,21 +487,11 @@ def cmd_audit(args):
     stale_report, proposal = _audit_stale_section(kdir, data, args, err)
     ok = all(c["ok"] for c in checks)
     if as_json:
-        payload = {"ok": ok, "checks": checks}
-        if stale_report is not None:
-            payload["stale_report"] = stale_report
-        if proposal is not None:
-            payload["proposal"] = proposal
-        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+        json.dump(_audit_json_payload(ok, checks, stale_report, proposal),
+                  sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
     else:
-        print("AUDIT %s (%d check(s)):" % ("PASSED" if ok else "FAILED", len(checks)))
-        for c in checks:
-            print("  [%s] %s" % ("ok" if c["ok"] else "FAIL", c["name"]))
-            if not c["ok"]:
-                for d in c["details"]:
-                    print("      - %s" % d)
-        _print_stale_section(stale_report, proposal)
+        _audit_print_text(ok, checks, stale_report, proposal)
     return 0 if ok else 1
 
 

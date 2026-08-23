@@ -1,5 +1,5 @@
 {
-  "captured": "2026-08-21",
+  "captured": "2026-08-22, branch merge/modularize, plan task 99 wave 18",
   "groups": [
     {
       "owner": "task 101",
@@ -152,11 +152,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/curationcmd.py",
-          "value": "tests/unit/features/test_curationcmd.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/features/dreamgate.py",
           "value": "tests/unit/features/test_dreamgate.py"
         },
@@ -247,23 +242,8 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/fanout.py",
-          "value": "tests/unit/features/test_fanout.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/features/fanoutmq/mqbranch.py",
           "value": "tests/unit/features/test_mqbranch.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py",
-          "value": "tests/unit/features/test_mqintegrate.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/fanoutmq/mqteardown.py",
-          "value": "tests/unit/features/test_mqteardown.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -312,16 +292,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/indexcmd.py",
-          "value": "tests/unit/features/test_indexcmd.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/mcp.py",
-          "value": "tests/unit/features/test_mcp.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/features/migratecmd.py",
           "value": "tests/unit/features/test_migratecmd.py"
         },
@@ -342,18 +312,8 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/proposals/proposalpromote.py",
-          "value": "tests/unit/features/test_proposalpromote.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/features/proposals/proposalreport.py",
           "value": "tests/unit/features/test_proposalreport.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/proposals/proposeauthor.py",
-          "value": "tests/unit/features/test_proposeauthor.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -367,11 +327,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/setupcmd.py",
-          "value": "tests/unit/features/test_setupcmd.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/features/skillcandidate.py",
           "value": "tests/unit/features/test_skillcandidate.py"
         },
@@ -379,21 +334,6 @@
           "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/features/skilllock.py",
           "value": "tests/unit/features/test_skilllock.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/skillpropose.py",
-          "value": "tests/unit/features/test_skillpropose.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/skills.py",
-          "value": "tests/unit/features/test_skills.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/skillsync.py",
-          "value": "tests/unit/features/test_skillsync.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -407,11 +347,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/features/updatecmd.py",
-          "value": "tests/unit/features/test_updatecmd.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/knowledge/attach.py",
           "value": "tests/unit/knowledge/test_attach.py"
         },
@@ -422,11 +357,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/knowledge/curation/curationingest.py",
-          "value": "tests/unit/knowledge/test_curationingest.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/knowledge/curation/curationrender.py",
           "value": "tests/unit/knowledge/test_curationrender.py"
         },
@@ -434,11 +364,6 @@
           "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/knowledge/freshsignals.py",
           "value": "tests/unit/knowledge/test_freshsignals.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/knowledge/graph.py",
-          "value": "tests/unit/knowledge/test_graph.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -487,18 +412,8 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/knowledge/worklog.py",
-          "value": "tests/unit/knowledge/test_worklog.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/alerts.py",
           "value": "tests/unit/ops/test_alerts.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/audit.py",
-          "value": "tests/unit/ops/test_audit.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -532,11 +447,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/failureladder.py",
-          "value": "tests/unit/ops/test_failureladder.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/fleet/fleetguard.py",
           "value": "tests/unit/ops/test_fleetguard.py"
         },
@@ -547,33 +457,13 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/fleet/fleettemplates.py",
-          "value": "tests/unit/ops/test_fleettemplates.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/gitguards.py",
           "value": "tests/unit/ops/test_gitguards.py"
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/kbgit.py",
-          "value": "tests/unit/ops/test_kbgit.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/kbpull.py",
-          "value": "tests/unit/ops/test_kbpull.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/kbstage.py",
           "value": "tests/unit/ops/test_kbstage.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/kbsync.py",
-          "value": "tests/unit/ops/test_kbsync.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -584,16 +474,6 @@
           "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/metrics/metricsemit.py",
           "value": "tests/unit/ops/test_metricsemit.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/metrics/metricspricing.py",
-          "value": "tests/unit/ops/test_metricspricing.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/orglint.py",
-          "value": "tests/unit/ops/test_orglint.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -622,11 +502,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/planauthor/workstamp.py",
-          "value": "tests/unit/ops/test_workstamp.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/plangovern.py",
           "value": "tests/unit/ops/test_plangovern.py"
         },
@@ -647,11 +522,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/planpremises.py",
-          "value": "tests/unit/ops/test_planpremises.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/preferadmit.py",
           "value": "tests/unit/ops/test_preferadmit.py"
         },
@@ -664,16 +534,6 @@
           "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/prefergate.py",
           "value": "tests/unit/ops/test_prefergate.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/premisecheck.py",
-          "value": "tests/unit/ops/test_premisecheck.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/releasegate.py",
-          "value": "tests/unit/ops/test_releasegate.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -737,16 +597,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/steering.py",
-          "value": "tests/unit/ops/test_steering.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/ops/team.py",
-          "value": "tests/unit/ops/test_team.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/ops/tickcmd.py",
           "value": "tests/unit/ops/test_tickcmd.py"
         },
@@ -762,16 +612,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/bench/benchledger.py",
-          "value": "tests/unit/retrieval/test_benchledger.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/bench/benchswe.py",
-          "value": "tests/unit/retrieval/test_benchswe.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/retrieval/bm25.py",
           "value": "tests/unit/retrieval/test_bm25.py"
         },
@@ -779,16 +619,6 @@
           "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/retrieval/corpus.py",
           "value": "tests/unit/retrieval/test_corpus.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/evalcmd.py",
-          "value": "tests/unit/retrieval/test_evalcmd.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/goldfixture.py",
-          "value": "tests/unit/retrieval/test_goldfixture.py"
         },
         {
           "kind": "module_without_granular_test",
@@ -807,16 +637,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/pinpolicy.py",
-          "value": "tests/unit/retrieval/test_pinpolicy.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/recallcmd.py",
-          "value": "tests/unit/retrieval/test_recallcmd.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/retrieval/regressiongate/abgate.py",
           "value": "tests/unit/retrieval/test_abgate.py"
         },
@@ -832,16 +652,6 @@
         },
         {
           "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/vectorcache.py",
-          "value": "tests/unit/retrieval/test_vectorcache.py"
-        },
-        {
-          "kind": "module_without_granular_test",
-          "location": "scripts/agentware_lib/retrieval/workcorpus.py",
-          "value": "tests/unit/retrieval/test_workcorpus.py"
-        },
-        {
-          "kind": "module_without_granular_test",
           "location": "scripts/agentware_lib/strangler.py",
           "value": "tests/unit/cli/test_strangler.py"
         }
@@ -850,7 +660,7 @@
   ],
   "note": "The residual the test-corpus OWNERSHIP rule found on the day it was first enforced (plan task 71). Read tests/_test_ownership.py for the rule and the ratchet semantics. A row here is subtracted from the live scan; a testless module at an undeclared location and a row the tree no longer produces are both failures, so this file only shrinks. Rows are grouped: the group carries the owner and the paragraph, each row carries only what varies. `value` is the granular path that WOULD own the module, so a row states the remedy and not only the complaint. DO NOT hand-add a row: `ratchet.max_rows` must equal the row count AND stay at or below the ceiling pinned by value in tests/gates/test_test_ownership.py, so legalising a new testless module takes two deliberate edits in two files.",
   "ratchet": {
-    "max_rows": 168
+    "max_rows": 130
   },
   "rows": [],
   "schema": "agentware/test-ownership-debt@1"

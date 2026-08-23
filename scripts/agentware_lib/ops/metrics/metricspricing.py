@@ -5,9 +5,13 @@ Owns: the deterministic, read-only COST layer over parsed session rows --
     (_PRICE_COMPONENT), longest-substring model lookup (_price_for), the pure
     usage->cost (_usage_cost), the per-day cost-anomaly tuning
     (_COST_ANOMALY_FACTOR/_COST_ANOMALY_MIN_HISTORY), the rollup builders
-    (_cost_record/_finalize_record), apply_pricing (derives cost/cache/model/
-    feature/day rollups onto rows + aggregate) and load_price_table, plus the p50
-    helper _median;
+    (_cost_record/_finalize_record/_rollup_bucket -- the get-or-create the three
+    rollups share), apply_pricing (derives cost/cache/model/feature/day rollups onto
+    rows + aggregate) with the two folds it walks through (_price_row_models, one
+    row's per-model pricing plus the shared by_model rollup; _flag_cost_anomalies,
+    the chronological trailing-median walk, which runs AFTER the finalize pass so a
+    day is judged by the ROUNDED cost the report shows) and load_price_table, plus
+    the p50 helper _median;
   * context-window sizing: _model_context_window/_context_window_for_rows + the
     _DEFAULT_CONTEXT_WINDOW/_CONTEXT_WINDOW_1M/_TRUNCATION_RISK_THRESHOLD constants.
 
@@ -202,72 +206,53 @@ def _finalize_record(rec):
     rec["cache_read_ratio"] = _sessionparse._cache_read_ratio(rec["tokens"])
 
 
-def apply_pricing(rows, agg, prices):
-    """Derive PURE cost/cache/model/feature/day rollups onto rows + aggregate.
+def _rollup_bucket(rollup, key):
+    """The bucket for `key`, created (zeroed) on first sight. The get-or-create
+    the three rollups — by_model, by_day, by_feature — each wrote for itself."""
+    rec = rollup.get(key)
+    if rec is None:
+        rec = _cost_record(_sessionparse._empty_usage())
+        rollup[key] = rec
+    return rec
 
-    Mutates each row in `rows` (adds per-model cost + row cost_usd) and `agg`
-    (adds cost_usd, cache_read_ratio, by_model, by_day, by_feature and a
-    cost-anomaly flag per day). No collection, no I/O — derived only from the
-    already-parsed token usage. Deterministic."""
-    by_model = {}
-    by_day = {}
-    by_feature = {}
 
-    for r in rows:
-        row_cost = 0.0
-        priced_models = {}
-        for model, usage in sorted(r.get("models", {}).items()):
-            price = _price_for(model, prices)
-            mcost = _usage_cost(usage, price)
-            row_cost += mcost
-            priced_models[model] = {
-                "tokens": dict(usage),
-                "total_tokens": sum(usage.get(k, 0) for k in _USAGE_KEYS),
-                "cost_usd": round(mcost, 6),
-            }
-            # by_model rollup
-            mr = by_model.get(model)
-            if mr is None:
-                mr = _cost_record(_sessionparse._empty_usage())
-                by_model[model] = mr
-            _sessionparse._merge_usage(mr["tokens"], usage)
-            mr["total_tokens"] = sum(mr["tokens"][k] for k in _USAGE_KEYS)
-            mr["cost_usd"] += mcost
-        # If a row had usage but no per-model breakdown (no model on lines),
-        # price the whole row under the default entry so cost is never under-counted.
-        if not r.get("models") and r.get("total_tokens"):
-            row_cost += _usage_cost(r["tokens"], _price_for("", prices))
-        r["models"] = priced_models
-        r["cost_usd"] = round(row_cost, 6)
+def _price_row_models(row, prices, by_model):
+    """Price ONE row's per-model usage: returns `(row_cost, priced_models)` and
+    folds each model's usage into the shared `by_model` rollup.
 
-        date = r.get("date")
-        if date:
-            dr = by_day.get(date)
-            if dr is None:
-                dr = _cost_record(_sessionparse._empty_usage())
-                by_day[date] = dr
-            _sessionparse._merge_usage(dr["tokens"], r["tokens"])
-            dr["cost_usd"] += row_cost
-            dr["session_count"] += 1
+    Models are walked in SORTED order so the rollup's float accumulation is
+    associative in a fixed sequence and two runs over the same corpus produce
+    the same cents. The per-model `cost_usd` is rounded for display; `row_cost`
+    accumulates UNROUNDED, so the row total is not the sum of its own rounded
+    parts.
+    """
+    row_cost = 0.0
+    priced_models = {}
+    for model, usage in sorted(row.get("models", {}).items()):
+        price = _price_for(model, prices)
+        mcost = _usage_cost(usage, price)
+        row_cost += mcost
+        priced_models[model] = {
+            "tokens": dict(usage),
+            "total_tokens": sum(usage.get(k, 0) for k in _USAGE_KEYS),
+            "cost_usd": round(mcost, 6),
+        }
+        mr = _rollup_bucket(by_model, model)
+        _sessionparse._merge_usage(mr["tokens"], usage)
+        mr["total_tokens"] = sum(mr["tokens"][k] for k in _USAGE_KEYS)
+        mr["cost_usd"] += mcost
+    return row_cost, priced_models
 
-        feat = r.get("feature") or "unknown"
-        fr = by_feature.get(feat)
-        if fr is None:
-            fr = _cost_record(_sessionparse._empty_usage())
-            by_feature[feat] = fr
-        _sessionparse._merge_usage(fr["tokens"], r["tokens"])
-        fr["cost_usd"] += row_cost
-        fr["session_count"] += 1
 
-    for rec in by_model.values():
-        _finalize_record(rec)
-    for rec in by_day.values():
-        _finalize_record(rec)
-    for rec in by_feature.values():
-        _finalize_record(rec)
+def _flag_cost_anomalies(by_day):
+    """Stamp `cost_anomaly` on every day and return the flagged dates, in order.
 
-    # Cost-anomaly: walk days chronologically; flag a day whose cost exceeds the
-    # trailing median of all PRIOR days by the configured factor.
+    Walks days CHRONOLOGICALLY and compares each against the trailing median of
+    all PRIOR days — so the flag is a statement about a day's own history and
+    never about days that came after it. Two guards keep it from firing on
+    noise: fewer than `_COST_ANOMALY_MIN_HISTORY` prior days is not a history at
+    all, and a zero median would make every non-zero day an infinite multiple.
+    """
     anomaly_dates = []
     history = []
     for date in sorted(by_day):
@@ -280,6 +265,48 @@ def apply_pricing(rows, agg, prices):
         if flagged:
             anomaly_dates.append(date)
         history.append(cost)
+    return anomaly_dates
+
+
+def apply_pricing(rows, agg, prices):
+    """Derive PURE cost/cache/model/feature/day rollups onto rows + aggregate.
+
+    Mutates each row in `rows` (adds per-model cost + row cost_usd) and `agg`
+    (adds cost_usd, cache_read_ratio, by_model, by_day, by_feature and a
+    cost-anomaly flag per day). No collection, no I/O — derived only from the
+    already-parsed token usage. Deterministic."""
+    by_model = {}
+    by_day = {}
+    by_feature = {}
+
+    for r in rows:
+        row_cost, priced_models = _price_row_models(r, prices, by_model)
+        # If a row had usage but no per-model breakdown (no model on lines),
+        # price the whole row under the default entry so cost is never under-counted.
+        if not r.get("models") and r.get("total_tokens"):
+            row_cost += _usage_cost(r["tokens"], _price_for("", prices))
+        r["models"] = priced_models
+        r["cost_usd"] = round(row_cost, 6)
+
+        date = r.get("date")
+        if date:
+            dr = _rollup_bucket(by_day, date)
+            _sessionparse._merge_usage(dr["tokens"], r["tokens"])
+            dr["cost_usd"] += row_cost
+            dr["session_count"] += 1
+
+        fr = _rollup_bucket(by_feature, r.get("feature") or "unknown")
+        _sessionparse._merge_usage(fr["tokens"], r["tokens"])
+        fr["cost_usd"] += row_cost
+        fr["session_count"] += 1
+
+    # Finalize BEFORE the anomaly walk: it compares ROUNDED day costs, so a walk
+    # that ran first would judge a day by a value the report never shows.
+    for rollup in (by_model, by_day, by_feature):
+        for rec in rollup.values():
+            _finalize_record(rec)
+
+    anomaly_dates = _flag_cost_anomalies(by_day)
 
     agg["cost_usd"] = round(sum(r["cost_usd"] for r in rows), 6)
     agg["cache_read_ratio"] = _sessionparse._cache_read_ratio(agg["tokens"])

@@ -264,12 +264,32 @@ SHIM_RETIREMENT_ROWS = {
     "load_gold_fixture": {
         "adjudication": "decomposed",
         "host": _GOLDFIX,
-        "floor_chars": 2317,
+        "floor_chars": 1990,
         "absorbs": [_GOLDFIX + "::gold_fixture_path",
-                    _GOLDFIX + "::evaluate_gold_fixture"],
+                    _GOLDFIX + "::evaluate_gold_fixture",
+                    _GOLDFIX + "::_load_fixture_corpus",
+                    _GOLDFIX + "::_load_fixture_gold"],
         "rationale": "Path resolution and evaluation split out from loading, so "
                      "the gate can evaluate a fixture it did not load from the "
-                     "default path.",
+                     "default path. Task 99 wave 10 split the LOADER itself at "
+                     "its own seam and lowered the host floor to the measured "
+                     "remainder: the body was TWO sequential validation phases "
+                     "sharing exactly one value -- the set of ids the corpus "
+                     "declared, which the gold phase resolves `expected_ids` "
+                     "against -- so the split is where that value is produced. "
+                     "Both receivers are named individually because each raises "
+                     "a DISTINCT half of the refusal taxonomy (eight corpus "
+                     "messages, nine gold ones) and losing either would leave a "
+                     "malformed fixture reaching the scorer as a valid corpus. "
+                     "The split moves branches rather than removing any: every "
+                     "message is byte-identical, and the phase ORDER is a "
+                     "contract -- a document wrong in BOTH halves reports the "
+                     "CORPUS problem, because the gold half cannot be checked "
+                     "until the corpus has declared its ids. Proven a pure "
+                     "refactor at two boundaries by "
+                     "`evidence/task99/evalbench_boundary.py`, whose 24 "
+                     "gold-fixture rows drive the whole taxonomy and diff "
+                     "BYTE-IDENTICAL before and after.",
     },
     "retrieve_bm25_acr": {
         "adjudication": "decomposed",

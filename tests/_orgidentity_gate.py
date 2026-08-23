@@ -47,9 +47,15 @@ Tree resolution, in order: --tree, AGENTWARE_LIB_TREE, this repo (once the lib
 lands here at plan task 25), then the task-11 staging destination. If NO tree
 carries the lib the gate FAILS.
 
-Stdlib only. Every behavioural probe runs in a subprocess with
-AGENTWARE_CONFIG_HOME and AGENTWARE_KNOWLEDGE_DIR redirected to throwaway paths,
-so the operator's real config and knowledge base are never read or written.
+Checks 1, 2, 5 and 6 are a SCAN and this module owns them. Checks 3 and 4 run the
+shipped library, which is a different kind of evidence and a different failure
+mode, so they live in `_orgidentity_probe` beside the probe name-space they
+exercise.
+
+Stdlib only. Every behavioural probe runs in a subprocess through
+`_probe_sandbox`, with AGENTWARE_CONFIG_HOME and AGENTWARE_KNOWLEDGE_DIR
+redirected to throwaway paths, so the operator's real config and knowledge base
+are never read or written.
 """
 
 import argparse
@@ -57,7 +63,6 @@ import ast
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
@@ -76,10 +81,17 @@ ORGKEYS_REL = os.path.join(LIB_REL, "core", "orgkeys.py")
 CONFIG_REL = os.path.join(LIB_REL, "core", "config.py")
 IDENTITY_REL = os.path.join(LIB_REL, "core", "orgidentity.py")
 
-#: The env-var key names. The current spelling, and the deprecated one that is
-#: still READ (never written) so an existing config.env keeps the guard.
-CURRENT_KEY = "AGENTWARE_ORG_PROJECT"
-LEGACY_KEY = "AGENTWARE_ORG_PACKAGE"
+#: The probe name-space, the two env-var KEYS and the two probe-driven checks
+#: live in the sibling that RUNS them (`_orgidentity_probe`), and are re-exported
+#: here so this module stays the one address for the whole gate: `check` calls
+#: them, `_whereami_gate` and the suites read them off this module, and
+#: `check_keys` below is a second reader of the same two keys. The import runs
+#: scanner -> probe and never back.
+from _orgidentity_probe import (  # noqa: E402,F401
+    CURRENT_KEY, IDENTITY_EXPECTED, LEGACY_KEY, MARKER_BODIES,
+    PROBE_DECLARATIONS, PROBE_NAME_MATCH, check_exact, check_legacy, run_probe,
+)
+
 CURRENT_KEY_NAME = "ORG_PROJECT_KEY"
 LEGACY_KEY_NAME = "ORG_PROJECT_LEGACY_KEY"
 #: The constant name the rename retired. Defining it again would mean two names
@@ -105,13 +117,6 @@ ALLOWED_MARKERS = frozenset((
 #: Below this the table has stopped being a table. Eight covers the major
 #: ecosystems; the floor is what stops a "simplification" reducing it to one.
 MIN_MARKERS = 8
-
-#: The name the probe always ASKS for, and every declaration that must NOT
-#: satisfy it. `FooV2` and `Foo-Tests` are real neighbours of a real checkout —
-#: a version bump and a test package — which is what makes a substring match
-#: unsafe; `PreFoo` covers the left side and `foo` the case fold.
-PROBE_NAME_MATCH = "Foo"
-PROBE_DECLARATIONS = ("Foo", "FooV2", "Foo-Tests", "PreFoo", "foo")
 
 #: The paths check 6 requires to be neutral. Scoped rather than tree-wide on
 #: purpose: the surrounding tree still carries findings owned by later plan
@@ -421,166 +426,9 @@ def check_markers(tree):
     return problems
 
 
-# --- behavioural probes ---
-
-_PROBE_SRC = """
-import json, os, sys
-sys.path.insert(0, os.path.join(%(tree)r, "scripts"))
-from agentware_lib.core import config, orgkeys
-# The marker surface is read off whichever module owns it: its own core module
-# when the tree splits it out, else the config module that still carries it.
-markers = getattr(config, "orgidentity", config)
-out = {"markers": [list(r) for r in markers.PROJECT_MARKERS],
-       "name_file": markers.PROJECT_NAME_FILE,
-       "cases": [], "identity": []}
-name = %(match)r
-bodies = %(bodies)s
-for marker, _template in markers.PROJECT_MARKERS:
-    if marker not in bodies:
-        continue
-    row = {"marker": marker, "declared": {}}
-    for declared in %(declarations)r:
-        d = os.path.join(%(scratch)r, "m-" + marker.replace(".", "_"),
-                         "d-" + declared)
-        os.makedirs(d, exist_ok=True)
-        with open(os.path.join(d, marker), "w", encoding="utf-8") as fh:
-            fh.write(bodies[marker] %% declared)
-        row["declared"][declared] = bool(markers._dir_declares_project(d, name))
-    out["cases"].append(row)
-good = os.path.join(%(scratch)r, "declared")
-os.makedirs(good, exist_ok=True)
-with open(os.path.join(good, markers.PROJECT_NAME_FILE), "w") as fh:
-    fh.write(name)
-bad = os.path.join(%(scratch)r, "undeclared")
-os.makedirs(bad, exist_ok=True)
-for label, env in (("none", {}),
-                   ("legacy", {orgkeys.ORG_PROJECT_LEGACY_KEY: name}),
-                   ("current", {orgkeys.ORG_PROJECT_KEY: name}),
-                   ("both", {orgkeys.ORG_PROJECT_KEY: name,
-                             orgkeys.ORG_PROJECT_LEGACY_KEY: "SomethingElse"})):
-    for key in (orgkeys.ORG_PROJECT_KEY, orgkeys.ORG_PROJECT_LEGACY_KEY):
-        os.environ.pop(key, None)
-    os.environ.update(env)
-    out["identity"].append({
-        "case": label,
-        "resolved": config.resolve_org_project(),
-        "declared_ok": config.org_project_identity_error(good) is None,
-        "undeclared_ok": config.org_project_identity_error(bad) is None,
-    })
-json.dump(out, sys.stdout)
-"""
-
-#: One writable body per marker the table may name. A marker in the tree's table
-#: with no body here is reported, never skipped: an unknown marker is exactly
-#: what a vendor manifest sneaking back in would look like.
-MARKER_BODIES = {
-    "pyproject.toml": '[project]\nname = "%s"\n',
-    "Cargo.toml": '[package]\nname = "%s"\n',
-    "setup.cfg": "[metadata]\nname = %s\n",
-    "setup.py": 'setup(\n    name="%s",\n)\n',
-    "package.json": '{\n  "name": "%s",\n  "version": "1.0.0"\n}\n',
-    "composer.json": '{\n  "name": "acme/%s"\n}\n',
-    "go.mod": "module example.com/acme/%s\n\ngo 1.22\n",
-    "pom.xml": "<project>\n  <artifactId>%s</artifactId>\n</project>\n",
-    "build.gradle": "rootProject.name = '%s'\n",
-    "build.gradle.kts": 'rootProject.name = "%s"\n',
-    "settings.gradle": "rootProject.name = '%s'\n",
-    "settings.gradle.kts": 'rootProject.name = "%s"\n',
-    "CMakeLists.txt": "project(%s VERSION 1.0)\n",
-    "Gemfile": "# gem %s\n",
-    "mix.exs": "  def project do\n    [app: :%s]\n  end\n",
-    "Project.toml": 'name = "%s"\n',
-    ".agentware-project": "%s\n",
-}
 
 
-def run_probe(tree, scratch):
-    """(payload, problems) — the behavioural facts, gathered in a subprocess."""
-    src = _PROBE_SRC % {"tree": tree, "scratch": scratch,
-                        "match": PROBE_NAME_MATCH,
-                        "declarations": PROBE_DECLARATIONS,
-                        "bodies": repr(MARKER_BODIES)}
-    env = dict(os.environ)
-    env["AGENTWARE_CONFIG_HOME"] = os.path.join(scratch, "config")
-    env["AGENTWARE_KNOWLEDGE_DIR"] = os.path.join(scratch, "kb")
-    for key in (CURRENT_KEY, LEGACY_KEY):
-        env.pop(key, None)
-    try:
-        out = subprocess.run([sys.executable, "-c", src], capture_output=True,
-                             text=True, timeout=120, env=env, cwd=scratch)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return None, ["probe did not run: %s" % exc]
-    if out.returncode != 0:
-        return None, ["probe exited %s: %s"
-                      % (out.returncode, (out.stderr or "").strip()[:400])]
-    try:
-        return json.loads(out.stdout), []
-    except ValueError as exc:
-        return None, ["probe emitted no JSON (%s): %r"
-                      % (exc, out.stdout[:200])]
 
-
-def check_exact(payload):
-    """Check 3: whole-token matching, once per marker the tree actually has."""
-    problems = []
-    covered = {row["marker"] for row in payload["cases"]}
-    for marker, _t in payload["markers"]:
-        if marker not in MARKER_BODIES:
-            problems.append("marker %r has no probe body here, so its matching "
-                            "was never exercised" % marker)
-        elif marker not in covered:
-            problems.append("marker %r was not probed" % marker)
-    for row in payload["cases"]:
-        for declared in PROBE_DECLARATIONS:
-            matched = row["declared"].get(declared)
-            if matched is None:
-                problems.append("marker %r never tried the declaration %r"
-                                % (row["marker"], declared))
-            elif declared == PROBE_NAME_MATCH and not matched:
-                problems.append("marker %r does NOT match its own declared "
-                                "name %r" % (row["marker"], PROBE_NAME_MATCH))
-            elif declared != PROBE_NAME_MATCH and matched:
-                problems.append("marker %r declaring %r SATISFIES the name %r "
-                                "— the match is not a whole token"
-                                % (row["marker"], declared, PROBE_NAME_MATCH))
-    return problems
-
-
-#: What each identity case must observe: (resolved name, declared root accepted,
-#: undeclared root accepted). `None` means "any". The undeclared root must be
-#: REFUSED in every case where a name resolves — that is the guard.
-IDENTITY_EXPECTED = {
-    "none": (None, True, True),
-    "legacy": (PROBE_NAME_MATCH, True, False),
-    "current": (PROBE_NAME_MATCH, True, False),
-    "both": (PROBE_NAME_MATCH, True, False),
-}
-
-
-def check_legacy(payload):
-    """Check 4: the deprecated spelling still arms the guard; current wins."""
-    problems = []
-    seen = {row["case"]: row for row in payload["identity"]}
-    for case, (name, declared, undeclared) in sorted(IDENTITY_EXPECTED.items()):
-        row = seen.get(case)
-        if row is None:
-            problems.append("identity case %r was not probed" % case)
-            continue
-        if row["resolved"] != name:
-            problems.append("case %r resolved %r, expected %r"
-                            % (case, row["resolved"], name))
-        if row["declared_ok"] is not declared:
-            problems.append("case %r: a root DECLARING the project was %s"
-                            % (case, "refused" if declared else "accepted"))
-        if row["undeclared_ok"] is not undeclared:
-            # Describe what ACTUALLY happened, not what was expected: accepting
-            # a root that does not declare the project means the guard is gone.
-            actual = bool(row["undeclared_ok"])
-            problems.append(
-                "case %r: a root NOT declaring the project was %s — the guard "
-                "is %s" % (case, "accepted" if actual else "refused",
-                           "disarmed" if actual else "over-eager"))
-    return problems
 
 
 # --- check 5: vendor neutrality, delegated to the portability gate ---

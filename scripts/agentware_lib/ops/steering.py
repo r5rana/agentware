@@ -160,14 +160,51 @@ def _first_token_verb(body):
     return first.strip("*_`").rstrip(":.,")
 
 
-def lint_steering(strict=False):
+def _dsf_scan_rule_line(path, lineno, body, violations, banned_words, all_rule_ids):
+    """DSF-2 / DSF-5 / DSF-6 for ONE rule bullet.
+
+    A single line can violate all three, and each is appended independently: a
+    bullet that leads with a hedge word AND carries no rule id is two findings,
+    not one, because they are fixed by two different edits. DSF-5 is likewise
+    per-WORD, so one bullet can contribute several banned-word rows.
+    """
+    verb = _first_token_verb(body)
+    if verb not in DSF_VERBS:
+        violations.append({"rule": "DSF-2", "file": path, "line": lineno,
+                           "text": body})
+    ids_in_line = DSF_RULE_ID_RE.findall(body)
+    if not ids_in_line:
+        violations.append({"rule": "DSF-6", "file": path, "line": lineno,
+                           "text": body})
+    all_rule_ids.update(ids_in_line)
+    low = body.lower()
+    for w in DSF_BANNED_WORDS:
+        if re.search(r"\b" + re.escape(w) + r"\b", low):
+            banned_words.append({"file": path, "line": lineno,
+                                 "word": w, "text": body})
+
+
+def _dsf_scan():
+    """Walk the always-loaded corpus → (violations, banned, chars, ids, texts).
+
+    Reads every file ONCE and hands the text back to the caller, because the
+    content-preservation half needs AGENTS.md's body and re-reading it would
+    make the two halves disagree the moment the file changes between them.
+    An unreadable file is a DSF-read violation and never aborts the walk.
+    """
     violations, banned_words = [], []
     total_chars = 0
     all_rule_ids = set()
     file_texts = {}
     for path in _steering_files():
         try:
-            text = open(path, "r", encoding="utf-8").read()
+            # `with`, not a bare `open(...).read()`: the corpus is re-linted on
+            # every package edit and by the release gate, and the bare form
+            # leaks a handle per file under any interpreter that does not
+            # refcount it away — visible as a ResourceWarning storm the moment
+            # anything drives this more than once in a process.
+            with open(path, "r", encoding="utf-8") as fh:
+                text = fh.read()
         except OSError as exc:
             violations.append({"rule": "DSF-read", "file": path,
                                "line": 0, "text": str(exc)})
@@ -175,23 +212,20 @@ def lint_steering(strict=False):
         file_texts[path] = text
         total_chars += len(text)
         for lineno, body in _iter_rule_lines(text):
-            verb = _first_token_verb(body)
-            if verb not in DSF_VERBS:
-                violations.append({"rule": "DSF-2", "file": path, "line": lineno,
-                                   "text": body})
-            ids_in_line = DSF_RULE_ID_RE.findall(body)
-            if not ids_in_line:
-                violations.append({"rule": "DSF-6", "file": path, "line": lineno,
-                                   "text": body})
-            all_rule_ids.update(ids_in_line)
-            low = body.lower()
-            for w in DSF_BANNED_WORDS:
-                if re.search(r"\b" + re.escape(w) + r"\b", low):
-                    banned_words.append({"file": path, "line": lineno,
-                                         "word": w, "text": body})
-    budget_ok = total_chars <= STEERING_CHAR_BUDGET
+            _dsf_scan_rule_line(path, lineno, body, violations, banned_words,
+                                all_rule_ids)
+    return violations, banned_words, total_chars, all_rule_ids, file_texts
 
-    # --- Content-preservation checks (Gate 1) --------------------------------
+
+def _content_preservation_errors(all_rule_ids, file_texts):
+    """Gate-1 CP-1/CP-2/CP-3 → (content_errors, rule_count, baseline_count).
+
+    Its inputs are the DSF scan's OUTPUTS, not the filesystem, which is what
+    makes it a pure function of one corpus read. CP-2 reads AGENTS.md out of
+    `file_texts`, so a corpus in which AGENTS.md is absent (or unreadable, and
+    therefore never added) reports every required section missing rather than
+    raising — the arm that matters, since CP-2 exists to notice exactly that.
+    """
     content_errors = []
 
     # CP-1: Required rule IDs must be present somewhere in the corpus.
@@ -218,13 +252,28 @@ def lint_steering(strict=False):
     # baseline in a file so it can be committed and updated deliberately.
     rule_count = len(all_rule_ids)
     baseline_count = _read_rule_count_baseline()
-    rule_count_ok = True
     if baseline_count is not None:
         if rule_count < baseline_count - RULE_COUNT_REGRESSION_MARGIN:
-            rule_count_ok = False
             content_errors.append({"rule": "CP-3", "text":
                 "rule-count regression: %d < baseline %d (margin %d)"
                 % (rule_count, baseline_count, RULE_COUNT_REGRESSION_MARGIN)})
+    return content_errors, rule_count, baseline_count
+
+
+def lint_steering(strict=False):
+    """DSF lint + Gate-1 content preservation over the always-loaded corpus.
+
+    The two halves are separately reportable and only JOINTLY decide `ok` under
+    --strict: an unstrict run is green with content errors present, which is why
+    `content_errors` and `content_ok` are in the payload either way. The release
+    gate runs it strict; the R-PKG-04 post-edit check does not.
+    """
+    violations, banned_words, total_chars, all_rule_ids, file_texts = _dsf_scan()
+    budget_ok = total_chars <= STEERING_CHAR_BUDGET
+
+    # --- Content-preservation checks (Gate 1) --------------------------------
+    content_errors, rule_count, baseline_count = _content_preservation_errors(
+        all_rule_ids, file_texts)
 
     # --strict makes content-preservation errors hard failures.
     content_ok = not content_errors
@@ -313,7 +362,8 @@ _EXPORTS = [
     "DSF_VERBS", "DSF_BANNED_WORDS", "STEERING_CHAR_BUDGET", "STEERING_EXPLICIT",
     "STEERING_GLOB", "DSF_RULE_ID_RE", "DSF_BULLET_RE", "REQUIRED_RULE_IDS",
     "REQUIRED_SECTIONS", "RULE_COUNT_REGRESSION_MARGIN", "_steering_files",
-    "_iter_rule_lines", "_first_token_verb", "lint_steering",
+    "_iter_rule_lines", "_first_token_verb", "_dsf_scan_rule_line",
+    "_dsf_scan", "_content_preservation_errors", "lint_steering",
     "_read_rule_count_baseline", "_write_rule_count_baseline", "cmd_steering_lint",
 ]
 __all__ = list(_EXPORTS)

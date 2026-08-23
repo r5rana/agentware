@@ -65,6 +65,26 @@ from agentware_lib.features.skillsync import cmd_skill_sync
 from .proposeauthor import _valid_proposal_slug, cmd_skill_propose
 
 
+def _promoted_tags_line(val):
+    """The `tags:` line a promoted skill carries, given the proposal's raw value.
+
+    Drops the transient `proposed` tag and keeps the rest DETERMINISTICALLY (in
+    declared order, de-bracketed, de-padded). A list that held nothing else
+    falls back to `[skill]` rather than emitting an empty list, because an entry
+    with no tags is unreachable by every tag-scoped read — the fallback is the
+    point of the branch, not a tidy-up.
+
+    Its own function because it is the only arm of the rewrite with a value
+    GRAMMAR rather than a fixed replacement, and a scalar in / scalar out is
+    testable without composing a document around it.
+    """
+    toks = [t.strip() for t in val.strip().strip("[]").split(",")]
+    toks = [t for t in toks if t and t != "proposed"]
+    if not toks:
+        toks = ["skill"]
+    return "tags: [%s]" % ", ".join(toks)
+
+
 def _promote_frontmatter(text, promoted_by, reviewed_by, promoted_on):
     """Rewrite a PROPOSED SKILL.md frontmatter into an ALWAYS-ON skill's.
 
@@ -73,19 +93,20 @@ def _promote_frontmatter(text, promoted_by, reviewed_by, promoted_on):
     `status: proposed`->`status: active`, strips the `proposed` tag, and stamps
     promotion provenance (`promoted_by`, `promoted`, `reviewed_by`) so the
     human-gated + adversarial-review sign-off is auditable on the entry itself.
-    Pure string transform over the leading `---` block; body is untouched.
+    Pure string transform over the leading `---` block; body is untouched — the
+    fence comes from `frontmatter._frontmatter_block`, the package's ONE
+    definition of it, so the body (including a `---` horizontal rule inside it)
+    rides through in `tail` untouched.
+
+    A document with no fence, or with one that is never closed, comes back
+    byte-identical: there is no block to rewrite, and inventing one would stamp
+    provenance onto prose. Fences that TOUCH are a real, EMPTY block, so that
+    document DOES gain its three provenance lines.
     """
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    parts = frontmatter._frontmatter_block(text)
+    if parts is None:
         return text
-    close = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            close = i
-            break
-    if close is None:
-        return text
-    head, block, tail = lines[:1], lines[1:close], lines[close:]
+    head, block, tail = parts
     out = []
     for ln in block:
         m = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", ln)
@@ -98,12 +119,7 @@ def _promote_frontmatter(text, promoted_by, reviewed_by, promoted_on):
         elif key == "status":
             out.append("status: active")
         elif key == "tags":
-            # Drop the transient `proposed` tag; keep the rest deterministically.
-            toks = [t.strip() for t in val.strip().strip("[]").split(",")]
-            toks = [t for t in toks if t and t != "proposed"]
-            if not toks:
-                toks = ["skill"]
-            out.append("tags: [%s]" % ", ".join(toks))
+            out.append(_promoted_tags_line(val))
         else:
             out.append(ln)
     # Stamp promotion provenance right before the closing fence.
@@ -111,6 +127,111 @@ def _promote_frontmatter(text, promoted_by, reviewed_by, promoted_on):
     out.append("reviewed_by: %s" % reviewed_by)
     out.append("promoted: %s" % promoted_on)
     return "\n".join(head + out + tail)
+
+
+def _promote_preflight(slug, reviewed_by, fmt):
+    """The THREE promotion gates plus the two path checks -> (kdir, pdir, dest) or None.
+
+    None means REFUSED, and every refusal has already written its own message —
+    the caller spends one branch on "was it refused", not eight on which one.
+    The order is load-bearing and is asserted by its own tests: a bad slug is
+    rejected before any dir is resolved, the proposal must EXIST before the
+    reviewer is demanded (so a typo'd slug reports the typo, not the missing
+    sign-off), the vetter runs on the IN-PLACE proposal folder before anything
+    moves, and the destination check is last because it is the only one that can
+    pass at gate time and matter afterwards.
+
+    Gate 1 (a human ran this command) is not code and cannot be. Gate 2 is
+    `--reviewed-by`. Gate 3 is `vet_skill_dir`, fail-closed on ANY finding, and
+    it reports EVERY finding rather than the first.
+    """
+    if not _valid_proposal_slug(slug):
+        sys.stderr.write("agentware: <slug> must be a lowercase kebab-case "
+                         "identifier (got %r)\n" % slug)
+        return None
+    kdir = config.require_knowledge_dir()
+    if not kdir:
+        return None
+
+    pdir = _kp.proposal_dir(kdir, slug)
+    proposal_md = os.path.join(pdir, "SKILL.md")
+    if not os.path.isfile(proposal_md):
+        sys.stderr.write("agentware: no proposal '%s' under %s/ "
+                         "(run `skill proposals` to list staged proposals)\n"
+                         % (slug, index.SKILLS_PROPOSED_DIR))
+        return None
+
+    # Gate 2: adversarial-review sign-off is MANDATORY (human-gated + reviewed).
+    if not reviewed_by:
+        sys.stderr.write(
+            "agentware: promotion is human-gated and requires an "
+            "adversarial-review sign-off — re-run with "
+            "`--reviewed-by <handle>` once the proposal's content has been "
+            "adversarially reviewed.\n")
+        return None
+
+    # Gate 3: skill-vetter static safety pass on the IN-PLACE proposal folder
+    # (closes the audit seam that vetting only ran at `skill add` time).
+    findings = _skills.vet_skill_dir(pdir)
+    if findings:
+        sys.stderr.write("agentware: skill-vetter found issues in proposal "
+                         "'%s' — refusing to promote (fail-closed):\n" % slug)
+        for f in findings:
+            sys.stderr.write("  - %s\n" % f)
+        if fmt == "json":
+            json.dump({"ok": False, "slug": slug, "reason": "vet-findings",
+                       "vet_findings": findings}, sys.stdout,
+                      ensure_ascii=False, indent=2)
+            sys.stdout.write("\n")
+        return None
+
+    dest_dir = os.path.join(kdir, "skills", slug)
+    if os.path.exists(dest_dir):
+        sys.stderr.write("agentware: a skill already exists at %s — refusing to "
+                         "clobber it (remove or rename it first)\n" % dest_dir)
+        return None
+    return kdir, pdir, dest_dir
+
+
+def _promote_rewrite(kdir, dest_md, reviewed_by):
+    """Rewrite the MOVED SKILL.md in place -> the promoted_by handle, or None.
+
+    None means the rewrite failed and the message is already on stderr. It can
+    never be confused with a missing handle: the resolution chain ends in the
+    literal `"unknown"`, so a successful rewrite always returns something truthy.
+
+    Deliberately runs AFTER the move, on the destination path, so a failure
+    leaves the folder promoted-but-unrewritten rather than half-moved — that is
+    the shipped behaviour, and the recovery is to re-run after fixing the file.
+    """
+    promoted_by = (routing.resolve_user_handle()
+                   or frontmatter._operator_handle(kdir) or "unknown")
+    try:
+        with open(dest_md, "r", encoding="utf-8") as f:
+            text = f.read()
+        with open(dest_md, "w", encoding="utf-8") as f:
+            f.write(_promote_frontmatter(text, promoted_by, reviewed_by,
+                                         dates._today()))
+    except OSError as exc:
+        sys.stderr.write("agentware: could not rewrite %s: %s\n" % (dest_md, exc))
+        return None
+    return promoted_by
+
+
+def _promote_emit(slug, fmt, promoted_by, reviewed_by, count, threshold):
+    """The two success renderers. The JSON document's key ORDER is part of it."""
+    if fmt == "json":
+        json.dump({"ok": True, "slug": slug, "id": "skill-%s" % slug,
+                   "promoted_by": promoted_by, "reviewed_by": reviewed_by,
+                   "proposal_count": count, "threshold": threshold,
+                   "path": "skills/%s/SKILL.md" % slug}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("PROMOTED proposal '%s' -> skills/%s/ (count=%d/%d, reviewed-by=%s)"
+              % (slug, slug, count, threshold, reviewed_by))
+        print("Now an always-on skill: skill-%s (category=skills)." % slug)
+    return 0
 
 
 def cmd_skill_promote(args):
@@ -132,52 +253,11 @@ def cmd_skill_promote(args):
     """
     slug = (getattr(args, "slug", None) or "").strip()
     fmt = getattr(args, "format", "text")
-    if not _valid_proposal_slug(slug):
-        sys.stderr.write("agentware: <slug> must be a lowercase kebab-case "
-                         "identifier (got %r)\n" % slug)
-        return 1
-    kdir = config.require_knowledge_dir()
-    if not kdir:
-        return 1
-
-    pdir = _kp.proposal_dir(kdir, slug)
-    proposal_md = os.path.join(pdir, "SKILL.md")
-    if not os.path.isfile(proposal_md):
-        sys.stderr.write("agentware: no proposal '%s' under %s/ "
-                         "(run `skill proposals` to list staged proposals)\n"
-                         % (slug, index.SKILLS_PROPOSED_DIR))
-        return 1
-
-    # Gate 2: adversarial-review sign-off is MANDATORY (human-gated + reviewed).
     reviewed_by = (getattr(args, "reviewed_by", None) or "").strip()
-    if not reviewed_by:
-        sys.stderr.write(
-            "agentware: promotion is human-gated and requires an "
-            "adversarial-review sign-off — re-run with "
-            "`--reviewed-by <handle>` once the proposal's content has been "
-            "adversarially reviewed.\n")
+    gates = _promote_preflight(slug, reviewed_by, fmt)
+    if gates is None:
         return 1
-
-    # Gate 3: skill-vetter static safety pass on the IN-PLACE proposal folder
-    # (closes the audit seam that vetting only ran at `skill add` time).
-    findings = _skills.vet_skill_dir(pdir)
-    if findings:
-        sys.stderr.write("agentware: skill-vetter found issues in proposal "
-                         "'%s' — refusing to promote (fail-closed):\n" % slug)
-        for f in findings:
-            sys.stderr.write("  - %s\n" % f)
-        if fmt == "json":
-            json.dump({"ok": False, "slug": slug, "reason": "vet-findings",
-                       "vet_findings": findings}, sys.stdout,
-                      ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        return 1
-
-    dest_dir = os.path.join(kdir, "skills", slug)
-    if os.path.exists(dest_dir):
-        sys.stderr.write("agentware: a skill already exists at %s — refusing to "
-                         "clobber it (remove or rename it first)\n" % dest_dir)
-        return 1
+    kdir, pdir, dest_dir = gates
 
     count = _kp.proposal_count(kdir, slug)
     threshold = config.resolve_skill_propose_threshold()
@@ -189,16 +269,9 @@ def cmd_skill_promote(args):
     shutil.move(pdir, dest_dir)
 
     # Rewrite the promoted SKILL.md: category->skills, status->active, provenance.
-    dest_md = os.path.join(dest_dir, "SKILL.md")
-    promoted_by = routing.resolve_user_handle() or frontmatter._operator_handle(kdir) or "unknown"
-    try:
-        with open(dest_md, "r", encoding="utf-8") as f:
-            text = f.read()
-        with open(dest_md, "w", encoding="utf-8") as f:
-            f.write(_promote_frontmatter(text, promoted_by, reviewed_by,
-                                         dates._today()))
-    except OSError as exc:
-        sys.stderr.write("agentware: could not rewrite %s: %s\n" % (dest_md, exc))
+    promoted_by = _promote_rewrite(kdir, os.path.join(dest_dir, "SKILL.md"),
+                                   reviewed_by)
+    if promoted_by is None:
         return 1
 
     # Rebuild so it enters the skills roster + injection set immediately.
@@ -208,18 +281,7 @@ def cmd_skill_promote(args):
             sys.stderr.write("agentware: rebuild: %s\n" % e)
         return 1
 
-    if fmt == "json":
-        json.dump({"ok": True, "slug": slug, "id": "skill-%s" % slug,
-                   "promoted_by": promoted_by, "reviewed_by": reviewed_by,
-                   "proposal_count": count, "threshold": threshold,
-                   "path": "skills/%s/SKILL.md" % slug}, sys.stdout,
-                  ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("PROMOTED proposal '%s' -> skills/%s/ (count=%d/%d, reviewed-by=%s)"
-              % (slug, slug, count, threshold, reviewed_by))
-        print("Now an always-on skill: skill-%s (category=skills)." % slug)
-    return 0
+    return _promote_emit(slug, fmt, promoted_by, reviewed_by, count, threshold)
 
 
 #: Verb declaration — the ONE place this verb is registered. Discovered by

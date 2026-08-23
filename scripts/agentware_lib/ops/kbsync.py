@@ -91,6 +91,112 @@ def kb_nothing_lost_gate(target, parent_refs):
     return True, ("nothing-lost gate: ok (%d merged id(s) ⊇ %d parent id(s))"
                   % (len(merged), len(union)))
 
+def _push_attempt(target):
+    """The FIRST push and its two TERMINAL dispositions, or None to continue.
+
+    Returns (rc, note) when this attempt settles the whole operation — pushed
+    (rc 0), or a push that failed for a reason that is NOT an upstream
+    rejection (offline / no access / no push destination), which is a graceful
+    rc-0 skip per C-4. Returns None ONLY when the push was REJECTED, i.e. when
+    the caller must go on to rebase.
+
+    Splitting the classification out this way is what keeps it BEFORE the work:
+    the rebase in `kb_git_push_once` is unreachable until this function has
+    already decided the push was rejected, so a non-rejection can never reach a
+    `pull --rebase` on the operator's tree.
+    """
+    push = staging.git_push(target)
+    if push.returncode == 0:
+        out = (push.stderr or push.stdout or "").strip().splitlines()
+        return 0, "pushed%s" % ((" — " + out[-1]) if out else "")
+
+    if not staging._push_was_rejected(push):
+        return 0, "skipped — %s (offline or no access; not blocking work)" % (
+            kbgit._first_line(push.stderr or "push failed", "push failed"))
+    return None
+
+
+def _push_after_clean_rebase(target):
+    """Push again after a CONFLICT-FREE rebase.
+
+    A conflict-free rebase replays every commit verbatim (no synthesized
+    content) so there is nothing for the nothing-lost gate to catch; a
+    rejection here is purely a re-push race for the bounded retry, never a loss.
+    """
+    push2 = staging.git_push(target)
+    if push2.returncode == 0:
+        return 0, "pushed (after fast-forward rebase)"
+    return (staging.RC_REPUSH_RACE,
+            "push still rejected after clean rebase (re-push race)")
+
+
+def _prose_conflict_disposition(target, env, non_derived, on_prose_conflict):
+    """Same-entry PROSE conflict — the deterministic path stops here (C-1: an
+    agent NEVER merges via this engine). Two dispositions, and the choice is the
+    CALLER's flag rather than this function's judgement:
+
+      * "pause" (Phase 5): leave the rebase IN PROGRESS and return rc 3 plus the
+        conflicted entry list, so the loop can reconcile them with the curated
+        MERGE_PROMPT (agentware-execution) and then run `kb-git merge-continue`.
+        NO agent is invoked here.
+      * anything else (default "abort"): abort the rebase cleanly and fail loud
+        rc 1 rather than touch entry files — preserving the deterministic,
+        agent-free push contract.
+    """
+    if on_prose_conflict == "pause":
+        return 3, "PROSE_CONFLICT\n" + "\n".join(non_derived)
+    _git(target, "rebase", "--abort", env=env)
+    return 1, ("conflict in non-derived file(s) %s — needs prose merge "
+               "(not auto-resolvable here)" % ", ".join(non_derived))
+
+
+def _resolve_derived_conflict(target, env, upstream_name):
+    """All conflicts are in DERIVED files: regenerate, gate, continue, push.
+
+    The entry files themselves merged cleanly, so the derived artifacts
+    (`index.json`, rosters, `FEATURES.md`) are regenerated from the union of
+    entry frontmatter — NO agent (C-1). Every step that can fail aborts the
+    rebase and fails loud rather than leaving a half-resolved tree, and the
+    nothing-lost gate (C-2) runs BEFORE the network push, so a lossy or invalid
+    merge is rejected instead of reaching the remote.
+
+    Returns (rc, note) with the same rc vocabulary as `kb_git_push_once`: 0
+    pushed, 1 fail loud, RC_REPUSH_RACE for a rejection after a valid resolve.
+    """
+    data, _rosters, errors = index.rebuild_kb(target)
+    if errors:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, "rebuild during merge failed: %s" % "; ".join(errors)
+
+    # SCOPED, never `git add -A`: in org mode a blanket add stages another
+    # team's files as part of this team's merge — a cross-team write that looks
+    # like an ordinary commit in the log.
+    rc, _n, _rej = staging.kb_git_stage_scoped(target)
+    if rc != 0:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, "git add failed during merge (scoped allowlist)"
+
+    # Nothing-lost gate (C-2): the resolved (mid-rebase) work tree must rebuild to
+    # a valid index whose entry-ID set is a superset of BOTH parents. Fail loud +
+    # abort the rebase BEFORE the push if anything was dropped — no silent loss.
+    ok, gnote = kb_nothing_lost_gate(target, ["ORIG_HEAD", upstream_name])
+    if not ok:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, gnote
+
+    cont = _git(target, "rebase", "--continue", env=env)
+    if cont.returncode != 0:
+        _git(target, "rebase", "--abort", env=env)
+        return 1, "rebase --continue failed: %s" % kbgit._first_line(
+            cont.stderr or "rebase --continue failed", "")
+
+    push3 = staging.git_push(target)
+    if push3.returncode == 0:
+        return 0, "pushed (derived files auto-resolved via index rebuild)"
+    return (staging.RC_REPUSH_RACE,
+            "push rejected after deterministic resolve (re-push race)")
+
+
 def kb_git_push_once(target, on_prose_conflict="abort"):
     """One push attempt with deterministic derived-file conflict resolution.
 
@@ -117,89 +223,40 @@ def kb_git_push_once(target, on_prose_conflict="abort"):
     the resulting commit is pushed: a lossy or invalid merge aborts the rebase
     and fails loud rather than reaching the remote. A re-push race returns
     RC_REPUSH_RACE so `kb_git_push_synced` can retry within a bounded cap.
+
+    The body is the ORDER, and nothing else: attempt, classify, rebase,
+    classify the conflicts, dispatch. Each disposition lives in its own helper
+    (`_push_attempt`, `_push_after_clean_rebase`, `_prose_conflict_disposition`,
+    `_resolve_derived_conflict`) so that what stays here is exactly the sequence
+    a reader must hold — and so that a step which moved would be visible in
+    THIS function rather than hidden inside one of them.
     """
     # Captured ON the branch (before any rebase detaches HEAD) so the nothing-lost
     # gate can name the upstream parent with a ref that still resolves mid-rebase.
     upstream_name = _git_upstream_name(target)
 
-    push = staging.git_push(target)
-    if push.returncode == 0:
-        out = (push.stderr or push.stdout or "").strip().splitlines()
-        return 0, "pushed%s" % ((" — " + out[-1]) if out else "")
-
-    if not staging._push_was_rejected(push):
-        first = (push.stderr or "push failed").strip().splitlines()
-        return 0, "skipped — %s (offline or no access; not blocking work)" % (
-            first[0] if first else "push failed")
+    settled = _push_attempt(target)
+    if settled is not None:
+        return settled
 
     # Upstream moved: rebase our local commits on top of it, resolving any
     # derived-file conflicts deterministically.
     env = _git_noninteractive_env()
     rebase = _git(target, "pull", "--rebase", env=env)
     if rebase.returncode == 0:
-        push2 = staging.git_push(target)
-        if push2.returncode == 0:
-            return 0, "pushed (after fast-forward rebase)"
-        # A conflict-free rebase replays every commit verbatim (no synthesized
-        # content) so there is nothing for the gate to catch; a rejection here is
-        # purely a re-push race for the bounded retry.
-        return (staging.RC_REPUSH_RACE,
-                "push still rejected after clean rebase (re-push race)")
+        return _push_after_clean_rebase(target)
 
     unmerged = staging.git_unmerged_paths(target)
     if not unmerged:
         _git(target, "rebase", "--abort", env=env)
-        first = (rebase.stderr or "rebase failed").strip().splitlines()
-        return 1, "rebase failed: %s" % (first[0] if first else "unknown")
+        return 1, "rebase failed: %s" % kbgit._first_line(
+            rebase.stderr or "rebase failed", "unknown")
 
     non_derived = [p for p in unmerged if not staging._is_derived_rel(p)]
     if non_derived:
-        # Same-entry prose conflict — the deterministic path stops here (C-1: an
-        # agent NEVER merges via this engine). Two dispositions:
-        if on_prose_conflict == "pause":
-            # Phase 5: leave the rebase in progress for the curated MERGE_PROMPT.
-            # The loop reconciles these entry files via agentware-execution, then
-            # calls `kb-git merge-continue` (which rebuilds the derived files).
-            return 3, "PROSE_CONFLICT\n" + "\n".join(non_derived)
-        # Default: abort cleanly and fail loud rather than touch entry files.
-        _git(target, "rebase", "--abort", env=env)
-        return 1, ("conflict in non-derived file(s) %s — needs prose merge "
-                   "(not auto-resolvable here)" % ", ".join(non_derived))
-
-    # All conflicts are in derived files: regenerate them from the union of
-    # entry frontmatter (the entry files themselves merged cleanly). NO agent.
-    data, _rosters, errors = index.rebuild_kb(target)
-    if errors:
-        _git(target, "rebase", "--abort", env=env)
-        return 1, "rebuild during merge failed: %s" % "; ".join(errors)
-
-    # SCOPED, never `git add -A`: in org mode a blanket add stages another
-    # team's files as part of this team's merge — a cross-team write that looks
-    # like an ordinary commit in the log.
-    rc, _n, _rej = staging.kb_git_stage_scoped(target)
-    if rc != 0:
-        _git(target, "rebase", "--abort", env=env)
-        return 1, "git add failed during merge (scoped allowlist)"
-
-    # Nothing-lost gate (C-2): the resolved (mid-rebase) work tree must rebuild to
-    # a valid index whose entry-ID set is a superset of BOTH parents. Fail loud +
-    # abort the rebase BEFORE the push if anything was dropped — no silent loss.
-    ok, gnote = kb_nothing_lost_gate(target, ["ORIG_HEAD", upstream_name])
-    if not ok:
-        _git(target, "rebase", "--abort", env=env)
-        return 1, gnote
-
-    cont = _git(target, "rebase", "--continue", env=env)
-    if cont.returncode != 0:
-        _git(target, "rebase", "--abort", env=env)
-        first = (cont.stderr or "rebase --continue failed").strip().splitlines()
-        return 1, "rebase --continue failed: %s" % (first[0] if first else "")
-
-    push3 = staging.git_push(target)
-    if push3.returncode == 0:
-        return 0, "pushed (derived files auto-resolved via index rebuild)"
-    return (staging.RC_REPUSH_RACE,
-            "push rejected after deterministic resolve (re-push race)")
+        return _prose_conflict_disposition(target, env, non_derived,
+                                           on_prose_conflict)
+    return _resolve_derived_conflict(target, env, upstream_name)
 
 def kb_git_push_synced(target, on_prose_conflict="abort", max_retries=None):
     """`kb_git_push_once` wrapped in a bounded pull→resolve→push retry (C-2).
@@ -225,15 +282,28 @@ def kb_git_push_synced(target, on_prose_conflict="abort", max_retries=None):
                "(upstream write-lock contention — the local commit is retained + "
                "recoverable)" % (attempts, last_note))
 
-def cmd_kb_git_push(args):
-    """Push KB commits to upstream, auto-resolving derived-file conflicts.
+def _resolve_sync_target(args, verb, skip_tail, require_upstream=False):
+    """Resolve and GUARD the sync target the two kb-git write verbs share.
 
-    Git-sync push (feature 260625-kb-git-sync, Task 4.1). Preconditions: the
-    target is a git work tree (C-4) with a configured upstream, and is NOT the
-    agentware package repo (C-3). A push rejected by a moved upstream is resolved
-    by rebasing and regenerating the DERIVED files (`index.json`, rosters,
-    `FEATURES.md`) from the entry union via `index rebuild` — never by an agent
-    (C-1). Offline / no-upstream / non-repo are graceful rc-0 skips (never block).
+    Returns `(target, rc)`. A non-None target means every precondition passed
+    and the caller may proceed; a None target means the caller must return `rc`
+    immediately (the notice has already been printed on the right stream).
+
+    The four steps are the ones `push` and `merge-continue` have always shared,
+    and their ORDER is load-bearing rather than incidental:
+
+      1. `--path` override, else the resolved knowledge dir (rc 1 when unset —
+         the ONE fail-loud arm, because a target that cannot be named at all is
+         a configuration error rather than an absent repo).
+      2. C-4: a non-work-tree degrades to a local-only rc-0 SKIP, never a block.
+      3. C-3: a target resolving to the agentware PACKAGE repo is REFUSED (rc 1)
+         — and this refusal precedes the optional upstream check, so a package
+         repo that also has no upstream refuses instead of skipping quietly.
+      4. push only: no upstream tracking branch is a second rc-0 skip.
+
+    `verb` is the message prefix ("kb-git push"), `skip_tail` the verb-specific
+    tail of the not-a-work-tree notice ("skipping push" / "nothing to continue")
+    — the two places the two callers' wording genuinely differs.
     """
     override = getattr(args, "path", None)
     if override:
@@ -241,27 +311,46 @@ def cmd_kb_git_push(args):
     else:
         target = config.require_knowledge_dir()
         if not target:
-            return 1
+            return None, 1
 
     # C-4: degrade to local-only (never block) when the KB is not a git repo.
     if not kbgit.git_is_work_tree(target):
-        print("kb-git push: %s is not a git work tree — skipping push "
-              "(local-only)." % target)
-        return 0
+        print("%s: %s is not a git work tree — %s (local-only)."
+              % (verb, target, skip_tail))
+        return None, 0
 
-    # C-3 scope guard: NEVER push the agentware package repo.
+    # C-3 scope guard: NEVER write to the agentware package repo.
     top = kbgit.git_toplevel(target)
     pkg_top = kbgit.git_toplevel(REPO_ROOT)
     if top and pkg_top and top == pkg_top:
         sys.stderr.write(
-            "kb-git push: refusing — target resolves to the agentware package "
-            "repo (%s); sync is scoped to the KB repo only (C-3).\n" % top)
-        return 1
+            "%s: refusing — target resolves to the agentware package "
+            "repo (%s); sync is scoped to the KB repo only (C-3).\n"
+            % (verb, top))
+        return None, 1
 
-    if not kbgit.git_has_upstream(target):
-        print("kb-git push: no upstream tracking branch — skipping push "
-              "(local-only).")
-        return 0
+    if require_upstream and not kbgit.git_has_upstream(target):
+        print("%s: no upstream tracking branch — skipping push "
+              "(local-only)." % verb)
+        return None, 0
+    return target, 0
+
+
+def cmd_kb_git_push(args):
+    """Push KB commits to upstream, auto-resolving derived-file conflicts.
+
+    Git-sync push (feature 260625-kb-git-sync, Task 4.1). Preconditions: the
+    target is a git work tree (C-4) with a configured upstream, and is NOT the
+    agentware package repo (C-3) — all four resolved by `_resolve_sync_target`.
+    A push rejected by a moved upstream is resolved by rebasing and regenerating
+    the DERIVED files (`index.json`, rosters, `FEATURES.md`) from the entry union
+    via `index rebuild` — never by an agent (C-1). Offline / no-upstream /
+    non-repo are graceful rc-0 skips (never block).
+    """
+    target, rc = _resolve_sync_target(args, "kb-git push", "skipping push",
+                                      require_upstream=True)
+    if target is None:
+        return rc
 
     mode = getattr(args, "on_prose_conflict", "abort")
     retries = getattr(args, "max_retries", 3) or 3
@@ -349,8 +438,8 @@ def kb_git_merge_continue(target):
 
     cont = _git(target, "rebase", "--continue", env=env)
     if cont.returncode != 0:
-        first = (cont.stderr or "rebase --continue failed").strip().splitlines()
-        return 1, "rebase --continue failed: %s" % (first[0] if first else "")
+        return 1, "rebase --continue failed: %s" % kbgit._first_line(
+            cont.stderr or "rebase --continue failed", "")
 
     push = staging.git_push(target)
     if push.returncode == 0:
@@ -361,32 +450,16 @@ def cmd_kb_git_merge_continue(args):
     """Continue a paused prose-merge rebase, then push (feature 260625-kb-git-sync).
 
     Runs after the curated MERGE_PROMPT reconciled the conflicted entry markdown.
-    Same scope guards as push: a non-repo target is a graceful no-op (C-4), and
-    the agentware package repo is refused (C-3). The derived files are always
-    rebuilt from frontmatter, never hand-merged (C-1).
+    Same scope guards as push, through the SAME `_resolve_sync_target`: a
+    non-repo target is a graceful no-op (C-4) and the agentware package repo is
+    refused (C-3) — but NOT the upstream check, because a paused rebase must be
+    finishable on a repo whose upstream has since gone away. The derived files
+    are always rebuilt from frontmatter, never hand-merged (C-1).
     """
-    override = getattr(args, "path", None)
-    if override:
-        target = os.path.abspath(os.path.expanduser(override))
-    else:
-        target = config.require_knowledge_dir()
-        if not target:
-            return 1
-
-    # C-4: degrade to local-only (never block) when the KB is not a git repo.
-    if not kbgit.git_is_work_tree(target):
-        print("kb-git merge-continue: %s is not a git work tree — nothing to "
-              "continue (local-only)." % target)
-        return 0
-
-    # C-3 scope guard: NEVER operate on the agentware package repo.
-    top = kbgit.git_toplevel(target)
-    pkg_top = kbgit.git_toplevel(REPO_ROOT)
-    if top and pkg_top and top == pkg_top:
-        sys.stderr.write(
-            "kb-git merge-continue: refusing — target resolves to the agentware "
-            "package repo (%s); sync is scoped to the KB repo only (C-3).\n" % top)
-        return 1
+    target, rc = _resolve_sync_target(args, "kb-git merge-continue",
+                                      "nothing to continue")
+    if target is None:
+        return rc
 
     rc, note = kb_git_merge_continue(target)
     stream = sys.stdout if rc == 0 else sys.stderr
@@ -472,7 +545,9 @@ def register_kb_git(sub, fmt_parent):
 
 
 _EXPORTS = [
-    "kb_nothing_lost_gate", "kb_git_push_once", "kb_git_push_synced",
+    "kb_nothing_lost_gate", "_push_attempt", "_push_after_clean_rebase",
+    "_prose_conflict_disposition", "_resolve_derived_conflict",
+    "kb_git_push_once", "kb_git_push_synced", "_resolve_sync_target",
     "cmd_kb_git_push", "kb_git_merge_continue", "cmd_kb_git_merge_continue",
 ]
 

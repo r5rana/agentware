@@ -34,6 +34,24 @@ a rationale, or derivation FAILS. A silent side-pick is exactly the failure
 mode this migration is most exposed to -- a module landing with the thinner
 body or the foreign literal changes no verb and no count.
 
+Where the rest of it lives (task 99 wave 19)
+--------------------------------------------
+This file owns DERIVATION: the closed adjudication and exclusion tables, the
+merge that consults them, and the writer. The JUDGING half -- ``check_shape``,
+``check_covers_sources``, ``check_tables``, ``superset_violations`` and
+``check_superset`` -- is ``_surface_union_verify.py``, and the identity
+vocabulary both halves read is ``_surface_identity.py``. Every one of those
+names is re-exported below, so ``_surface_union.check_tables`` and
+``_surface_union.superset_violations`` still resolve for the promotion gate, the
+presence gate and their tests: the split changed where the code lives, not what
+this module offers.
+
+``check_values`` did NOT move, and that is the seam rather than an exception to
+it. It is the one check that reads ``ADJUDICATIONS``, and a table whose reader
+lives in another file is the two-writers-disagree shape this migration keeps
+finding. It stays beside the table -- and beside the monkeypatch the gate test
+uses to empty that table.
+
 Usage:
     python3 tests/_surface_union.py --out tests/fixtures/surface-union.json
     python3 tests/_surface_union.py --verify tests/fixtures/surface-union.json \
@@ -44,27 +62,41 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 import sys
-from importlib.machinery import SourceFileLoader
-
-SCHEMA_VERSION = 1
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FIXTURE_DIR = os.path.join(HERE, "fixtures")
-LOCAL_FIXTURE = os.path.join(FIXTURE_DIR, "surface-local.json")
-DONOR_FIXTURE = os.path.join(FIXTURE_DIR, "surface-donor.json")
-UNION_FIXTURE = os.path.join(FIXTURE_DIR, "surface-union.json")
 
-# Fields compared between the two sides. Identity is (dest, option_strings).
-COMPARED_FIELDS = ("kind", "required", "nargs", "default", "choices", "type")
+try:
+    from tests import _surface_identity as _ident
+    from tests import _surface_union_verify as _verify
+except ImportError:  # allow direct execution and SourceFileLoader import
+    sys.path.insert(0, HERE)
+    import _surface_identity as _ident  # type: ignore
+    import _surface_union_verify as _verify  # type: ignore
 
-# Fields a union action carries beyond the capture's eight.
-UNION_EXTRA_FIELDS = ("sides", "disposition")
+# --- the identity vocabulary, re-exported so this module's surface is whole ---
+SCHEMA_VERSION = _ident.SCHEMA_VERSION
+FIXTURE_DIR = _ident.FIXTURE_DIR
+LOCAL_FIXTURE = _ident.LOCAL_FIXTURE
+DONOR_FIXTURE = _ident.DONOR_FIXTURE
+UNION_FIXTURE = _ident.UNION_FIXTURE
+COMPARED_FIELDS = _ident.COMPARED_FIELDS
+UNION_EXTRA_FIELDS = _ident.UNION_EXTRA_FIELDS
+DISPOSITIONS = _ident.DISPOSITIONS
+load_capture_module = _ident.load_capture_module
+load_json = _ident.load_json
+action_key = _ident.action_key
+index_nodes = _ident.index_nodes
+sides_of = _ident.sides_of
 
-DISPOSITIONS = ("required", "excluded")
+# --- the judging half, re-exported for every existing caller -----------------
+check_shape = _verify.check_shape
+check_covers_sources = _verify.check_covers_sources
+check_tables = _verify.check_tables
+superset_violations = _verify.superset_violations
+check_superset = _verify.check_superset
 
 
 # --------------------------------------------------------------------------
@@ -131,37 +163,8 @@ EXCLUSIONS = (
 
 
 # --------------------------------------------------------------------------
-# helpers
+# the two readers of the closed tables above
 # --------------------------------------------------------------------------
-
-def load_capture_module():
-    """Import ``tests/_surface_capture.py`` for its shared invariants.
-
-    The union reuses the capture's ACTION_FIELDS, STRUCTURAL_ACTIONS and
-    prose scanner so the "object dump, no rendered help" contract has ONE
-    definition rather than a second drifting copy.
-    """
-    path = os.path.join(HERE, "_surface_capture.py")
-    loader = SourceFileLoader("aw_surface_capture", path)
-    spec = importlib.util.spec_from_loader("aw_surface_capture", loader)
-    module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
-    return module
-
-
-def load_json(path):
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def action_key(action):
-    """Identity of an action within its node."""
-    return (action["dest"], tuple(action["option_strings"]))
-
-
-def index_nodes(fixture):
-    return {tuple(n["path"]): n for n in fixture["nodes"]}
-
 
 def adjudication_for(path, key, field):
     for row in ADJUDICATIONS:
@@ -180,12 +183,6 @@ def exclusion_for(path, key):
                 and tuple(row["option_strings"]) == key[1]):
             return row
     return None
-
-
-def sides_of(in_local, in_donor):
-    if in_local and in_donor:
-        return "both"
-    return "local" if in_local else "donor"
 
 
 # --------------------------------------------------------------------------
@@ -222,53 +219,53 @@ def merge_action(path, key, local_action, donor_action, fields):
     return record, problems
 
 
-def derive(local_path=LOCAL_FIXTURE, donor_path=DONOR_FIXTURE):
-    """Build the union fixture from the two per-tree captures."""
-    capture = load_capture_module()
-    fields = tuple(capture.ACTION_FIELDS)
-    local, donor = load_json(local_path), load_json(donor_path)
-    li, di = index_nodes(local), index_nodes(donor)
+def merge_node(path, ln, dn, fields):
+    """ONE union node from the two sides' nodes; either side may be absent.
 
+    Action order is load-bearing and stated once, here -- local order first,
+    then the donor-only actions in donor order -- so re-deriving an unchanged
+    pair of captures rewrites the fixture byte-for-byte.
+    """
     problems = []
-    nodes = []
-    # Deterministic order: by depth then path, so the file diffs readably.
-    for path in sorted(set(li) | set(di), key=lambda p: (len(p), p)):
-        ln, dn = li.get(path), di.get(path)
-        la = {action_key(a): a for a in (ln or {}).get("actions", [])}
-        da = {action_key(a): a for a in (dn or {}).get("actions", [])}
-        # Local order first, then donor-only actions in donor order.
-        order = list(la) + [k for k in da if k not in la]
+    la = {action_key(a): a for a in (ln or {}).get("actions", [])}
+    da = {action_key(a): a for a in (dn or {}).get("actions", [])}
+    order = list(la) + [k for k in da if k not in la]
 
-        actions = []
-        for key in order:
-            record, errs = merge_action(
-                path, key, la.get(key), da.get(key), fields)
-            actions.append(record)
-            problems.extend(errs)
+    actions = []
+    for key in order:
+        record, errs = merge_action(path, key, la.get(key), da.get(key), fields)
+        actions.append(record)
+        problems.extend(errs)
 
-        subs = set((ln or {}).get("subcommands", []))
-        subs |= set((dn or {}).get("subcommands", []))
-        dests = {n["subcommand_dest"] for n in (ln, dn) if n}
-        dests.discard(None)
-        if len(dests) > 1:
-            problems.append("/".join(path) + f": subcommand_dest diverges {dests}")
+    subs = set((ln or {}).get("subcommands", []))
+    subs |= set((dn or {}).get("subcommands", []))
+    dests = {n["subcommand_dest"] for n in (ln, dn) if n}
+    dests.discard(None)
+    if len(dests) > 1:
+        problems.append("/".join(path) + f": subcommand_dest diverges {dests}")
 
-        nodes.append({
-            "path": list(path),
-            "depth": len(path),
-            "sides": sides_of(ln is not None, dn is not None),
-            "subcommand_dest": sorted(dests)[0] if dests else None,
-            "subcommands": sorted(subs),
-            "actions": actions,
-        })
+    node = {
+        "path": list(path),
+        "depth": len(path),
+        "sides": sides_of(ln is not None, dn is not None),
+        "subcommand_dest": sorted(dests)[0] if dests else None,
+        "subcommands": sorted(subs),
+        "actions": actions,
+    }
+    return node, problems
 
-    if problems:
-        raise SystemExit("\n".join(f"[FAIL] {p}" for p in problems))
 
+def union_header(local, donor, local_path, donor_path, nodes, li, di):
+    """Everything the fixture carries ABOUT the merged nodes.
+
+    Split out of ``derive`` because it decides nothing: every value here is a
+    count, a set difference or a projection of what the merge already produced,
+    and it was the bulk of the body a reader had to scroll past to find the
+    merge itself.
+    """
     lv, dv = set(local["top_level_verbs"]), set(donor["top_level_verbs"])
     root = next(n for n in nodes if not n["path"])
-
-    fixture = {
+    return {
         "schema_version": SCHEMA_VERSION,
         "label": "union",
         "binding": True,
@@ -314,90 +311,62 @@ def derive(local_path=LOCAL_FIXTURE, donor_path=DONOR_FIXTURE):
         "exclusions": [dict(r) for r in EXCLUSIONS],
         "nodes": nodes,
     }
-    return fixture
+
+
+def derive(local_path=LOCAL_FIXTURE, donor_path=DONOR_FIXTURE):
+    """Build the union fixture from the two per-tree captures."""
+    capture = load_capture_module()
+    fields = tuple(capture.ACTION_FIELDS)
+    local, donor = load_json(local_path), load_json(donor_path)
+    li, di = index_nodes(local), index_nodes(donor)
+
+    problems = []
+    nodes = []
+    # Deterministic order: by depth then path, so the file diffs readably.
+    for path in sorted(set(li) | set(di), key=lambda p: (len(p), p)):
+        node, errs = merge_node(path, li.get(path), di.get(path), fields)
+        nodes.append(node)
+        problems.extend(errs)
+
+    if problems:
+        raise SystemExit("\n".join(f"[FAIL] {p}" for p in problems))
+
+    return union_header(local, donor, local_path, donor_path, nodes, li, di)
 
 
 # --------------------------------------------------------------------------
 # verification
+#
+# ``check_values`` is the ONE check that reads ADJUDICATIONS, so it lives here
+# beside the table. Its four siblings are in ``_surface_union_verify`` and are
+# re-exported at the top of this module.
 # --------------------------------------------------------------------------
 
-def check_shape(fixture, capture, expect=None):
-    """Internal consistency: a hand-edited header cannot contradict the body."""
+def _field_value_problems(where, act, lact, dact, path, key, capture):
+    """Recompute every compared field of ONE action from the two sources."""
     problems = []
-    nodes = fixture.get("nodes", [])
-    by_path = {tuple(n["path"]): n for n in nodes}
-    counts = fixture.get("counts", {})
-    real = {
-        "nodes": len(nodes),
-        "actions": sum(len(n["actions"]) for n in nodes),
-        "top_level_verbs": len(fixture.get("top_level_verbs", [])),
-    }
-    for name, value in real.items():
-        if counts.get(name) != value:
-            problems.append(f"counts.{name} {counts.get(name)} != {value} recorded")
-        if expect and expect.get(name) is not None and value != expect[name]:
-            problems.append(f"{name} {value} != expected {expect[name]}")
-
-    if () not in by_path:
-        problems.append("no root node")
-    for path, node in by_path.items():
-        if not path:
+    for field in capture.ACTION_FIELDS:
+        if field in ("dest", "option_strings"):
             continue
-        parent = by_path.get(path[:-1])
-        if parent is None:
-            problems.append(f"orphan node {'/'.join(path)}")
-        elif path[-1] not in parent["subcommands"]:
-            problems.append(f"{'/'.join(path)} not declared by its parent")
-
-    want_fields = set(capture.ACTION_FIELDS) | set(UNION_EXTRA_FIELDS)
-    structural = {c.__name__ for c in capture.STRUCTURAL_ACTIONS}
-    for node in nodes:
-        seen = set()
-        for act in node["actions"]:
-            where = "/".join(node["path"]) or "<root>"
-            if set(act) != want_fields:
-                problems.append(f"{where}: action field set is {sorted(act)}")
-                continue
-            if act["kind"] in structural:
-                problems.append(f"{where}: structural action {act['kind']}")
-            if act["disposition"] not in DISPOSITIONS:
-                problems.append(f"{where}: bad disposition {act['disposition']!r}")
-            if act["sides"] not in ("both", "local", "donor"):
-                problems.append(f"{where}: bad sides {act['sides']!r}")
-            key = action_key(act)
-            if key in seen:
-                problems.append(f"{where}: duplicate action {key}")
-            seen.add(key)
-
-    problems.extend(capture.scan_for_prose(fixture))
-    return problems
-
-
-def check_covers_sources(fixture, local, donor):
-    """EVERY local node/action and EVERY donor node/action is present."""
-    problems = []
-    by_path = {tuple(n["path"]): n for n in fixture["nodes"]}
-    for label, source in (("local", local), ("donor", donor)):
-        for node in source["nodes"]:
-            path = tuple(node["path"])
-            target = by_path.get(path)
-            if target is None:
-                problems.append(f"{label}: node {'/'.join(path) or '<root>'} missing")
-                continue
-            have = {action_key(a) for a in target["actions"]}
-            for act in node["actions"]:
-                if action_key(act) not in have:
-                    problems.append(
-                        f"{label}: {'/'.join(path) or '<root>'} action "
-                        f"{act['dest']} {act['option_strings']} missing")
-            for sub in node["subcommands"]:
-                if sub not in target["subcommands"]:
-                    problems.append(
-                        f"{label}: {'/'.join(path) or '<root>'} subcommand "
-                        f"{sub} missing")
-        for verb in source["top_level_verbs"]:
-            if verb not in fixture["top_level_verbs"]:
-                problems.append(f"{label}: top-level verb {verb} missing")
+        if lact is None or dact is None:
+            want = (dact or lact)[field]
+            if act[field] != want:
+                problems.append(
+                    f"{where}: {field} {act[field]!r} != source {want!r}")
+            continue
+        if lact[field] == dact[field]:
+            if act[field] != lact[field]:
+                problems.append(
+                    f"{where}: {field} {act[field]!r} != agreed "
+                    f"{lact[field]!r}")
+            continue
+        row = adjudication_for(path, key, field)
+        if row is None:
+            problems.append(f"{where}: {field} diverges, no adjudication")
+        elif act[field] != row["decided"]:
+            problems.append(
+                f"{where}: {field} {act[field]!r} != decided "
+                f"{row['decided']!r}")
     return problems
 
 
@@ -415,76 +384,8 @@ def check_values(fixture, local, donor, capture):
             where = ("/".join(path) or "<root>") + f" {key[0]} {list(key[1])}"
             if act["sides"] != sides_of(lact is not None, dact is not None):
                 problems.append(f"{where}: sides {act['sides']!r} is wrong")
-            for field in capture.ACTION_FIELDS:
-                if field in ("dest", "option_strings"):
-                    continue
-                if lact is None or dact is None:
-                    want = (dact or lact)[field]
-                    if act[field] != want:
-                        problems.append(
-                            f"{where}: {field} {act[field]!r} != source {want!r}")
-                    continue
-                if lact[field] == dact[field]:
-                    if act[field] != lact[field]:
-                        problems.append(
-                            f"{where}: {field} {act[field]!r} != agreed "
-                            f"{lact[field]!r}")
-                    continue
-                row = adjudication_for(path, key, field)
-                if row is None:
-                    problems.append(f"{where}: {field} diverges, no adjudication")
-                elif act[field] != row["decided"]:
-                    problems.append(
-                        f"{where}: {field} {act[field]!r} != decided "
-                        f"{row['decided']!r}")
-    return problems
-
-
-def check_tables(fixture):
-    """Every adjudication and exclusion resolves to a real union action."""
-    problems = []
-    by_path = {tuple(n["path"]): n for n in fixture["nodes"]}
-
-    def find(row):
-        node = by_path.get(tuple(row["node"]))
-        if node is None:
-            return None
-        key = (row["dest"], tuple(row["option_strings"]))
-        return next((a for a in node["actions"] if action_key(a) == key), None)
-
-    for row in fixture.get("adjudications", []):
-        act = find(row)
-        if act is None:
-            problems.append(f"adjudication {row['dest']}.{row['field']}: no such action")
-        elif act[row["field"]] != row["decided"]:
-            problems.append(
-                f"adjudication {row['dest']}.{row['field']}: fixture carries "
-                f"{act[row['field']]!r}, decided {row['decided']!r}")
-        for need in ("rationale", "winner"):
-            if not row.get(need):
-                problems.append(f"adjudication {row['dest']}.{row['field']}: no {need}")
-
-    excluded_keys = set()
-    for row in fixture.get("exclusions", []):
-        act = find(row)
-        if act is None:
-            problems.append(f"exclusion {row['dest']}: no such action")
-            continue
-        excluded_keys.add((tuple(row["node"]), action_key(act)))
-        if act["disposition"] != "excluded":
-            problems.append(f"exclusion {row['dest']}: disposition is "
-                            f"{act['disposition']!r}")
-        for need in ("reason", "approver", "follow_up"):
-            if not row.get(need):
-                problems.append(f"exclusion {row['dest']}: no {need}")
-
-    for node in fixture["nodes"]:
-        for act in node["actions"]:
-            if (act["disposition"] == "excluded"
-                    and (tuple(node["path"]), action_key(act)) not in excluded_keys):
-                problems.append(
-                    f"{'/'.join(node['path'])} {act['dest']}: excluded with no "
-                    "exclusion row")
+            problems.extend(_field_value_problems(
+                where, act, lact, dact, path, key, capture))
     return problems
 
 
@@ -507,69 +408,6 @@ def verify(path=UNION_FIXTURE, local_path=LOCAL_FIXTURE, donor_path=DONOR_FIXTUR
     print(f"[OK] {path}: {counts['nodes']} nodes, {counts['actions']} actions, "
           f"{counts['top_level_verbs']} top-level verbs; covers every local and "
           "donor node and action")
-    return 0
-
-
-# --------------------------------------------------------------------------
-# the downstream gate primitive: is a merged capture a superset of the union?
-# --------------------------------------------------------------------------
-
-def superset_violations(merged, union):
-    """Every way a merged-tree capture FAILS to cover the binding union.
-
-    Compares on the union's ``compared_fields`` -- kind, required, nargs,
-    default, choices, type -- not on flag names, so a narrowed ``choices``, a
-    moved ``default`` or a dropped ``required`` is a violation even though the
-    flag is still spelled the same. ``disposition: excluded`` members are not
-    required (they mirror the parity manifest's excluded rows) but are still
-    reported when present so nothing is invisible.
-    """
-    violations = []
-    have = {tuple(n["path"]): n for n in merged["nodes"]}
-    for node in union["nodes"]:
-        path = tuple(node["path"])
-        where = "/".join(path) or "<root>"
-        target = have.get(path)
-        required = [a for a in node["actions"] if a["disposition"] == "required"]
-        if target is None:
-            if required or node["subcommands"]:
-                violations.append(f"missing node {where}")
-            continue
-        mine = {action_key(a): a for a in target["actions"]}
-        for act in required:
-            key = action_key(act)
-            got = mine.get(key)
-            if got is None:
-                violations.append(f"{where}: missing {act['dest']} "
-                                  f"{act['option_strings']}")
-                continue
-            for field in COMPARED_FIELDS:
-                want, real = act[field], got[field]
-                if field == "choices" and want is not None:
-                    if real is None or not set(want) <= set(real):
-                        violations.append(
-                            f"{where}: {act['dest']} choices {real!r} does not "
-                            f"cover {want!r}")
-                    continue
-                if want != real:
-                    violations.append(
-                        f"{where}: {act['dest']} {field} {real!r} != {want!r}")
-        for sub in node["subcommands"]:
-            if sub not in target["subcommands"]:
-                violations.append(f"{where}: missing subcommand {sub}")
-    return violations
-
-
-def check_superset(merged_path, union_path=UNION_FIXTURE):
-    merged, union = load_json(merged_path), load_json(union_path)
-    violations = superset_violations(merged, union)
-    for line in violations:
-        print(f"[FAIL] {line}")
-    if violations:
-        print(f"[FAIL] {merged_path}: {len(violations)} union surface violations")
-        return 1
-    print(f"[OK] {merged_path} covers the binding union "
-          f"({union['counts']['nodes']} nodes, {union['counts']['actions']} actions)")
     return 0
 
 

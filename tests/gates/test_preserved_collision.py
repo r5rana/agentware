@@ -323,18 +323,38 @@ class DeterminismTest(unittest.TestCase):
                     REPO, successor.replace(".", "/") + ".py")), successor)
 
     def test_every_relayering_collision_is_pinned_and_its_donor_side_is_free(self):
-        """The hazard task 58 CREATED and task 99 wave 4 EXTENDED, gated live.
+        """The hazard task 58 CREATED and task 99 waves 4, 7-13, 15, 17 and 18 EXTENDED.
 
         Moving the local corpus onto the donor's layout put seven local files on
         paths a pending donor file already occupies; paying down five
-        test-ownership rows in task 99 wave 4 put five more there, because
-        R-MOD-06 fixes the owning file's path and the donor already holds it.
-        Each must be pinned to two distinct destinations, the local side must be
-        the file that is actually there, and the donor side must still be free in
-        BOTH trees -- an occupied donor destination means a port already landed
-        on top of something.
+        test-ownership rows in task 99 wave 4 put five more there, one more in
+        wave 7 (`features/fanout.py`), two in wave 8 (`ops/kbgit.py`,
+        `ops/kbsync.py`), two in wave 9 (`retrieval/recallcmd.py`,
+        `retrieval/vectorcache.py`), two in wave 10
+        (`retrieval/evalcmd.py`, `retrieval/goldfixture.py`), one in wave 11
+        (`features/skills.py`), two in wave 12 (`ops/orglint.py`,
+        `ops/steering.py`), one in wave 13 (`features/curationcmd.py`) and THREE
+        in wave 15 (`features/updatecmd.py`, `features/indexcmd.py`,
+        `knowledge/graph.py` -- three ownership rows paid down in one commit)
+        and FOUR in wave 17 (`features/setupcmd.py`, `ops/audit.py`,
+        `ops/releasegate.py`, `ops/team.py` -- the verb-emit family, whose four
+        ownership rows were paid in the same commit) and THREE in wave 18
+        (`features/mcp.py`, `knowledge/worklog.py`, `ops/failureladder.py` --
+        three of the derivation family's four; the fourth,
+        `ops/metrics/metricspricing.py`, needs no pin because the donor occupies
+        no file at its owning path),
+        because R-MOD-06
+        fixes the owning file's path and the donor already holds it. Each must be pinned to two
+        distinct destinations, the local side must be the file that is actually
+        there, and the donor side must still be free in BOTH trees -- an occupied
+        donor destination means a port already landed on top of something.
+
+        The count is pinned BY VALUE rather than derived from the table, and
+        that is the whole mechanism: a new collision cannot be admitted by
+        editing one file. It takes a deliberate edit here AND in
+        `tests/_preserved_pins.py`, the same two-key move the debt ratchets use.
         """
-        self.assertEqual(len(RELAYERING_COLLISIONS), 12)
+        self.assertEqual(len(RELAYERING_COLLISIONS), 33)
         for rel in RELAYERING_COLLISIONS:
             pins = COLLISION_DESTINATIONS[rel]
             self.assertEqual(set(pins), {"local", "donor"}, rel)

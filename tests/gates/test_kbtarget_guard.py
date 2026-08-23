@@ -28,6 +28,11 @@ REPO = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
 import _kbtarget_gate as gate  # noqa: E402
+# The clobber TABLE and the check that reads it live in the probe half of the
+# split gate. A tamper must patch the namespace the function resolves its
+# globals from -- `gate` only re-exports the names, so patching there rebinds
+# the alias and leaves the check reading the untouched original.
+import _kbtarget_probe as probe  # noqa: E402
 import _parity_manifest as pm  # noqa: E402
 from _parity_schema import run_probe  # noqa: E402
 
@@ -326,30 +331,30 @@ class ClobberTableTest(unittest.TestCase):
         self.assertEqual(gate.check_clobber_table(self.tree), [])
 
     def test_kbtarget_expecting_the_wrong_exit_code_reddens(self):
-        saved = gate.CLOBBER_CASES
+        saved = probe.CLOBBER_CASES
         mutated = list(copy.deepcopy(list(saved)))
         row = list(mutated[2])
         row[5] = 0  # pretend a conflicting re-init is accepted
         mutated[2] = tuple(row)
-        gate.CLOBBER_CASES = tuple(mutated)
+        probe.CLOBBER_CASES = tuple(mutated)
         try:
-            problems = gate.check_clobber_table(self.tree)
+            problems = probe.check_clobber_table(self.tree)
         finally:
-            gate.CLOBBER_CASES = saved
+            probe.CLOBBER_CASES = saved
         self.assertTrue(any("expected rc=0, got rc=3" in p for p in problems),
                         problems)
 
     def test_kbtarget_expecting_the_wrong_error_key_reddens(self):
-        saved = gate.CLOBBER_CASES
+        saved = probe.CLOBBER_CASES
         mutated = list(copy.deepcopy(list(saved)))
         row = list(mutated[3])
         row[6] = "kb-not-pointable"  # the OTHER repoint path's key
         mutated[3] = tuple(row)
-        gate.CLOBBER_CASES = tuple(mutated)
+        probe.CLOBBER_CASES = tuple(mutated)
         try:
-            problems = gate.check_clobber_table(self.tree)
+            problems = probe.check_clobber_table(self.tree)
         finally:
-            gate.CLOBBER_CASES = saved
+            probe.CLOBBER_CASES = saved
         self.assertTrue(any("JSON error key" in p for p in problems), problems)
 
 

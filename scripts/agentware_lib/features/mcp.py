@@ -8,7 +8,10 @@ MCP_RECALL_STRATEGIES / MCP_QUERY_SELECTORS), the JSON-RPC envelope/result/error
 builders (_mcp_envelope / _mcp_result / _mcp_error), the tool descriptors
 (_mcp_tool_definitions), the untrusted-arg validators (_mcp_require_int /
 _mcp_require_str / _McpInvalidParams), the two READ-ONLY tool implementations
-(_mcp_tool_recall / _mcp_query_lookup / _mcp_tool_query), the request router
+(_mcp_tool_recall / _mcp_query_lookup / _mcp_tool_query) with the two lookup
+primitives the query tool folds over an UNTRUSTED index (_mcp_entry_maps, the
+first-wins id/path maps; _mcp_entries_for_ids, the tag arm's id -> entry
+resolution, which skips an id the corpus does not carry), the request router
 (_mcp_handle_tools_call / _mcp_initialize / handle_mcp_request), the stdio serve
 loop (cmd_mcp), and the `mcp` parser registrar (register_mcp).
 
@@ -193,10 +196,16 @@ def _mcp_tool_recall(kdir, data, arguments):
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def _mcp_query_lookup(data, selector, value):
-    """Replicate cmd_query's id/path/tag/category dispatch (read-only). Returns list."""
-    entries = data.get("entries") or []
-    tags_map = data.get("tags") or {}
+def _mcp_entry_maps(entries):
+    """FIRST-WINS id->entry and path->entry maps over an index entry list.
+
+    The index is untrusted input here — it is a file on disk that a client can
+    neither see nor validate — so a non-dict member is skipped rather than
+    raising, and a duplicate id or path keeps the FIRST entry, which is the
+    order `cmd_query` reports. The guards are `is not None` and not truthiness
+    on purpose: an entry whose id is the EMPTY STRING is a key like any other,
+    while an entry that omits the field entirely is not.
+    """
     by_id, by_path = {}, {}
     for e in entries:
         if not isinstance(e, dict):
@@ -207,6 +216,28 @@ def _mcp_query_lookup(data, selector, value):
         path = e.get("path")
         if path is not None and path not in by_path:
             by_path[path] = e
+    return by_id, by_path
+
+
+def _mcp_entries_for_ids(by_id, ids):
+    """The entries named by an id list, in the list's order, skipping ids the
+    corpus does not carry — a `tags` map is a file on disk that can name an id
+    no entry has (a removed entry, a hand-edit), and a client asking for a tag
+    gets the entries that exist rather than an error about the ones that do not.
+    """
+    out = []
+    for eid in ids:
+        hit = by_id.get(eid)
+        if hit is not None:
+            out.append(hit)
+    return out
+
+
+def _mcp_query_lookup(data, selector, value):
+    """Replicate cmd_query's id/path/tag/category dispatch (read-only). Returns list."""
+    entries = data.get("entries") or []
+    tags_map = data.get("tags") or {}
+    by_id, by_path = _mcp_entry_maps(entries)
     results = []
     if selector == "id":
         hit = by_id.get(value)
@@ -217,10 +248,7 @@ def _mcp_query_lookup(data, selector, value):
         if hit is not None:
             results = [hit]
     elif selector == "tag":
-        for eid in tags_map.get(value, []):
-            hit = by_id.get(eid)
-            if hit is not None:
-                results.append(hit)
+        results = _mcp_entries_for_ids(by_id, tags_map.get(value, []))
     elif selector == "category":
         results = [e for e in entries
                    if isinstance(e, dict) and e.get("category") == value]

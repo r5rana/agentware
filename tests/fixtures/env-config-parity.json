@@ -6,7 +6,7 @@
   "derived_from": {
     "local": {
       "root": "~/workspace/agentware",
-      "git_head": "a6c265e7cb19"
+      "git_head": "1249c32a0f1c"
     },
     "donor": {
       "root": "/tmp/aw-scratch/Agentware",
@@ -612,7 +612,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/releasegate.py",
-            "line": 233,
+            "line": 270,
             "lang": "python",
             "form": "get()",
             "default": "",
@@ -1111,7 +1111,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/features/fanout.py",
-            "line": 90,
+            "line": 92,
             "lang": "python",
             "form": "get()",
             "default": null,
@@ -1586,7 +1586,7 @@
         "local": [
           {
             "file": "scripts/agentware_lib/features/fanout.py",
-            "line": 404,
+            "line": 406,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -1626,7 +1626,7 @@
           },
           {
             "file": "scripts/agentware_lib/retrieval/bench/benchswe.py",
-            "line": 414,
+            "line": 400,
             "lang": "python",
             "form": "pop()",
             "default": null,
@@ -4439,7 +4439,7 @@
           },
           {
             "file": "scripts/agentware_lib/features/fanout.py",
-            "line": 405,
+            "line": 407,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4455,7 +4455,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/kbpull.py",
-            "line": 64,
+            "line": 65,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4463,7 +4463,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/kbpull.py",
-            "line": 78,
+            "line": 79,
             "lang": "python",
             "form": "environ[]",
             "default": null,
@@ -4699,7 +4699,7 @@
           },
           {
             "file": "scripts/agentware_lib/ops/team.py",
-            "line": 186,
+            "line": 179,
             "lang": "python",
             "form": "get()",
             "default": null,

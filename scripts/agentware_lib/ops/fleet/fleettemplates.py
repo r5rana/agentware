@@ -57,6 +57,103 @@ def _template_kind(stem):
     return None
 
 
+def _conflict_marker_line(text):
+    """1-based line number of the FIRST git conflict marker, else None (T5).
+
+    Deliberately NOT `orgkeys.ORG_CONFLICT_MARKER_RE`, which the org linter's O6
+    uses: that pattern also matches a `=======` divider, and a markdown template
+    may legitimately carry a setext underline of seven or more `=`. The two
+    predicates DISAGREE on that input, so folding them into one shared scanner
+    would be a silent behaviour change dressed as de-duplication — the reason
+    this stays a local scanner with a comment rather than an import.
+    """
+    for i, line in enumerate(text.splitlines(), 1):
+        if line.startswith("<<<<<<<") or line.startswith(">>>>>>>"):
+            return i
+    return None
+
+
+def _declared_frontmatter_keys(text):
+    """The key names a frontmatter block DECLARES (value may be a placeholder).
+
+    A template's keys are declared-but-EMPTY by construction, so a YAML parse
+    that drops empty values cannot answer T2/T3/T4 at all; this reads the block
+    as lines and asks only which names are present. A commented-out key does not
+    count as declared, and an indented key does.
+    """
+    declared = set()
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
+    if m:
+        for ln in m.group(1).splitlines():
+            if ":" in ln and not ln.strip().startswith("#"):
+                declared.add(ln.split(":", 1)[0].strip())
+    return declared
+
+
+def _lint_entry_contract(rel, declared, strict, err, warn):
+    """T2 + T3 for one ENTRY template's declared key set.
+
+    T2 and T3 are independent: a template missing both reports both, in that
+    order, and T3 is the ONLY rule in the contract whose severity moves with
+    --strict.
+    """
+    missing_req = [k for k in TEMPLATE_REQUIRED_FM if k not in declared]
+    if missing_req:
+        err("T2", rel, 1,
+            "entry template missing required frontmatter key(s): %s — a filled "
+            "entry would fail REQUIRED_FIELDS / index validate"
+            % ", ".join(missing_req))
+    missing_org = [k for k in TEMPLATE_ORG_FM if k not in declared]
+    if missing_org:
+        # Org fields: hard error in strict, warning otherwise (path-inference can
+        # backfill them, but an explicit template is the deterministic contract).
+        msg = ("entry template missing org frontmatter key(s): %s — an org entry "
+               "copied from it relies on path-inference for O1 instead of being "
+               "explicit" % ", ".join(missing_org))
+        if strict:
+            err("T3", rel, 1, msg)
+        else:
+            warn("T3", rel, 1, msg)
+
+
+def _lint_template_file(tdir, fn, kind, strict, err, warn):
+    """T1/T4/T5 + the entry contract for ONE recognized template file.
+
+    Rule ORDER is the contract: T5 is scanned on the RAW text before the
+    frontmatter block is parsed, so a template that is both conflicted and
+    frontmatter-less reports T5 and then T1 — T1's `return` would swallow T5
+    if the two were reordered.
+    """
+    rel = "templates/%s" % fn
+    try:
+        with open(os.path.join(tdir, fn), "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError as e:
+        err("T1", rel, 0, "cannot read template: %s" % e)
+        return
+    # T5 — no stray conflict markers.
+    marker = _conflict_marker_line(text)
+    if marker is not None:
+        err("T5", rel, marker, "git conflict marker in template")
+    fields, _body = frontmatter.split_frontmatter(text)
+    # T1 — a template MUST open with a YAML frontmatter block.
+    if fields is None:
+        err("T1", rel, 1,
+            "template has NO YAML frontmatter block — a legacy blockquote-only "
+            "template produces entries that cannot be org-validated. Add a "
+            "'---'…'---' block declaring the required keys.")
+        return
+    declared = _declared_frontmatter_keys(text)
+    if kind == "skill":
+        missing = [k for k in SKILL_TEMPLATE_FM if k not in declared]
+        if missing:
+            err("T4", rel, 1,
+                "skill template missing frontmatter key(s): %s (agentskills.io "
+                "requires name + description)" % ", ".join(missing))
+        return
+    _lint_entry_contract(rel, declared, strict, err, warn)
+
+
 def lint_templates(kdir, strict=False):
     """Lint every templates/*.md against the per-kind contract. Read-only.
 
@@ -65,6 +162,9 @@ def lint_templates(kdir, strict=False):
     Rule ids: T1 frontmatter present; T2 required entry fields declared;
     T3 org fields (origin/team) declared; T4 skill name+description; T5 no leftover
     conflict markers.
+
+    `checked` counts files the CLASSIFIER recognized, so it is incremented before
+    the file is opened: an unreadable template is checked-and-failed, not skipped.
     """
     errors, warnings = [], []
     checked = 0
@@ -81,63 +181,11 @@ def lint_templates(kdir, strict=False):
     for fn in sorted(os.listdir(tdir)):
         if not fn.endswith(".md"):
             continue
-        stem = fn[:-3]
-        kind = _template_kind(stem)
+        kind = _template_kind(fn[:-3])
         if kind is None:
             continue  # not a recognized template (e.g. a README) — skip
         checked += 1
-        rel = "templates/%s" % fn
-        try:
-            with open(os.path.join(tdir, fn), "r", encoding="utf-8") as f:
-                text = f.read()
-        except OSError as e:
-            err("T1", rel, 0, "cannot read template: %s" % e)
-            continue
-        # T5 — no stray conflict markers.
-        for i, line in enumerate(text.splitlines(), 1):
-            if line.startswith("<<<<<<<") or line.startswith(">>>>>>>"):
-                err("T5", rel, i, "git conflict marker in template")
-                break
-        fields, _body = frontmatter.split_frontmatter(text)
-        # T1 — a template MUST open with a YAML frontmatter block.
-        if fields is None:
-            err("T1", rel, 1,
-                "template has NO YAML frontmatter block — a legacy blockquote-only "
-                "template produces entries that cannot be org-validated. Add a "
-                "'---'…'---' block declaring the required keys.")
-            continue
-        # Which keys does the block DECLARE (present as lines, value may be a placeholder)?
-        declared = set()
-        m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
-        if m:
-            for ln in m.group(1).splitlines():
-                if ":" in ln and not ln.strip().startswith("#"):
-                    declared.add(ln.split(":", 1)[0].strip())
-        if kind == "skill":
-            missing = [k for k in SKILL_TEMPLATE_FM if k not in declared]
-            if missing:
-                err("T4", rel, 1,
-                    "skill template missing frontmatter key(s): %s (agentskills.io "
-                    "requires name + description)" % ", ".join(missing))
-            continue
-        # entry template contract.
-        missing_req = [k for k in TEMPLATE_REQUIRED_FM if k not in declared]
-        if missing_req:
-            err("T2", rel, 1,
-                "entry template missing required frontmatter key(s): %s — a filled "
-                "entry would fail REQUIRED_FIELDS / index validate"
-                % ", ".join(missing_req))
-        missing_org = [k for k in TEMPLATE_ORG_FM if k not in declared]
-        if missing_org:
-            # Org fields: hard error in strict, warning otherwise (path-inference can
-            # backfill them, but an explicit template is the deterministic contract).
-            msg = ("entry template missing org frontmatter key(s): %s — an org entry "
-                   "copied from it relies on path-inference for O1 instead of being "
-                   "explicit" % ", ".join(missing_org))
-            if strict:
-                err("T3", rel, 1, msg)
-            else:
-                warn("T3", rel, 1, msg)
+        _lint_template_file(tdir, fn, kind, strict, err, warn)
     ok = len(errors) == 0
     return {"ok": ok, "errors": errors, "warnings": warnings, "checked": checked}
 
@@ -193,6 +241,10 @@ _EXPORTS = [
     'TEMPLATE_ORG_FM',
     'SKILL_TEMPLATE_FM',
     '_template_kind',
+    '_conflict_marker_line',
+    '_declared_frontmatter_keys',
+    '_lint_entry_contract',
+    '_lint_template_file',
     'lint_templates',
     'cmd_templates_lint',
 ]

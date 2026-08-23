@@ -156,68 +156,118 @@ def _scaffold_team_dir(org_root, team):
     return tdir
 
 
+def _team_org_root():
+    """The org root a `team` subcommand acts in, or None when there is none.
+
+    Two sources in one fixed order: the explicit org key first, then the
+    fleet resolver walking UP from the caller's knowledge dir — so an operator
+    already standing inside a shard does not have to re-export the root.
+    """
+    return config.resolve_org_root() or _fleet._fleet_org_root(
+        config.require_knowledge_dir() or "")
+
+
+def _team_caller_handle(args):
+    """The caller handle a `create`/`register` row is written for, or None.
+
+    Three sources in one fixed order (`--handle`, the resolver, `$USER`), then
+    the SAME normalisation the registry's own reader applies — so a handle typed
+    on the command line and one resolved from the environment can never produce
+    two different member rows for one person.
+    """
+    handle = (getattr(args, "handle", None) or routing.resolve_user_handle()
+              or os.environ.get("USER"))
+    return routing._normalize_user_handle(handle) if handle else None
+
+
+def _team_list(reg, as_json):
+    """Render `team list` from an ALREADY-PARSED registry. Returns the exit code.
+
+    Takes the parsed registry rather than the org root because rendering is not
+    entitled to decide how the registry is read: `load_registry` is tolerant by
+    contract (INV-2), and a renderer that re-read it could disagree with the
+    caller about what "the registry" is.
+    """
+    if as_json:
+        json.dump(reg, sys.stdout, indent=2, sort_keys=True)
+        sys.stdout.write("\n")
+        return 0
+    print("teams (%d):" % len(reg.get("teams") or []))
+    for t in reg.get("teams") or []:
+        members = [m["user"] for m in reg.get("members") or []
+                   if m.get("team") == t.get("name")]
+        print("  %-20s %s" % (t.get("name"), ", ".join(sorted(members)) or "(no members)"))
+    return 0
+
+
+def _team_join(args, sub, org_root, handle, as_json):
+    """The shared `create`/`register` arm: guards, the registry mutation, the
+    config persist and the two-mode emit. Returns the exit code.
+
+    `create` and `register` are ONE body because they differ in exactly one
+    decision — whether a team that does not exist yet is scaffolded or refused —
+    and every other step (the member add, the config persist, the emit) is
+    identical. Splitting them would duplicate four steps to avoid one branch.
+    """
+    team = getattr(args, "name", None)
+    if not team:
+        sys.stderr.write("agentware team %s: --name required\n" % sub)
+        return 1
+    if not handle:
+        sys.stderr.write("agentware team %s: no handle (pass --handle or set "
+                         "AGENTWARE_USER_HANDLE)\n" % sub)
+        return 1
+    reg = load_registry(org_root)
+    exists = any(t.get("name") == team for t in reg["teams"])
+    if sub == "register" and not exists:
+        sys.stderr.write("agentware team register: team %r does not exist "
+                         "(use `team create`)\n" % team)
+        return 1
+    if sub == "create" and not exists:
+        _scaffold_team_dir(org_root, team)
+    ok, note = _registry_add_member(org_root, handle, team)
+    if not ok:
+        sys.stderr.write("agentware team %s: %s\n" % (sub, note))
+        return 1
+    # Persist AGENTWARE_TEAM to machine-local config so the resolver points here.
+    if getattr(args, "set_default", True):
+        config._set_config_value(orgkeys.ORG_TEAM_KEY, team)
+        config._set_config_value(orgkeys.ORG_ROOT_KEY, org_root)
+    if as_json:
+        json.dump({"team": team, "handle": handle, "action": sub, "note": note},
+                  sys.stdout)
+        sys.stdout.write("\n")
+    else:
+        print("team %s: %s -> %s (%s)" % (sub, handle, team, note))
+    return 0
+
+
 def cmd_team(args):
     """`agentware team list|create|register` — org team onboarding (Task 6).
 
     list     — print the teams/registry.json membership (a plain co-resident read).
     create   — scaffold teams/<name>/ + append a registry row + persist AGENTWARE_TEAM.
     register — add the caller (handle) to an EXISTING team (JOIN); never re-scaffolds.
+
+    A DISPATCH and nothing else: it resolves the org root every subcommand needs,
+    picks the arm, and returns what the arm returns. The handle is resolved on the
+    way to the mutating arms and NOT before the `list` arm, because reading the
+    registry is not entitled to an identity.
     """
     sub = getattr(args, "team_cmd", None)
-    org_root = config.resolve_org_root() or _fleet._fleet_org_root(config.require_knowledge_dir() or "")
+    org_root = _team_org_root()
     if not org_root:
         sys.stderr.write("agentware team: no org root (set AGENTWARE_ORG_ROOT)\n")
         return 1
     as_json = getattr(args, "format", "text") == "json"
 
     if sub == "list":
-        reg = load_registry(org_root)
-        if as_json:
-            json.dump(reg, sys.stdout, indent=2, sort_keys=True)
-            sys.stdout.write("\n")
-        else:
-            print("teams (%d):" % len(reg.get("teams") or []))
-            for t in reg.get("teams") or []:
-                members = [m["user"] for m in reg.get("members") or []
-                           if m.get("team") == t.get("name")]
-                print("  %-20s %s" % (t.get("name"), ", ".join(sorted(members)) or "(no members)"))
-        return 0
+        return _team_list(load_registry(org_root), as_json)
 
-    handle = getattr(args, "handle", None) or routing.resolve_user_handle() or os.environ.get("USER")
-    handle = routing._normalize_user_handle(handle) if handle else None
+    handle = _team_caller_handle(args)
 
     if sub in ("create", "register"):
-        team = getattr(args, "name", None)
-        if not team:
-            sys.stderr.write("agentware team %s: --name required\n" % sub)
-            return 1
-        if not handle:
-            sys.stderr.write("agentware team %s: no handle (pass --handle or set "
-                             "AGENTWARE_USER_HANDLE)\n" % sub)
-            return 1
-        reg = load_registry(org_root)
-        exists = any(t.get("name") == team for t in reg["teams"])
-        if sub == "register" and not exists:
-            sys.stderr.write("agentware team register: team %r does not exist "
-                             "(use `team create`)\n" % team)
-            return 1
-        if sub == "create" and not exists:
-            _scaffold_team_dir(org_root, team)
-        ok, note = _registry_add_member(org_root, handle, team)
-        if not ok:
-            sys.stderr.write("agentware team %s: %s\n" % (sub, note))
-            return 1
-        # Persist AGENTWARE_TEAM to machine-local config so the resolver points here.
-        if getattr(args, "set_default", True):
-            config._set_config_value(orgkeys.ORG_TEAM_KEY, team)
-            config._set_config_value(orgkeys.ORG_ROOT_KEY, org_root)
-        if as_json:
-            json.dump({"team": team, "handle": handle, "action": sub, "note": note},
-                      sys.stdout)
-            sys.stdout.write("\n")
-        else:
-            print("team %s: %s -> %s (%s)" % (sub, handle, team, note))
-        return 0
+        return _team_join(args, sub, org_root, handle, as_json)
 
     sys.stderr.write("agentware team: unknown subcommand (list|create|register)\n")
     return 1

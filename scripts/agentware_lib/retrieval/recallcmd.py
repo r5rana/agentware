@@ -81,6 +81,83 @@ def _scoped_corpus(kdir, data, scoped_entries):
     return view, kept, suppressed
 
 
+def _budget_walk(ranked, kdir, token_budget, as_of, signals):
+    """The greedy token-budget walk. Returns `(results, overflow, used)`.
+
+    SKIP, NEVER BREAK (INV-5). An entry that would exceed the budget is recorded
+    in `overflow` and the walk CONTINUES, so a smaller lower-ranked entry still
+    fills the remaining budget — graceful degradation that reduces injected
+    context without ever increasing it, and preserves rank order among the
+    entries that are included. A `break` would pass every test whose oversized
+    entry happens to rank last, which is why the fixtures put one in the middle.
+
+    `overflow` stays POINTERS-ONLY by contract — id, path, category, score and
+    size, never a body and never a judgment — so a count=0 or partial result is
+    actionable instead of a silent miss, without smuggling the very content the
+    budget refused.
+
+    `signals` is the whole-index trust map, computed ONCE by the caller: it is a
+    property of the index rather than of any result, and re-deriving it per row
+    would re-walk every supersede edge N times. Both trust and freshness merge
+    into the record AFTER ranking, so neither can reorder anything.
+    """
+    results, overflow, used = [], [], 0
+    for entry, score, doc_text in ranked:
+        cost = _corpus.estimate_tokens(doc_text)
+        if used + cost > token_budget:
+            overflow.append({
+                "id": entry.get("id"),
+                "path": entry.get("path"),
+                "category": entry.get("category"),
+                "score": round(score, 6),
+                "estimated_tokens": cost,
+            })
+            continue
+        used += cost
+        rec = {
+            "id": entry.get("id"),
+            "path": entry.get("path"),
+            "category": entry.get("category"),
+            "score": round(score, 6),
+            "summary": entry.get("summary") or "",
+            "estimated_tokens": cost,
+        }
+        rec.update(_freshness_fields(entry, kdir, as_of))
+        # Results only — `overflow` stays pointers-only by contract (id/path/
+        # category/score/estimated_tokens; never a body, never a judgment).
+        rec.update(_fresh._trust_record(signals, entry.get("id")))
+        # Org provenance (additive keys only — recall payload schema stays a
+        # superset; INV recall-payload-stability). Emitted only when present so a
+        # flat-KB payload is byte-identical to today.
+        for k in ("origin", "team", "author"):
+            v = entry.get(k)
+            if v:
+                rec[k] = v
+        results.append(rec)
+    return results, overflow, used
+
+
+def _team_scope_block(caller_team, team, all_teams, include_shared, team_scope):
+    """The resolved team scope to publish in the payload, or None.
+
+    None on a flat KB — where no entry carries a team facet and no scoping flag
+    was passed — so a single-operator payload stays byte-identical to what it
+    was before org mode existed (INV-1). The five-way disjunction is the whole
+    definition of "org mode is in play here" and lives in ONE place for that
+    reason: a caller that tested four of the five would publish a scope block
+    for some invocations and not others, and the loop reads this key.
+    """
+    if not (caller_team or team or all_teams or include_shared or team_scope):
+        return None
+    return {
+        "caller_team": caller_team,
+        "team": team,
+        "all_teams": bool(all_teams),
+        "include_shared": bool(include_shared),
+        "scope": team_scope,
+    }
+
+
 def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
                          category=None, strategy=None, as_of=None,
                          team=None, all_teams=False, include_shared=False,
@@ -128,41 +205,8 @@ def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
     # result would re-walk every edge N times. Additive only: merged into each
     # result record AFTER ranking, so it can never reorder anything.
     signals = _fresh.trust_signals(data, as_of)
-    results = []
-    overflow = []
-    used = 0
-    for entry, score, doc_text in ranked:
-        cost = _corpus.estimate_tokens(doc_text)
-        if used + cost > token_budget:
-            overflow.append({
-                "id": entry.get("id"),
-                "path": entry.get("path"),
-                "category": entry.get("category"),
-                "score": round(score, 6),
-                "estimated_tokens": cost,
-            })
-            continue
-        used += cost
-        rec = {
-            "id": entry.get("id"),
-            "path": entry.get("path"),
-            "category": entry.get("category"),
-            "score": round(score, 6),
-            "summary": entry.get("summary") or "",
-            "estimated_tokens": cost,
-        }
-        rec.update(_freshness_fields(entry, kdir, as_of))
-        # Results only — `overflow` stays pointers-only by contract (id/path/
-        # category/score/estimated_tokens; never a body, never a judgment).
-        rec.update(_fresh._trust_record(signals, entry.get("id")))
-        # Org provenance (additive keys only — recall payload schema stays a
-        # superset; INV recall-payload-stability). Emitted only when present so a
-        # flat-KB payload is byte-identical to today.
-        for k in ("origin", "team", "author"):
-            v = entry.get(k)
-            if v:
-                rec[k] = v
-        results.append(rec)
+    results, overflow, used = _budget_walk(
+        ranked, kdir, token_budget, as_of, signals)
     payload = {
         "query": query,
         "strategy": resolved,
@@ -183,15 +227,112 @@ def build_recall_payload(kdir, data, query, top_k=5, token_budget=1500,
         "overflow_count": len(overflow),
     }
     # Surface the resolved team-scope only in org mode (additive; absent on flat KB).
-    if caller_team or team or all_teams or include_shared or team_scope:
-        payload["team_scope"] = {
-            "caller_team": caller_team,
-            "team": team,
-            "all_teams": bool(all_teams),
-            "include_shared": bool(include_shared),
-            "scope": team_scope,
-        }
+    scope_block = _team_scope_block(caller_team, team, all_teams,
+                                    include_shared, team_scope)
+    if scope_block is not None:
+        payload["team_scope"] = scope_block
     return payload, mode_notice
+
+def _work_scope_ranked(work_corpus, query, top_k):
+    """Rank the ephemeral work corpus: BM25, plan-status weighted, then sorted.
+
+    The multiplier (feature 260710) downweights by the FEATURE's plan state —
+    superseded/cancelled ×0.3, done ×0.7, draft/ready/running/MISSING ×1.0 — and
+    siblings inherit their feature's value through the pseudo-entry. It is
+    confined to `--scope work`: the default/curated ranking is byte-unchanged,
+    which the gold-fixture gate holds.
+
+    The three sorts run LAST-KEY-FIRST because Python's sort is stable, so the
+    effective order is score desc, then created desc, then id asc — the reverse
+    of the order they are written in. Zero-scoring entries are dropped AFTER the
+    weighting, not before: a `done` feature scoring 0.0 and one that never
+    matched are the same answer, but a live feature whose weighted score is
+    still positive must survive.
+    """
+    scored = _bm25.bm25_scores(work_corpus, _corpus.tokenize(query))
+    scored = [(e, s * e.get("status_mult", 1.0)) for (e, s) in scored]
+    # Sort: score desc -> created desc -> id asc
+    scored.sort(key=lambda es: es[0].get("id") or "")
+    scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)
+    scored.sort(key=lambda es: es[1], reverse=True)
+    scored = [(e, s) for (e, s) in scored if s > 0]
+    if top_k:
+        return scored[:top_k]
+    return scored
+
+
+def _work_scope_budget_walk(scored, work_corpus, token_budget):
+    """The work-scope greedy budget walk. Returns `(results, overflow, used)`.
+
+    Same SKIP-NOT-BREAK contract as the curated walk (INV-5) over a different
+    record shape: a work document has no summary of its own, so its heading
+    stands in, and `category` is the literal "work" because these entries are
+    EPHEMERAL and were never indexed under one.
+    """
+    results, overflow, used = [], [], 0
+    for entry, score in scored:
+        doc_text = next((t for (e, t) in work_corpus
+                         if e.get("id") == entry.get("id")), "")
+        cost = _corpus.estimate_tokens(doc_text)
+        if used + cost > token_budget:
+            overflow.append({"id": entry.get("id"), "path": entry.get("path"),
+                             "category": "work", "score": round(score, 6),
+                             "estimated_tokens": cost})
+            continue
+        used += cost
+        results.append({"id": entry.get("id"), "path": entry.get("path"),
+                        "category": "work", "score": round(score, 6),
+                        "summary": entry.get("title") or "",
+                        "estimated_tokens": cost})
+    return results, overflow, used
+
+
+def _work_scope_payload(args, kdir, as_of):
+    """Build the `--scope work` payload from an EPHEMERAL corpus of work/*.md.
+
+    Never touches index.json — `work/` stays UNINDEXED, and that is the point:
+    plans and worklogs are the operator's in-flight record, not curated
+    knowledge, so they are ranked on demand and never promoted. An empty corpus
+    is a well-formed payload with count 0 rather than an error: "no work
+    documents matched" and "there is no work/ directory" are both answers a
+    caller can act on, and neither is a failure of the command.
+    """
+    work_corpus = _corpus.build_work_corpus(kdir)
+    results, overflow, used = [], [], 0
+    if work_corpus:
+        scored = _work_scope_ranked(work_corpus, args.query, args.top_k)
+        results, overflow, used = _work_scope_budget_walk(
+            scored, work_corpus, args.token_budget)
+    return {"query": args.query, "strategy": "bm25", "scope": "work",
+            "as_of": as_of, "top_k": args.top_k,
+            "token_budget": args.token_budget, "category": None,
+            "context_tokens": used, "count": len(results),
+            "results": results, "overflow": overflow,
+            "overflow_count": len(overflow)}
+
+
+def _run_work_scope_recall(args, kdir, as_of):
+    """The whole `--scope work` command: build, render, return the exit code.
+
+    A second command inlined into `cmd_recall` is what this was — ten of that
+    function's nineteen branches, sharing only its argument validation with the
+    curated path and none of its ranking, its payload shape or its renderer.
+    The work view is deliberately THINNER than the curated one (no age, no
+    trust, no staleness footer): those fields describe a curated entry's
+    provenance, and a plan document has none to report.
+    """
+    payload = _work_scope_payload(args, kdir, as_of)
+    if args.format == "json":
+        json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+    print("recall (scope=work): query=%r  -> %d entries"
+          % (args.query, len(payload["results"])))
+    for r in payload["results"]:
+        print("  [%.4f] %s" % (r["score"], r["id"]))
+        print("    %s" % r["path"])
+    return 0
+
 
 def cmd_recall(args):
     """Deterministic BM25 ranked retrieval, token-budgeted (replaces MAIN.md dump).
@@ -232,58 +373,7 @@ def cmd_recall(args):
     # For 'work' scope: build ephemeral corpus from work/*.md, score with BM25,
     # return ranked results (never touches index.json).
     if scope == "work":
-        work_corpus = _corpus.build_work_corpus(kdir)
-        if not work_corpus:
-            payload = {"query": args.query, "strategy": "bm25", "scope": "work",
-                       "as_of": as_of, "top_k": args.top_k,
-                       "token_budget": args.token_budget, "category": None,
-                       "context_tokens": 0, "count": 0, "results": [],
-                       "overflow": [], "overflow_count": 0}
-        else:
-            query_tokens = _corpus.tokenize(args.query)
-            scored = _bm25.bm25_scores(work_corpus, query_tokens)
-            # Plan-status BM25 multiplier (feature 260710): superseded/cancelled
-            # ×0.3, done ×0.7, draft/ready/running/MISSING ×1.0. Siblings inherit
-            # their feature's plan multiplier via the pseudo_entry. --scope work
-            # ONLY — the default/curated path is byte-unchanged (gold-fixture gate).
-            scored = [(e, s * e.get("status_mult", 1.0)) for (e, s) in scored]
-            # Sort: score desc -> created desc -> id asc
-            scored.sort(key=lambda es: es[0].get("id") or "")
-            scored.sort(key=lambda es: es[0].get("created") or "", reverse=True)
-            scored.sort(key=lambda es: es[1], reverse=True)
-            scored = [(e, s) for (e, s) in scored if s > 0]
-            if args.top_k:
-                scored = scored[:args.top_k]
-            results, overflow, used = [], [], 0
-            for entry, score in scored:
-                doc_text = next((t for (e, t) in work_corpus
-                                 if e.get("id") == entry.get("id")), "")
-                cost = _corpus.estimate_tokens(doc_text)
-                if used + cost > args.token_budget:
-                    overflow.append({"id": entry.get("id"), "path": entry.get("path"),
-                                     "category": "work", "score": round(score, 6),
-                                     "estimated_tokens": cost})
-                    continue
-                used += cost
-                results.append({"id": entry.get("id"), "path": entry.get("path"),
-                                "category": "work", "score": round(score, 6),
-                                "summary": entry.get("title") or "",
-                                "estimated_tokens": cost})
-            payload = {"query": args.query, "strategy": "bm25", "scope": "work",
-                       "as_of": as_of, "top_k": args.top_k,
-                       "token_budget": args.token_budget, "category": None,
-                       "context_tokens": used, "count": len(results),
-                       "results": results, "overflow": overflow,
-                       "overflow_count": len(overflow)}
-        if args.format == "json":
-            json.dump(payload, sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-            return 0
-        print("recall (scope=work): query=%r  -> %d entries" % (args.query, len(payload["results"])))
-        for r in payload["results"]:
-            print("  [%.4f] %s" % (r["score"], r["id"]))
-            print("    %s" % r["path"])
-        return 0
+        return _run_work_scope_recall(args, kdir, as_of)
 
     # Resolve the ranking strategy + build the canonical payload via the shared
     # builder (single source of truth; the MCP `recall` tool reuses it so both

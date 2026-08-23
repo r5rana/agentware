@@ -3,7 +3,9 @@
 Owns: the DRIFT-FREE frozen gold-fixture regression suite (`eval --suite gold-fixture`) -
 the suite name constant (GOLD_FIXTURE_SUITE), the repo-relative fixture path
 (_GOLD_FIXTURE_REL) + its absolute resolver (gold_fixture_path), the fixture
-loader/validator (load_gold_fixture -> (entries, gold), full error taxonomy, and the CATEGORY
+loader/validator (load_gold_fixture -> (entries, gold) over its two sequential validation
+phases _load_fixture_corpus / _load_fixture_gold, which share only the declared-id set;
+full error taxonomy, and the CATEGORY
 CONTRACT: every returned entry carries a `category` - declared, else _DEFAULT_CATEGORY - so the
 R-RET-03 skill pin is REACHABLE over this corpus instead of silently inert), and the
 scorer (evaluate_gold_fixture - score a strategy over the FROZEN synthetic corpus, tag
@@ -79,6 +81,74 @@ def _corpus_entry(eid, raw):
     }
 
 
+def _load_fixture_corpus(corpus):
+    """Validate the fixture's `corpus` list into (entries, seen_ids).
+
+    The FIRST of `load_gold_fixture`'s two sequential validation phases, split
+    out at task 99 wave 10. The two phases share exactly one value -- the set of
+    ids the corpus declared, which the gold phase resolves its `expected_ids`
+    against -- so the seam is where that value is PRODUCED, and the split moves
+    branches rather than removing any: every refusal below is still raised from
+    here, with its message byte-identical.
+
+    Returns `(entries, seen)`. `entries` are index-style dicts built by
+    `_corpus_entry` (so the category contract holds for every one of them);
+    `seen` is the id set, returned rather than recomputed because a second pass
+    over `entries` would be a SECOND rule about what an id is. Raises ValueError
+    with the fixture's own message on any malformed record. Pure; deterministic.
+    """
+    if not isinstance(corpus, list) or not corpus:
+        raise ValueError("gold-fixture 'corpus' must be a non-empty list")
+    entries = []
+    seen = set()
+    for i, e in enumerate(corpus):
+        if not isinstance(e, dict):
+            raise ValueError("gold-fixture corpus entry #%d is not an object" % i)
+        eid = e.get("id")
+        if not isinstance(eid, str) or not eid.strip():
+            raise ValueError("gold-fixture corpus entry #%d missing 'id'" % i)
+        if eid in seen:
+            raise ValueError("gold-fixture corpus has duplicate id %r" % eid)
+        seen.add(eid)
+        entries.append(_corpus_entry(eid, e))
+    return entries, seen
+
+
+def _load_fixture_gold(gold_rows, seen):
+    """Validate the fixture's `gold` list against the corpus ids `seen`.
+
+    The SECOND of `load_gold_fixture`'s two validation phases. It is the half
+    that depends on the first: an `expected_ids` entry is resolved against the
+    ids the corpus declared, which is why `seen` is a parameter rather than
+    something this function could derive.
+
+    Note the id comparison is `str(x) not in seen` and the stored value is
+    `str(x)`: a fixture may write an id as a NUMBER, and both the membership
+    test and the returned row coerce it, so a numeric id resolves instead of
+    being reported as unknown. Raises ValueError with the fixture's own message.
+    Pure; deterministic.
+    """
+    if not isinstance(gold_rows, list) or not gold_rows:
+        raise ValueError("gold-fixture 'gold' must be a non-empty list")
+    gold = []
+    for i, row in enumerate(gold_rows):
+        if not isinstance(row, dict):
+            raise ValueError("gold-fixture gold entry #%d is not an object" % i)
+        q = row.get("query")
+        exp = row.get("expected_ids")
+        if not isinstance(q, str) or not q.strip():
+            raise ValueError("gold-fixture gold entry #%d missing 'query'" % i)
+        if not isinstance(exp, list) or not exp:
+            raise ValueError(
+                "gold-fixture gold entry #%d missing 'expected_ids'" % i)
+        for x in exp:
+            if str(x) not in seen:
+                raise ValueError(
+                    "gold-fixture gold entry #%d expects unknown id %r" % (i, x))
+        gold.append({"query": q, "expected_ids": [str(x) for x in exp]})
+    return gold
+
+
 def load_gold_fixture(path):
     """Load the frozen gold-fixture: returns (entries, gold). Raises ValueError.
 
@@ -113,41 +183,8 @@ def load_gold_fixture(path):
         raise ValueError("invalid JSON in gold-fixture %s: %s" % (path, exc))
     if not isinstance(doc, dict):
         raise ValueError("gold-fixture must be a JSON object")
-    corpus = doc.get("corpus")
-    gold_rows = doc.get("gold")
-    if not isinstance(corpus, list) or not corpus:
-        raise ValueError("gold-fixture 'corpus' must be a non-empty list")
-    entries = []
-    seen = set()
-    for i, e in enumerate(corpus):
-        if not isinstance(e, dict):
-            raise ValueError("gold-fixture corpus entry #%d is not an object" % i)
-        eid = e.get("id")
-        if not isinstance(eid, str) or not eid.strip():
-            raise ValueError("gold-fixture corpus entry #%d missing 'id'" % i)
-        if eid in seen:
-            raise ValueError("gold-fixture corpus has duplicate id %r" % eid)
-        seen.add(eid)
-        entries.append(_corpus_entry(eid, e))
-    if not isinstance(gold_rows, list) or not gold_rows:
-        raise ValueError("gold-fixture 'gold' must be a non-empty list")
-    gold = []
-    for i, row in enumerate(gold_rows):
-        if not isinstance(row, dict):
-            raise ValueError("gold-fixture gold entry #%d is not an object" % i)
-        q = row.get("query")
-        exp = row.get("expected_ids")
-        if not isinstance(q, str) or not q.strip():
-            raise ValueError("gold-fixture gold entry #%d missing 'query'" % i)
-        if not isinstance(exp, list) or not exp:
-            raise ValueError(
-                "gold-fixture gold entry #%d missing 'expected_ids'" % i)
-        for x in exp:
-            if str(x) not in seen:
-                raise ValueError(
-                    "gold-fixture gold entry #%d expects unknown id %r" % (i, x))
-        gold.append({"query": q, "expected_ids": [str(x) for x in exp]})
-    return entries, gold
+    entries, seen = _load_fixture_corpus(doc.get("corpus"))
+    return entries, _load_fixture_gold(doc.get("gold"), seen)
 
 
 def evaluate_gold_fixture(kdir, fixture_path, strategy, top_k, as_of=None):
@@ -180,6 +217,8 @@ _EXPORTS = [
     "_GOLD_FIXTURE_REL",
     "_DEFAULT_CATEGORY",
     "_corpus_entry",
+    "_load_fixture_corpus",
+    "_load_fixture_gold",
     "gold_fixture_path",
     "load_gold_fixture",
     "evaluate_gold_fixture",

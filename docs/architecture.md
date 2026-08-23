@@ -82,7 +82,7 @@ modules import it, i.e. what a change here ripples into).
 
 <!-- BEGIN GENERATED: module-map (python3 tests/_doc_sync.py --write) -->
 
-_207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
+_210 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in the [router table](../scripts/agentware_lib/README.md) beside it._
 
 #### `core/` — 20 modules
 
@@ -96,7 +96,7 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.core.config.orgresolve` | `tests/unit/core/test_orgresolve.py` | 0 |
 | `agentware_lib.core.dates` | `tests/unit/core/test_dates.py` | 55 |
 | `agentware_lib.core.embedderapi` | `tests/unit/core/test_embedderapi.py` | 1 |
-| `agentware_lib.core.frontmatter` | `tests/unit/core/test_frontmatter.py` | 31 |
+| `agentware_lib.core.frontmatter` | `tests/unit/core/test_frontmatter.py` | 32 |
 | `agentware_lib.core.gitio` | `tests/unit/core/test_gitio.py` | 28 |
 | `agentware_lib.core.kblayout` | `tests/unit/core/test_kblayout.py` | 16 |
 | `agentware_lib.core.orgidentity` | `tests/unit/core/test_orgidentity.py` | 2 |
@@ -131,7 +131,7 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.knowledge.skillentry` | `tests/unit/knowledge/test_skillentry.py` | 1 |
 | `agentware_lib.knowledge.worklog` | `tests/unit/knowledge/test_worklog.py` | 5 |
 
-#### `retrieval/` — 21 modules
+#### `retrieval/` — 22 modules
 
 | Module | Owning test | Fan-in |
 |--------|-------------|--------|
@@ -143,10 +143,11 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.retrieval.bm25` | `tests/unit/retrieval/test_bm25.py` | 8 |
 | `agentware_lib.retrieval.corpus` | `tests/unit/retrieval/test_corpus.py` | 14 |
 | `agentware_lib.retrieval.evalcmd` | `tests/unit/retrieval/test_evalcmd.py` | 1 |
+| `agentware_lib.retrieval.evalsuites` | `tests/unit/retrieval/test_evalsuites.py` | 1 |
 | `agentware_lib.retrieval.goldfixture` | `tests/unit/retrieval/test_goldfixture.py` | 2 |
 | `agentware_lib.retrieval.hybrid` | `tests/unit/retrieval/test_hybrid.py` | 1 |
-| `agentware_lib.retrieval.ledger` | `tests/unit/retrieval/test_ledger.py` | 11 |
-| `agentware_lib.retrieval.longmemeval` | `tests/unit/retrieval/test_longmemeval.py` | 1 |
+| `agentware_lib.retrieval.ledger` | `tests/unit/retrieval/test_ledger.py` | 12 |
+| `agentware_lib.retrieval.longmemeval` | `tests/unit/retrieval/test_longmemeval.py` | 2 |
 | `agentware_lib.retrieval.metrics_rank` | `tests/unit/retrieval/test_metrics_rank.py` | 5 |
 | `agentware_lib.retrieval.pinpolicy` | `tests/unit/retrieval/test_pinpolicy.py` | 2 |
 | `agentware_lib.retrieval.recallcmd` | `tests/unit/retrieval/test_recallcmd.py` | 2 |
@@ -201,7 +202,7 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.ops.plangraph` | `tests/unit/ops/test_plangraph.py` | 13 |
 | `agentware_lib.ops.planlint` | `tests/unit/ops/test_planlint.py` | 4 |
 | `agentware_lib.ops.planmarkers` | `tests/unit/ops/test_planmarkers.py` | 4 |
-| `agentware_lib.ops.planpremises` | `tests/unit/ops/test_planpremises.py` | 5 |
+| `agentware_lib.ops.planpremises` | `tests/unit/ops/test_planpremises.py` | 6 |
 | `agentware_lib.ops.preferadmit` | `tests/unit/ops/test_preferadmit.py` | 5 |
 | `agentware_lib.ops.prefercapture` | `tests/unit/ops/test_prefercapture.py` | 3 |
 | `agentware_lib.ops.preferclassify` | `tests/unit/ops/test_preferclassify.py` | 2 |
@@ -240,7 +241,7 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.ops.templaterefresh` | `tests/unit/ops/test_templaterefresh.py` | 1 |
 | `agentware_lib.ops.tickcmd` | `tests/unit/ops/test_tickcmd.py` | 0 |
 
-#### `features/` — 68 modules
+#### `features/` — 70 modules
 
 | Module | Owning test | Fan-in |
 |--------|-------------|--------|
@@ -256,6 +257,7 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.features.configcmd.cfgsettings` | `tests/unit/features/test_cfgsettings.py` | 1 |
 | `agentware_lib.features.configcmd.cfgshow` | `tests/unit/features/test_cfgshow.py` | 1 |
 | `agentware_lib.features.curationcmd` | `tests/unit/features/test_curationcmd.py` | 1 |
+| `agentware_lib.features.curationwrite` | `tests/unit/features/test_curationwrite.py` | 1 |
 | `agentware_lib.features.dream` | `tests/unit/features/test_dream.py` | 4 |
 | `agentware_lib.features.dreamgate` | `tests/unit/features/test_dreamgate.py` | 5 |
 | `agentware_lib.features.dreamjournal` | `tests/unit/features/test_dreamjournal.py` | 2 |
@@ -306,6 +308,7 @@ _207 modules. Generated from `catalog/modules.json`; the `Owns:` column lives in
 | `agentware_lib.features.setupcmd` | `tests/unit/features/test_setupcmd.py` | 0 |
 | `agentware_lib.features.skillcandidate` | `tests/unit/features/test_skillcandidate.py` | 1 |
 | `agentware_lib.features.skilllock` | `tests/unit/features/test_skilllock.py` | 3 |
+| `agentware_lib.features.skillmanifest` | `tests/unit/features/test_skillmanifest.py` | 1 |
 | `agentware_lib.features.skillpropose` | `tests/unit/features/test_skillpropose.py` | 2 |
 | `agentware_lib.features.skills` | `tests/unit/features/test_skills.py` | 5 |
 | `agentware_lib.features.skillsync` | `tests/unit/features/test_skillsync.py` | 3 |

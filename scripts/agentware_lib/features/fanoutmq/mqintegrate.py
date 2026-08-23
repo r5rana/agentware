@@ -8,9 +8,15 @@ monolith conflict rather than blanket-`-X`-ing a subcommand away), the KB
 integrator (`_mq_integrate_kb`, which UNION-resolves only the append-only
 ledgers, re-derives the index from the frontmatter union, runs the nothing-lost
 ID-superset gate BEFORE committing, and HALTS on a same-entry prose conflict),
-the outcome renderer (`_mq_emit`, text/json + the process exit code) and the
+the outcome renderer (`_mq_emit`, text/json + the process exit code), the
 `fanout merge-queue` command (`cmd_fanout_merge_queue`, the resumable serial
-queue: integrate package -> integrate KB -> run gates -> mark merged).
+queue) and the four pieces that command is assembled from: the option surface
+read once (`_mq_queue_opts`), the --dry-run plan (`_mq_dry_run_report`), the
+both-sides integration-branch preflight (`_mq_prepare_integration`), the
+stop-at-first-failure gate runner (`_mq_run_gates`), and the SINGLE-LANE
+pipeline (`_mq_process_lane`, which owns the step ORDER: skip -> package -> KB
+-> gates -> gate-artifact commit -> mark merged, and returns the halt reason
+rather than emitting it, so the queue stays the only thing that writes).
 
 Does NOT own: the branch/ancestry/lane-repo predicates it is built on
 (`_is_ancestor` / `_ensure_integration_branch` / `_merge_in_progress` /
@@ -178,6 +184,175 @@ def _mq_emit(results, fmt_json, halt, msg):
     return 1 if halt else 0
 
 
+def _mq_queue_opts(args):
+    """Read the merge-queue's whole option surface ONCE, into one dict.
+
+    Every value here is read with `getattr(..., default)` because the command is
+    also reachable in-process with a partial namespace; centralising them means
+    a caller that forgets a flag gets the SAME default the CLI would, rather
+    than an AttributeError at whichever arm happens to read it first. The gate
+    list is the one computed value: `--no-gates` wins outright, then an explicit
+    repeated `--gate`, then the FANOUT_DEFAULT_GATES trio.
+    """
+    no_gates = getattr(args, "no_gates", False)
+    return {
+        "fmt_json": getattr(args, "format", "text") == "json",
+        "dry": getattr(args, "dry_run", False),
+        "integration": getattr(args, "integration_branch", None) or "integration",
+        "base": getattr(args, "base", None),
+        "kb_base": getattr(args, "kb_base", None),
+        "requested": list(getattr(args, "features", None) or []),
+        "gates": ([] if no_gates
+                  else list(getattr(args, "gate", None) or [])
+                  or list(FANOUT_DEFAULT_GATES)),
+    }
+
+
+def _mq_dry_run_report(opts, reg, order):
+    """Render the --dry-run plan and return the exit code (always 0).
+
+    A dry run reports the lanes IN QUEUE ORDER with the outcome each one
+    currently reads, plus the gate list that would run — and integrates
+    nothing, which is why it is answered here, BEFORE the integration branches
+    are so much as created.
+    """
+    plan = [{"feature": f, "outcome": fanout._lane_outcome(reg["lanes"][f])}
+            for f in order]
+    if opts["fmt_json"]:
+        json.dump({"dry_run": True, "integration": opts["integration"],
+                   "lanes": plan, "gates": opts["gates"]},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("fanout merge-queue [dry-run]: integration=%s" % opts["integration"])
+        for p in plan:
+            print("  %s (%s)" % (p["feature"], p["outcome"]))
+        for g in opts["gates"]:
+            print("  gate: %s" % g)
+    return 0
+
+
+def _mq_prepare_integration(opts, repo, kb_repo, have_kb):
+    """Ensure the integration branch exists on BOTH sides. Returns an error
+    string, or None when the queue may proceed.
+
+    The package side is unconditional; the KB side runs only when there IS a KB
+    work tree, which is the same asymmetry the caller's `have_kb` encodes —
+    a missing KB degrades to package-only integration rather than refusing.
+    """
+    ok, ierr = mqbranch._ensure_integration_branch(repo, opts["integration"],
+                                                   opts["base"])
+    if not ok:
+        return ierr
+    if have_kb:
+        ok, ierr = mqbranch._ensure_integration_branch(kb_repo, opts["integration"],
+                                                       opts["kb_base"])
+        if not ok:
+            return ierr
+    return None
+
+
+def _mq_process_lane(feature, reg, opts, repo, kb_repo, have_kb):
+    """Run ONE lane through the serial pipeline. Returns (result, halt_msg).
+
+    `halt_msg` is None when the queue may continue to the next lane; a string
+    means STOP, and it IS the operator-facing reason the caller emits.
+
+    THE ORDER IS THE CONTRACT, and it is the reason this is one function rather
+    than five:
+
+      skip -> package -> KB -> gates -> gate-artifact commit -> mark merged
+
+    Each step is a precondition for the next. The two SKIPS come first and short-
+    circuit before any git runs, so a lane already merged (or not finished) is
+    never touched. The package monolith is the serial chokepoint, so its conflict
+    halts before the KB is opened. The gates run only on a tree both merges
+    already landed in. The gate-artifact commit runs only after the gates PASSED,
+    because a halted lane must leave the operator a clean tree to resolve in. And
+    `merged` is stamped last, so a crash anywhere above leaves the lane re-
+    processable — the per-step ancestry guards make the retry idempotent.
+
+    A split that preserved every arm but reordered two of them would still read
+    correct arm-by-arm, which is exactly why the arms are not separate functions
+    whose call order lives somewhere else.
+    """
+    rec = reg["lanes"][feature]
+    # Skip ONLY fully-integrated lanes (package + KB + gates all passed in a
+    # prior run). Do NOT short-circuit on package ancestry alone — a lane whose
+    # package merged but whose KB/gate step halted must be RE-processable; the
+    # per-step _is_ancestor guards make the package step an idempotent no-op on
+    # resume while the KB step retries and the gates re-run.
+    if rec.get("merged"):
+        return {"feature": feature, "status": "skipped",
+                "detail": "already merged"}, None
+    outcome = fanout._lane_outcome(rec)
+    if outcome != "completed":
+        return {"feature": feature, "status": "skipped",
+                "detail": "not finished (outcome=%s)" % outcome}, None
+
+    # 1) Package monolith — the serial chokepoint.
+    pstatus, pdetail = _mq_integrate_package(repo, opts["integration"],
+                                             rec["feat_branch"])
+    if pstatus in ("conflict", "error"):
+        return ({"feature": feature, "status": "halt-package",
+                 "detail": pdetail},
+                "fanout merge-queue HALTED on lane '%s' — package merge %s "
+                "(%s).\nResolve the monolith conflict by hand and re-run; the "
+                "queue skips already-merged lanes. (NO blanket -X ours/theirs — "
+                "that silently drops a subcommand.)" % (feature, pstatus, pdetail))
+
+    # 2) KB — deterministic derived merge + nothing-lost gate.
+    if have_kb:
+        kstatus, kdetail = _mq_integrate_kb(kb_repo, opts["integration"],
+                                            rec["kb_branch"])
+        if kstatus in ("prose-conflict", "error"):
+            return ({"feature": feature, "status": "halt-kb",
+                     "detail": kdetail},
+                    "fanout merge-queue HALTED on lane '%s' — KB merge %s (%s)."
+                    % (feature, kstatus, kdetail))
+
+    # 3) Package gates (R-PKG-04/05 + the test suite) on the integrated tree.
+    gate_fail = _mq_run_gates(opts["gates"], repo, kb_repo if have_kb else repo)
+    if gate_fail:
+        g, grc, output = gate_fail
+        tail = "\n".join(output.strip().splitlines()[-8:])
+        return ({"feature": feature, "status": "halt-gate",
+                 "detail": "gate %r exited %d" % (g, grc)},
+                "fanout merge-queue HALTED after merging lane '%s' — gate "
+                "FAILED:\n  $ %s\n  (exit %d)\n%s\nFix and re-run; already-merged "
+                "lanes are skipped." % (feature, g, grc, tail))
+
+    # A gate (e.g. `eval --record`) may have written ledger rows into the
+    # integration KB, leaving its tree dirty. Commit those artifacts now so the
+    # NEXT lane merges onto a CLEAN tree — a dirty tree would otherwise refuse
+    # the next merge (which the silent-drop guard turns into a halt) and the
+    # final lane's rows would never be committed.
+    if have_kb and kbgit.git_is_work_tree(kb_repo) and not kbgit.git_is_clean(kb_repo):
+        staging.kb_git_stage_scoped(kb_repo, allow_derived=True)
+        _git(kb_repo, "commit", "--no-edit",
+             "-m", "fanout: gate artifacts for %s" % feature,
+             env=_git_noninteractive_env())
+
+    rec["merged"] = True
+    fanout.save_lanes(reg)
+    return {"feature": feature, "status": "merged", "detail": "ok"}, None
+
+
+def _mq_run_gates(gates, repo, kb_repo):
+    """Run the post-merge gates in order, stopping at the FIRST failure.
+
+    Returns (cmd, rc, output) for that first failure, or None when every gate
+    passed. Stopping early is deliberate: the gates run against an already-
+    integrated tree, so once one fails the queue halts and every later gate
+    would only be reporting on a tree the operator is about to change.
+    """
+    for g in gates:
+        rc, output = fanout._run_gate(g, repo, kb_repo)
+        if rc != 0:
+            return g, rc, output
+    return None
+
+
 def cmd_fanout_merge_queue(args):
     """Serially integrate finished lanes onto an `integration` branch, gated.
 
@@ -188,23 +363,20 @@ def cmd_fanout_merge_queue(args):
     merges succeed it runs the gates (steering lint + eval --record --gate + the
     test suite, by default) against the integration tree; any gate FAIL halts the
     queue. Resumable: already-merged lanes are skipped on re-run.
+
+    This body is the QUEUE: read the options, resolve the two repos, refuse what
+    cannot be queued, and then drive `_mq_process_lane` once per lane, stopping
+    at the first halt. Everything a single lane does is in that one function,
+    where its step ORDER is visible in one place.
     """
-    fmt_json = getattr(args, "format", "text") == "json"
-    dry = getattr(args, "dry_run", False)
-    integration = getattr(args, "integration_branch", None) or "integration"
-    base = getattr(args, "base", None)
-    kb_base = getattr(args, "kb_base", None)
-    no_gates = getattr(args, "no_gates", False)
-    gates = ([] if no_gates
-             else list(getattr(args, "gate", None) or []) or list(FANOUT_DEFAULT_GATES))
+    opts = _mq_queue_opts(args)
 
     reg, err = fanout.load_lanes()
     if err:
         sys.stderr.write("fanout merge-queue: %s\n" % err)
         return 1
 
-    requested = list(getattr(args, "features", None) or [])
-    order = requested or sorted(reg["lanes"])
+    order = opts["requested"] or sorted(reg["lanes"])
     missing = [f for f in order if f not in reg["lanes"]]
     if missing:
         sys.stderr.write("fanout merge-queue: unknown lane(s): %s\n"
@@ -224,109 +396,23 @@ def cmd_fanout_merge_queue(args):
         return 1
     have_kb = bool(kb_repo) and kbgit.git_is_work_tree(kb_repo)
 
-    if dry:
-        plan = [{"feature": f, "outcome": fanout._lane_outcome(reg["lanes"][f])}
-                for f in order]
-        if fmt_json:
-            json.dump({"dry_run": True, "integration": integration,
-                       "lanes": plan, "gates": gates},
-                      sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print("fanout merge-queue [dry-run]: integration=%s" % integration)
-            for p in plan:
-                print("  %s (%s)" % (p["feature"], p["outcome"]))
-            for g in gates:
-                print("  gate: %s" % g)
-        return 0
+    if opts["dry"]:
+        return _mq_dry_run_report(opts, reg, order)
 
-    ok, ierr = mqbranch._ensure_integration_branch(repo, integration, base)
-    if not ok:
+    ierr = _mq_prepare_integration(opts, repo, kb_repo, have_kb)
+    if ierr:
         sys.stderr.write("fanout merge-queue: %s\n" % ierr)
         return 1
-    if have_kb:
-        ok, ierr = mqbranch._ensure_integration_branch(kb_repo, integration, kb_base)
-        if not ok:
-            sys.stderr.write("fanout merge-queue: %s\n" % ierr)
-            return 1
 
     results = []
     for feature in order:
-        rec = reg["lanes"][feature]
-        # Skip ONLY fully-integrated lanes (package + KB + gates all passed in a
-        # prior run). Do NOT short-circuit on package ancestry alone — a lane whose
-        # package merged but whose KB/gate step halted must be RE-processable; the
-        # per-step _is_ancestor guards make the package step an idempotent no-op on
-        # resume while the KB step retries and the gates re-run.
-        if rec.get("merged"):
-            results.append({"feature": feature, "status": "skipped",
-                            "detail": "already merged"})
-            continue
-        outcome = fanout._lane_outcome(rec)
-        if outcome != "completed":
-            results.append({"feature": feature, "status": "skipped",
-                            "detail": "not finished (outcome=%s)" % outcome})
-            continue
+        result, halt_msg = _mq_process_lane(feature, reg, opts, repo, kb_repo,
+                                            have_kb)
+        results.append(result)
+        if halt_msg is not None:
+            return _mq_emit(results, opts["fmt_json"], True, halt_msg)
 
-        # 1) Package monolith — the serial chokepoint.
-        pstatus, pdetail = _mq_integrate_package(repo, integration,
-                                                 rec["feat_branch"])
-        if pstatus in ("conflict", "error"):
-            results.append({"feature": feature, "status": "halt-package",
-                            "detail": pdetail})
-            return _mq_emit(
-                results, fmt_json, True,
-                "fanout merge-queue HALTED on lane '%s' — package merge %s "
-                "(%s).\nResolve the monolith conflict by hand and re-run; the "
-                "queue skips already-merged lanes. (NO blanket -X ours/theirs — "
-                "that silently drops a subcommand.)" % (feature, pstatus, pdetail))
-
-        # 2) KB — deterministic derived merge + nothing-lost gate.
-        if have_kb:
-            kstatus, kdetail = _mq_integrate_kb(kb_repo, integration,
-                                                rec["kb_branch"])
-            if kstatus in ("prose-conflict", "error"):
-                results.append({"feature": feature, "status": "halt-kb",
-                                "detail": kdetail})
-                return _mq_emit(
-                    results, fmt_json, True,
-                    "fanout merge-queue HALTED on lane '%s' — KB merge %s (%s)."
-                    % (feature, kstatus, kdetail))
-
-        # 3) Package gates (R-PKG-04/05 + the test suite) on the integrated tree.
-        gate_fail = None
-        for g in gates:
-            rc, output = fanout._run_gate(g, repo, kb_repo if have_kb else repo)
-            if rc != 0:
-                gate_fail = (g, rc, output)
-                break
-        if gate_fail:
-            g, grc, output = gate_fail
-            tail = "\n".join(output.strip().splitlines()[-8:])
-            results.append({"feature": feature, "status": "halt-gate",
-                            "detail": "gate %r exited %d" % (g, grc)})
-            return _mq_emit(
-                results, fmt_json, True,
-                "fanout merge-queue HALTED after merging lane '%s' — gate "
-                "FAILED:\n  $ %s\n  (exit %d)\n%s\nFix and re-run; already-merged "
-                "lanes are skipped." % (feature, g, grc, tail))
-
-        # A gate (e.g. `eval --record`) may have written ledger rows into the
-        # integration KB, leaving its tree dirty. Commit those artifacts now so the
-        # NEXT lane merges onto a CLEAN tree — a dirty tree would otherwise refuse
-        # the next merge (which the silent-drop guard turns into a halt) and the
-        # final lane's rows would never be committed.
-        if have_kb and kbgit.git_is_work_tree(kb_repo) and not kbgit.git_is_clean(kb_repo):
-            staging.kb_git_stage_scoped(kb_repo, allow_derived=True)
-            _git(kb_repo, "commit", "--no-edit",
-                 "-m", "fanout: gate artifacts for %s" % feature,
-                 env=_git_noninteractive_env())
-
-        rec["merged"] = True
-        fanout.save_lanes(reg)
-        results.append({"feature": feature, "status": "merged", "detail": "ok"})
-
-    return _mq_emit(results, fmt_json, False, None)
+    return _mq_emit(results, opts["fmt_json"], False, None)
 
 
 _EXPORTS = [
@@ -335,5 +421,10 @@ _EXPORTS = [
     "_mq_integrate_package",
     "_mq_integrate_kb",
     "_mq_emit",
+    "_mq_queue_opts",
+    "_mq_dry_run_report",
+    "_mq_prepare_integration",
+    "_mq_run_gates",
+    "_mq_process_lane",
     "cmd_fanout_merge_queue",
 ]

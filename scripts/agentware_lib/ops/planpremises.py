@@ -201,6 +201,44 @@ def _parse_premise_check(check):
                      % (kind, ", ".join(_PREMISE_CHECK_KINDS))}
 
 
+def _premise_flush(cur, records):
+    """Close the pending record: parse its `check:` and append it.
+
+    The parse happens HERE and at NO other site, which is the point of the
+    helper rather than a side effect of it. `plan_premises` has two flush points
+    (a new `- premise:` row, and end-of-block) and they were copy-pasted, so a
+    record could have reached `records` un-parsed if either one drifted. Every
+    downstream consumer — `verify_premises`, `evaluate_premise`, the R14 lint —
+    reads `parsed` and would silently take a different arm if the key were
+    absent, so "no record leaves this module un-parsed" is the security-relevant
+    invariant of the trust boundary, and it is now one line in one place.
+    """
+    cur["parsed"] = _parse_premise_check(cur.get("check") or "")
+    records.append(cur)
+
+
+def _premise_absorb_row(cur, ln):
+    """Absorb one `cite:` / `check:` continuation row into the pending record.
+
+    FIRST-WINS on each field INDEPENDENTLY, and the fall-through matters: a
+    second `cite:` row does not just fail to overwrite, it goes on to be tried
+    as a `check:` row — which is why a line can only ever be absorbed once and
+    why the two regexes are tried in that order. A `cite:` line can never match
+    `_PLAN_CHECK_ROW_RE`, so in practice the fall-through is inert; it is kept
+    because it is what the inline block did, and the ordering is pinned by test
+    rather than left to be re-derived.
+
+    Mutates `cur` in place and returns nothing: the caller owns the record.
+    """
+    mc = _PLAN_CITE_ROW_RE.match(ln)
+    if mc and cur.get("cite") is None:
+        cur["cite"] = mc.group(1).strip()
+        return
+    mk = _PLAN_CHECK_ROW_RE.match(ln)
+    if mk and cur.get("check") is None:
+        cur["check"] = mk.group(1).strip()
+
+
 def plan_premises(text):
     """Parse the `## Premises` section (or ```premises fenced block) into records.
 
@@ -208,7 +246,12 @@ def plan_premises(text):
     block is present (trivial plans stay untouched). `parsed` is the closed-grammar
     parse of `check:` (a metacharacter-bearing check parses to '__rejected__' and
     is NEVER runnable). Pure, offline, read-only — the parser twin of
-    plan_target_dirs()."""
+    plan_target_dirs().
+
+    A continuation row before the first `- premise:` row is DISCARDED (`cur is
+    None`), so an orphaned `cite:` above the block can never attach itself to
+    the first premise below it.
+    """
     span = _premise_region(text)
     if span is None:
         return []
@@ -220,23 +263,15 @@ def plan_premises(text):
         m = _PLAN_PREMISE_ROW_RE.match(ln)
         if m:
             if cur is not None:
-                cur["parsed"] = _parse_premise_check(cur.get("check") or "")
-                records.append(cur)
+                _premise_flush(cur, records)
             cur = {"premise": m.group(1).strip(), "cite": None,
                    "check": None, "line": i + 1}
             continue
         if cur is None:
             continue
-        mc = _PLAN_CITE_ROW_RE.match(ln)
-        if mc and cur.get("cite") is None:
-            cur["cite"] = mc.group(1).strip()
-            continue
-        mk = _PLAN_CHECK_ROW_RE.match(ln)
-        if mk and cur.get("check") is None:
-            cur["check"] = mk.group(1).strip()
+        _premise_absorb_row(cur, ln)
     if cur is not None:
-        cur["parsed"] = _parse_premise_check(cur.get("check") or "")
-        records.append(cur)
+        _premise_flush(cur, records)
     return records
 
 

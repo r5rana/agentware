@@ -412,10 +412,134 @@ def _skill_status(lock, fmt):
     return 0
 
 
+def _skill_sync_reset(lock, cache_dir, fmt):
+    """`--reset`: drop every OWNED cache copy and clear the lockfile. Ownership
+    is by provenance, so only `installed` entries are removed — each from its OWN
+    `harness_dir`, never the pass default, or a multi-cache install (S3) leaves a
+    live copy behind an emptied lockfile that no longer knows where it is."""
+    removed = []
+    for name, e in list(lock.get("skills", {}).items()):
+        edir = e.get("harness_dir") or cache_dir  # per-entry (S3)
+        if e.get("status") == "installed" and _skill_rmtree(os.path.join(edir, name)):
+            removed.append(name)
+    save_skill_lock(_empty_skill_lock())
+    if fmt == "json":
+        json.dump({"ok": True, "reset": True, "removed": sorted(removed)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("skill sync: reset — cleared lockfile + removed %d owned cache dir(s)%s"
+              % (len(removed), (": " + ", ".join(sorted(removed))) if removed else ""))
+    return 0
+
+
+def _skill_sync_approve(args, kdir, lock, cache_dir, fmt):
+    """`--approve`: THE ONLY INSTALL PATH (D1), over one comma-separated batch.
+
+    Every name is attempted and its outcome recorded IN ORDER; rc is 1 if ANY
+    failed. The batch does not stop at the first refusal — a partial approve
+    whose shape the operator cannot see is worse than either extreme. Two
+    refusals never reach the installer: an invalid name (never recorded raw) and
+    a name shadowing a shipped PACKAGE skill."""
+    names = [n.strip() for n in args.approve.split(",") if n.strip()]
+    pkg = _package_skill_names()
+    results = []
+    rc = 0
+    for name in names:
+        if not _skill_name_ok(name):
+            results.append((name, "refused", "invalid name")); rc = 1; continue
+        if name in pkg and not getattr(args, "force_shadow", False):
+            results.append((name, "refused",
+                            "shadows a shipped package skill (use --force-shadow)"))
+            rc = 1; continue
+        ok, _verdict, note = _skill_install_snapshot(
+            kdir, name, cache_dir, lock, getattr(args, "force_conflict", False))
+        results.append((name, "installed" if ok else "refused", note))
+        if not ok:
+            rc = 1
+    save_skill_lock(lock)
+    if fmt == "json":
+        json.dump({"ok": rc == 0, "results": [
+            {"name": n, "outcome": o, "note": note} for (n, o, note) in results]},
+            sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        for n, o, note in results:
+            print("%s: %s — %s" % (n, o.upper(), note))
+    return rc
+
+
+def _skill_sync_reject(name, lock, cache_dir):
+    """`--reject`: record a skill BLOCKED so a later sync never re-prompts it. A
+    copy this toolkit OWNS is removed; a FOREIGN dir at the same path is left
+    alone and warned about, never deleted — removing someone else's skill because
+    it shares a name is the destructive surprise that ends trust in a tool."""
+    if not _skill_name_ok(name):
+        sys.stderr.write("agentware: invalid skill name %r\n" % name)
+        return 1
+    entry0 = lock.get("skills", {}).get(name, {})
+    cache_path = os.path.join(entry0.get("harness_dir") or cache_dir, name)
+    removed = False
+    conflict = False
+    if _skill_owned(lock, name):
+        removed = _skill_rmtree(cache_path)  # provenance -> remove owned copy
+    elif os.path.lexists(cache_path):
+        conflict = True  # foreign dir/symlink -> never delete, surface (lexists)
+    entry = lock.setdefault("skills", {}).get(name, {})
+    entry.update({"status": "blocked", "reason": "operator-rejected",
+                  "source_rel": os.path.join("skills", name),
+                  "vetted_at": utc_now_iso()})
+    entry.setdefault("verdict", "BLOCK")
+    lock["skills"][name] = entry
+    save_skill_lock(lock)
+    msg = "blocked '%s'%s" % (name, " + removed owned cache copy" if removed else "")
+    if conflict:
+        msg += " (WARNING: a foreign dir at %s was NOT removed)" % cache_path
+    print("skill sync: " + msg)
+    return 0
+
+
+def _skill_sync_uninstall(name, lock, cache_dir):
+    """`--uninstall`: remove an owned copy AND forget the entry entirely. Unlike
+    `--reject`, which REMEMBERS the decision, an uninstalled skill is unknown
+    again, so the next reconcile re-quarantines it as newly seen."""
+    if not _skill_name_ok(name):
+        sys.stderr.write("agentware: invalid skill name %r\n" % name)
+        return 1
+    udir = lock.get("skills", {}).get(name, {}).get("harness_dir") or cache_dir
+    removed = _skill_rmtree(os.path.join(udir, name)) if _skill_owned(lock, name) else False
+    existed = name in lock.get("skills", {})
+    lock.get("skills", {}).pop(name, None)
+    save_skill_lock(lock)
+    print("skill sync: uninstalled '%s'%s%s" % (
+        name, " (removed cache copy)" if removed else "",
+        "" if existed else " (no lockfile entry)"))
+    return 0
+
+
+def _skill_sync_reconcile_emit(kdir, lock, cache_dir, fmt):
+    """The BARE reconcile (also the pull-trigger path): NEVER installs (D1)."""
+    summary = _skill_reconcile(kdir, lock, cache_dir)
+    save_skill_lock(lock)
+    if fmt == "json":
+        json.dump({"ok": True, "summary": summary}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("skill sync: %s" % ", ".join("%s=%d" % (k, summary[k])
+              for k in ("installed", "quarantined", "blocked", "unchanged",
+                        "revoked", "rejected_name")))
+    return 0
+
+
 def cmd_skill_sync(args):
     """Reconcile the canonical KB skills/ against the per-machine vetted execution
     cache. The BARE reconcile NEVER installs (D1); explicit --approve is the ONLY
-    install path. Read-only status modes are lock-free + fast (used by the hook)."""
+    install path. Read-only status modes are lock-free + fast (used by the hook).
+    The mode order is a CHAIN, not a set: the two roster modes answer BEFORE a
+    knowledge dir is required (the hook calls them on machines that have none),
+    and `--reset` answers before the three per-name modes, so a reset is never
+    half-applied by an approve that ran first."""
     fmt = getattr(args, "format", "text")
     if getattr(args, "status_line", False):
         return _skill_status_line(load_skill_lock())
@@ -429,108 +553,17 @@ def cmd_skill_sync(args):
         # Resolve the cache dir with the lock so a flag-less run reconciles the
         # SAME cache a prior flag-based --approve recorded (S3).
         cache_dir = _skill_cache_dir(args, lock)
-
         if getattr(args, "reset", False):
-            removed = []
-            for name, e in list(lock.get("skills", {}).items()):
-                edir = e.get("harness_dir") or cache_dir  # per-entry (S3)
-                if e.get("status") == "installed" and _skill_rmtree(os.path.join(edir, name)):
-                    removed.append(name)
-            save_skill_lock(_empty_skill_lock())
-            if fmt == "json":
-                json.dump({"ok": True, "reset": True, "removed": sorted(removed)},
-                          sys.stdout, ensure_ascii=False, indent=2)
-                sys.stdout.write("\n")
-            else:
-                print("skill sync: reset — cleared lockfile + removed %d owned cache dir(s)%s"
-                      % (len(removed), (": " + ", ".join(sorted(removed))) if removed else ""))
-            return 0
-
-        approve = getattr(args, "approve", None)
+            return _skill_sync_reset(lock, cache_dir, fmt)
+        if getattr(args, "approve", None):
+            return _skill_sync_approve(args, kdir, lock, cache_dir, fmt)
         reject = getattr(args, "reject", None)
-        uninstall = getattr(args, "uninstall", None)
-
-        if approve:
-            names = [n.strip() for n in approve.split(",") if n.strip()]
-            pkg = _package_skill_names()
-            results = []
-            rc = 0
-            for name in names:
-                if not _skill_name_ok(name):
-                    results.append((name, "refused", "invalid name")); rc = 1; continue
-                if name in pkg and not getattr(args, "force_shadow", False):
-                    results.append((name, "refused",
-                                    "shadows a shipped package skill (use --force-shadow)"))
-                    rc = 1; continue
-                ok, _verdict, note = _skill_install_snapshot(
-                    kdir, name, cache_dir, lock, getattr(args, "force_conflict", False))
-                results.append((name, "installed" if ok else "refused", note))
-                if not ok:
-                    rc = 1
-            save_skill_lock(lock)
-            if fmt == "json":
-                json.dump({"ok": rc == 0, "results": [
-                    {"name": n, "outcome": o, "note": note} for (n, o, note) in results]},
-                    sys.stdout, ensure_ascii=False, indent=2)
-                sys.stdout.write("\n")
-            else:
-                for n, o, note in results:
-                    print("%s: %s — %s" % (n, o.upper(), note))
-            return rc
-
         if reject:
-            name = reject.strip()
-            if not _skill_name_ok(name):
-                sys.stderr.write("agentware: invalid skill name %r\n" % name)
-                return 1
-            entry0 = lock.get("skills", {}).get(name, {})
-            cache_path = os.path.join(entry0.get("harness_dir") or cache_dir, name)
-            removed = False
-            conflict = False
-            if _skill_owned(lock, name):
-                removed = _skill_rmtree(cache_path)  # provenance -> remove owned copy
-            elif os.path.lexists(cache_path):
-                conflict = True  # foreign dir/symlink -> never delete, surface (lexists)
-            entry = lock.setdefault("skills", {}).get(name, {})
-            entry.update({"status": "blocked", "reason": "operator-rejected",
-                          "source_rel": os.path.join("skills", name),
-                          "vetted_at": utc_now_iso()})
-            entry.setdefault("verdict", "BLOCK")
-            lock["skills"][name] = entry
-            save_skill_lock(lock)
-            msg = "blocked '%s'%s" % (name, " + removed owned cache copy" if removed else "")
-            if conflict:
-                msg += " (WARNING: a foreign dir at %s was NOT removed)" % cache_path
-            print("skill sync: " + msg)
-            return 0
-
+            return _skill_sync_reject(reject.strip(), lock, cache_dir)
+        uninstall = getattr(args, "uninstall", None)
         if uninstall:
-            name = uninstall.strip()
-            if not _skill_name_ok(name):
-                sys.stderr.write("agentware: invalid skill name %r\n" % name)
-                return 1
-            udir = lock.get("skills", {}).get(name, {}).get("harness_dir") or cache_dir
-            removed = _skill_rmtree(os.path.join(udir, name)) if _skill_owned(lock, name) else False
-            existed = name in lock.get("skills", {})
-            lock.get("skills", {}).pop(name, None)
-            save_skill_lock(lock)
-            print("skill sync: uninstalled '%s'%s%s" % (
-                name, " (removed cache copy)" if removed else "",
-                "" if existed else " (no lockfile entry)"))
-            return 0
-
-        # Bare reconcile (also the pull-trigger path): NEVER installs.
-        summary = _skill_reconcile(kdir, lock, cache_dir)
-        save_skill_lock(lock)
-        if fmt == "json":
-            json.dump({"ok": True, "summary": summary}, sys.stdout,
-                      ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print("skill sync: %s" % ", ".join("%s=%d" % (k, summary[k])
-                  for k in ("installed", "quarantined", "blocked", "unchanged",
-                            "revoked", "rejected_name")))
-        return 0
+            return _skill_sync_uninstall(uninstall.strip(), lock, cache_dir)
+        return _skill_sync_reconcile_emit(kdir, lock, cache_dir, fmt)
 
 
 _EXPORTS = [
@@ -542,6 +575,11 @@ _EXPORTS = [
     "_skill_install_snapshot",
     "_skill_status",
     "_skill_status_line",
+    "_skill_sync_reset",
+    "_skill_sync_approve",
+    "_skill_sync_reject",
+    "_skill_sync_uninstall",
+    "_skill_sync_reconcile_emit",
     "cmd_skill_sync",
 ]
 

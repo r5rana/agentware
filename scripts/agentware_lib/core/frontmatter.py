@@ -222,6 +222,49 @@ def _fm_parse_relates(raw):
     return out
 
 
+def _frontmatter_block(text):
+    """Split `text` around its leading `---` fence -> (head, block, tail), or None.
+
+    `head` is the OPENING fence line exactly as written, `block` is the field
+    lines between the fences, and `tail` is the CLOSING fence line plus every
+    body line after it. `"\\n".join(head + block + tail)` reproduces the input
+    byte-for-byte, so a caller that edits only `block` cannot disturb the body —
+    which is the property every frontmatter REWRITER in this package needs and
+    none of them owned.
+
+    None means "there is no frontmatter here" for BOTH reasons a reader must
+    distinguish from an empty one: no opening fence, and an opening fence that is
+    never closed. Fences that TOUCH yield a real, EMPTY `block`, so the caller's
+    loop is a no-op rather than a bail-out.
+
+    THE CLOSE IS THE **FIRST** ONE. A document whose body carries a `---`
+    horizontal rule keeps that rule in its `tail`, where it belongs; a finder
+    searching from the end would swallow the body into the block. An INDENTED
+    opening fence is accepted (`.strip()`), and re-emitted with its indentation
+    intact, because `head` is the line rather than a normalised `"---"`.
+
+    This is the ONE definition of the fence in the package. It was hand-written
+    at nine sites across six modules before task 99 wave 16, which is how two
+    rewriters came to sit against ceiling rows for arithmetic neither of them
+    owns. The two remaining hand-rolled scanners in the tree are deliberately
+    NOT this function, and each for a stated reason:
+    `knowledge.proposals._stored_proposal_count` reads keys out of an
+    UNTERMINATED block on purpose, so adopting this would silently turn a
+    successful read into a None; and `ops.steering._iter_rule_lines` is a
+    STREAMING state machine that interleaves fence-skipping with code-fence
+    tracking in one pass and treats a runaway fence as "skip to EOF", which is
+    the opposite of this function's answer. A shared helper is correct only
+    where its callers agree about the edge cases.
+    """
+    lines = text.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            return lines[:1], lines[1:i], lines[i:]
+    return None
+
+
 def _fm_upsert_relates_line(text, tokens):
     """Upsert the frontmatter `relates:` line to exactly `tokens`, byte-preserving
     every OTHER line of the file (all other frontmatter fields AND the body).
@@ -238,23 +281,16 @@ def _fm_upsert_relates_line(text, tokens):
     present (the caller guarantees it); returns `text` unchanged if it is not.
     """
     line = "relates: [%s]" % ", ".join(_fm_emit_tag(t) for t in tokens)
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    parts = _frontmatter_block(text)
+    if parts is None:
         return text  # no frontmatter block — caller refuses before reaching here
-    close = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            close = i
-            break
-    if close is None:
-        return text
-    for i in range(1, close):
-        key = lines[i].split(":", 1)[0].strip() if ":" in lines[i] else ""
+    head, block, tail = parts
+    for i, ln in enumerate(block):
+        key = ln.split(":", 1)[0].strip() if ":" in ln else ""
         if key == "relates":
-            lines[i] = line
-            return "\n".join(lines)
-    lines.insert(close, line)
-    return "\n".join(lines)
+            block[i] = line
+            return "\n".join(head + block + tail)
+    return "\n".join(head + block + [line] + tail)
 
 
 def split_frontmatter(text):
@@ -264,18 +300,12 @@ def split_frontmatter(text):
     `---` and a closing `---` follows. Otherwise returns (None, text) so legacy
     files and bodies that merely contain `---` horizontal rules are untouched.
     """
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    parts = _frontmatter_block(text)
+    if parts is None:
         return None, text
-    close = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            close = i
-            break
-    if close is None:
-        return None, text
+    _head, block, tail = parts
     fields = {}
-    for ln in lines[1:close]:
+    for ln in block:
         if not ln.strip() or ":" not in ln:
             continue
         key, _, val = ln.partition(":")
@@ -292,7 +322,8 @@ def split_frontmatter(text):
             # FRONTMATTER_FIELDS and are NEVER read by _entry_doc_text, so ranking
             # stays byte-identical whether present or absent (INV-1).
             fields[key] = _fm_parse_scalar(val)
-    return fields, "\n".join(lines[close + 1:])
+    # `tail[0]` IS the closing fence; the body is everything after it.
+    return fields, "\n".join(tail[1:])
 
 
 def strip_frontmatter(text):

@@ -12,7 +12,11 @@ _failure_marker_tally -- per-kind LEARNED/DECISION totals + unpromoted counts fr
 feature's worklog, reusing the completion-gate regexes/stems (knowledge.worklog) so the
 tally agrees with the worklog-scan gate. ALSO owns (wave-6 seam-14) the aggregator
 derive_failures -- the per-feature failure-ladder / error-recovery fold (tool ERR rate,
-R-FAIL tier usage, web/KB counts, self-heal re-engagements, marker tallies), read-only
+R-FAIL tier usage, web/KB counts, self-heal re-engagements, marker tallies) -- with the
+two tally helpers it folds through: _err_tallies (the three tallies that are a function
+of ONE step: per-tool ERR counts, the web-escalation count, the KB-lookup count) and
+_ladder_tally (the one tally that reads a step's NEIGHBOUR, which is why the parent
+re-sorts into the trace's global order first), read-only
 (INV-2) over the trace (ops.looptrace.derive_trace) + the outcome (ops.derive.derive_outcome)
 + the classification primitives + _failure_marker_tally here.
 
@@ -126,6 +130,55 @@ def _failure_marker_tally(kdir, feature):
     return _worklog.scan_worklog_markers(wl, kdir, data)["per_kind"]
 
 
+def _err_tallies(steps):
+    """The three ARGUMENT-ONLY tallies over one ordered step list, in one pass:
+    `(err_by_tool, web_search_count, kb_lookup_count)`.
+
+    Each reads a classifier that already exists (`_fail_step_is_web`,
+    `_fail_step_is_kb_lookup`) or the step's own status; none of them looks at a
+    step's NEIGHBOURS, which is exactly what separates them from the ladder
+    tally below. An ERR step with no tool at all is counted under `<unknown>`
+    rather than dropped — a failure whose tool the trace could not record is
+    still a failure, and dropping it would make the rate disagree with
+    `err_count`.
+    """
+    err_by_tool = {}
+    web_search_count = 0
+    kb_lookup_count = 0
+    for s in steps:
+        if s.get("status") == "ERR":
+            t = s.get("tool") or "<unknown>"
+            err_by_tool[t] = err_by_tool.get(t, 0) + 1
+        if _fail_step_is_web(s):
+            web_search_count += 1
+        if _fail_step_is_kb_lookup(s):
+            kb_lookup_count += 1
+    return err_by_tool, web_search_count, kb_lookup_count
+
+
+def _ladder_tally(steps):
+    """The R-FAIL tier each ERR was recovered by: `(ladder, unrecovered)`.
+
+    The one tally that is NOT a function of a step alone — it reads the step
+    that FOLLOWED each ERR, so it depends on `steps` being in the trace's
+    deterministic GLOBAL order (the caller re-sorts by `index` before calling).
+    An ERR with no following step means the run ended ON the error, which is
+    `unrecovered` rather than a tier.
+    """
+    ladder = {t: 0 for t in _FAIL_LADDER_TIERS}
+    unrecovered = 0
+    for i, s in enumerate(steps):
+        if s.get("status") != "ERR":
+            continue
+        nxt = steps[i + 1] if i + 1 < len(steps) else None
+        tier = _classify_recovery(s, nxt)
+        if tier is None:
+            unrecovered += 1
+        else:
+            ladder[tier] += 1
+    return ladder, unrecovered
+
+
 def derive_failures(kdir, feature):
     """Failure-ladder & error-recovery for one feature (pure, read-only, INV-2).
 
@@ -148,26 +201,8 @@ def derive_failures(kdir, feature):
                           sum(1 for s in steps if s.get("status") == "ERR"))
     err_rate = round(err_count / step_count, 4) if step_count else 0.0
 
-    err_by_tool = {}
-    for s in steps:
-        if s.get("status") == "ERR":
-            t = s.get("tool") or "<unknown>"
-            err_by_tool[t] = err_by_tool.get(t, 0) + 1
-
-    ladder = {t: 0 for t in _FAIL_LADDER_TIERS}
-    unrecovered = 0
-    for i, s in enumerate(steps):
-        if s.get("status") != "ERR":
-            continue
-        nxt = steps[i + 1] if i + 1 < len(steps) else None
-        tier = _classify_recovery(s, nxt)
-        if tier is None:
-            unrecovered += 1
-        else:
-            ladder[tier] += 1
-
-    web_search_count = sum(1 for s in steps if _fail_step_is_web(s))
-    kb_lookup_count = sum(1 for s in steps if _fail_step_is_kb_lookup(s))
+    err_by_tool, web_search_count, kb_lookup_count = _err_tallies(steps)
+    ladder, unrecovered = _ladder_tally(steps)
 
     outcome = _derive.derive_outcome(kdir, feature) or {}
     self_heal = outcome.get("self_heal_count")

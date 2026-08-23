@@ -179,9 +179,6 @@ _LINT_CMD_RECEIVERS = [_PLANLINT + "::" + n for n in (
     "_plan_lint_read",              # path read + R1 parse
     "_emit_plan_lint")]             # the text/json rendering half
 
-_UPDATECMD = "scripts/agentware_lib/features/updatecmd.py"
-_UPDATE_RECEIVERS = [_UPDATECMD + "::_update_self_heal"]
-
 _STAGING = "scripts/agentware_lib/ops/staging.py"
 _KBCOMMIT_RECEIVERS = [_STAGING + "::" + n for n in (
     "_kb_commit_subject",   # the whole conventional-commit subject derivation
@@ -213,21 +210,6 @@ ADJUDICATIONS = {
                      "fall back instead of refusing; give the handler its own "
                      "diverging copy of one branch). The four derivation branches "
                      "keep their pre-existing end-to-end coverage, untouched.",
-    },
-    "cmd_update": {
-        "adjudication": "decomposed",
-        "host": _UPDATECMD,
-        "floor_chars": 6229,
-        "absorbs": list(_UPDATE_RECEIVERS),
-        "rationale": "Task 41 ported the signed-tag update channel. The handler "
-                     "arrived at 166 lines against a DECLARED debt of 163 (the "
-                     "ceiling fixture had already named this module by path), so "
-                     "it was decomposed rather than having its allowance widened: "
-                     "`--self-heal` became `_update_self_heal`, which is the one "
-                     "mode that MUTATES and the one whose exit code carries a "
-                     "non-obvious rule (a migrate-error must exit non-zero even "
-                     "though it sets no needs_manual_recovery flag). The other "
-                     "four flags are read-only reports and stay inline.",
     },
     "_plan_skeleton": {
         "adjudication": "decomposed",
@@ -414,21 +396,11 @@ _METRICSCMD = "scripts/agentware_lib/ops/metricscmd.py"
 _RECALLCMD = "scripts/agentware_lib/retrieval/recallcmd.py"
 
 ADJUDICATIONS.update({
-    "cmd_audit": {
-        "adjudication": "decomposed",
-        "host": _AUDIT,
-        "floor_chars": 2176,
-        "absorbs": [_AUDIT + "::_audit_stale_section",
-                    _AUDIT + "::_print_stale_section"],
-        "rationale": "The staleness half of the audit -- deciding whether to run "
-                     "the stale scan and how to render it -- became a computing "
-                     "half (`_audit_stale_section`) and a rendering half "
-                     "(`_print_stale_section`), leaving the parent as the checks "
-                     "list plus dispatch. The checks list is a flat literal, so a "
-                     "dropped line there is an absent check and not an error; "
-                     "that is exactly what happened to the package-version check "
-                     "and why it is restored in the same commit as this row.",
-    },
+    # `cmd_audit` MOVED to `_body_adjudication_verbemit` at task 99 wave 17: it
+    # gained three more receivers and a lower host floor, and this file's
+    # declared value may only FALL, so extending the row in place would have
+    # worsened one ratchet in the commit paying four others down. A HISTORICAL
+    # note rather than an absence, because this is where a reader looks for it.
     "cmd_metrics": {
         "adjudication": "decomposed",
         "host": _METRICSCMD,
@@ -583,24 +555,11 @@ ADJUDICATIONS.update({
 _SKILLS = "scripts/agentware_lib/features/skills.py"
 _SKILLENTRY = "scripts/agentware_lib/knowledge/skillentry.py"
 
+# `cmd_skill_add`'s row MOVED to `_body_adjudication_ceilingpaydown` at task 99
+# wave 11: the wave split the handler further, so the row needed two more
+# receivers and a lower host floor -- and growing THIS file is what its own
+# shrink-only `file_over_cap` row forbids. The roster exists for exactly that.
 ADJUDICATIONS.update({
-    "cmd_skill_add": {
-        "adjudication": "decomposed",
-        "host": _SKILLS,
-        "floor_chars": 3533,
-        "absorbs": [_SKILLS + "::_vet_or_refuse",
-                    _SKILLENTRY + "::skill_register_entry"],
-        "rationale": "The vetter call was NOT a decomposition when this port "
-                     "started -- it was a downgrade: the modular copy called "
-                     "`vet_skill_dir` (the danger-marker scan) directly instead of "
-                     "the BLOCK-dominant `_skill_verdict`, so a skill tree "
-                     "containing a SYMLINK installed cleanly and the install-name "
-                     "validation and REVIEW tier were bypassed entirely. The tiered "
-                     "verdict is restored and now lives in `_vet_or_refuse`, one "
-                     "named boundary every cache-write path can share. The index "
-                     "registration is a true decomposition into "
-                     "`skill_register_entry`, which keeps the lock.",
-    },
     "cmd_skill_remove": {
         "adjudication": "decomposed",
         "host": _SKILLS,
@@ -649,49 +608,13 @@ ADJUDICATIONS.update({
 ADJUDICATIONS.update(SIBLING_ROWS)
 
 # --------------------------------------------------------------------------
-# DECOMPOSED -- task 91: one input grammar for BOTH curation verbs
+# TASK 91 -- one input grammar for BOTH curation verbs
 # --------------------------------------------------------------------------
-
-_CURATIONCMD = "scripts/agentware_lib/features/curationcmd.py"
-_CURATION_RECEIVERS = [_CURATIONCMD + "::" + n for n in (
-    "_curation_topic",          # the whole --topic slug grammar + its notice
-    "_near_duplicate_refusal",  # force short-circuit, threshold, refusal text
-    "_entry_probe_text")]       # the doc-shaped probe assembly
-
-ADJUDICATIONS.update({
-    "cmd_learn": {
-        "adjudication": "decomposed",
-        "host": _CURATIONCMD,
-        "floor_chars": 2959,
-        "absorbs": list(_CURATION_RECEIVERS),
-        "rationale": "Task 91 hardened `decide`'s `--topic`, which took the "
-                     "string VERBATIM as both the decisions/ filename stem and "
-                     "the entry id while `learn` had normalized since "
-                     "260710-learning-repair-p1. The fix is a SHARE, not a "
-                     "second implementation: a grammar the sibling verb skips is "
-                     "indistinguishable from no grammar for whoever calls the "
-                     "sibling, and two copies would drift on the next edit. So "
-                     "`cmd_learn`'s three input blocks left it for the three "
-                     "named receivers -- the slug normalization and its notice, "
-                     "the near-duplicate policy (force short-circuit, threshold, "
-                     "refusal sentence), and the probe-text assembly -- and "
-                     "`cmd_decide` now calls the same three. Every statement that "
-                     "left the handler is in one of them; nothing was dropped, "
-                     "which is why the learn half of the behaviour is pinned by "
-                     "`tests/unit/features/test_learn_hardening.py` passing "
-                     "UNCHANGED across the move (same notice text, same refusal "
-                     "wording, same --force semantics), while the new "
-                     "`tests/unit/features/test_decide_hardening.py` pins the "
-                     "half that did not exist -- six of its eleven cases were "
-                     "reproduced RED against the pre-task module. The receivers "
-                     "are shared rather than learn-private on purpose: that "
-                     "sharing IS the capability the task landed, and the parity "
-                     "row `kb:one-topic-grammar-for-both-curation-verbs` carries "
-                     "the mutation (make `cmd_decide` take `args.topic` verbatim "
-                     "again) that reddens the decide half while the learn half "
-                     "stays green -- the asymmetry itself, made executable.",
-    },
-})
+# `cmd_learn`'s row MOVED to `_body_adjudication_curationwrite` at task 99
+# wave 13: the wave added six more receivers and lowered the host floor, and
+# growing this file is exactly what its own shrink-only `file_over_cap` row
+# forbids. Task 91's finding travels with the row, verbatim, beside the two
+# rows that wave adjudicated with it.
 
 # Pinned by the suite. Growing this set requires editing BOTH this table and the
 # test that asserts it, which is the point: a deferral must be argued for, never

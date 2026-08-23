@@ -5,24 +5,32 @@ the catalog path constant (SKILLS_CATALOG_PATH); the bundled-script/prose danger
 signatures scanned by the static vetter (_SKILL_SCRIPT_DANGER / _SKILL_PROSE_DANGER
 / _SKILL_TEXT_EXTS); the catalog loader (load_skill_catalog / _catalog_skill); the
 skill-frontmatter reader (read_skill_frontmatter); the pinned-ref resolver
-(_pinned_ref); the static skill-vetter (vet_skill_dir); and the `skill`
-list/search/validate/add/remove/roster-injectable handlers (cmd_skill_list /
-cmd_skill_search / _validate_skill_dir / cmd_skill_validate / _copy_skill_tree /
-cmd_skill_add / cmd_skill_remove / cmd_skill_roster_injectable).
+(_pinned_ref); the static skill-vetter (vet_skill_dir); the on-disk skill-folder
+check (_skill_dir_errors / _validate_skill_dir / _catalog_validate_results); the
+install-source resolver and the KB install arm (_resolve_add_source /
+_skill_add_kb); and the `skill` list/search/validate/add/remove/roster-injectable
+handlers (cmd_skill_list / cmd_skill_search / cmd_skill_validate /
+_copy_skill_tree / cmd_skill_add / cmd_skill_remove / cmd_skill_roster_injectable).
 
-Does NOT own: the skill PROPOSAL/PROMOTION lifecycle (-> agentware_lib.features.proposals)
-and the package self-update (cmd_update); the `skill` PARSER REGISTRAR (register_skill)
+Does NOT own: the SKILL.md manifest's TEXT SURFACE -- the frontmatter grammar
+(_frontmatter_block / _folded_scalar / _FOLDED_MARKERS) and the two fixed-format
+report renderers (_emit_validate / _emit_skill_add) -> features.skillmanifest,
+imported here and NEVER importing back (task 99 wave 11: all five are pure text
+transforms, which is what lets them sit BELOW this module without a cycle); the
+skill PROPOSAL/PROMOTION lifecycle (-> agentware_lib.features.proposals) and the
+package self-update (cmd_update); the `skill` PARSER REGISTRAR (register_skill)
 -- it registers BOTH catalog AND proposal sub-verbs, so it was homed WITH the proposal
 handlers in agentware_lib.features.proposals (wave-6 seam 21), reaching this module's 6
 catalog handlers via the `_skills` sibling alias; it is declared in that module's
 `__verbs__` and resolved by the assembler from there, NOT re-exported.
 
 Layer deps: features.skills -> core (config, frontmatter, paths, gitio._git) +
-knowledge (index), all DOWNWARD. read_skill_frontmatter is CONSUMED UP by
-knowledge (build_index_from_frontmatter -> rebuild_kb) and by features.proposals
-(near_duplicate_proposal) via a FUNCTION-LOCAL (lazy) import once those move -- one
-of the five measured irreducible upward SYMBOL edges M12 permits (knowledge->features).
-skills itself imports nothing upward, so no MODULE-LEVEL cycle exists.
+knowledge (index) + features.skillmanifest (sideways, one-way), all DOWNWARD.
+read_skill_frontmatter is CONSUMED UP by knowledge (build_index_from_frontmatter
+-> rebuild_kb) and by features.proposals (near_duplicate_proposal) via a
+FUNCTION-LOCAL (lazy) import -- one of the five measured irreducible upward
+SYMBOL edges M12 permits (knowledge->features). skills itself imports nothing
+upward, so no MODULE-LEVEL cycle exists.
 
 A LEAF: nothing imports it at module level (fan-in 0 until knowledge/proposals add
 their lazy edges); the scripts/agentware entrypoint re-exports its _EXPORTS BY NAME
@@ -52,6 +60,13 @@ import agentware_lib.core.paths as paths
 import agentware_lib.knowledge.index as index
 import agentware_lib.knowledge.skillentry as skillentry
 from agentware_lib.core.gitio import _git
+from agentware_lib.features.skillmanifest import (
+    _FOLDED_MARKERS,
+    _emit_skill_add,
+    _emit_validate,
+    _folded_scalar,
+    _frontmatter_block,
+)
 
 
 SKILLS_CATALOG_PATH = os.path.join(paths.REPO_ROOT, "catalog", "skills.json")
@@ -111,6 +126,10 @@ def read_skill_frontmatter(skill_md_path):
     Independent of the index `split_frontmatter` (which only keeps index fields):
     a skill's frontmatter carries `name` + `description`, neither of which is an
     index field. Tolerates folded (`>-`) / block scalars for `description`.
+
+    The folded-scalar branch is keyed on the KEY as well as the value: `name: >`
+    is NOT a folded scalar, it is the literal ">" landing in `name`. Only
+    `description` is ever gathered from the lines below.
     """
     out = {"name": None, "description": None}
     try:
@@ -118,36 +137,19 @@ def read_skill_frontmatter(skill_md_path):
             text = f.read()
     except OSError:
         return out
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    block = _frontmatter_block(text)
+    if block is None:
         return out
-    close = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            close = i
-            break
-    if close is None:
-        return out
-    block = lines[1:close]
     i = 0
     while i < len(block):
-        ln = block[i]
-        m = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", ln)
+        m = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", block[i])
         if not m:
             i += 1
             continue
         key, val = m.group(1).strip(), m.group(2).strip()
         if key in ("name", "description"):
-            if val in (">", ">-", "|", "|-", "") and key == "description":
-                # Folded/block scalar: gather following more-indented lines.
-                parts = []
-                j = i + 1
-                while j < len(block) and (block[j].strip() == "" or
-                                          block[j][:1] in (" ", "\t")):
-                    parts.append(block[j].strip())
-                    j += 1
-                out["description"] = " ".join(p for p in parts if p).strip()
-                i = j
+            if val in _FOLDED_MARKERS and key == "description":
+                out["description"], i = _folded_scalar(block, i)
                 continue
             out[key] = val.strip().strip("'\"")
         i += 1
@@ -254,56 +256,49 @@ def cmd_skill_search(args):
     return 0
 
 
+def _skill_dir_errors(skill_dir, display, catalog_name=None):
+    """Every well-formedness error for ONE on-disk skill folder, in ORDER.
+
+    `display` is how the two file-level refusals SPELL the path: `--source`
+    reports the absolute resolved dir, the catalog arm the relative `source` the
+    catalog declared. `catalog_name` adds the catalog-name mismatch, which sits
+    BETWEEN the folder mismatch and the description check and exists only on the
+    catalog arm — the two differences that stop the arms being one call."""
+    if not os.path.isdir(skill_dir):
+        return ["source dir missing: %s" % display]
+    skill_md = os.path.join(skill_dir, "SKILL.md")
+    if not os.path.isfile(skill_md):
+        return ["SKILL.md missing under %s" % display]
+    fm = read_skill_frontmatter(skill_md)
+    folder = os.path.basename(skill_dir.rstrip("/"))
+    errs = []
+    if fm.get("name") != folder:
+        errs.append("frontmatter name (%r) != folder (%r)"
+                    % (fm.get("name"), folder))
+    if catalog_name and fm.get("name") != catalog_name:
+        errs.append("frontmatter name (%r) != catalog name (%r)"
+                    % (fm.get("name"), catalog_name))
+    if not fm.get("description"):
+        errs.append("frontmatter has no 'description' (routing text)")
+    vet = vet_skill_dir(skill_dir)
+    if vet:
+        errs.append("skill-vetter findings: %s" % "; ".join(vet))
+    return errs
+
+
 def _validate_skill_dir(skill_dir):
     """Validate ONE on-disk skill folder (frontmatter name==folder, description
     present, skill-vetter clean). Returns (name, errors) for an IN-PLACE authored
     skill — no catalog entry required. Closes the seam that `vet_skill_dir`
     previously ran only at `skill add`, never on a KB skill authored in place."""
     skill_dir = os.path.abspath(skill_dir.rstrip("/"))
-    folder = os.path.basename(skill_dir)
-    skill_md = os.path.join(skill_dir, "SKILL.md")
-    errs = []
-    if not os.path.isdir(skill_dir):
-        return folder, ["source dir missing: %s" % skill_dir]
-    if not os.path.isfile(skill_md):
-        return folder, ["SKILL.md missing under %s" % skill_dir]
-    fm = read_skill_frontmatter(skill_md)
-    if fm.get("name") != folder:
-        errs.append("frontmatter name (%r) != folder (%r)"
-                    % (fm.get("name"), folder))
-    if not fm.get("description"):
-        errs.append("frontmatter has no 'description' (routing text)")
-    vet = vet_skill_dir(skill_dir)
-    if vet:
-        errs.append("skill-vetter findings: %s" % "; ".join(vet))
-    return folder, errs
+    return (os.path.basename(skill_dir),
+            _skill_dir_errors(skill_dir, skill_dir))
 
 
-def cmd_skill_validate(args):
-    # In-place authored skill: vet an arbitrary directory directly (no catalog).
-    source = getattr(args, "source", None)
-    if source:
-        name, errs = _validate_skill_dir(source)
-        ok = not errs
-        if getattr(args, "format", "text") == "json":
-            json.dump({"ok": ok, "count": 1,
-                       "results": [{"name": name, "ok": ok, "errors": errs}]},
-                      sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            if ok:
-                print("OK    %s" % name)
-            else:
-                print("FAIL  %s" % name)
-                for e in errs:
-                    print("        - %s" % e)
-            print("%s: skill dir %s" % ("PASS" if ok else "FAIL", source))
-        return 0 if ok else 1
-    data, err = load_skill_catalog()
-    if err is not None:
-        sys.stderr.write("agentware: %s\n" % err)
-        return 1
-    only = getattr(args, "name", None)
+def _catalog_validate_results(data, only):
+    """One result row per catalog skill (or just `only`), in catalog order. A
+    missing `source` short-circuits: with no source there is no dir to check."""
     results = []
     for s in data.get("skills", []):
         if not isinstance(s, dict):
@@ -311,52 +306,40 @@ def cmd_skill_validate(args):
         name = s.get("name")
         if only and name != only:
             continue
-        errs = []
         src = s.get("source")
         if not src:
-            errs.append("catalog entry missing 'source'")
-            results.append({"name": name, "ok": False, "errors": errs})
-            continue
-        skill_dir = os.path.join(paths.REPO_ROOT, src)
-        skill_md = os.path.join(skill_dir, "SKILL.md")
-        if not os.path.isdir(skill_dir):
-            errs.append("source dir missing: %s" % src)
-        elif not os.path.isfile(skill_md):
-            errs.append("SKILL.md missing under %s" % src)
+            errs = ["catalog entry missing 'source'"]
         else:
-            fm = read_skill_frontmatter(skill_md)
-            folder = os.path.basename(skill_dir.rstrip("/"))
-            if fm.get("name") != folder:
-                errs.append("frontmatter name (%r) != folder (%r)"
-                            % (fm.get("name"), folder))
-            if name and fm.get("name") != name:
-                errs.append("frontmatter name (%r) != catalog name (%r)"
-                            % (fm.get("name"), name))
-            if not fm.get("description"):
-                errs.append("frontmatter has no 'description' (routing text)")
-            vet = vet_skill_dir(skill_dir)
-            if vet:
-                errs.append("skill-vetter findings: %s" % "; ".join(vet))
+            errs = _skill_dir_errors(os.path.join(paths.REPO_ROOT, src), src,
+                                     catalog_name=name)
         results.append({"name": name, "ok": not errs, "errors": errs})
+    return results
+
+
+def cmd_skill_validate(args):
+    fmt = getattr(args, "format", "text")
+    # In-place authored skill: vet an arbitrary directory directly (no catalog).
+    source = getattr(args, "source", None)
+    if source:
+        name, errs = _validate_skill_dir(source)
+        ok = not errs
+        _emit_validate([{"name": name, "ok": ok, "errors": errs}], ok, fmt,
+                       "%s: skill dir %s" % ("PASS" if ok else "FAIL", source))
+        return 0 if ok else 1
+    data, err = load_skill_catalog()
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+    only = getattr(args, "name", None)
+    results = _catalog_validate_results(data, only)
     if only and not results:
         sys.stderr.write("agentware: no catalog skill named '%s'\n" % only)
         return 1
     ok = all(r["ok"] for r in results) and bool(results)
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": ok, "count": len(results), "results": results},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        for r in results:
-            if r["ok"]:
-                print("OK    %s" % r["name"])
-            else:
-                print("FAIL  %s" % r["name"])
-                for e in r["errors"]:
-                    print("        - %s" % e)
-        print("%s: %d/%d catalog skill(s) valid."
-              % ("PASS" if ok else "FAIL",
-                 sum(1 for r in results if r["ok"]), len(results)))
+    _emit_validate(results, ok, fmt,
+                   "%s: %d/%d catalog skill(s) valid."
+                   % ("PASS" if ok else "FAIL",
+                      sum(1 for r in results if r["ok"]), len(results)))
     return 0 if ok else 1
 
 
@@ -412,13 +395,14 @@ def _vet_or_refuse(skill_dir, name):
     return True, verdict, findings
 
 
-def cmd_skill_add(args):
-    name = args.name
-    data, cerr = load_skill_catalog()
-    if cerr is not None:
-        sys.stderr.write("agentware: %s\n" % cerr)
-        return 1
+def _resolve_add_source(args, data):
+    """Resolve `skill add`'s install source -> (skill_dir, name, trust, external).
 
+    `skill_dir` is None when the source was REFUSED and the refusal is already on
+    stderr — a remote URL (this verb is not an internet fetcher), or a name absent
+    from the trusted catalog. The other three fields are returned either way so
+    the tuple keeps ONE shape."""
+    name = args.name
     external = bool(getattr(args, "source", None))
     if external:
         # Non-catalog / external source: gated behind skill-vetter + explicit
@@ -428,62 +412,25 @@ def cmd_skill_add(args):
                              "`skill add` is not an internet fetcher. Clone it "
                              "locally, vet it, then pass --source <local-path> "
                              "--allow-external.\n" % args.source)
-            return 1
+            return None, name, None, True
         skill_dir = os.path.abspath(args.source)
         catalog_name = os.path.basename(skill_dir.rstrip("/"))
-        name = name or catalog_name
-        trust = "external (untrusted)"
-    else:
-        entry = _catalog_skill(data, name)
-        if entry is None:
-            sys.stderr.write("agentware: '%s' is not in the trusted catalog. "
-                             "Use `skill list` to see authored skills, or "
-                             "`--source <local-path> --allow-external` for an "
-                             "externally-sourced skill.\n" % name)
-            return 1
-        skill_dir = os.path.join(paths.REPO_ROOT, entry.get("source", ""))
-        trust = "trusted in-repo catalog"
+        return skill_dir, (name or catalog_name), "external (untrusted)", True
+    entry = _catalog_skill(data, name)
+    if entry is None:
+        sys.stderr.write("agentware: '%s' is not in the trusted catalog. "
+                         "Use `skill list` to see authored skills, or "
+                         "`--source <local-path> --allow-external` for an "
+                         "externally-sourced skill.\n" % name)
+        return None, name, None, False
+    return (os.path.join(paths.REPO_ROOT, entry.get("source", "")), name,
+            "trusted in-repo catalog", False)
 
-    if not os.path.isdir(skill_dir):
-        sys.stderr.write("agentware: skill source not found: %s\n" % skill_dir)
-        return 1
 
-    allowed, verdict, findings = _vet_or_refuse(skill_dir, name)
-    if not allowed:
-        return 1
-    provenance = {
-        "name": name,
-        "trust": trust,
-        "source": skill_dir,
-        "pinned_ref": _pinned_ref() if not external else "n/a (external)",
-        "vet_findings": findings,
-        "verdict": verdict,
-    }
-    if external and not getattr(args, "allow_external", False):
-        sys.stderr.write("agentware: '%s' is an EXTERNAL source. It passed the "
-                         "static vet, but external skills require explicit "
-                         "confirmation: re-run with --allow-external.\n" % name)
-        return 1
-
-    # Destination: external KB (indexed) by default, or a harness path (not
-    # indexed — the harness discovers it on the filesystem).
-    harness_path = getattr(args, "harness_path", None)
-    if harness_path:
-        dest_dir = os.path.join(os.path.abspath(harness_path), name)
-        copied, note = _copy_skill_tree(skill_dir, dest_dir)
-        if getattr(args, "format", "text") == "json":
-            json.dump({"ok": True, "installed": copied, "dest": dest_dir,
-                       "indexed": False, "provenance": provenance, "note": note},
-                      sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            print("VET PASS (%s, ref %s)" % (trust, provenance["pinned_ref"]))
-            print("%s skill '%s' -> %s (harness path, not indexed)"
-                  % ("INSTALLED" if copied else "SKIPPED", name, dest_dir))
-        return 0
-
-    # Default: install into the external KB under skills/<name>/ and register
-    # via index add (the sole index writer, R-KB-01).
+def _skill_add_kb(data, skill_dir, name, trust, provenance, fmt):
+    """Install into the external KB under skills/<name>/ and register the entry
+    via the index writer (R-KB-01) — the DEFAULT destination, the one that is
+    indexed. A harness-path install is the other arm and never comes here."""
     kdir = config.require_knowledge_dir()
     if not kdir:
         return 1
@@ -503,20 +450,63 @@ def cmd_skill_add(args):
     if rerr is not None:
         sys.stderr.write("agentware: %s\n" % rerr)
         return 1
-
-    if getattr(args, "format", "text") == "json":
-        json.dump({"ok": True, "installed": copied, "dest": dest_dir,
-                   "indexed": indexed, "id": eid, "path": rel_md,
-                   "provenance": provenance, "note": note},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("VET PASS (%s, ref %s)" % (trust, provenance["pinned_ref"]))
-        print("%s skill '%s' -> %s" % ("INSTALLED" if copied else "SKIPPED",
-                                        name, dest_dir))
-        print("%s index entry '%s' (category=skills, path=%s)"
-              % ("REGISTERED" if indexed else "ALREADY-INDEXED", eid, rel_md))
+    _emit_skill_add(
+        fmt, {"ok": True, "installed": copied, "dest": dest_dir,
+              "indexed": indexed, "id": eid, "path": rel_md,
+              "provenance": provenance, "note": note},
+        trust, provenance, copied, name, dest_dir,
+        extra_line=("%s index entry '%s' (category=skills, path=%s)"
+                    % ("REGISTERED" if indexed else "ALREADY-INDEXED",
+                       eid, rel_md)))
     return 0
+
+
+def cmd_skill_add(args):
+    data, cerr = load_skill_catalog()
+    if cerr is not None:
+        sys.stderr.write("agentware: %s\n" % cerr)
+        return 1
+    skill_dir, name, trust, external = _resolve_add_source(args, data)
+    if skill_dir is None:
+        return 1
+    if not os.path.isdir(skill_dir):
+        sys.stderr.write("agentware: skill source not found: %s\n" % skill_dir)
+        return 1
+
+    # The VET runs BEFORE the --allow-external confirmation: a dangerous source
+    # is BLOCKED outright rather than offered a confirmation flag that would
+    # install it.
+    allowed, verdict, findings = _vet_or_refuse(skill_dir, name)
+    if not allowed:
+        return 1
+    provenance = {
+        "name": name,
+        "trust": trust,
+        "source": skill_dir,
+        "pinned_ref": _pinned_ref() if not external else "n/a (external)",
+        "vet_findings": findings,
+        "verdict": verdict,
+    }
+    if external and not getattr(args, "allow_external", False):
+        sys.stderr.write("agentware: '%s' is an EXTERNAL source. It passed the "
+                         "static vet, but external skills require explicit "
+                         "confirmation: re-run with --allow-external.\n" % name)
+        return 1
+
+    # Destination: external KB (indexed) by default, or a harness path (not
+    # indexed — the harness discovers it on the filesystem).
+    fmt = getattr(args, "format", "text")
+    harness_path = getattr(args, "harness_path", None)
+    if harness_path:
+        dest_dir = os.path.join(os.path.abspath(harness_path), name)
+        copied, note = _copy_skill_tree(skill_dir, dest_dir)
+        _emit_skill_add(
+            fmt, {"ok": True, "installed": copied, "dest": dest_dir,
+                  "indexed": False, "provenance": provenance, "note": note},
+            trust, provenance, copied, name, dest_dir,
+            suffix=" (harness path, not indexed)")
+        return 0
+    return _skill_add_kb(data, skill_dir, name, trust, provenance, fmt)
 
 
 def cmd_skill_remove(args):
@@ -589,9 +579,13 @@ _EXPORTS = [
     "vet_skill_dir",
     "cmd_skill_list",
     "cmd_skill_search",
+    "_skill_dir_errors",
     "_validate_skill_dir",
+    "_catalog_validate_results",
     "cmd_skill_validate",
     "_copy_skill_tree",
+    "_resolve_add_source",
+    "_skill_add_kb",
     "cmd_skill_add",
     "cmd_skill_remove",
     "cmd_skill_roster_injectable",

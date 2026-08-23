@@ -85,6 +85,77 @@ and reads as coverage that is not happening.
 > reddens the NEXT row's run, so the sweep reports a property GUARDED that
 > nothing guards. Run mutant subprocesses with `PYTHONDONTWRITEBYTECODE=1` too.
 
+> **A test can only distinguish alternatives its fixture separates.** Two shapes
+> of vacuity, both found by the wave-15 sweep in tests written for that wave.
+> (1) An ORDER claim whose branches coincidentally agree proves nothing: the
+> `query` precedence test drove `--depends-on a` and `--impact d` over a diamond
+> where forward-from-`a` and reverse-from-`d` are the SAME pair, so permuting the
+> dispatch tuple stayed green. Pick inputs whose alternatives are provably
+> different, and assert each in turn. (2) `assertIn` on a TRUNCATED value also
+> passes against the untruncated one, because the short form is a prefix — the
+> `--check` test asserted a 9-character sha and the full 16-character one
+> satisfied it. Pin the line whole (include the delimiter) AND assert the
+> untruncated form is absent. Both generalise: whenever the code derives a value
+> by shortening or by choosing among alternatives, ask whether the OTHER value
+> also satisfies the assertion.
+
+> **A probe that anchors on an INDENTED line goes stale when code is extracted.**
+> A curated parity row's mutation (`tests/_parity_mutation_rows.py`) matches a
+> literal source string. If that literal carries the line's indentation, any
+> refactor that lifts the line into a helper dedents it and the probe stops
+> matching — the row then reports `STALE-PROBE`, and the capability it claims is
+> unproven while the summary still reads PASS. Measured at task 99 wave 9:
+> `sec:transcript-redaction-on-the-commit-path` had matched nothing since wave 2
+> dedented its target. Anchor on the narrowest text unique in the file, and run
+> the FULL sweep (`python3 tests/_parity_sweep.py --all`) after any wave that
+> MOVES code — the schema-only `--check` cannot see it.
+
+> **A wave that MOVES a guarded line leaves a stale PIN behind, and the stale
+> pin reads as a regression.** Three ratchets anchor on source TEXT rather than
+> on a symbol — `tests/_parity_mutation_rows.py` (the curated mutation probes),
+> `tests/_indexreader_gate.py` (the raw-read sites) and
+> `tests/_preserved_pins.py` (the collision table) — so re-indenting a guard or
+> extracting it into a helper makes the anchor miss. `_parity_sweep --all`
+> reports it as `STALE-PROBE`, which is the honest wording: the probe is stale,
+> not the capability. Measured three waves running (10, 11 and 12). THE RULE:
+> after any wave that moves a guarded line, grep those three files for the
+> MUTATED TEXT, not only for the module path — a path grep finds nothing when
+> the code moved WITHIN its file. And the schema-only `--check` cannot see it;
+> only the full sweep can.
+>
+> **Do not spend `_parity_mutation_rows.py`'s remaining lines on comments.**
+> That file sits deliberately BELOW its 600-line `tests/**` cap by the exact
+> size of one curated row, because `tests/e2e/test_add_a_feature_walkthrough`
+> APPENDS a row to it in a scratch copy and then runs the ceiling gate there —
+> so a two-line comment added at 594 lines is green locally and reddens the
+> walkthrough at 602. Explanations for a row belong here or in the worklog; the
+> file itself carries data.
+
+> **Deleting `AGENTWARE_KNOWLEDGE_DIR` does not un-configure the knowledge dir.**
+> The resolver's precedence is env → `~/.agentware/config.env` → default, and
+> `HOME_CONFIG` is bound at import time, so a test that POPS the variable to
+> reach a "no knowledge dir" arm falls through to the OPERATOR'S machine config
+> — which on a real machine resolves, so the arm never runs and the assertion
+> reads whatever the live KB produced. Point the variable at a path that does
+> NOT EXIST instead: `require_knowledge_dir` then refuses with a distinct
+> "does not exist" message a test can assert on. Measured at task 99 wave 11,
+> where a `skill sync` precedence test ran `--reset` and `--approve` against the
+> operator's real knowledge dir and reported rc 0 for it. The same rule applies
+> to any helper that resolves the KB from the ENVIRONMENT rather than from an
+> argument it was handed — `cmd_plan_new` does, which is why an evidence driver
+> calling `_skill_promote_run(kdir, ...)` must ALSO set the env var or every
+> emit returns `blocked: emitter refused (rc=1)`.
+
+> **`eval --record --gate` under `AGENTWARE_NESTED_UNITTEST=1` records a
+> reliability score that is NOT comparable to any other row.** The guard exists
+> so a verb that shells `unittest discover` inside a suite run does not recurse,
+> and it makes the verb record `test_pass_rate: null` — which drops the
+> pass-rate component out of the composite. Measured at task 99 wave 11: the
+> same commit, the same corpus and byte-identical retrieval metrics scored
+> **68.37** under the guard and **77.86** without it, a 9.5-point drop that reads
+> exactly like a diff-caused regression. Run the R-PKG-05 gate WITHOUT the guard,
+> and read `checks.test_pass_rate` before believing any reliability delta.
+
 `tests/` and every tier are packages (`__init__.py`), and each test module
 imports fixtures with a dual `tests._fixtures` / `_fixtures` fallback.
 

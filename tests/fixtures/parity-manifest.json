@@ -3445,8 +3445,8 @@
         "probe": {
           "kind": "replace",
           "path": "scripts/agentware_lib/features/setupcmd.py",
-          "find": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir):\n            pointable, reason = kblayout.kb_pointable(existing)\n",
-          "replace": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir) \\\n                and os.path.isfile(os.path.join(existing, kblayout.SENTINEL_REL)):\n            pointable, reason = kblayout.kb_pointable(existing)\n"
+          "find": "    if not (existing and os.path.abspath(existing) != os.path.abspath(kdir)):\n        return None\n",
+          "replace": "    if not (existing and os.path.abspath(existing) != os.path.abspath(kdir)\n            and os.path.isfile(os.path.join(existing, kblayout.SENTINEL_REL))):\n        return None\n"
         }
       }
     },
@@ -4240,8 +4240,8 @@
         "probe": {
           "kind": "replace",
           "path": "scripts/agentware_lib/ops/orglint.py",
-          "find": "            if declared and declared != team:",
-          "replace": "            if False:"
+          "find": "    if declared and declared != team:",
+          "replace": "    if False:"
         }
       }
     },
@@ -4579,8 +4579,8 @@
         "probe": {
           "kind": "replace",
           "path": "scripts/agentware_lib/ops/preferqueue.py",
-          "find": "            body = _transcript_redact_secrets(body)",
-          "replace": "            body = body  # redaction dropped"
+          "find": "    body = _transcript_redact_secrets(body)",
+          "replace": "    body = body  # redaction dropped"
         }
       }
     },

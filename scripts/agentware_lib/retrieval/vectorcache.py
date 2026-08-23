@@ -313,20 +313,24 @@ def load_vector_cache(kdir, model):
     return cache
 
 
-def build_vector_cache(kdir, data, embedder, model):
-    """Embed + persist corpus vectors for `model` (the `index rebuild` writer).
+def _plan_vector_reuse(corpus, prev_vectors):
+    """Decide, per corpus entry, whether its cached vector may be REUSED.
 
-    Incremental: reuses any existing cached vector whose entry id + content
-    fingerprint are unchanged, and embeds ONLY the changed/new entries (one
-    batched `embedder.embed(...)` call). Writes the cache deterministically
-    (sorted keys) so delete+rebuild is byte-identical given a pinned model.
-    Returns a stats dict: {embedded, reused, total, dim, model, path}.
+    Returns `(plan, to_embed_idx, to_embed_txt)` where `plan` is
+    `[(id, fingerprint, vector_or_None), ...]` in corpus order, `to_embed_idx`
+    holds the plan positions still needing a vector, and `to_embed_txt` the
+    matching texts — so the caller can embed them in ONE batched call and write
+    each result back to the position it came from.
+
+    A cached vector is reused only when all three of the entry id, the content
+    FINGERPRINT and the stored shape agree. Fingerprint rather than mtime,
+    because the cache must survive a clone; the `isinstance` pair rather than a
+    bare truth test, because a cache file is JSON on disk that anything may have
+    rewritten, and a malformed row must cause a re-embed rather than a crash.
+
+    An entry with no id is DROPPED: the cache is keyed by id, so a vector for an
+    entry that cannot be looked up is one nothing will ever read.
     """
-    corpus = _corpus.build_corpus(kdir, data)
-    prev = load_vector_cache(kdir, model) or {}
-    prev_vectors = prev.get("vectors") or {}
-
-    # Decide per entry: reuse (fingerprint unchanged) vs. (re)embed.
     plan = []          # [(id, fp, reused_vector_or_None)]
     to_embed_idx = []  # positions in `plan` needing embedding
     to_embed_txt = []
@@ -339,10 +343,60 @@ def build_vector_cache(kdir, data, embedder, model):
         if isinstance(cached, dict) and cached.get("fp") == fp \
                 and isinstance(cached.get("v"), list):
             plan.append((eid, fp, list(cached["v"])))
-        else:
-            plan.append((eid, fp, None))
-            to_embed_idx.append(len(plan) - 1)
-            to_embed_txt.append(doc_text)
+            continue
+        plan.append((eid, fp, None))
+        to_embed_idx.append(len(plan) - 1)
+        to_embed_txt.append(doc_text)
+    return plan, to_embed_idx, to_embed_txt
+
+
+def _assemble_vectors(plan):
+    """Fold a completed plan into `(vectors_map, dim)` for the cache file.
+
+    The dimension is taken from the FIRST vector and every later one must match
+    it. A drift is raised rather than tolerated: a cache mixing two dimensions
+    produces cosine scores that are silently meaningless for half the corpus,
+    and the error names the entry that drifted so the offending row can be found
+    without re-embedding everything.
+
+    A plan row with no vector cannot occur after a successful embed pass; it is
+    skipped rather than trusted, so a partially-filled plan can never write a
+    `null` into the cache that the reader would later have to defend against.
+    """
+    out_vectors = {}
+    dim = 0
+    for eid, fp, vec in plan:
+        if vec is None:
+            continue
+        if dim == 0:
+            dim = len(vec)
+        elif len(vec) != dim:
+            raise ValueError(
+                "vector dim drift for %r: %d != %d" % (eid, len(vec), dim))
+        out_vectors[eid] = {"fp": fp, "v": vec}
+    return out_vectors, dim
+
+
+def build_vector_cache(kdir, data, embedder, model):
+    """Embed + persist corpus vectors for `model` (the `index rebuild` writer).
+
+    Incremental: reuses any existing cached vector whose entry id + content
+    fingerprint are unchanged, and embeds ONLY the changed/new entries (one
+    batched `embedder.embed(...)` call). Writes the cache deterministically
+    (sorted keys) so delete+rebuild is byte-identical given a pinned model.
+    Returns a stats dict: {embedded, reused, total, dim, model, path}.
+
+    Three sequential phases with one artifact each — PLAN what to reuse, EMBED
+    what is left, ASSEMBLE the file — and only the middle one calls out to the
+    optional backend. The embed batch stays inline because it is the only phase
+    that can fail on somebody ELSE's contract: an embedder returning the wrong
+    NUMBER of vectors is caught here, next to the call that asked for them.
+    """
+    corpus = _corpus.build_corpus(kdir, data)
+    prev = load_vector_cache(kdir, model) or {}
+    prev_vectors = prev.get("vectors") or {}
+
+    plan, to_embed_idx, to_embed_txt = _plan_vector_reuse(corpus, prev_vectors)
 
     embedded = 0
     if to_embed_txt:
@@ -356,17 +410,7 @@ def build_vector_cache(kdir, data, embedder, model):
             plan[pos] = (eid, fp, list(vec))
             embedded += 1
 
-    out_vectors = {}
-    dim = 0
-    for eid, fp, vec in plan:
-        if vec is None:
-            continue
-        if dim == 0:
-            dim = len(vec)
-        elif len(vec) != dim:
-            raise ValueError(
-                "vector dim drift for %r: %d != %d" % (eid, len(vec), dim))
-        out_vectors[eid] = {"fp": fp, "v": vec}
+    out_vectors, dim = _assemble_vectors(plan)
 
     cache = {
         "version": VECTOR_CACHE_VERSION,
@@ -485,6 +529,8 @@ _EXPORTS = [
     "vector_cache_path",
     "_corpus_fingerprint",
     "load_vector_cache",
+    "_plan_vector_reuse",
+    "_assemble_vectors",
     "build_vector_cache",
     "semantic_embedder_available",
     "resolve_effective_retrieval_mode",

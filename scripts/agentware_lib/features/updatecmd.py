@@ -133,6 +133,163 @@ def _update_self_heal(target, emit):
                 1 if heal_failed else 0)
 
 
+def _update_status_line():
+    """`update --status-line` — the read-only, NO-NETWORK SessionStart one-liner.
+
+    Prints ONLY when there is something to surface and is SILENT when there is
+    not. That silence is load-bearing: a status line that speaks every session
+    gets ignored, and then the one time it reports a stranded apply nobody reads
+    it. ALWAYS exits 0 — it is a nudge, never a gate, and a SessionStart hook
+    that failed on it would block the session it exists to inform.
+    """
+    try:
+        st = _pkg_state_read()
+    except _PkgStateError:
+        print("agentware update: ⚠ trust/state anchor tampered — run "
+              "`scripts/agentware trust verify`")
+        return 0
+    if st.get("needs_manual_recovery"):
+        print("agentware update: ⚠ a prior package apply is STRANDED "
+              "(needs_manual_recovery) — run `scripts/agentware update "
+              "--self-heal` (see ~/.agentware/update-state.json)")
+    elif st.get("pending_apply"):
+        print("agentware update: a package apply is unfinalized — the next "
+              "tick will reconcile it")
+    return 0
+
+
+def _upstream_catalog_diff(show_catalog):
+    """The authored-skill-catalog delta between @{upstream} and HEAD, or None.
+
+    None means "no answer to give" for THREE different reasons that are all the
+    same to the caller — the flag was not passed, the upstream catalog could not
+    be read, or the ref does not exist — because this is informational only and
+    a missing catalog must never be reported as an empty diff (which would read
+    as "nothing changes upstream").
+    """
+    if not show_catalog:
+        return None
+    up_names = _catalog_skill_names_at_ref("@{upstream}")
+    if up_names is None:
+        return None
+    cur_names = _catalog_skill_names_at_ref("HEAD") or set()
+    return {"added": sorted(up_names - cur_names),
+            "removed": sorted(cur_names - up_names)}
+
+
+def _catalog_diff_lines(cc):
+    """Render the catalog delta. An EMPTY side is silent rather than printed as
+    "added: (none)" — the informational block already costs the operator two
+    lines and a same-catalog update should add none."""
+    out = []
+    if not cc:
+        return out
+    if cc["added"]:
+        out.append("update: catalog skills added upstream: %s" % ", ".join(cc["added"]))
+    if cc["removed"]:
+        out.append("update: catalog skills removed upstream: %s" % ", ".join(cc["removed"]))
+    return out
+
+
+def _update_upstream_info(target, show_catalog, lines):
+    """The INFORMATIONAL @{upstream} view — appends to `lines`, returns the dict.
+
+    Never the apply decision (the signed-tag channel is), which is why it
+    degrades to `{}` rather than failing when there is no upstream or the fetch
+    does not succeed: a detached or fork-less checkout still gets a working
+    `update`, it just gets no behind/ahead line.
+    """
+    if not (git_has_upstream(target) and git_fetch(target).returncode == 0):
+        return {}
+    upstream_ref = _git(target, "rev-parse", "--abbrev-ref",
+                        "--symbolic-full-name", "@{upstream}").stdout.strip()
+    behind_s = _git(target, "rev-list", "--count", "HEAD..@{upstream}").stdout.strip()
+    ahead_s = _git(target, "rev-list", "--count", "@{upstream}..HEAD").stdout.strip()
+    info = {"upstream_ref": upstream_ref,
+            "behind": int(behind_s) if behind_s.isdigit() else 0,
+            "ahead": int(ahead_s) if ahead_s.isdigit() else 0}
+    cc = _upstream_catalog_diff(show_catalog)
+    if cc is not None:
+        info["catalog_changes"] = cc
+    lines.append("update: [informational] @{upstream} %s — behind %d / ahead %d "
+                 "(NOT the apply decision; the signed-tag channel is)."
+                 % (info["upstream_ref"], info["behind"], info["ahead"]))
+    lines.extend(_catalog_diff_lines(info.get("catalog_changes")))
+    return info
+
+
+def _update_check_report(target, payload, lines, emit):
+    """`update --check` — resolve the signed channel and REPORT, applying nothing.
+
+    ALWAYS exits 0, including on `no-trust`: `--check` is a report, and a nudge
+    that exited non-zero because no publisher key is pinned would fail every
+    caller that only wanted to know.
+    """
+    r = _pkg_resolve_verified_tag(target)
+    payload.update(mode="check", channel=r)
+    for w in r.get("warnings", []):
+        lines.append("update: ⚠ %s" % w)
+    if r["status"] == "resolved":
+        lines.append("update: signed update AVAILABLE — %s (%s) @ %s"
+                     % (r["tag"], r["version"], r["sha"][:9]))
+    elif r["status"] == "up-to-date":
+        lines.append("update: up to date on the signed channel (%s)." % r["detail"])
+    elif r["status"] == "no-trust":
+        lines.append("update: fail-closed — %s (pin with `scripts/agentware "
+                     "trust pin`)." % r["detail"])
+    elif r["status"] == "skipped":
+        lines.append("update: channel check skipped — %s." % r["detail"])
+    else:
+        lines.append("update: no signed update available (%s)." % r["detail"])
+    return emit(payload, lines, 0)
+
+
+def _update_apply_result(target, payload, lines, emit):
+    """The APPLY path: the dedicated updater sequence (locked, fail-closed).
+
+    Serializes the manual foreground apply against a LIVE loop session exactly
+    like the tick job (_pkg_updater_run): never land an apply mid-loop, so a
+    running loop can never read a half-updated package (audit C16).
+
+    A crash-window reconcile returns the SAME outcomes as a normal apply but
+    prefixed `reconciled-` (finalized / migrate-workorder / migrate-error /
+    cleared / rolledback). The prefix is normalized so a reconcile SUCCESS exits
+    0 and a reconcile ERROR fails loudly, identical to the non-reconcile path —
+    otherwise a successful self-heal would exit 1 and a migrate-error would exit
+    0 (audit).
+    """
+    _sess_kdir = require_knowledge_dir()
+    _active = is_session_active(_sess_kdir) if _sess_kdir else None
+    if _active:
+        payload.update(mode="apply", applied=False,
+                       result={"status": "deferred",
+                               "detail": "loop session active (%s)" % _active})
+        return emit(payload,
+                    lines + ["update: DEFERRED — a loop session is active (%s); not "
+                             "applying mid-loop (retry after it finishes, or let the "
+                             "scheduled tick apply it)." % _active], 0)
+    result = _pkg_run_update(target)
+    payload.update(mode="apply", result=result, tag=result.get("tag"),
+                   sha=result.get("sha"), version=result.get("version"),
+                   applied=(result["status"] == "applied"))
+    for w in result.get("warnings", []):
+        lines.append("update: ⚠ %s" % w)
+    lines.append("update: %s" % result["detail"])
+    status = result["status"]
+    norm = status[len("reconciled-"):] if status.startswith("reconciled-") else status
+    graceful = {"applied", "up-to-date", "none", "skipped", "no-trust", "dirty",
+                "locked", "migrate-workorder", "finalized", "cleared"}
+    rc = 0 if norm in graceful else 1
+    if result.get("needs_manual_recovery"):
+        payload["ok"] = False
+        rc = 1
+        lines.append("update: ⚠ needs_manual_recovery — inspect "
+                     "~/.agentware/update-state.json")
+    elif norm in ("error", "migrate-error"):
+        payload["ok"] = False
+    return emit(payload, lines, rc)
+
+
 def cmd_update(args):
     """Dedicated, hardened self-update of the agentware PACKAGE via a SIGNED
     SemVer tag channel — NEVER @{upstream}/tip-of-main.
@@ -167,22 +324,7 @@ def cmd_update(args):
         return rc
 
     if getattr(args, "status_line", False):
-        # Read-only, NO-NETWORK one-liner for SessionStart. Prints ONLY when there
-        # is something to surface; SILENT (suppressed) when up-to-date. Never blocks.
-        try:
-            st = _pkg_state_read()
-        except _PkgStateError:
-            print("agentware update: ⚠ trust/state anchor tampered — run "
-                  "`scripts/agentware trust verify`")
-            return 0
-        if st.get("needs_manual_recovery"):
-            print("agentware update: ⚠ a prior package apply is STRANDED "
-                  "(needs_manual_recovery) — run `scripts/agentware update "
-                  "--self-heal` (see ~/.agentware/update-state.json)")
-        elif st.get("pending_apply"):
-            print("agentware update: a package apply is unfinalized — the next "
-                  "tick will reconcile it")
-        return 0
+        return _update_status_line()
 
     if getattr(args, "staleness_check", False):
         return _pkg_staleness_prehook(resolve_knowledge_dir(), target)
@@ -201,91 +343,17 @@ def cmd_update(args):
     payload = {"ok": True, "applied": False, "current": _pinned_ref()}
 
     # --- Informational @{upstream} view (NOT the apply decision) -------------
-    info = {}
-    if git_has_upstream(target) and git_fetch(target).returncode == 0:
-        upstream_ref = _git(target, "rev-parse", "--abbrev-ref",
-                            "--symbolic-full-name", "@{upstream}").stdout.strip()
-        behind_s = _git(target, "rev-list", "--count", "HEAD..@{upstream}").stdout.strip()
-        ahead_s = _git(target, "rev-list", "--count", "@{upstream}..HEAD").stdout.strip()
-        info = {"upstream_ref": upstream_ref,
-                "behind": int(behind_s) if behind_s.isdigit() else 0,
-                "ahead": int(ahead_s) if ahead_s.isdigit() else 0}
-        if show_catalog:
-            up_names = _catalog_skill_names_at_ref("@{upstream}")
-            if up_names is not None:
-                cur_names = _catalog_skill_names_at_ref("HEAD") or set()
-                info["catalog_changes"] = {"added": sorted(up_names - cur_names),
-                                           "removed": sorted(cur_names - up_names)}
-        lines.append("update: [informational] @{upstream} %s — behind %d / ahead %d "
-                     "(NOT the apply decision; the signed-tag channel is)."
-                     % (info["upstream_ref"], info["behind"], info["ahead"]))
-        cc = info.get("catalog_changes")
-        if cc and cc["added"]:
-            lines.append("update: catalog skills added upstream: %s" % ", ".join(cc["added"]))
-        if cc and cc["removed"]:
-            lines.append("update: catalog skills removed upstream: %s" % ", ".join(cc["removed"]))
-    payload["informational_upstream"] = info
+    payload["informational_upstream"] = _update_upstream_info(
+        target, show_catalog, lines)
 
     # --- Signed-channel resolution (the REAL apply decision) ----------------
     if check_only:
-        r = _pkg_resolve_verified_tag(target)
-        payload.update(mode="check", channel=r)
-        for w in r.get("warnings", []):
-            lines.append("update: ⚠ %s" % w)
-        if r["status"] == "resolved":
-            lines.append("update: signed update AVAILABLE — %s (%s) @ %s"
-                         % (r["tag"], r["version"], r["sha"][:9]))
-        elif r["status"] == "up-to-date":
-            lines.append("update: up to date on the signed channel (%s)." % r["detail"])
-        elif r["status"] == "no-trust":
-            lines.append("update: fail-closed — %s (pin with `scripts/agentware "
-                         "trust pin`)." % r["detail"])
-        elif r["status"] == "skipped":
-            lines.append("update: channel check skipped — %s." % r["detail"])
-        else:
-            lines.append("update: no signed update available (%s)." % r["detail"])
-        return emit(payload, lines, 0)
+        return _update_check_report(target, payload, lines, emit)
 
     # --- Apply: the dedicated updater sequence (locked, fail-closed) ---------
-    # Serialize the manual foreground apply against a LIVE loop session exactly like
-    # the tick job (_pkg_updater_run): never land an apply mid-loop, so a running
-    # loop can never read a half-updated package (audit C16). --check/--status-line
-    # above are read-only and unaffected; --format json still returns cleanly.
-    _sess_kdir = require_knowledge_dir()
-    _active = is_session_active(_sess_kdir) if _sess_kdir else None
-    if _active:
-        payload.update(mode="apply", applied=False,
-                       result={"status": "deferred",
-                               "detail": "loop session active (%s)" % _active})
-        return emit(payload,
-                    lines + ["update: DEFERRED — a loop session is active (%s); not "
-                             "applying mid-loop (retry after it finishes, or let the "
-                             "scheduled tick apply it)." % _active], 0)
-    result = _pkg_run_update(target)
-    payload.update(mode="apply", result=result, tag=result.get("tag"),
-                   sha=result.get("sha"), version=result.get("version"),
-                   applied=(result["status"] == "applied"))
-    for w in result.get("warnings", []):
-        lines.append("update: ⚠ %s" % w)
-    lines.append("update: %s" % result["detail"])
-    status = result["status"]
-    # A crash-window reconcile returns the SAME outcomes as a normal apply but
-    # prefixed `reconciled-` (finalized / migrate-workorder / migrate-error / cleared
-    # / rolledback). Normalize the prefix so a reconcile SUCCESS exits 0 and a
-    # reconcile ERROR fails loudly, identical to the non-reconcile path — otherwise a
-    # successful self-heal would exit 1 and a migrate-error would exit 0 (audit).
-    norm = status[len("reconciled-"):] if status.startswith("reconciled-") else status
-    graceful = {"applied", "up-to-date", "none", "skipped", "no-trust", "dirty",
-                "locked", "migrate-workorder", "finalized", "cleared"}
-    rc = 0 if norm in graceful else 1
-    if result.get("needs_manual_recovery"):
-        payload["ok"] = False
-        rc = 1
-        lines.append("update: ⚠ needs_manual_recovery — inspect "
-                     "~/.agentware/update-state.json")
-    elif norm in ("error", "migrate-error"):
-        payload["ok"] = False
-    return emit(payload, lines, rc)
+    # --check/--status-line above are read-only and unaffected; --format json
+    # still returns cleanly.
+    return _update_apply_result(target, payload, lines, emit)
 
 
 _EXPORTS = [

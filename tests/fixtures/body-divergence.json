@@ -80,8 +80,17 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/skillpin.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2325
+   "adjudication": "decomposed",
+   "winner_chars": 2325,
+   "host": "scripts/agentware_lib/retrieval/pinpolicy.py",
+   "floor_chars": 1783,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/pinpolicy.py::_first_qualifying_skill",
+    "scripts/agentware_lib/retrieval/pinpolicy.py::_protected_learning_ids",
+    "scripts/agentware_lib/retrieval/pinpolicy.py::_window_victim",
+    "scripts/agentware_lib/retrieval/pinpolicy.py::_reprotect_learnings"
+   ],
+   "rationale": "Task 99 wave 9: 22 branches in sixty lines -- the densest body left in the lib -- now 6. The four receivers are the four distinct questions that were interleaved, and each is a rule an operator can lose. Drop `_protected_learning_ids` and the pin silently starts evicting the prior problem-and-error context R-RET-03 guarantees is always included, to make room for a procedure -- the wrong trade in exactly the situation where both are needed. Drop `_window_victim` and the repair picks a learning or the pinned skill as its own victim, undoing in one line what the other three receivers exist to protect. `_first_qualifying_skill` keeps the `score > 0` test that is NOT redundant with the threshold: a `pin_floor` of 0.0 makes the threshold 0.0, and without it an entry that matched nothing would be pinned to position 0. `_reprotect_learnings` owns its own preconditions rather than being guarded at the call site, because it is the one place that knows a repair is meaningless without a window. Nothing was dropped, and that is PROVEN: `evidence/task99/recall_boundary.py` drives the pin over eleven window shapes and the before/after capture is byte-identical at 73,728 bytes. The learnings-are-never-evicted POSTCONDITION is asserted directly by `tests/unit/retrieval/test_pinpolicy.py` rather than inferred from the resulting order, including the one case where it cannot hold and the repair must give up."
   },
   {
    "name": "_attach_migrate_structure",
@@ -1339,8 +1348,16 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/evalcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 3213
+   "adjudication": "decomposed",
+   "winner_chars": 3213,
+   "host": "scripts/agentware_lib/retrieval/evalcmd.py",
+   "floor_chars": 1380,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/evalsuites.py::validate_scoring_args",
+    "scripts/agentware_lib/retrieval/evalsuites.py::print_gold_fixture_report",
+    "scripts/agentware_lib/retrieval/evalsuites.py::print_recorded_line"
+   ],
+   "rationale": "Task 99 wave 10: 13 branches -> 5, through the same three receivers as its longmemeval sibling. `validate_scoring_args` returns the RESOLVED `as_of` rather than a bare verdict, which is the point of the split: the default and the validation are ONE decision, and a caller that got back only 'valid' would re-derive the date -- which is how two arms of one command end up scoring at two different dates. `print_recorded_line` is named because it is now the SINGLE copy of a line four reports print; four copies drift. The report keeps the corpus FINGERPRINT that no other report prints, because the corpus ships frozen and a fingerprint that moved means the fixture moved, not that the operator's KB grew. Pinned by `tests/unit/retrieval/test_evalsuites.py`."
   },
   {
    "name": "_run_longmemeval_suite",
@@ -1353,8 +1370,16 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/evalcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 4114
+   "adjudication": "decomposed",
+   "winner_chars": 4114,
+   "host": "scripts/agentware_lib/retrieval/evalcmd.py",
+   "floor_chars": 1347,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/evalsuites.py::validate_lme_args",
+    "scripts/agentware_lib/retrieval/evalsuites.py::record_and_gate_suite",
+    "scripts/agentware_lib/retrieval/evalsuites.py::print_longmemeval_report"
+   ],
+   "rationale": "Task 99 wave 10: 18 branches -> 4. The body was three obligations stacked in one function -- validate, record and gate, report -- and the middle one was a HAND-COPY of the gold-fixture suite's, differing in exactly one character sequence (the suite name stamped on the gate). It is a parameter now, so the two suites cannot drift apart in what they record. `validate_lme_args` is named individually because its four refusals have an ORDER that is a contract -- dataset, then --top-k, then --as-of, then --limit -- and an invocation can be wrong in several ways at once, so which message it gets is what an operator debugs against. What did NOT move is the except-chain: this suite catches (ValueError, OSError, JSONDecodeError) because it reads an OPERATOR-SUPPLIED dataset file, while the gold-fixture arm catches only ValueError. Lifting 'the guards' into one shared helper would collapse that, and the only input separating them is an OSError from the frozen scorer. Pinned by `tests/unit/retrieval/test_evalcmd.py`."
   },
   {
    "name": "_session_matched_features",
@@ -1533,8 +1558,16 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/metrics.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2692
+   "adjudication": "decomposed",
+   "winner_chars": 2692,
+   "host": "scripts/agentware_lib/ops/metrics/metricspricing.py",
+   "floor_chars": 1482,
+   "absorbs": [
+    "scripts/agentware_lib/ops/metrics/metricspricing.py::_price_row_models",
+    "scripts/agentware_lib/ops/metrics/metricspricing.py::_flag_cost_anomalies",
+    "scripts/agentware_lib/ops/metrics/metricspricing.py::_rollup_bucket"
+   ],
+   "rationale": "One body carried four obligations over two collections: price a row's models, fold three rollups that each wrote their own get-or-create, finalize them, and then walk the days looking for a cost spike. The anomaly walk is the clearest case -- it shares nothing with the pricing pass but the by_day dict, it runs AFTER the finalize pass on purpose (it compares the ROUNDED day costs the report shows), and that ordering was a comment in the middle of a 85-line body rather than a named boundary. The three identical finalize loops collapsed into one loop over the three rollups in the same change. 16 branches -> 7."
   },
   {
    "name": "attach_conformance_report",
@@ -1740,8 +1773,15 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/recallcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2660
+   "adjudication": "decomposed",
+   "winner_chars": 2660,
+   "host": "scripts/agentware_lib/retrieval/recallcmd.py",
+   "floor_chars": 2036,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/recallcmd.py::_budget_walk",
+    "scripts/agentware_lib/retrieval/recallcmd.py::_team_scope_block"
+   ],
+   "rationale": "Task 99 wave 9: 14 branches -> 5. `_budget_walk` carries INV-5, the single most losable property in the module: an entry that does not fit is SKIPPED and the walk continues, so a smaller lower-ranked entry still lands. A `break` reads identically and passes every test whose oversized entry happens to rank last, which is why the fixtures put one in the middle. It also owns the pointers-only overflow contract and the additive-only provenance keys -- both shapes the loop parses. `_team_scope_block` is the ONE definition of 'org mode is in play here'; written inline it was a five-operand disjunction, and a caller testing four of the five would publish the scope block for some invocations and not others. Byte-identical across the wave's twelve payload-boundary rows."
   },
   {
    "name": "build_session_index",
@@ -1782,8 +1822,15 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/vectorcache.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2165
+   "adjudication": "decomposed",
+   "winner_chars": 2165,
+   "host": "scripts/agentware_lib/retrieval/vectorcache.py",
+   "floor_chars": 1911,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/vectorcache.py::_plan_vector_reuse",
+    "scripts/agentware_lib/retrieval/vectorcache.py::_assemble_vectors"
+   ],
+   "rationale": "Task 99 wave 9: 14 branches -> 5. Three sequential phases with one artifact each -- PLAN what to reuse, EMBED what is left, ASSEMBLE the file -- and only the middle one stayed inline, because it is the only phase that can fail on somebody ELSE's contract and the count check belongs next to the call that asked. `_plan_vector_reuse` holds the reuse rule (id AND content fingerprint AND stored shape) and its distrust of the cache file, which is JSON on disk that anything may have rewritten: a malformed row must re-embed rather than raise. `_assemble_vectors` holds the one-dimension-per-cache invariant and the error that NAMES the drifting entry -- a cache mixing two widths scores half the corpus meaninglessly, and silently. Pinned by `tests/unit/retrieval/test_vectorcache.py`, whose stand-in backend breaks its contract in both directions because no real one can be relied on to."
   },
   {
    "name": "build_work_corpus",
@@ -1824,12 +1871,15 @@
    "adjudication": "decomposed",
    "winner_chars": 2754,
    "host": "scripts/agentware_lib/ops/audit.py",
-   "floor_chars": 2176,
+   "floor_chars": 1077,
    "absorbs": [
     "scripts/agentware_lib/ops/audit.py::_audit_stale_section",
-    "scripts/agentware_lib/ops/audit.py::_print_stale_section"
+    "scripts/agentware_lib/ops/audit.py::_print_stale_section",
+    "scripts/agentware_lib/ops/audit.py::_audit_index_checks",
+    "scripts/agentware_lib/ops/audit.py::_audit_json_payload",
+    "scripts/agentware_lib/ops/audit.py::_audit_print_text"
    ],
-   "rationale": "The staleness half of the audit -- deciding whether to run the stale scan and how to render it -- became a computing half (`_audit_stale_section`) and a rendering half (`_print_stale_section`), leaving the parent as the checks list plus dispatch. The checks list is a flat literal, so a dropped line there is an absent check and not an error; that is exactly what happened to the package-version check and why it is restored in the same commit as this row."
+   "rationale": "The staleness half of the audit -- deciding whether to run the stale scan and how to render it -- became a computing half (`_audit_stale_section`) and a rendering half (`_print_stale_section`) at task 56. Wave 17 finished the same split: the flat check LITERAL moved to `_audit_index_checks` and the two renderers to `_audit_json_payload` / `_audit_print_text`, leaving the parent as load-outcome dispatch. The checks list is a flat literal, so a dropped line there is an absent check and not an error -- that is exactly what happened to the package-version check once, and it is why the literal is a named receiver with its own owning unit test asserting the thirteen names in report order, rather than a loop over a table. 13 branches -> 6."
   },
   {
    "name": "cmd_bench",
@@ -1870,8 +1920,17 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/bench.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 4055
+   "adjudication": "decomposed",
+   "winner_chars": 4055,
+   "host": "scripts/agentware_lib/retrieval/bench/benchswe.py",
+   "floor_chars": 1410,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/bench/benchswe.py::_print_swe_dry_run",
+    "scripts/agentware_lib/retrieval/bench/benchswe.py::_run_swe_arm",
+    "scripts/agentware_lib/retrieval/bench/benchswe.py::_run_swe_task",
+    "scripts/agentware_lib/retrieval/bench/benchswe.py::_print_swe_report"
+   ],
+   "rationale": "Task 99 wave 10: 20 branches / 119 lines -> 8 / 51. The live arm was a TRIPLE-NESTED loop, and its nesting order is the measurement design rather than an accident: the pass RATE is per SEED (one number per full sweep of the suite) while turns and tokens are averaged over every individual RUN. Collapsing the two levels produces a number that looks like a pass rate and is not one, which is what `swe_aggregate_seeds` then reports a spread over -- so `_run_swe_arm` and `_run_swe_task` are named separately, at exactly that boundary. `_run_swe_task` also holds the two degradations the benchmark depends on: an agent that TIMES OUT and one whose binary is missing both score zero turns and are then GRADED ANYWAY, because an abstain task passes by leaving the repo alone and swallowing the run would drop it from the denominator. `_print_swe_report` prints its delta on `is not None`, so a delta of exactly 0.0 -- the most interesting NEGATIVE result this benchmark produces -- is not dropped as falsy. Pinned by `tests/unit/retrieval/test_benchswe.py`, which injects the spawn at the module's own `subprocess` name rather than patching the real module (that would also redirect `ledger.git_info()`, three statements later and OUTSIDE the try)."
   },
   {
    "name": "cmd_config",
@@ -1949,8 +2008,21 @@
    "donor_sites": [
     "scripts/agentware_lib/features/curationcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2792
+   "adjudication": "decomposed",
+   "winner_chars": 2792,
+   "host": "scripts/agentware_lib/features/curationcmd.py",
+   "floor_chars": 2307,
+   "absorbs": [
+    "scripts/agentware_lib/features/curationcmd.py::_curation_topic",
+    "scripts/agentware_lib/features/curationcmd.py::_near_duplicate_refusal",
+    "scripts/agentware_lib/features/curationcmd.py::_entry_probe_text",
+    "scripts/agentware_lib/features/curationwrite.py::_refuse_existing_entry",
+    "scripts/agentware_lib/features/curationwrite.py::_finish_curation_write",
+    "scripts/agentware_lib/features/curationwrite.py::_emit_curation_entry",
+    "scripts/agentware_lib/features/curationcmd.py::_curation_title",
+    "scripts/agentware_lib/features/curationcmd.py::_decide_author"
+   ],
+   "rationale": "Task 99 wave 13: 17 branches -> 9. This row is new because until this wave `cmd_decide` still carried the write chain INLINE -- its own copy of the three-way collision refusal, the `_do_add`-plus-unlink rollback and the emit -- so the donor's longer body was paid for by a body that duplicated `cmd_learn`. The duplication is what the two ceiling rows diagnosed and what `features/curationwrite` removes: the three named write-chain receivers are the SAME objects both verbs now call, and the only difference between the two calls is a noun ('learning' / 'decision'), a json key and a label, all passed as arguments. `_decide_author` is named separately rather than folded into `learn`'s `_learn_provenance` on purpose -- see that row. What did NOT move: the lock span (decide takes the index lock BEFORE it validates its topic, and emits inside it) and the auto-`decision` tag rule, both pinned by `tests/unit/features/test_curationcmd_handlers.py` with tripwire fixtures rather than by return codes, and both byte-identical across the 64-row two-boundary capture the wave diffed."
   },
   {
    "name": "cmd_dream",
@@ -1979,8 +2051,17 @@
    "donor_sites": [
     "scripts/agentware_lib/retrieval/evalcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 4488
+   "adjudication": "decomposed",
+   "winner_chars": 4488,
+   "host": "scripts/agentware_lib/retrieval/evalcmd.py",
+   "floor_chars": 1121,
+   "absorbs": [
+    "scripts/agentware_lib/retrieval/evalcmd.py::_run_ablate_suite",
+    "scripts/agentware_lib/retrieval/evalcmd.py::_run_default_suite",
+    "scripts/agentware_lib/retrieval/evalsuites.py::print_ablate_report",
+    "scripts/agentware_lib/retrieval/evalsuites.py::print_default_report"
+   ],
+   "rationale": "Task 99 wave 10: 21 branches / 120 lines -> 10 / 35. The handler was a DISPATCHER with two of its four arms inlined -- its own docstring already named the other two as sub-runners -- so the two that were written out are now named beside them. Each receiver is a step an operator can lose: drop `_run_default_suite` and the plain `eval` arm takes the ablate path; drop `print_ablate_report` and the lift table stops printing while every metric still records. Two properties in the receivers exist nowhere else: the ablate arm REFUSES two identical strategies before scoring anything (a delta of exactly zero for every metric reads as a measurement rather than a mistake), and the default arm's `_gate_exit(gate, ab)` takes TWO verdicts, so a run that passes the regression gate and fails the clean-HEAD A/B still exits non-zero -- dropping `ab` there changes no report at all. Both are pinned by `tests/unit/retrieval/test_evalcmd_owngold.py`."
   },
   {
    "name": "cmd_fanout_merge_policy",
@@ -2007,8 +2088,18 @@
    "donor_sites": [
     "scripts/agentware_lib/features/fanoutmq.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 5075
+   "adjudication": "decomposed",
+   "winner_chars": 5075,
+   "host": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py",
+   "floor_chars": 2266,
+   "absorbs": [
+    "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_queue_opts",
+    "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_dry_run_report",
+    "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_prepare_integration",
+    "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_run_gates",
+    "scripts/agentware_lib/features/fanoutmq/mqintegrate.py::_mq_process_lane"
+   ],
+   "rationale": "Task 99 wave 7 paid down the widest body left in the tree after wave 6: 31 branches / 149 lines, over BOTH ceiling caps, now 10/60. The handler is a QUEUE wrapped around a PIPELINE, and the pipeline's step order (skip -> package -> KB -> gates -> gate-artifact commit -> mark merged) was encoded in nothing but statement adjacency. The five receivers are named individually because each is a step an operator can lose: drop `_mq_run_gates` and lanes integrate ungated; drop `_mq_prepare_integration` and the KB side of the integration branch is never created, silently degrading every lane to package-only. Note what did NOT get its own receiver: the per-lane pipeline stayed ONE function (`_mq_process_lane`) rather than five named arms, because splitting it is exactly what would move the step order out of the code and into a caller where nothing states it -- five arms each read correct in isolation while a transposition between two of them is invisible. Nothing was dropped, and that is PROVEN rather than asserted: `evidence/task99/fanoutmq_boundary.py` captures 112 rows across the CLI and function boundaries -- including the lane registry bytes, both repos' porcelain, the integration monolith and the integration KB's id set after every row -- and the before/after diff is EMPTY at 158,779 bytes. The order itself is pinned by `tests/unit/features/test_mqintegrate_lane.py`, whose rows are built on lanes rigged to fail TWO steps at once so the assertion names which one won, and the non-vacuity sweep transposes each pair for real (86 mutations, 86 RED)."
   },
   {
    "name": "cmd_fanout_spin_up",
@@ -2021,8 +2112,15 @@
    "donor_sites": [
     "scripts/agentware_lib/features/fanout.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2561
+   "adjudication": "decomposed",
+   "winner_chars": 2561,
+   "host": "scripts/agentware_lib/features/fanout.py",
+   "floor_chars": 2014,
+   "absorbs": [
+    "scripts/agentware_lib/features/fanout.py::_spin_up_preflight",
+    "scripts/agentware_lib/features/fanout.py::_print_spin_up_lanes"
+   ],
+   "rationale": "Task 99 wave 7: 13 branches -> 6. The two receivers are the two halves that are not per-lane: a WHOLE-COMMAND preflight (both repos resolved, both base refs defaulted through each other, both work trees proven) and the text renderer. The preflight is factored out rather than inlined per lane because every failure it can find is fatal for EVERY feature named on the command line -- reporting it per-lane would repeat one message N times and still provision nothing. Losing `_spin_up_preflight` would drop the work-tree guard and let spin-up attempt `worktree add` against a plain directory; losing `_print_spin_up_lanes` would drop the error-row skip that keeps a failed lane from being printed twice. Both are pinned by `tests/unit/features/test_fanout.py` and the boundary capture's 15 spin-up rows."
   },
   {
    "name": "cmd_fanout_teardown",
@@ -2035,8 +2133,15 @@
    "donor_sites": [
     "scripts/agentware_lib/features/fanoutmq.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 3145
+   "adjudication": "decomposed",
+   "winner_chars": 3145,
+   "host": "scripts/agentware_lib/features/fanoutmq/mqteardown.py",
+   "floor_chars": 1662,
+   "absorbs": [
+    "scripts/agentware_lib/features/fanoutmq/mqteardown.py::_teardown_one_lane",
+    "scripts/agentware_lib/features/fanoutmq/mqteardown.py::_teardown_report"
+   ],
+   "rationale": "Task 99 wave 7: 16 branches -> 5. This is the only place in the package that runs `branch -D`, so its shrink is the one that would matter most if a step had been dropped rather than moved. `_teardown_one_lane` holds the ENTIRE R-GIT-02 safety order -- the blocker is consulted before anything is removed, --dry-run answers before that, worktrees go before their branches (a branch checked out by a live worktree cannot be deleted), and the registry entry is dropped LAST so a failure anywhere above leaves the lane re-runnable. It writes its own stderr because for a refusal the MESSAGE is the contract: teardown never prompts, so the reason plus the --force escape is the operator's only handoff. `_teardown_report` keeps the text/json asymmetry (text drops the rows stderr already carried; json keeps every one). Both are pinned by `tests/unit/features/test_mqteardown.py`, including rows that transpose the safety order -- where a transposition is not cosmetic, it deletes an operator's uncommitted work -- and the boundary capture is byte-identical."
   },
   {
    "name": "cmd_features",
@@ -2063,8 +2168,15 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/releasegate.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1689
+   "adjudication": "decomposed",
+   "winner_chars": 1689,
+   "host": "scripts/agentware_lib/ops/releasegate.py",
+   "floor_chars": 1360,
+   "absorbs": [
+    "scripts/agentware_lib/ops/releasegate.py::_emit_skip",
+    "scripts/agentware_lib/ops/releasegate.py::_print_gate_report"
+   ],
+   "rationale": "The two graceful no-ops -- the kill-switch and the absent workspace -- carried BYTE-IDENTICAL emitters, differing only in their reason string. That is not merely duplication: a divergence between the two would be a silent change in what a SKIP means on one of the two paths, and a skip is reported as `passed: true` on purpose (the gate makes no claim about a tree it did not measure). One `_emit_skip` now owns that contract for both, and the completed-run report moved to `_print_gate_report`, leaving the parent as the tier assembly. 13 branches -> 7."
   },
   {
    "name": "cmd_index_add",
@@ -2133,8 +2245,17 @@
    "donor_sites": [
     "scripts/agentware_lib/features/indexcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2283
+   "adjudication": "decomposed",
+   "winner_chars": 2283,
+   "host": "scripts/agentware_lib/features/indexcmd.py",
+   "floor_chars": 566,
+   "absorbs": [
+    "scripts/agentware_lib/features/indexcmd.py::_sync_dry_report",
+    "scripts/agentware_lib/features/indexcmd.py::_sync_prompt_row",
+    "scripts/agentware_lib/features/indexcmd.py::_sync_apply",
+    "scripts/agentware_lib/features/indexcmd.py::_sync_fix_report"
+   ],
+   "rationale": "Two disjoint modes shared one body and each re-implemented its own renderer, with the interactive prompts inlined in the middle of the --fix loop. The split follows the obligation rather than the flag: `_sync_apply` MUTATES the in-memory index and nothing else, which is what lets the handler keep the rule that matters -- persist ONLY when something was added, so a run where every add failed leaves index.json untouched. `_sync_prompt_row` isolates the one place that can block on stdin (R-SHELL-01). 18 branches -> 4, and the lock, the load guard and the persist decision stay in the parent where the B2 lost-update comment is."
   },
   {
    "name": "cmd_index_validate",
@@ -2161,8 +2282,17 @@
    "donor_sites": [
     "scripts/agentware_lib/knowledge/curation.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 3355
+   "adjudication": "decomposed",
+   "winner_chars": 3355,
+   "host": "scripts/agentware_lib/knowledge/curation/curationingest.py",
+   "floor_chars": 1784,
+   "absorbs": [
+    "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_dispatch_adapter",
+    "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_select",
+    "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_commit",
+    "scripts/agentware_lib/knowledge/curation/curationingest.py::_ingest_print_text"
+   ],
+   "rationale": "Task 99 wave 13: 20 branches / 106 lines -> 4 / 63. The four receivers are the four stages the body already was, and the seam that matters is `_ingest_commit`: the ported body's whole point is that the index lock spans load -> dedup -> register -> save and NOTHING else, while this tree's pre-port copy had widened it to cover adapter parsing of an arbitrary path, the staging write, the metric append and every line of output. Naming the critical section as its own receiver makes that boundary a function signature instead of a comment. `_ingest_dispatch_adapter` keeps the source set CLOSED -- an unknown `--source` is refused, never defaulted -- and that arm is unreachable from the CLI because argparse's `choices=` rejects it first, which is why the owning unit file drives it directly. `_ingest_select` keeps ABSENT and EMPTY distinct: no `--only` admits everything, `--only ' , '` admits nothing. The three dedup routes (id, content fingerprint, and an id already taken earlier in the same batch) each have a fixture only that route can explain in `tests/unit/knowledge/test_curationingest.py` -- the wave's non-vacuity sweep proved the obvious fixtures do NOT separate them, and two were rewritten because of it."
   },
   {
    "name": "cmd_init",
@@ -2175,8 +2305,19 @@
    "donor_sites": [
     "scripts/agentware_lib/features/setupcmd.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 3571
+   "adjudication": "decomposed",
+   "winner_chars": 3571,
+   "host": "scripts/agentware_lib/features/setupcmd.py",
+   "floor_chars": 1329,
+   "absorbs": [
+    "scripts/agentware_lib/features/setupcmd.py::_init_dirs",
+    "scripts/agentware_lib/features/setupcmd.py::_init_seed_index",
+    "scripts/agentware_lib/features/setupcmd.py::_init_rosters",
+    "scripts/agentware_lib/features/setupcmd.py::_init_templates",
+    "scripts/agentware_lib/features/setupcmd.py::_init_refuse_repoint",
+    "scripts/agentware_lib/features/setupcmd.py::_init_report"
+   ],
+   "rationale": "Five independently-idempotent scaffold steps, a refusal guard and a two-mode report were inlined in one body, so its length was the sum of six obligations and its branch count the sum of their guards. Each step is now its own function returning what the report renders -- which is what makes each one's idempotence testable ON ITS OWN rather than only through 'the dir works afterwards'. The ORDER is the parent's remaining job and is load-bearing: the guard runs AFTER the scaffold (so a refused repoint still leaves the requested dir structurally valid) and BEFORE the config write (which is the clobber it exists to prevent). 19 branches -> 1."
   },
   {
    "name": "cmd_kb_git_commit",
@@ -2210,8 +2351,14 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/kbsync.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1178
+   "adjudication": "decomposed",
+   "winner_chars": 1178,
+   "host": "scripts/agentware_lib/ops/kbsync.py",
+   "floor_chars": 824,
+   "absorbs": [
+    "scripts/agentware_lib/ops/kbsync.py::_resolve_sync_target"
+   ],
+   "rationale": "Task 99 wave 8: the second caller of the shared precondition chain, and the reason the chain is parameterized rather than copied. This verb takes the C-3 refusal and the C-4 degrade but NOT the upstream check, because a paused rebase must stay finishable on a repo whose remote has since gone away. That difference is one keyword argument here and one assertion in `tests/unit/ops/test_kbsync_handlers.py`; before the split it was two divergeable copies of the same four guards. This row carried no ceiling debt of its own -- it shrank as a side effect of paying down its sibling's -- and it is adjudicated anyway, because the differ cannot tell a shrunken body from a dropped capability."
   },
   {
    "name": "cmd_kb_git_pull",
@@ -2224,8 +2371,15 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/staging.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1848
+   "adjudication": "decomposed",
+   "winner_chars": 1848,
+   "host": "scripts/agentware_lib/ops/kbpull.py",
+   "floor_chars": 1276,
+   "absorbs": [
+    "scripts/agentware_lib/ops/kbpull.py::_pull_preconditions",
+    "scripts/agentware_lib/ops/kbgit.py::_first_line"
+   ],
+   "rationale": "Task 99 wave 8: 13 branches -> 5. `_pull_preconditions` holds the three guards a fast-forward requires and, more importantly, their ORDER: a repo with no upstream is reported as such even when it is ALSO dirty, because 'you have no remote to pull from' is the actionable fact and 'commit your work first' would send the operator to fix the wrong thing. Losing that receiver would drop the clean-tree precondition, and a fast-forward onto uncommitted writes is the one way this verb can destroy work. The second receiver is the shared first-line reduction, which this handler uses TWICE -- once for the failed-fetch notice and once for the success summary. Pinned by `tests/unit/ops/test_kbpull.py`, including the dirty-AND-no-upstream fixture that makes the order falsifiable."
   },
   {
    "name": "cmd_kb_git_push",
@@ -2238,8 +2392,14 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/kbsync.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1931
+   "adjudication": "decomposed",
+   "winner_chars": 1931,
+   "host": "scripts/agentware_lib/ops/kbsync.py",
+   "floor_chars": 1357,
+   "absorbs": [
+    "scripts/agentware_lib/ops/kbsync.py::_resolve_sync_target"
+   ],
+   "rationale": "Task 99 wave 8: 13 branches -> 7. The receiver is the four-step precondition chain this verb shares with `kb-git merge-continue`, which was written inline at BOTH call sites and is now enforced once. It is named as a receiver rather than folded silently because it holds two guards whose loss is not visible in ordinary use: C-3, which REFUSES to push the agentware package repo, and C-4, which degrades a non-repo target to a local-only skip instead of blocking work. Their ORDER is load-bearing too -- the refusal precedes the upstream check, so a package repo with no upstream refuses loudly rather than skipping quietly -- and it is pinned on a fixture where both would fire, in `tests/unit/ops/test_kbsync_handlers.py`."
   },
   {
    "name": "cmd_kb_git_status",
@@ -2269,13 +2429,19 @@
    "adjudication": "decomposed",
    "winner_chars": 3607,
    "host": "scripts/agentware_lib/features/curationcmd.py",
-   "floor_chars": 2959,
+   "floor_chars": 1817,
    "absorbs": [
     "scripts/agentware_lib/features/curationcmd.py::_curation_topic",
     "scripts/agentware_lib/features/curationcmd.py::_near_duplicate_refusal",
-    "scripts/agentware_lib/features/curationcmd.py::_entry_probe_text"
+    "scripts/agentware_lib/features/curationcmd.py::_entry_probe_text",
+    "scripts/agentware_lib/features/curationwrite.py::_refuse_existing_entry",
+    "scripts/agentware_lib/features/curationwrite.py::_finish_curation_write",
+    "scripts/agentware_lib/features/curationwrite.py::_emit_curation_entry",
+    "scripts/agentware_lib/features/curationcmd.py::_curation_title",
+    "scripts/agentware_lib/features/curationcmd.py::_learn_body",
+    "scripts/agentware_lib/features/curationcmd.py::_learn_provenance"
    ],
-   "rationale": "Task 91 hardened `decide`'s `--topic`, which took the string VERBATIM as both the decisions/ filename stem and the entry id while `learn` had normalized since 260710-learning-repair-p1. The fix is a SHARE, not a second implementation: a grammar the sibling verb skips is indistinguishable from no grammar for whoever calls the sibling, and two copies would drift on the next edit. So `cmd_learn`'s three input blocks left it for the three named receivers -- the slug normalization and its notice, the near-duplicate policy (force short-circuit, threshold, refusal sentence), and the probe-text assembly -- and `cmd_decide` now calls the same three. Every statement that left the handler is in one of them; nothing was dropped, which is why the learn half of the behaviour is pinned by `tests/unit/features/test_learn_hardening.py` passing UNCHANGED across the move (same notice text, same refusal wording, same --force semantics), while the new `tests/unit/features/test_decide_hardening.py` pins the half that did not exist -- six of its eleven cases were reproduced RED against the pre-task module. The receivers are shared rather than learn-private on purpose: that sharing IS the capability the task landed, and the parity row `kb:one-topic-grammar-for-both-curation-verbs` carries the mutation (make `cmd_decide` take `args.topic` verbatim again) that reddens the decide half while the learn half stays green -- the asymmetry itself, made executable."
+   "rationale": "TASK 91 (carried forward verbatim, because a moved row that loses why it exists is a deleted row with extra steps): task 91 hardened `decide`'s `--topic`, which took the string VERBATIM as both the decisions/ filename stem and the entry id while `learn` had normalized since 260710-learning-repair-p1. The fix is a SHARE, not a second implementation: a grammar the sibling verb skips is indistinguishable from no grammar for whoever calls the sibling, and two copies would drift on the next edit. So `cmd_learn`'s three input blocks left it for the first three named receivers, and `cmd_decide` calls the same three. The parity row `kb:one-topic-grammar-for-both-curation-verbs` carries the mutation (make `cmd_decide` take `args.topic` verbatim again) that reddens the decide half while the learn half stays green -- the asymmetry itself, made executable. TASK 99 WAVE 13: 21 branches -> 9, through six more receivers. Three are the write chain `cmd_decide` had a SECOND COPY of, now shared in `features/curationwrite`; three are `learn`-only input coercions. `_learn_provenance` is deliberately NOT shared with `decide`: `learn` REFUSES a malformed `--author` and `decide` falls back to the resolved handle, and that asymmetry is load-bearing for the loop, which promotes `> DECISION:` markers unattended and must not lose a recorded decision to a bad handle. The emit stays OUTSIDE the lock here and INSIDE it in `cmd_decide` -- pre-existing on both sides of the merge, preserved because moving it changes how long a global lock is held. Pinned by `tests/unit/features/test_curationcmd.py` (the four shared input contracts) and `test_curationcmd_handlers.py` (the two lock spans, as ordered event logs), with `test_learn_hardening.py` passing UNCHANGED across the move."
   },
   {
    "name": "cmd_mcp",
@@ -2421,8 +2587,17 @@
    "donor_sites": [
     "scripts/agentware_lib/knowledge/graph.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2074
+   "adjudication": "decomposed",
+   "winner_chars": 2074,
+   "host": "scripts/agentware_lib/knowledge/graph.py",
+   "floor_chars": 573,
+   "absorbs": [
+    "scripts/agentware_lib/knowledge/graph.py::_lookup_maps",
+    "scripts/agentware_lib/knowledge/graph.py::_direct_results",
+    "scripts/agentware_lib/knowledge/graph.py::_graph_adjacency",
+    "scripts/agentware_lib/knowledge/graph.py::_traverse_results"
+   ],
+   "rationale": "The `query` handler fused four O(1) lookups with three graph traversals in one if/elif chain, and the three traversals were near-verbatim copies of each other -- build the adjacency, walk it, map ids back to entries -- differing only in WHICH direction they walk. That is three places for the union merge and the sorted-dedup to drift apart, and it is why `_graph_adjacency` takes the direction as an argument instead of being written out three times. The split makes ONE previously-implicit contract explicit and testable: `_direct_results` returns None only when no direct mode was SELECTED, and `[]` when a selected mode matched nothing, so `query --id nope` can never fall through to a traversal and answer a different question. 29 branches -> 5."
   },
   {
    "name": "cmd_recall",
@@ -2438,12 +2613,16 @@
    "adjudication": "decomposed",
    "winner_chars": 5322,
    "host": "scripts/agentware_lib/retrieval/recallcmd.py",
-   "floor_chars": 4478,
+   "floor_chars": 2358,
    "absorbs": [
     "scripts/agentware_lib/retrieval/recallcmd.py::_print_recall_text",
-    "scripts/agentware_lib/retrieval/recallcmd.py::_print_recall_overflow"
+    "scripts/agentware_lib/retrieval/recallcmd.py::_print_recall_overflow",
+    "scripts/agentware_lib/retrieval/recallcmd.py::_work_scope_ranked",
+    "scripts/agentware_lib/retrieval/recallcmd.py::_work_scope_budget_walk",
+    "scripts/agentware_lib/retrieval/recallcmd.py::_work_scope_payload",
+    "scripts/agentware_lib/retrieval/recallcmd.py::_run_work_scope_recall"
    ],
-   "rationale": "The monolith's text renderer -- live-anchored absolute path, age line, trust line, and the one-per-invocation R-FAIL-08 staleness footer -- was missing from the lib entirely and had to be restored. Restoring it inline put the parent at 32 branches / 145 lines against a 12/120 cap, so the renderer and its overflow half became named receivers and the parent went to 19/114."
+   "rationale": "Task 99 wave 9 re-adjudicates the task-54 row: 19 branches -> 10. The four new receivers are the `--scope work` arm, which was a SECOND COMMAND inlined into this one -- ten of the nineteen branches, sharing only the argument validation with the curated path and none of its ranking, its payload shape or its renderer. `_work_scope_ranked` holds the plan-status multiplier and the last-key-first stable-sort order that implements score desc / created desc / id asc; lose it and a superseded plan competes with the plan that replaced it on equal terms forever. `_work_scope_budget_walk` is the work arm's own INV-5 walk over a different record shape (heading as summary, literal category 'work'). `_work_scope_payload` keeps the empty-corpus answer a well-formed payload rather than an error. The two original print receivers are unchanged and still named. Proven byte-identical across 34 CLI rows including every validation refusal, both formats and four work-scope budgets."
   },
   {
    "name": "cmd_skill_add",
@@ -2459,12 +2638,15 @@
    "adjudication": "decomposed",
    "winner_chars": 4625,
    "host": "scripts/agentware_lib/features/skills.py",
-   "floor_chars": 3533,
+   "floor_chars": 1387,
    "absorbs": [
+    "scripts/agentware_lib/features/skills.py::_resolve_add_source",
     "scripts/agentware_lib/features/skills.py::_vet_or_refuse",
+    "scripts/agentware_lib/features/skills.py::_skill_add_kb",
+    "scripts/agentware_lib/features/skillmanifest.py::_emit_skill_add",
     "scripts/agentware_lib/knowledge/skillentry.py::skill_register_entry"
    ],
-   "rationale": "The vetter call was NOT a decomposition when this port started -- it was a downgrade: the modular copy called `vet_skill_dir` (the danger-marker scan) directly instead of the BLOCK-dominant `_skill_verdict`, so a skill tree containing a SYMLINK installed cleanly and the install-name validation and REVIEW tier were bypassed entirely. The tiered verdict is restored and now lives in `_vet_or_refuse`, one named boundary every cache-write path can share. The index registration is a true decomposition into `skill_register_entry`, which keeps the lock."
+   "rationale": "Task 99 wave 11: 19 branches / 105 lines -> 8 / 46. Task 54's finding is CARRIED FORWARD and still holds: the vetter call was not a decomposition when the port started, it was a downgrade -- the modular copy called `vet_skill_dir` (the danger-marker scan) directly instead of the BLOCK-dominant `_skill_verdict`, so a skill tree containing a SYMLINK installed cleanly and the install-name validation and REVIEW tier were bypassed entirely. `_vet_or_refuse` is where that tiered verdict lives, and it stays a named receiver for that reason. This wave adds three more, each a step an operator can lose: drop `_resolve_add_source` and the remote-URL refusal goes with it, turning `skill add --source https://...` from a refusal into a path that never resolves; drop `_skill_add_kb` and the DEFAULT destination stops registering an index entry while still copying the tree, so the skill installs and is unfindable. `_emit_skill_add` is named because it is now the SINGLE renderer for BOTH destinations, and the two documents are deliberately NOT the same: a harness-path install carries `indexed: false` and no `id`/`path`, the KB install carries both, in a fixed key ORDER. The payload is therefore built by the CALLER and passed in -- re-deriving it inside the renderer is exactly how the two documents would silently converge. What did NOT move is the ORDER of the two external-source gates: the vet runs BEFORE the `--allow-external` confirmation, so a dangerous source is BLOCKED outright rather than offered a flag that would install it. The only input separating the two orderings is a source that is both dangerous and unconfirmed, and it is driven at the boundary and pinned by `tests/unit/features/test_skills.py`."
   },
   {
    "name": "cmd_skill_propose",
@@ -2517,8 +2699,16 @@
    "donor_sites": [
     "scripts/agentware_lib/features/skills.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2813
+   "adjudication": "decomposed",
+   "winner_chars": 2813,
+   "host": "scripts/agentware_lib/features/skills.py",
+   "floor_chars": 840,
+   "absorbs": [
+    "scripts/agentware_lib/features/skills.py::_skill_dir_errors",
+    "scripts/agentware_lib/features/skills.py::_catalog_validate_results",
+    "scripts/agentware_lib/features/skillmanifest.py::_emit_validate"
+   ],
+   "rationale": "Task 99 wave 11: 29 branches / 79 lines -> 10 / 25, the second-widest body in the wave. The row was a plain `longer-body` -- never adjudicated -- and this tree satisfied the donor's 2813-char floor by holding a body that RE-IMPLEMENTED `_validate_skill_dir` inline, eighteen lines of it, beside the helper it duplicated. Deleting a duplicate reads to a LENGTH proxy as a loss, which is why the row moves to `decomposed`: the receivers below are what the duplicate became, and together they still clear the winner. The two arms are NOT one call, and `_skill_dir_errors` is parameterised rather than unified because of it: the `--source` arm spells its two file-level refusals with the ABSOLUTE resolved path while the catalog arm spells them with the RELATIVE `source` the catalog declared, and the catalog arm carries a catalog-name mismatch that sits BETWEEN the folder mismatch and the description check. A refactor that simply called `_validate_skill_dir` from the catalog loop -- which is what the ceiling row's own seam text proposed -- would have changed both, silently. The input that makes it observable is a catalog entry wrong in all three places at once, and it is driven at the boundary and pinned by `tests/unit/features/test_skills.py`."
   },
   {
    "name": "cmd_update",
@@ -2534,11 +2724,17 @@
    "adjudication": "decomposed",
    "winner_chars": 6642,
    "host": "scripts/agentware_lib/features/updatecmd.py",
-   "floor_chars": 6229,
+   "floor_chars": 2501,
    "absorbs": [
-    "scripts/agentware_lib/features/updatecmd.py::_update_self_heal"
+    "scripts/agentware_lib/features/updatecmd.py::_update_self_heal",
+    "scripts/agentware_lib/features/updatecmd.py::_update_status_line",
+    "scripts/agentware_lib/features/updatecmd.py::_update_upstream_info",
+    "scripts/agentware_lib/features/updatecmd.py::_upstream_catalog_diff",
+    "scripts/agentware_lib/features/updatecmd.py::_catalog_diff_lines",
+    "scripts/agentware_lib/features/updatecmd.py::_update_check_report",
+    "scripts/agentware_lib/features/updatecmd.py::_update_apply_result"
    ],
-   "rationale": "Task 41 ported the signed-tag update channel. The handler arrived at 166 lines against a DECLARED debt of 163 (the ceiling fixture had already named this module by path), so it was decomposed rather than having its allowance widened: `--self-heal` became `_update_self_heal`, which is the one mode that MUTATES and the one whose exit code carries a non-obvious rule (a migrate-error must exit non-zero even though it sets no needs_manual_recovery flag). The other four flags are read-only reports and stay inline."
+   "rationale": "Task 41 ported the signed-tag update channel. The handler arrived at 166 lines against a DECLARED debt of 163 (the ceiling fixture had already named this module by path), so it was decomposed rather than having its allowance widened: `--self-heal` became `_update_self_heal`, the one mode that MUTATES and the one whose exit code carries a non-obvious rule (a migrate-error must exit non-zero even though it sets no needs_manual_recovery flag). The other four flags stayed inline, and that left the handler at 32 branches / 153 lines -- TWO ceiling rows, the widest body left in the lib at wave 15. Task 99 wave 15 finished the job the task-41 split started: each remaining mode became its own receiver, leaving the parent as the flag dispatch, the emit closure and the not-a-work-tree guard (32/153 -> 6/64). The floor falls 6229 -> 2501 with the parent, and the host-floor obligation is what stops the parent being hollowed out further behind seven bulky helpers."
   },
   {
    "name": "cmd_whereami",
@@ -2699,8 +2895,15 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/failureladder.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2242
+   "adjudication": "decomposed",
+   "winner_chars": 2242,
+   "host": "scripts/agentware_lib/ops/failureladder.py",
+   "floor_chars": 1742,
+   "absorbs": [
+    "scripts/agentware_lib/ops/failureladder.py::_err_tallies",
+    "scripts/agentware_lib/ops/failureladder.py::_ladder_tally"
+   ],
+   "rationale": "Four independent passes over one step list, each with its classifier already extracted and named, and each written inline beside the others so the body's length was the sum of four tallies rather than the length of any decision. The split is the module's own distinction and not a size cut: three of the four are functions of ONE step and one reads the step that FOLLOWED each error -- which is the only reason the parent sorts by the trace's global index at all. The five R-FAIL tiers stay where they already live. 15 branches -> 6."
   },
   {
    "name": "derive_iteration_costs",
@@ -3051,8 +3254,14 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/kbsync.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 2603
+   "adjudication": "decomposed",
+   "winner_chars": 2603,
+   "host": "scripts/agentware_lib/ops/kbsync.py",
+   "floor_chars": 2585,
+   "absorbs": [
+    "scripts/agentware_lib/ops/kbgit.py::_first_line"
+   ],
+   "rationale": "Task 99 wave 8: 13 branches -> 12, the smallest shrink of the wave (18 characters) and the one that says most about why this table exists. The body kept every one of its eleven fail-loud dispositions -- they ARE the disposition set, which is why the ceiling row's own seam said so -- and lost only the two lines of the `rebase --continue` failure idiom, which moved to the shared reduction. To the differ an 18-character shrink is indistinguishable from a dropped branch, so the receiver is named and the floor pins the eleven that stayed."
   },
   {
    "name": "kb_git_push_once",
@@ -3065,8 +3274,18 @@
    "donor_sites": [
     "scripts/agentware_lib/ops/kbsync.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 4015
+   "adjudication": "decomposed",
+   "winner_chars": 4015,
+   "host": "scripts/agentware_lib/ops/kbsync.py",
+   "floor_chars": 2793,
+   "absorbs": [
+    "scripts/agentware_lib/ops/kbsync.py::_push_attempt",
+    "scripts/agentware_lib/ops/kbsync.py::_push_after_clean_rebase",
+    "scripts/agentware_lib/ops/kbsync.py::_prose_conflict_disposition",
+    "scripts/agentware_lib/ops/kbsync.py::_resolve_derived_conflict",
+    "scripts/agentware_lib/ops/kbgit.py::_first_line"
+   ],
+   "rationale": "Task 99 wave 8 paid down the widest body left in the lib after wave 7: 22 branches, now 6. What remains in the parent is the ORDER and nothing else -- attempt, classify, rebase, classify the conflicts, dispatch -- and each receiver is named individually because each is a disposition an operator can lose. Drop `_push_attempt` and a push that failed for being OFFLINE stops being a graceful C-4 skip and starts rebasing the operator's tree; drop `_resolve_derived_conflict` and the nothing-lost gate (C-2) goes with it, so a lossy merge reaches the remote; drop `_prose_conflict_disposition` and the agent-free contract (C-1) loses its abort arm. Nothing was dropped, and that is PROVEN rather than asserted: `evidence/task99/kbsync_boundary.py` captures 112 rows across the CLI and function boundaries -- including each repo's porcelain, branch list, rebase-in-progress state, commit subjects and entry-id set after every row -- and the before/after diff is EMPTY at 32,704 bytes. The order is pinned by `tests/unit/ops/test_kbsync.py`, and the non-vacuity sweep transposes it for real (86 mutations, 86 RED)."
   },
   {
    "name": "kb_git_push_synced",
@@ -3207,12 +3426,14 @@
    "adjudication": "decomposed",
    "winner_chars": 2348,
    "host": "scripts/agentware_lib/retrieval/goldfixture.py",
-   "floor_chars": 2317,
+   "floor_chars": 1990,
    "absorbs": [
     "scripts/agentware_lib/retrieval/goldfixture.py::gold_fixture_path",
-    "scripts/agentware_lib/retrieval/goldfixture.py::evaluate_gold_fixture"
+    "scripts/agentware_lib/retrieval/goldfixture.py::evaluate_gold_fixture",
+    "scripts/agentware_lib/retrieval/goldfixture.py::_load_fixture_corpus",
+    "scripts/agentware_lib/retrieval/goldfixture.py::_load_fixture_gold"
    ],
-   "rationale": "Path resolution and evaluation split out from loading, so the gate can evaluate a fixture it did not load from the default path."
+   "rationale": "Path resolution and evaluation split out from loading, so the gate can evaluate a fixture it did not load from the default path. Task 99 wave 10 split the LOADER itself at its own seam and lowered the host floor to the measured remainder: the body was TWO sequential validation phases sharing exactly one value -- the set of ids the corpus declared, which the gold phase resolves `expected_ids` against -- so the split is where that value is produced. Both receivers are named individually because each raises a DISTINCT half of the refusal taxonomy (eight corpus messages, nine gold ones) and losing either would leave a malformed fixture reaching the scorer as a valid corpus. The split moves branches rather than removing any: every message is byte-identical, and the phase ORDER is a contract -- a document wrong in BOTH halves reports the CORPUS problem, because the gold half cannot be checked until the corpus has declared its ids. Proven a pure refactor at two boundaries by `evidence/task99/evalbench_boundary.py`, whose 24 gold-fixture rows drive the whole taxonomy and diff BYTE-IDENTICAL before and after."
   },
   {
    "name": "load_index",
@@ -3733,8 +3954,14 @@
    "donor_sites": [
     "scripts/agentware_lib/core/frontmatter.py"
    ],
-   "adjudication": "longer-body",
-   "winner_chars": 1051
+   "adjudication": "decomposed",
+   "winner_chars": 1051,
+   "host": "scripts/agentware_lib/core/frontmatter.py",
+   "floor_chars": 891,
+   "absorbs": [
+    "scripts/agentware_lib/core/frontmatter.py::_frontmatter_block"
+   ],
+   "rationale": "The parser opened with four lines of fence search that were written verbatim at eight other sites, two of them in this same module. Publishing the search as `_frontmatter_block` is what let two ceiling rows be paid down in other files (`_promote_frontmatter` 13 -> 6, `_stamp_work_artifact` 14 -> 7) without either of them growing a private copy of it, and it removes the class of bug the nine copies made possible: two readers of the same document disagreeing about whether it HAS a block. The helper is total and three-valued on purpose — None for no opening fence AND for a fence never closed, a real empty block when the fences touch — and the host keeps every field-parsing decision it ever had, which is what its own floor is there to hold. 12 branches -> 8."
   },
   {
    "name": "stale_entries",

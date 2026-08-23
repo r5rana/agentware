@@ -159,6 +159,82 @@ def _report_dry_run(args, kdir, slug, ref, author, exists, fmt):
     return 0
 
 
+def _propose_dedup_guard(kdir, slug, body, ref, fmt, exists):
+    """Refuse a NEAR-DUPLICATE slug -> 1, or None when there is nothing to refuse.
+
+    Owns the `not exists` TEST as well as the refusal, the way `_report_dry_run`
+    owns its own `--dry-run` test: an EXACT slug match is the create-or-increment
+    path, not a near-duplicate, so "already staged" is a reason to skip the guard
+    rather than a case for the caller to pre-compute. The caller therefore spends
+    one branch instead of three, which matters because `_propose_author` sits
+    against a declared ceiling row and the ratchet forbids widening a row to
+    cover a change of mine.
+
+    The refusal names the EXISTING slug and the exact re-run command, because the
+    whole point is to force reuse: a near-identical procedure filed under a new
+    slug fragments the frequency signal across two proposals, and neither ever
+    reaches the promotion threshold.
+    """
+    if exists:
+        return None
+    dup = near_duplicate_proposal(kdir, slug, body)
+    if dup is None:
+        return None
+    sys.stderr.write(
+        "agentware: '%s' looks like a near-duplicate of an existing "
+        "proposal — did you mean '%s'? Re-run `skill propose --slug %s "
+        "--ref %s` to increment it (reuse keeps the frequency signal on "
+        "one proposal).\n" % (slug, dup, dup, ref))
+    if fmt == "json":
+        json.dump({"ok": False, "slug": slug, "reason": "near-duplicate",
+                   "did_you_mean": dup}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    return 1
+
+
+def _propose_ledger_event(args, ref, author, created):
+    """The ledger event dict: the three always-present fields plus two optionals.
+
+    The optionals are OMITTED when unset rather than emitted empty, because the
+    ledger is append-only and every reader of it — `proposal_count`, the
+    integrity guard, a human reading the audit trail — treats a present key as a
+    claim. `sort_keys` at the write site keeps a line byte-stable regardless of
+    which optionals a given occurrence carried.
+    """
+    event = {"ref": ref, "author": author, "date": created}
+    run = getattr(args, "run", None)
+    if run:
+        event["run"] = run
+    wl = getattr(args, "worklog_line", None)
+    if wl:
+        event["worklog_line"] = wl
+    return event
+
+
+def _propose_emit(slug, ref, exists, count, threshold, fmt):
+    """The two success renderers, and the ONE place `ripe` is decided.
+
+    `ripe` is DERIVED here (count >= threshold) rather than passed in, so the
+    json document's flag and the text renderer's `[RIPE]` suffix cannot disagree
+    about the same proposal — they are two spellings of one comparison.
+    """
+    ripe = count >= threshold
+    if fmt == "json":
+        json.dump({"ok": True, "slug": slug, "created": not exists,
+                   "incremented": exists, "ref": ref,
+                   "proposal_count": count, "threshold": threshold,
+                   "ripe": ripe,
+                   "path": "%s/%s/SKILL.md" % (index.SKILLS_PROPOSED_DIR, slug)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print("%s proposal '%s' (ref=%s) — proposal_count=%d/%d%s"
+              % ("CREATED" if not exists else "INCREMENTED", slug, ref,
+                 count, threshold, "  [RIPE]" if ripe else ""))
+    return 0
+
+
 def cmd_skill_propose(args):
     """Create-or-increment an agent-PROPOSED skill under `skills-proposed/<slug>`.
 
@@ -231,20 +307,9 @@ def _propose_author(args, slug, ref, fmt):
     # Dedup guard ONLY on a genuinely NEW slug (an exact match is increment, not
     # a near-duplicate). Forces reuse so a near-identical procedure accumulates on
     # the existing proposal instead of fragmenting the frequency signal.
-    if not exists:
-        dup = near_duplicate_proposal(kdir, slug, body)
-        if dup is not None:
-            sys.stderr.write(
-                "agentware: '%s' looks like a near-duplicate of an existing "
-                "proposal — did you mean '%s'? Re-run `skill propose --slug %s "
-                "--ref %s` to increment it (reuse keeps the frequency signal on "
-                "one proposal).\n" % (slug, dup, dup, ref))
-            if fmt == "json":
-                json.dump({"ok": False, "slug": slug, "reason": "near-duplicate",
-                           "did_you_mean": dup}, sys.stdout,
-                          ensure_ascii=False, indent=2)
-                sys.stdout.write("\n")
-            return 1
+    refused = _propose_dedup_guard(kdir, slug, body, ref, fmt, exists)
+    if refused is not None:
+        return refused
 
     author = routing.resolve_user_handle() or frontmatter._operator_handle(kdir)
     created = dates._today()
@@ -268,13 +333,7 @@ def _propose_author(args, slug, ref, fmt):
 
     # Append the ledger event (append-only; one line per occurrence). The count
     # is DERIVED from unique refs — the stored events are the audit trail.
-    event = {"ref": ref, "author": author, "date": created}
-    run = getattr(args, "run", None)
-    if run:
-        event["run"] = run
-    wl = getattr(args, "worklog_line", None)
-    if wl:
-        event["worklog_line"] = wl
+    event = _propose_ledger_event(args, ref, author, created)
     with open(_kp.proposal_ledger_path(kdir, slug), "a", encoding="utf-8") as f:
         f.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
 
@@ -285,22 +344,9 @@ def _propose_author(args, slug, ref, fmt):
             sys.stderr.write("agentware: rebuild: %s\n" % e)
         return 1
 
-    count = _kp.proposal_count(kdir, slug)
-    threshold = config.resolve_skill_propose_threshold()
-    ripe = count >= threshold
-    if fmt == "json":
-        json.dump({"ok": True, "slug": slug, "created": not exists,
-                   "incremented": exists, "ref": ref,
-                   "proposal_count": count, "threshold": threshold,
-                   "ripe": ripe,
-                   "path": "%s/%s/SKILL.md" % (index.SKILLS_PROPOSED_DIR, slug)},
-                  sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        print("%s proposal '%s' (ref=%s) — proposal_count=%d/%d%s"
-              % ("CREATED" if not exists else "INCREMENTED", slug, ref,
-                 count, threshold, "  [RIPE]" if ripe else ""))
-    return 0
+    return _propose_emit(slug, ref, exists,
+                         _kp.proposal_count(kdir, slug),
+                         config.resolve_skill_propose_threshold(), fmt)
 
 
 

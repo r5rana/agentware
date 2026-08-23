@@ -273,8 +273,8 @@ MUTATION_PROBES = {
     "kb:init-clobber-guard-union": {
         "kind": "replace",
         "path": "scripts/agentware_lib/features/setupcmd.py",
-        "find": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir):\n            pointable, reason = kblayout.kb_pointable(existing)\n",
-        "replace": "        if existing and os.path.abspath(existing) != os.path.abspath(kdir) \\\n                and os.path.isfile(os.path.join(existing, kblayout.SENTINEL_REL)):\n            pointable, reason = kblayout.kb_pointable(existing)\n"
+        "find": "    if not (existing and os.path.abspath(existing) != os.path.abspath(kdir)):\n        return None\n",
+        "replace": "    if not (existing and os.path.abspath(existing) != os.path.abspath(kdir)\n            and os.path.isfile(os.path.join(existing, kblayout.SENTINEL_REL))):\n        return None\n"
     },
     # ------------------------------------------------------ loop_orchestration
     "loop:adversarial-review-gate": {
@@ -422,8 +422,8 @@ MUTATION_PROBES = {
     "org:cross-team-write-isolation": {
         "kind": "replace",
         "path": "scripts/agentware_lib/ops/orglint.py",
-        "find": "            if declared and declared != team:",
-        "replace": "            if False:"
+        "find": "    if declared and declared != team:",
+        "replace": "    if False:"
     },
     "org:curator-gate-on-shared-writes": {
         "kind": "replace",
@@ -530,11 +530,13 @@ MUTATION_PROBES = {
         "find": "    v = _sanitize_provenance(value)",
         "replace": "    return value"
     },
+    # Re-aimed at task 99 wave 9: wave 2's extraction DEDENTED this call, so the
+    # probe's indentation-anchored `find` had matched nothing since (STALE-PROBE).
     "sec:transcript-redaction-on-the-commit-path": {
         "kind": "replace",
         "path": "scripts/agentware_lib/ops/preferqueue.py",
-        "find": "            body = _transcript_redact_secrets(body)",
-        "replace": "            body = body  # redaction dropped"
+        "find": "    body = _transcript_redact_secrets(body)",
+        "replace": "    body = body  # redaction dropped"
     },
     "mod:mutation-proof-is-executed": {
         "kind": "replace",

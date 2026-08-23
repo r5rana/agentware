@@ -36,18 +36,20 @@ lands here at plan task 25), then the task-11 staging destination. If NO tree
 carries the lib the gate FAILS — "I could not find anything to check" must never
 read the same as "everything checks out".
 
-Stdlib only. Every probe runs in a subprocess with AGENTWARE_CONFIG_HOME and
-AGENTWARE_KNOWLEDGE_DIR redirected to throwaway paths, so the operator's real
-config and knowledge base are never read or written.
+Checks 1-4 are a SCAN and this module owns them. Check 5 runs the shipped CLI,
+which is a different kind of evidence and a different failure mode, so it lives
+in `_dreampkg_retired` beside the identity it exercises.
+
+Stdlib only. Every probe runs in a subprocess through `_probe_sandbox`, with
+AGENTWARE_CONFIG_HOME and AGENTWARE_KNOWLEDGE_DIR redirected to throwaway paths,
+so the operator's real config and knowledge base are never read or written.
 """
 
 import argparse
 import ast
 import json
 import os
-import subprocess
 import sys
-import tempfile
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 REPO = os.path.dirname(HERE)
@@ -57,28 +59,19 @@ if HERE not in sys.path:
 import _stage_donor  # noqa: E402
 
 LIB_REL = os.path.join("scripts", "agentware_lib")
-ENTRY_REL = os.path.join("scripts", "agentware")
 
-REGISTRY_NAME = "DREAM_STEP_FUNCS"
-
-#: The retired step's id and label. Assembled from parts on purpose: this file
-#: names them in order to prove them ABSENT, and a literal here would make the
-#: gate's own source a hit for the scan it performs.
-RETIRED_STEP_ID = "0"
-RETIRED_STEP_LABEL = "pkg" + "-pull"
-
-#: The step function and the two helpers that existed only to serve it, plus the
-#: migrate-after-pull hook this tree retired in the same change.
-RETIRED_CALLABLES = (
-    "_dream_step_pkg" + "_pull",
-    "_dream_pkg" + "_syntax_check",
-    "_dream_pkg" + "_pull_revert",
-    "_dream_apply_migrations" + "_after_pull",
+#: The retired step's identity and the CLI probe that proves it unreachable live
+#: in the sibling that RUNS it (`_dreampkg_retired`), and are re-exported here so
+#: this module stays the one address for the whole gate: `CHECKS` names the
+#: probe, the suite reads `gate.RETIRED_STEP_ID` and `gate.ENTRY_REL`, and the
+#: static checks below are a second reader of the same identity. The import runs
+#: scanner -> retired and never back.
+from _dreampkg_retired import (  # noqa: E402,F401
+    ENTRY_REL, RETIRED_CALLABLES, RETIRED_STEP_ID, RETIRED_STEP_LABEL,
+    RETIRED_TOKENS, check_behaviour, run_cli,
 )
 
-#: The literal tokens check 3 scans for, case-insensitively.
-RETIRED_TOKENS = (RETIRED_STEP_LABEL, "pkg" + "_pull",
-                  "_dream_pkg" + "_syntax_check")
+REGISTRY_NAME = "DREAM_STEP_FUNCS"
 
 #: This repo's retired set: the ordered step registry after step "0" was removed.
 #: The merged registry must be a subset of it, in order.
@@ -540,70 +533,6 @@ def _corpus_hard_reset_problems(tree):
             if '"--hard"' in body or "'--hard'" in body:
                 problems.append("%s hard-resets a work tree"
                                 % os.path.relpath(path, tree))
-    return problems
-
-
-def run_cli(tree, argv):
-    """(rc, stdout, stderr) — the tree's own entrypoint, fully redirected."""
-    entry = os.path.join(tree, ENTRY_REL)
-    if not os.path.exists(entry):
-        return None, "", "entrypoint missing: %s" % ENTRY_REL
-    env = dict(os.environ)
-    env.pop("PYTHONDONTWRITEBYTECODE", None)
-    with tempfile.TemporaryDirectory(prefix="aw-dreampkg-") as scratch:
-        kdir = os.path.join(scratch, "kb")
-        os.makedirs(kdir)
-        with open(os.path.join(kdir, ".initialized"), "w") as fh:
-            fh.write("gate\n")
-        with open(os.path.join(kdir, "MAIN.md"), "w") as fh:
-            fh.write("# knowledge base\n")
-        env["AGENTWARE_KNOWLEDGE_DIR"] = kdir
-        env["AGENTWARE_CONFIG_HOME"] = os.path.join(scratch, "config")
-        os.makedirs(env["AGENTWARE_CONFIG_HOME"])
-        try:
-            proc = subprocess.run([sys.executable, entry] + list(argv),
-                                  env=env, cwd=tree, capture_output=True,
-                                  text=True, timeout=300)
-        except (OSError, subprocess.SubprocessError) as exc:
-            return None, "", "could not run: %s" % (exc,)
-    return proc.returncode, proc.stdout or "", proc.stderr or ""
-
-
-def check_behaviour(tree):
-    """Check 5: the CLI refuses the retired step and plans no package pull."""
-    problems = []
-    rc, out, err = run_cli(tree, ["dream", "--steps", RETIRED_STEP_ID,
-                                  "--dry-run"])
-    blob = out + err
-    if rc is None:
-        problems.append("refusal probe: %s" % err)
-    elif rc == 0:
-        problems.append("--steps %s was ACCEPTED (rc=0): the retired step is "
-                        "still runnable" % RETIRED_STEP_ID)
-    elif "unknown dream step" not in blob:
-        problems.append("--steps %s failed rc=%s but not as an unknown step: %r"
-                        % (RETIRED_STEP_ID, rc, blob.strip()[:200]))
-
-    rc, out, err = run_cli(tree, ["dream", "--dry-run", "--format", "json"])
-    if rc is None:
-        problems.append("dry-run probe: %s" % err)
-        return problems
-    if rc != 0:
-        problems.append("dream --dry-run exited %s: %s" % (rc, err.strip()[:200]))
-        return problems
-    try:
-        payload = json.loads(out)
-    except ValueError as exc:
-        problems.append("dream --dry-run emitted no JSON (%s)" % (exc,))
-        return problems
-    for step in payload.get("steps") or []:
-        if step.get("step") == RETIRED_STEP_ID:
-            problems.append("the dry-run plan still contains step %r"
-                            % RETIRED_STEP_ID)
-        would = json.dumps(step).lower()
-        if "pull agentware" in would or "agentware repo" in would:
-            problems.append("step %r plans a package pull: %s"
-                            % (step.get("step"), would[:160]))
     return problems
 
 

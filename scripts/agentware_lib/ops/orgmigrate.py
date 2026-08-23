@@ -271,18 +271,12 @@ def _insert_org_lines(text, additions):
     so a stamped line is byte-identical to the one render_frontmatter would have
     written for the same value — one quoting rule, not two.
     """
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    parts = frontmatter._frontmatter_block(text)
+    if parts is None:
         return None
-    close = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            close = i
-            break
-    if close is None:
-        return None
+    head, block, tail = parts
     new = ["%s: %s" % (k, frontmatter._fm_emit_scalar(v)) for k, v in additions]
-    return "\n".join(lines[:close] + new + lines[close:])
+    return "\n".join(head + block + new + tail)
 
 
 def stamp_entry_org_fields(path, origin, team):

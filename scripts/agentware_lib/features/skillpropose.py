@@ -1,12 +1,16 @@
 """agentware_lib.features.skillpropose -- the skill-candidate WORKORDER emitter + the shared promote run (layer: features).
 
 Owns: the emission half of auto skill-promotion -- the safe-name guard
-(`_SAFE_SKILL_NAME_RE` / `_safe_skill_name`), the existing-skill coverage index
-and its matcher (`_existing_skill_coverage` / `_match_existing_skill`), the
-cluster identity key (`_skill_candidate_fingerprint`), the untrusted Context
-renderer (`_skill_candidate_text`), the emitter itself
-(`_emit_skill_candidate_workorder`) and `_skill_promote_run`, the SINGLE seam
-shared by the dream step and the on-demand verb.
+(`_SAFE_SKILL_NAME_RE` / `_safe_skill_name`), the existing-skill coverage index,
+its three source ingestions and its matcher (`_existing_skill_coverage` /
+`_coverage_from_skills_dir` / `_coverage_from_catalog` / `_coverage_from_index` /
+`_match_existing_skill`), the cluster identity key
+(`_skill_candidate_fingerprint`), the untrusted Context renderer
+(`_skill_candidate_text`), the emitter itself
+(`_emit_skill_candidate_workorder`), the detection-parameter defaulting and the
+clean verdict (`_resolve_promote_params` / `_promote_report_clean`) and
+`_skill_promote_run`, the SINGLE seam shared by the dream step and the on-demand
+verb.
 Does NOT own: cluster DETECTION and its thresholds -> ops.skillcluster; the
 mode/cap settings -> core.config; the dream step that runs this on the routine
 cadence -> features.dreamsteps.stepskillpropose; the workorder emitter it calls
@@ -257,13 +261,45 @@ def _safe_skill_name(name):
     return bool(_SAFE_SKILL_NAME_RE.match(n)) and not _pref_hits_kernel(n)
 
 
+def _coverage_from_skills_dir(add):
+    """(a) package `.claude/skills/` DIRECTORY NAMES. A missing dir is not an
+    error: an installed package without a skills folder still has a catalog."""
+    skills_dir = os.path.join(REPO_ROOT, ".claude", "skills")
+    try:
+        for entry in sorted(os.listdir(skills_dir)):
+            if os.path.isdir(os.path.join(skills_dir, entry)):
+                add(entry, [entry])
+    except OSError:
+        pass
+
+
+def _coverage_from_catalog(add):
+    """(b) the authored-skill CATALOG (name + tags). A catalog that fails to load
+    contributes nothing rather than raising — coverage is an anti-bloat hint, and
+    losing it proposes a duplicate, never a wrong one."""
+    cat, _err = load_skill_catalog()
+    if not cat:
+        return
+    for s in cat.get("skills", []):
+        if isinstance(s, dict):
+            add(s.get("name"), list(s.get("tags") or []))
+
+
+def _coverage_from_index(add, data):
+    """(c) canonical KB `skills`-category INDEX ENTRIES (id/title + tags). The
+    id is preferred over the title because it is the name a workorder can cite."""
+    for e in (data.get("entries") or []):
+        if isinstance(e, dict) and (e.get("category") or "") == "skills":
+            add(e.get("id") or e.get("title"), _entry_list_field(e, "tags"))
+
+
 def _existing_skill_coverage(kdir, data):
     """Coverage index of skills that ALREADY exist, so a mined cluster covered by
     one is proposed as an EXTEND note rather than a duplicate sibling (anti-bloat).
 
-    Sources (all trusted package/index data): the package `.claude/skills/` dir
-    names, the authored-skill catalog (`catalog/skills.json` name + tags), and the
-    canonical KB `skills`-category index entries (id/title + tags). Returns an
+    Three sources (all trusted package/index data) feed ONE `add` closure, and
+    they are ordered a..c only for readability — the closure merges into a dict
+    keyed by name, so ingestion order cannot change the result. Returns an
     ORDERED list of (skill_name, token_set) sorted by name for a DETERMINISTIC
     first-match. Read-only (INV-2) — no KB/index/network write."""
     coverage = {}   # name -> set(lowercased tokens: the name + its tags)
@@ -280,24 +316,9 @@ def _existing_skill_coverage(kdir, data):
             if t:
                 bucket.add(str(t).strip().lower())
 
-    # (a) package .claude/skills/ directory names.
-    skills_dir = os.path.join(REPO_ROOT, ".claude", "skills")
-    try:
-        for entry in sorted(os.listdir(skills_dir)):
-            if os.path.isdir(os.path.join(skills_dir, entry)):
-                _add(entry, [entry])
-    except OSError:
-        pass
-    # (b) the authored-skill catalog (name + tags).
-    cat, _err = load_skill_catalog()
-    if cat:
-        for s in cat.get("skills", []):
-            if isinstance(s, dict):
-                _add(s.get("name"), list(s.get("tags") or []))
-    # (c) canonical KB skills-category index entries (id/title + tags).
-    for e in (data.get("entries") or []):
-        if isinstance(e, dict) and (e.get("category") or "") == "skills":
-            _add(e.get("id") or e.get("title"), _entry_list_field(e, "tags"))
+    _coverage_from_skills_dir(_add)
+    _coverage_from_catalog(_add)
+    _coverage_from_index(_add, data)
     return [(name, coverage[name]) for name in sorted(coverage)]
 
 
@@ -318,6 +339,36 @@ def _match_existing_skill(cluster, coverage):
     return None
 
 
+def _resolve_promote_params(cap, edge_min, density_min, separation_min):
+    """Fill each UNSET detection parameter from its config-resolved default.
+
+    `None` means "not given", not "zero": a caller passing cap=0 asks for a run
+    that ranks and emits nothing, which is a different request from omitting it.
+    Each parameter is defaulted independently so a caller may override one
+    threshold without having to restate the other two."""
+    th = resolve_skill_promote_thresholds()
+    if edge_min is None:
+        edge_min = th["edge_min"]
+    if density_min is None:
+        density_min = th["density_min"]
+    if separation_min is None:
+        separation_min = th["separation_min"]
+    if cap is None:
+        cap = resolve_skill_promote_cap()
+    return cap, edge_min, density_min, separation_min
+
+
+def _promote_report_clean(report):
+    """A run is CLEAN iff it left the operator NOTHING to look at.
+
+    `existing` and `skipped_cap` are deliberately NOT in the test: a re-run over
+    an unchanged corpus that finds its own prior drafts, and a run that hit the
+    per-run budget, are both quiet successes. Only a new emission, a defer, or a
+    block is something a human has to act on."""
+    return not (report["proposed"] or report["extended"]
+                or report["deferred"] or report["blocked"])
+
+
 def _skill_promote_run(kdir, data, dry_run=False, cap=None,
                        edge_min=None, density_min=None, separation_min=None):
     """Detect + PROPOSE skill candidates over the learning corpus, report-only.
@@ -331,15 +382,8 @@ def _skill_promote_run(kdir, data, dry_run=False, cap=None,
     workorder is a no-op that does NOT consume the per-run budget). NO learning is
     ever auto-deleted. Read-only w.r.t. the KB/index; the only writes are new
     `work/auto/skill-candidate-*/plan.md` drafts. Returns a structured report."""
-    th = resolve_skill_promote_thresholds()
-    if edge_min is None:
-        edge_min = th["edge_min"]
-    if density_min is None:
-        density_min = th["density_min"]
-    if separation_min is None:
-        separation_min = th["separation_min"]
-    if cap is None:
-        cap = resolve_skill_promote_cap()
+    cap, edge_min, density_min, separation_min = _resolve_promote_params(
+        cap, edge_min, density_min, separation_min)
     clusters = cluster_learnings(kdir, data, edge_min=edge_min,
                                  density_min=density_min,
                                  separation_min=separation_min)
@@ -379,8 +423,7 @@ def _skill_promote_run(kdir, data, dry_run=False, cap=None,
         else:
             report["blocked"].append(reason or "blocked")
     report["emitted"] = len(report["proposed"]) + len(report["extended"])
-    report["clean"] = not (report["proposed"] or report["extended"]
-                           or report["deferred"] or report["blocked"])
+    report["clean"] = _promote_report_clean(report)
     return report
 
 
@@ -390,8 +433,13 @@ _EXPORTS = [
     "_skill_candidate_fingerprint",
     "_skill_candidate_text",
     "_emit_skill_candidate_workorder",
+    "_coverage_from_skills_dir",
+    "_coverage_from_catalog",
+    "_coverage_from_index",
     "_existing_skill_coverage",
     "_match_existing_skill",
+    "_resolve_promote_params",
+    "_promote_report_clean",
     "_skill_promote_run",
 ]
 

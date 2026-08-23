@@ -5,9 +5,14 @@ unmerged or dirty lane), the worktree remover (`_remove_worktree`, which prunes
 stale metadata when the directory is already gone), the `fanout teardown` command
 (`cmd_fanout_teardown` — worktrees BEFORE branches, `branch -D` only on a
 confirmed-merged lane or under an explicit --force, never a `reset --hard` or a
-force-push), and the `fanout` parser registrar (`register_fanout`), which wires
-ALL FIVE sub-verbs: spin-up/list/merge-policy -> the base handlers in
-features.fanout, merge-queue -> fanoutmq.mqintegrate, teardown -> here.
+force-push) and the two pieces it is assembled from: the SINGLE-LANE remover
+(`_teardown_one_lane`, which owns the safety ORDER and writes its own refusal,
+because for a refusal the message IS the contract) and the outcome renderer
+(`_teardown_report`, whose text form deliberately drops the rows stderr already
+carried while its json form keeps every one). Plus the `fanout` parser registrar
+(`register_fanout`), which wires ALL FIVE sub-verbs: spin-up/list/merge-policy
+-> the base handlers in features.fanout, merge-queue -> fanoutmq.mqintegrate,
+teardown -> here.
 
 Does NOT own: the branch/ancestry/lane-repo predicates it is built on
 (`_is_ancestor` / `_lane_repo_args` and their siblings) -> fanoutmq.mqbranch,
@@ -83,6 +88,94 @@ def _remove_worktree(repo, path, force):
     return True, None
 
 
+def _teardown_one_lane(feature, reg, args, opts):
+    """Tear ONE lane down. Returns (status, detail); detail is None when there
+    is nothing to say, and the caller then omits the key entirely.
+
+    status ∈ {error, refused, would-remove, removed}. The two FAILING statuses
+    are exactly the two that set the process exit code, so the caller derives rc
+    from the status rather than being told it separately.
+
+    This function writes its own stderr, because for a REFUSAL the message IS
+    the contract: teardown never prompts, so an operator's only handoff (R-EXEC-06)
+    is the reason plus the `--force` escape, and a refusal that returned quietly
+    for someone else to phrase would be a refusal that could be phrased two ways.
+
+    The ORDER inside is the safety property (R-GIT-02): the blocker is consulted
+    BEFORE anything is removed, --dry-run answers before that too, worktrees go
+    BEFORE their branches (a branch checked out by a live worktree cannot be
+    deleted), and the registry entry is dropped LAST — so a failure anywhere
+    above leaves the lane still registered and still re-runnable.
+    """
+    rec = reg["lanes"].get(feature)
+    if not rec:
+        sys.stderr.write("fanout teardown: unknown lane: %s\n" % feature)
+        return "error", "unknown lane"
+
+    # Registry is authoritative for this lane's repos (recorded at spin-up);
+    # --repo/--kb-repo override only when explicitly passed.
+    repo, kb_repo = mqbranch._lane_repo_args(rec, args, REPO_ROOT,
+                                    config.resolve_knowledge_dir())
+    have_kb = bool(kb_repo) and kbgit.git_is_work_tree(kb_repo)
+
+    if not opts["force"]:
+        reason = _teardown_blocker(rec, repo, kb_repo, opts["integration"],
+                                   have_kb)
+        if reason:
+            sys.stderr.write("fanout teardown: refusing %s — %s "
+                             "(use --force to override).\n"
+                             % (feature, reason))
+            return "refused", reason
+
+    if opts["dry"]:
+        return "would-remove", None
+
+    ok, derr = _remove_worktree(repo, rec.get("worktree"), opts["force"])
+    if not ok:
+        sys.stderr.write("fanout teardown: %s: package worktree remove "
+                         "failed: %s\n" % (feature, derr))
+        return "error", derr
+    if have_kb:
+        ok, derr = _remove_worktree(kb_repo, rec.get("kb_path"), opts["force"])
+        if not ok:
+            sys.stderr.write("fanout teardown: %s: KB worktree remove "
+                             "failed: %s\n" % (feature, derr))
+            return "error", derr
+
+    # Worktrees gone -> the branches are free to delete.
+    _git(repo, "branch", "-D", rec["feat_branch"])
+    if have_kb:
+        _git(kb_repo, "branch", "-D", rec["kb_branch"])
+
+    try:
+        os.remove(rec.get("env_file", ""))
+    except OSError:
+        pass
+    del reg["lanes"][feature]
+    fanout.save_lanes(reg)
+    return "removed", None
+
+
+def _teardown_report(results, fmt_json, dry):
+    """Render the teardown outcome. json carries EVERY row; text carries only
+    the rows that did something.
+
+    The asymmetry is deliberate and load-bearing: an `error` or `refused` row
+    has already written its reason to stderr, so repeating it on stdout would
+    print the same failure twice to a terminal where both streams interleave.
+    The json form has no stderr to defer to, so it keeps them.
+    """
+    if fmt_json:
+        json.dump({"dry_run": dry, "lanes": results}, sys.stdout,
+                  ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        for r in results:
+            if r["status"] in ("error", "refused"):
+                continue
+            print("fanout teardown: %s %s" % (r["feature"], r["status"]))
+
+
 def cmd_fanout_teardown(args):
     """Remove merged lanes' worktrees + branches; refuse unmerged/dirty lanes.
 
@@ -94,11 +187,18 @@ def cmd_fanout_teardown(args):
     `reset --hard` / force-push is ever run; `branch -D` runs only on a
     confirmed-merged lane (the safety gate proved no commits are lost) or under an
     explicit --force.
+
+    This body is the LOOP: it holds the option surface, runs `_teardown_one_lane`
+    per feature, and turns each (status, detail) into a result row and the
+    process exit code. One failing lane does NOT stop the others — every named
+    lane is attempted, and rc is 1 if ANY of them failed.
     """
-    fmt_json = getattr(args, "format", "text") == "json"
-    dry = getattr(args, "dry_run", False)
-    force = getattr(args, "force", False)
-    integration = getattr(args, "integration_branch", None) or "integration"
+    opts = {
+        "fmt_json": getattr(args, "format", "text") == "json",
+        "dry": getattr(args, "dry_run", False),
+        "force": getattr(args, "force", False),
+        "integration": getattr(args, "integration_branch", None) or "integration",
+    }
 
     reg, err = fanout.load_lanes()
     if err:
@@ -107,74 +207,15 @@ def cmd_fanout_teardown(args):
 
     results, rc = [], 0
     for feature in args.features:
-        rec = reg["lanes"].get(feature)
-        if not rec:
-            sys.stderr.write("fanout teardown: unknown lane: %s\n" % feature)
+        status, detail = _teardown_one_lane(feature, reg, args, opts)
+        result = {"feature": feature, "status": status}
+        if detail is not None:
+            result["detail"] = detail
+        if status in ("error", "refused"):
             rc = 1
-            results.append({"feature": feature, "status": "error",
-                            "detail": "unknown lane"})
-            continue
+        results.append(result)
 
-        # Registry is authoritative for this lane's repos (recorded at spin-up);
-        # --repo/--kb-repo override only when explicitly passed.
-        repo, kb_repo = mqbranch._lane_repo_args(rec, args, REPO_ROOT,
-                                        config.resolve_knowledge_dir())
-        have_kb = bool(kb_repo) and kbgit.git_is_work_tree(kb_repo)
-
-        if not force:
-            reason = _teardown_blocker(rec, repo, kb_repo, integration, have_kb)
-            if reason:
-                sys.stderr.write("fanout teardown: refusing %s — %s "
-                                 "(use --force to override).\n"
-                                 % (feature, reason))
-                rc = 1
-                results.append({"feature": feature, "status": "refused",
-                                "detail": reason})
-                continue
-
-        if dry:
-            results.append({"feature": feature, "status": "would-remove"})
-            continue
-
-        ok, derr = _remove_worktree(repo, rec.get("worktree"), force)
-        if not ok:
-            sys.stderr.write("fanout teardown: %s: package worktree remove "
-                             "failed: %s\n" % (feature, derr))
-            rc = 1
-            results.append({"feature": feature, "status": "error", "detail": derr})
-            continue
-        if have_kb:
-            ok, derr = _remove_worktree(kb_repo, rec.get("kb_path"), force)
-            if not ok:
-                sys.stderr.write("fanout teardown: %s: KB worktree remove "
-                                 "failed: %s\n" % (feature, derr))
-                rc = 1
-                results.append({"feature": feature, "status": "error",
-                                "detail": derr})
-                continue
-
-        # Worktrees gone -> the branches are free to delete.
-        _git(repo, "branch", "-D", rec["feat_branch"])
-        if have_kb:
-            _git(kb_repo, "branch", "-D", rec["kb_branch"])
-
-        try:
-            os.remove(rec.get("env_file", ""))
-        except OSError:
-            pass
-        del reg["lanes"][feature]
-        fanout.save_lanes(reg)
-        results.append({"feature": feature, "status": "removed"})
-
-    if fmt_json:
-        json.dump({"dry_run": dry, "lanes": results}, sys.stdout,
-                  ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-    else:
-        for r in results:
-            if r["status"] in ("error", "refused"):
-                continue
-            print("fanout teardown: %s %s" % (r["feature"], r["status"]))
+    _teardown_report(results, opts["fmt_json"], opts["dry"])
     return rc
 
 
@@ -269,6 +310,8 @@ def register_fanout(sub, fmt_parent):
 _EXPORTS = [
     "_teardown_blocker",
     "_remove_worktree",
+    "_teardown_one_lane",
+    "_teardown_report",
     "cmd_fanout_teardown",
     "register_fanout",
 ]

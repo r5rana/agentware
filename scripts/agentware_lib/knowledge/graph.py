@@ -194,17 +194,15 @@ def _entry_with_freshness(entry, kdir, as_of):
     return out
 
 
-def cmd_query(args):
-    kdir = config.require_knowledge_dir()
-    if not kdir:
-        return 1
-    data, err = index.load_index(kdir)
-    if err is not None:
-        sys.stderr.write("agentware: %s\n" % err)
-        return 1
+def _lookup_maps(entries):
+    """(by_id, by_path) O(1) lookup maps over the index entries.
 
-    entries = data.get("entries") or []
-    tags_map = data.get("tags") or {}
+    FIRST wins on a duplicate id or path: a KB with two rows claiming one id is
+    malformed, and `query --id` must still answer the same entry every time
+    rather than depend on scan order (INV-1). Non-dict rows are skipped — the
+    index is attacker-influenceable through a teammate's shard, so a poisoned
+    row degrades to "not found", never to a crash.
+    """
     by_id, by_path = {}, {}
     for e in entries:
         if not isinstance(e, dict):
@@ -215,42 +213,86 @@ def cmd_query(args):
         path = e.get("path")
         if path is not None and path not in by_path:
             by_path[path] = e
+    return by_id, by_path
 
-    results = []
+
+def _direct_results(args, entries, tags_map, by_id, by_path):
+    """Results for the four DIRECT lookup modes, or None if none was selected.
+
+    None (not []) is the "no direct mode" signal, because a SELECTED mode that
+    matches nothing must stay an empty result and never fall through to the
+    graph arms — `query --id nope` answers `[]`, it does not silently become a
+    traversal.
+    """
     if args.id is not None:
         hit = by_id.get(args.id)
-        if hit is not None:
-            results = [hit]
-    elif args.path is not None:
+        return [hit] if hit is not None else []
+    if args.path is not None:
         hit = by_path.get(args.path)
-        if hit is not None:
-            results = [hit]
-    elif args.tag is not None:
-        for eid in tags_map.get(args.tag, []):
-            hit = by_id.get(eid)
-            if hit is not None:
-                results.append(hit)
-    elif args.category is not None:
-        results = [e for e in entries
-                   if isinstance(e, dict) and e.get("category") == args.category]
-    elif getattr(args, "depends_on", None) is not None:
-        forward, _reverse = build_adjacency(data)
-        ids = graph_traverse(forward, args.depends_on, getattr(args, "depth", 1))
-        results = [by_id[i] for i in ids if i in by_id]
-    elif getattr(args, "impact", None) is not None:
-        _forward, reverse = build_adjacency(data)
-        ids = graph_traverse(reverse, args.impact, getattr(args, "depth", 1))
-        results = [by_id[i] for i in ids if i in by_id]
-    elif getattr(args, "relates", None) is not None:
-        forward, reverse = build_adjacency(data)
-        combined = {}
-        for amap in (forward, reverse):
-            for k, v in amap.items():
-                combined.setdefault(k, []).extend(v)
-        for k in list(combined):
-            combined[k] = sorted(set(combined[k]))
-        ids = graph_traverse(combined, args.relates, getattr(args, "depth", 1))
-        results = [by_id[i] for i in ids if i in by_id]
+        return [hit] if hit is not None else []
+    if args.tag is not None:
+        return [by_id[eid] for eid in tags_map.get(args.tag, []) if eid in by_id]
+    if args.category is not None:
+        return [e for e in entries
+                if isinstance(e, dict) and e.get("category") == args.category]
+    return None
+
+
+def _graph_adjacency(data, mode):
+    """The adjacency one graph mode traverses: forward, reverse, or their union.
+
+    The three modes differ ONLY in which direction they walk, which is why they
+    share a builder — three near-verbatim copies are three places for the union
+    merge and the sorted-dedup to drift apart.
+    """
+    forward, reverse = build_adjacency(data)
+    if mode == "depends_on":
+        return forward
+    if mode == "impact":
+        return reverse
+    combined = {}
+    for amap in (forward, reverse):
+        for k, v in amap.items():
+            combined.setdefault(k, []).extend(v)
+    for k in list(combined):
+        combined[k] = sorted(set(combined[k]))
+    return combined
+
+
+def _traverse_results(args, data, by_id):
+    """Results for the three GRAPH modes ([] when none was selected).
+
+    Modes are tried in the parser's own order so a Namespace carrying more than
+    one (which argparse's mutually-exclusive group forbids, but the MCP server's
+    hand-built namespace does not) resolves the same way it always has. Ids that
+    do not resolve to an entry are dropped: a `relates` edge may name a target
+    that was never indexed, and a dangling edge is not a result.
+    """
+    for mode in ("depends_on", "impact", "relates"):
+        start = getattr(args, mode, None)
+        if start is None:
+            continue
+        ids = graph_traverse(_graph_adjacency(data, mode), start,
+                             getattr(args, "depth", 1))
+        return [by_id[i] for i in ids if i in by_id]
+    return []
+
+
+def cmd_query(args):
+    kdir = config.require_knowledge_dir()
+    if not kdir:
+        return 1
+    data, err = index.load_index(kdir)
+    if err is not None:
+        sys.stderr.write("agentware: %s\n" % err)
+        return 1
+
+    entries = data.get("entries") or []
+    by_id, by_path = _lookup_maps(entries)
+    results = _direct_results(args, entries, data.get("tags") or {},
+                              by_id, by_path)
+    if results is None:
+        results = _traverse_results(args, data, by_id)
 
     # Append the point-in-time freshness fields to a COPY of each entry. Never
     # mutates the loaded index: the MCP server reuses it across calls and both

@@ -330,6 +330,11 @@
     {
       "layer": "lib",
       "line_cap": 600,
+      "path": "scripts/agentware_lib/features/curationwrite.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
       "path": "scripts/agentware_lib/features/dream.py"
     },
     {
@@ -596,6 +601,11 @@
       "layer": "lib",
       "line_cap": 600,
       "path": "scripts/agentware_lib/features/skilllock.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
+      "path": "scripts/agentware_lib/features/skillmanifest.py"
     },
     {
       "layer": "lib",
@@ -1195,6 +1205,11 @@
     {
       "layer": "lib",
       "line_cap": 600,
+      "path": "scripts/agentware_lib/retrieval/evalsuites.py"
+    },
+    {
+      "layer": "lib",
+      "line_cap": 600,
       "path": "scripts/agentware_lib/retrieval/goldfixture.py"
     },
     {
@@ -1465,6 +1480,31 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_body_adjudication_ceilingpaydown.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_curationwrite.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_derivation.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_fence.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_flagverbs.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_body_adjudication_loopobs.py"
     },
     {
@@ -1476,6 +1516,16 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/_body_adjudication_siblings.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_skilllifecycle.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_body_adjudication_verbemit.py"
     },
     {
       "layer": "tests",
@@ -1545,6 +1595,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_dreampkg_retired.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_env_config_capture.py"
     },
     {
@@ -1586,6 +1641,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/_kbtarget_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_kbtarget_probe.py"
     },
     {
       "layer": "tests",
@@ -1651,6 +1711,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/_orgidentity_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_orgidentity_probe.py"
     },
     {
       "layer": "tests",
@@ -1735,6 +1800,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_probe_sandbox.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_promotion_gate.py"
     },
     {
@@ -1780,7 +1850,17 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/_surface_identity.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/_surface_union.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/_surface_union_verify.py"
     },
     {
       "layer": "tests",
@@ -2135,6 +2215,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/gates/test_probe_sandbox.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/gates/test_promotion_gate.py"
     },
     {
@@ -2181,6 +2266,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/gates/test_surface_union.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/gates/test_surface_union_verify.py"
     },
     {
       "layer": "tests",
@@ -2445,12 +2535,27 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/_curationcmd_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/_dream_support.py"
     },
     {
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/_graphexec_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/_mcp_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/_mqintegrate_support.py"
     },
     {
       "layer": "tests",
@@ -2470,6 +2575,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/_updatecmd_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/test_cfgshow.py"
     },
     {
@@ -2481,6 +2591,21 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_config_mode.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_curationcmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_curationcmd_handlers.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_curationwrite.py"
     },
     {
       "layer": "tests",
@@ -2540,6 +2665,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/test_fanout.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/test_freshness_gen.py"
     },
     {
@@ -2565,6 +2695,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/test_indexcmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/test_kbschema_interlock.py"
     },
     {
@@ -2575,7 +2710,32 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/test_mcp.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_mcp_router.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/test_migrate_runner.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_mqintegrate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_mqintegrate_lane.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_mqteardown.py"
     },
     {
       "layer": "tests",
@@ -2655,6 +2815,16 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/test_proposalpromote.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_proposeauthor.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/test_rebuild.py"
     },
     {
@@ -2666,6 +2836,16 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_schemaguard.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_setupcmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_setupcmd_profile.py"
     },
     {
       "layer": "tests",
@@ -2705,6 +2885,26 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/features/test_skillmanifest.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_skillpropose.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_skills.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_skillsync.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/features/test_tick_dispatch.py"
     },
     {
@@ -2721,6 +2921,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/features/test_update_state.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/features/test_updatecmd.py"
     },
     {
       "layer": "tests",
@@ -2750,12 +2955,22 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/knowledge/test_curationingest.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/knowledge/test_decisions.py"
     },
     {
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/knowledge/test_dependency_graph.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/knowledge/test_graph.py"
     },
     {
       "layer": "tests",
@@ -2810,6 +3025,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/knowledge/test_worklog.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/knowledge/test_worklog_promotion.py"
     },
     {
@@ -2830,7 +3050,17 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/_kbsync_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/_metrics_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/_metricspricing_support.py"
     },
     {
       "layer": "tests",
@@ -2850,6 +3080,11 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/_premisecheck_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/_review_orchestrator_support.py"
     },
     {
@@ -2860,12 +3095,22 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/_workstamp_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_agent_identity.py"
     },
     {
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_agentactivity.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_audit.py"
     },
     {
       "layer": "tests",
@@ -2920,7 +3165,17 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_failureladder.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_fleetreport.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_fleettemplates.py"
     },
     {
       "layer": "tests",
@@ -2946,6 +3201,26 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_kb_git_push.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_kbgit.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_kbpull.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_kbsync.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_kbsync_handlers.py"
     },
     {
       "layer": "tests",
@@ -2990,6 +3265,16 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_metricspricing.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_metricspricing_table.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_minererrors.py"
     },
     {
@@ -3006,6 +3291,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_org_curator.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_orglint.py"
     },
     {
       "layer": "tests",
@@ -3031,6 +3321,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/ops/test_plan_lint_rules.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_planpremises.py"
     },
     {
       "layer": "tests",
@@ -3125,7 +3420,22 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_premisecheck.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_premisecheck_corpus.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_release_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_releasegate.py"
     },
     {
       "layer": "tests",
@@ -3255,6 +3565,16 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_steering.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_team.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/ops/test_templaterefresh.py"
     },
     {
@@ -3300,6 +3620,16 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/ops/test_workstamp.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/ops/test_workstamp_tree.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/retrieval/__init__.py"
     },
     {
@@ -3310,12 +3640,32 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/retrieval/_evalcmd_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/_recallcmd_support.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/retrieval/test_acr.py"
     },
     {
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/retrieval/test_acr_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_benchledger.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_benchswe.py"
     },
     {
       "layer": "tests",
@@ -3370,7 +3720,27 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/retrieval/test_evalcmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_evalcmd_owngold.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_evalsuites.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/retrieval/test_gate.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_goldfixture.py"
     },
     {
       "layer": "tests",
@@ -3381,6 +3751,11 @@
       "layer": "tests",
       "line_cap": 600,
       "path": "tests/unit/retrieval/test_org_scoping.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_pinpolicy.py"
     },
     {
       "layer": "tests",
@@ -3400,6 +3775,16 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/retrieval/test_recallcmd.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_recallcmd_work.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/retrieval/test_scopework_recall.py"
     },
     {
@@ -3415,7 +3800,17 @@
     {
       "layer": "tests",
       "line_cap": 600,
+      "path": "tests/unit/retrieval/test_vectorcache.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
       "path": "tests/unit/retrieval/test_workcache.py"
+    },
+    {
+      "layer": "tests",
+      "line_cap": 600,
+      "path": "tests/unit/retrieval/test_workcorpus.py"
     },
     {
       "layer": "webui",
@@ -4166,7 +4561,7 @@
         "agentware_lib.ops.team",
         "agentware_lib.retrieval.acr",
         "agentware_lib.retrieval.bench.benchswe",
-        "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.evalsuites",
         "agentware_lib.retrieval.ledger",
         "agentware_lib.retrieval.metrics_rank",
         "agentware_lib.retrieval.recallcmd",
@@ -4233,6 +4628,7 @@
         "_fm_quote",
         "_fm_split_inline_list",
         "_fm_upsert_relates_line",
+        "_frontmatter_block",
         "_operator_handle",
         "_parse_legacy_header",
         "_resolve_operator_handle",
@@ -4248,6 +4644,7 @@
         "agentware_lib.features.indexcmd",
         "agentware_lib.features.proposals.proposalpromote",
         "agentware_lib.features.proposals.proposeauthor",
+        "agentware_lib.features.skillmanifest",
         "agentware_lib.features.skillpropose",
         "agentware_lib.features.skills",
         "agentware_lib.knowledge.curation.curationingest",
@@ -5057,9 +5454,13 @@
     },
     {
       "anchor_symbols": [
+        "_curation_title",
         "_curation_topic",
+        "_decide_author",
         "_entry_probe_text",
         "_kdir_for_curation_write",
+        "_learn_body",
+        "_learn_provenance",
         "_near_duplicate_entry",
         "_near_duplicate_refusal",
         "cmd_decide",
@@ -5075,6 +5476,7 @@
         "agentware_lib.core.dates",
         "agentware_lib.core.frontmatter",
         "agentware_lib.core.routing",
+        "agentware_lib.features.curationwrite",
         "agentware_lib.knowledge.worklog",
         "agentware_lib.retrieval.acr",
         "agentware_lib.retrieval.bm25",
@@ -5082,11 +5484,11 @@
       ],
       "layer": "features",
       "name": "agentware_lib.features.curationcmd",
-      "not_owns": "the pure entry WRITERS/renderers (_render_learning / _render_decision_body / _topic_to_title / _slugify) -> agentware_lib.knowledge.curation; the shared-write governance guard (guard_shared_write) -> agentware_lib.ops.fleet; the ACR source-weight prior (ACR_SOURCE_WEIGHTS) -> agentware_lib.retrieval.acr; the index CRUD (_do_add / save_index / load_index) -> agentware_lib.knowledge.index.",
-      "owns": "the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the THREE input contracts they share -- the write prologue (_kdir_for_curation_write -- resolve the knowledge dir THEN apply the shared/ CR-gate, so neither handler can acquire a write target without passing the gate), the `--topic` grammar (SLUG_RE / _curation_topic -- one slug normalization + notice for both verbs, so neither can write a file or an id nobody can promote), and the near-duplicate policy (LEARN_NEAR_DUP_THRESHOLD / _near_duplicate_entry / _near_duplicate_refusal -- the category-scoped BM25 probe plus the refusal it earns) -- and their argparse registrars (register_learn / register_decide) -- the orchestrating write-commands that validate input, guard shared-writes, render the entry body, write the file, and register it in the index.",
+      "not_owns": "the pure entry WRITERS/renderers (_render_learning / _render_decision_body / _topic_to_title / _slugify) -> agentware_lib.knowledge.curation; the shared-write governance guard (guard_shared_write) -> agentware_lib.ops.fleet; the ACR source-weight prior (ACR_SOURCE_WEIGHTS) -> agentware_lib.retrieval.acr; the index CRUD (_do_add / save_index / load_index) -> agentware_lib.knowledge.index; the SHARED WRITE CHAIN the two handlers run once they hold the index lock (_refuse_existing_entry / _finish_curation_write / _emit_curation_entry) -> agentware_lib.features.curationwrite.",
+      "owns": "the `learn` and `decide` CLI command handlers (cmd_learn / cmd_decide), the FOUR input contracts they share -- the write prologue (_kdir_for_curation_write -- resolve the knowledge dir THEN apply the shared/ CR-gate, so neither handler can acquire a write target without passing the gate), the `--topic` grammar (SLUG_RE / _curation_topic -- one slug normalization + notice for both verbs, so neither can write a file or an id nobody can promote), the display-title rule (_curation_title -- derived from the PRE-slug topic so readability survives normalization, with `learn`'s optional --title override), and the near-duplicate policy (LEARN_NEAR_DUP_THRESHOLD / _near_duplicate_entry / _near_duplicate_refusal -- the category-scoped BM25 probe plus the refusal it earns) -- and their argparse registrars (register_learn / register_decide) -- the orchestrating write-commands that validate input, guard shared-writes, render the entry body, write the file, and register it in the index.",
       "path": "scripts/agentware_lib/features/curationcmd.py",
       "test_file": "tests/unit/features/test_curationcmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_learn",
@@ -5099,6 +5501,26 @@
           "verb": "decide"
         }
       ]
+    },
+    {
+      "anchor_symbols": [
+        "_emit_curation_entry",
+        "_finish_curation_write",
+        "_refuse_existing_entry"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.curationcmd"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [],
+      "layer": "features",
+      "name": "agentware_lib.features.curationwrite",
+      "not_owns": "the handlers, the write prologue/CR-gate, the `--topic` grammar or the near-duplicate policy -> agentware_lib.features.curationcmd; the entry renderers -> agentware_lib.knowledge.curation; the index CRUD (_do_add / save_index) -> agentware_lib.knowledge.index.",
+      "owns": "the transaction BOTH curation verbs run once they hold the index lock and nothing else -- the three-way collision refusal (_refuse_existing_entry: duplicate id, path already indexed, file already on disk), the register step and its rollback (_finish_curation_write: index._do_add, best-effort unlink of the markdown already written, then index.save_index inside the caller's lock), and the one success line they end on (_emit_curation_entry: the `{\"ok\": True, ...}` json envelope or the \"<LABEL> entry '<id>' -> <path> (registered in index)\" text). Nothing here reads argparse, resolves a knowledge dir or renders an entry body.",
+      "path": "scripts/agentware_lib/features/curationwrite.py",
+      "test_file": "tests/unit/features/test_curationwrite.py",
+      "test_file_present": true,
+      "verbs": []
     },
     {
       "anchor_symbols": [
@@ -5653,8 +6075,10 @@
         "_fanout_provision_lane",
         "_install_merge_policy",
         "_lane_outcome",
+        "_print_spin_up_lanes",
         "_resolve_repo_arg",
         "_run_gate",
+        "_spin_up_preflight",
         "_strip_managed_block",
         "cmd_fanout_list",
         "cmd_fanout_merge_policy",
@@ -5685,10 +6109,10 @@
       "layer": "features",
       "name": "agentware_lib.features.fanout",
       "not_owns": "the merge-queue + teardown orchestration (_is_ancestor / _ensure_integration_branch / _merge_in_progress / _union_resolve_conflict / _lane_repo_args / _lanes_common_repo / _mq_integrate_package / _mq_integrate_kb / _mq_emit / _teardown_blocker / _remove_worktree / cmd_fanout_teardown / cmd_fanout_merge_queue) + the `fanout` parser registrar (register_fanout) + the mq-only constants (FANOUT_APPEND_ONLY_PATHS / FANOUT_DEFAULT_GATES) -> these build ON these lane primitives and are extracted to agentware_lib.features.fanoutmq in a later seam (fanoutmq imports THIS module DOWNWARD as a sibling; this module imports NOTHING from fanoutmq -- a clean dependency root). The low-level git runner (_git) -> core.gitio; the atomic writer (_atomic_write) -> ops.planauthor; the open-plan-marker regex (_PLAN_OPEN_MARKER_PY) -> ops.planlint; the worklog scanner (scan_worklog) -> knowledge.worklog; git work-tree state (git_is_work_tree) -> ops.kbgit; the repo root (REPO_ROOT) -> core.paths; config resolution (HOME_CONFIG / resolve_knowledge_dir) -> core.config; index load/rebuild (load_index / rebuild_kb) -> knowledge.index.",
-      "owns": "the fanout lane-registry primitives (load_lanes / save_lanes / _fanout_dir / _fanout_lanes_path / _fanout_lane_paths / _resolve_repo_arg / _branch_exists), lane PROVISIONING (_fanout_provision_lane), the KB merge-policy installer + its .gitattributes managed block (_fanout_gitattributes_block / _strip_managed_block / _install_merge_policy / cmd_fanout_merge_policy), lane OUTCOME reporting (_count_open_plan_markers / _lane_outcome / cmd_fanout_list), the single post-merge GATE runner (_run_gate), the lane SPIN-UP command (cmd_fanout_spin_up), and the fanout constants (FANOUT_FEATURE_RE / FANOUT_MERGE_UNION_PATHS / FANOUT_GITATTR_BEGIN / FANOUT_GITATTR_END).",
+      "owns": "the fanout lane-registry primitives (load_lanes / save_lanes / _fanout_dir / _fanout_lanes_path / _fanout_lane_paths / _resolve_repo_arg / _branch_exists), lane PROVISIONING (_fanout_provision_lane), the KB merge-policy installer + its .gitattributes managed block (_fanout_gitattributes_block / _strip_managed_block / _install_merge_policy / cmd_fanout_merge_policy), lane OUTCOME reporting (_count_open_plan_markers / _lane_outcome / cmd_fanout_list), the single post-merge GATE runner (_run_gate), the lane SPIN-UP command (cmd_fanout_spin_up) with the two pieces it is assembled from (_spin_up_preflight, the whole-command repo/base resolution + work-tree guard; _print_spin_up_lanes, its text renderer), and the fanout constants (FANOUT_FEATURE_RE / FANOUT_MERGE_UNION_PATHS / FANOUT_GITATTR_BEGIN / FANOUT_GITATTR_END).",
       "path": "scripts/agentware_lib/features/fanout.py",
       "test_file": "tests/unit/features/test_fanout.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -5723,9 +6147,14 @@
       "anchor_symbols": [
         "FANOUT_APPEND_ONLY_PATHS",
         "FANOUT_DEFAULT_GATES",
+        "_mq_dry_run_report",
         "_mq_emit",
         "_mq_integrate_kb",
         "_mq_integrate_package",
+        "_mq_prepare_integration",
+        "_mq_process_lane",
+        "_mq_queue_opts",
+        "_mq_run_gates",
         "cmd_fanout_merge_queue"
       ],
       "depended_on_by": [
@@ -5745,16 +6174,18 @@
       "layer": "features",
       "name": "agentware_lib.features.fanoutmq.mqintegrate",
       "not_owns": "the branch/ancestry/lane-repo predicates it is built on (`_is_ancestor` / `_ensure_integration_branch` / `_merge_in_progress` / `_union_resolve_conflict` / `_lane_repo_args` / `_lanes_common_repo`) -> fanoutmq.mqbranch, reached here as `mqbranch.<name>` so monkeypatching the OWNER propagates; the lane TEARDOWN path + the `fanout` parser registrar -> fanoutmq.mqteardown; the fanout LANES/BASE half (`load_lanes` / `save_lanes` / `_resolve_repo_arg` / `_lane_outcome` / `_run_gate`) -> agentware_lib.features.fanout; the git runners (`_git` / `_git_noninteractive_env`) -> core.gitio; the repo root (`REPO_ROOT`) -> core.paths; config resolution (`resolve_knowledge_dir`) -> core.config; the frontmatter->index rebuild (`rebuild_kb`) -> knowledge.index; the git conflict-introspection + derived-path helpers (`git_unmerged_paths` / `_is_derived_rel`) -> ops.staging; the work-tree STATE booleans (`git_is_work_tree` / `git_is_clean`) -> ops.kbgit; the nothing-lost superset gate (`kb_nothing_lost_gate`) -> ops.kbsync.",
-      "owns": "the mq-only constants (`FANOUT_APPEND_ONLY_PATHS` — the derived ledgers a conflict may be UNION-resolved on; `FANOUT_DEFAULT_GATES` — the post-merge gate list when `--gate` is unset), the PACKAGE integrator (`_mq_integrate_package`, a serial `merge --no-ff` into the integration branch that aborts and halts on a monolith conflict rather than blanket-`-X`-ing a subcommand away), the KB integrator (`_mq_integrate_kb`, which UNION-resolves only the append-only ledgers, re-derives the index from the frontmatter union, runs the nothing-lost ID-superset gate BEFORE committing, and HALTS on a same-entry prose conflict), the outcome renderer (`_mq_emit`, text/json + the process exit code) and the `fanout merge-queue` command (`cmd_fanout_merge_queue`, the resumable serial queue: integrate package -> integrate KB -> run gates -> mark merged).",
+      "owns": "the mq-only constants (`FANOUT_APPEND_ONLY_PATHS` — the derived ledgers a conflict may be UNION-resolved on; `FANOUT_DEFAULT_GATES` — the post-merge gate list when `--gate` is unset), the PACKAGE integrator (`_mq_integrate_package`, a serial `merge --no-ff` into the integration branch that aborts and halts on a monolith conflict rather than blanket-`-X`-ing a subcommand away), the KB integrator (`_mq_integrate_kb`, which UNION-resolves only the append-only ledgers, re-derives the index from the frontmatter union, runs the nothing-lost ID-superset gate BEFORE committing, and HALTS on a same-entry prose conflict), the outcome renderer (`_mq_emit`, text/json + the process exit code), the `fanout merge-queue` command (`cmd_fanout_merge_queue`, the resumable serial queue) and the four pieces that command is assembled from: the option surface read once (`_mq_queue_opts`), the --dry-run plan (`_mq_dry_run_report`), the both-sides integration-branch preflight (`_mq_prepare_integration`), the stop-at-first-failure gate runner (`_mq_run_gates`), and the SINGLE-LANE pipeline (`_mq_process_lane`, which owns the step ORDER: skip -> package -> KB -> gates -> gate-artifact commit -> mark merged, and returns the halt reason rather than emitting it, so the queue stays the only thing that writes).",
       "path": "scripts/agentware_lib/features/fanoutmq/mqintegrate.py",
       "test_file": "tests/unit/features/test_mqintegrate.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
         "_remove_worktree",
         "_teardown_blocker",
+        "_teardown_one_lane",
+        "_teardown_report",
         "cmd_fanout_teardown",
         "register_fanout"
       ],
@@ -5774,10 +6205,10 @@
       "layer": "features",
       "name": "agentware_lib.features.fanoutmq.mqteardown",
       "not_owns": "the branch/ancestry/lane-repo predicates it is built on (`_is_ancestor` / `_lane_repo_args` and their siblings) -> fanoutmq.mqbranch, reached here as `mqbranch.<name>` so monkeypatching the OWNER propagates; the merge-queue INTEGRATION engine + the mq constants (`_mq_integrate_package` / `_mq_integrate_kb` / `_mq_emit` / `cmd_fanout_merge_queue` / `FANOUT_APPEND_ONLY_PATHS` / `FANOUT_DEFAULT_GATES`) -> fanoutmq.mqintegrate, reached as `mqintegrate.<name>`; the fanout LANES/BASE half (`load_lanes` / `save_lanes` / `_branch_exists` / the three base `cmd_fanout_*` handlers) -> agentware_lib.features.fanout; the low-level git runner (`_git`) -> core.gitio; the repo root (`REPO_ROOT`) -> core.paths; config resolution (`resolve_knowledge_dir`) -> core.config; the git work-tree STATE booleans (`git_is_work_tree` / `git_is_clean`) -> ops.kbgit.",
-      "owns": "the teardown SAFETY gate (`_teardown_blocker`, the refusal reason for an unmerged or dirty lane), the worktree remover (`_remove_worktree`, which prunes stale metadata when the directory is already gone), the `fanout teardown` command (`cmd_fanout_teardown` — worktrees BEFORE branches, `branch -D` only on a confirmed-merged lane or under an explicit --force, never a `reset --hard` or a force-push), and the `fanout` parser registrar (`register_fanout`), which wires ALL FIVE sub-verbs: spin-up/list/merge-policy -> the base handlers in features.fanout, merge-queue -> fanoutmq.mqintegrate, teardown -> here.",
+      "owns": "the teardown SAFETY gate (`_teardown_blocker`, the refusal reason for an unmerged or dirty lane), the worktree remover (`_remove_worktree`, which prunes stale metadata when the directory is already gone), the `fanout teardown` command (`cmd_fanout_teardown` — worktrees BEFORE branches, `branch -D` only on a confirmed-merged lane or under an explicit --force, never a `reset --hard` or a force-push) and the two pieces it is assembled from: the SINGLE-LANE remover (`_teardown_one_lane`, which owns the safety ORDER and writes its own refusal, because for a refusal the message IS the contract) and the outcome renderer (`_teardown_report`, whose text form deliberately drops the rows stderr already carried while its json form keeps every one). Plus the `fanout` parser registrar (`register_fanout`), which wires ALL FIVE sub-verbs: spin-up/list/merge-policy -> the base handlers in features.fanout, merge-queue -> fanoutmq.mqintegrate, teardown -> here.",
       "path": "scripts/agentware_lib/features/fanoutmq/mqteardown.py",
       "test_file": "tests/unit/features/test_mqteardown.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_fanout",
@@ -6214,6 +6645,10 @@
     },
     {
       "anchor_symbols": [
+        "_sync_apply",
+        "_sync_dry_report",
+        "_sync_fix_report",
+        "_sync_prompt_row",
         "cmd_index_add",
         "cmd_index_migrate",
         "cmd_index_rebuild",
@@ -6238,7 +6673,7 @@
       "owns": "the six `index` sub-command handlers (cmd_index_add / cmd_index_remove / cmd_index_validate / cmd_index_sync / cmd_index_migrate / cmd_index_rebuild) and their argparse registrar (register_index) -- the orchestrating CLI commands that load/validate/mutate index.json, backfill entry frontmatter, report/fix unindexed files, and rebuild the derived KB (index.json + rosters + FEATURES.md + vector cache).",
       "path": "scripts/agentware_lib/features/indexcmd.py",
       "test_file": "tests/unit/features/test_indexcmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_index",
@@ -6256,6 +6691,8 @@
         "MCP_SERVER_VERSION",
         "MCP_SUPPORTED_PROTOCOL_VERSIONS",
         "_McpInvalidParams",
+        "_mcp_entries_for_ids",
+        "_mcp_entry_maps",
         "_mcp_envelope",
         "_mcp_error",
         "_mcp_handle_tools_call",
@@ -6281,10 +6718,10 @@
       "layer": "features",
       "name": "agentware_lib.features.mcp",
       "not_owns": "the canonical recall payload builder (agentware_lib.retrieval.recallcmd.build_recall_payload, imported DOWN as _recall -- the single source of truth shared with the CLI `recall` verb); the KB index loader (agentware_lib.knowledge.index.load_index, as index); the knowledge-dir resolver (agentware_lib.core.config.require_knowledge_dir, as config); the date validator (agentware_lib.core.dates._is_valid_date, as dates). NO write tool is registered, so the CLI stays the sole writer of the index (R-KB-01) and an untrusted client cannot mutate the KB (INV-2).",
-      "owns": "the `mcp serve` command surface -- a stdlib-only (json + sys) JSON-RPC 2.0 server speaking the MCP STDIO transport that exposes exactly two READ-ONLY tools (recall + query): the protocol/server constants (MCP_PROTOCOL_VERSION / MCP_SUPPORTED_PROTOCOL_VERSIONS / MCP_SERVER_NAME / MCP_SERVER_VERSION / MCP_RECALL_STRATEGIES / MCP_QUERY_SELECTORS), the JSON-RPC envelope/result/error builders (_mcp_envelope / _mcp_result / _mcp_error), the tool descriptors (_mcp_tool_definitions), the untrusted-arg validators (_mcp_require_int / _mcp_require_str / _McpInvalidParams), the two READ-ONLY tool implementations (_mcp_tool_recall / _mcp_query_lookup / _mcp_tool_query), the request router (_mcp_handle_tools_call / _mcp_initialize / handle_mcp_request), the stdio serve loop (cmd_mcp), and the `mcp` parser registrar (register_mcp).",
+      "owns": "the `mcp serve` command surface -- a stdlib-only (json + sys) JSON-RPC 2.0 server speaking the MCP STDIO transport that exposes exactly two READ-ONLY tools (recall + query): the protocol/server constants (MCP_PROTOCOL_VERSION / MCP_SUPPORTED_PROTOCOL_VERSIONS / MCP_SERVER_NAME / MCP_SERVER_VERSION / MCP_RECALL_STRATEGIES / MCP_QUERY_SELECTORS), the JSON-RPC envelope/result/error builders (_mcp_envelope / _mcp_result / _mcp_error), the tool descriptors (_mcp_tool_definitions), the untrusted-arg validators (_mcp_require_int / _mcp_require_str / _McpInvalidParams), the two READ-ONLY tool implementations (_mcp_tool_recall / _mcp_query_lookup / _mcp_tool_query) with the two lookup primitives the query tool folds over an UNTRUSTED index (_mcp_entry_maps, the first-wins id/path maps; _mcp_entries_for_ids, the tag arm's id -> entry resolution, which skips an id the corpus does not carry), the request router (_mcp_handle_tools_call / _mcp_initialize / handle_mcp_request), the stdio serve loop (cmd_mcp), and the `mcp` parser registrar (register_mcp).",
       "path": "scripts/agentware_lib/features/mcp.py",
       "test_file": "tests/unit/features/test_mcp.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_mcp",
@@ -6502,7 +6939,11 @@
     },
     {
       "anchor_symbols": [
+        "_promote_emit",
         "_promote_frontmatter",
+        "_promote_preflight",
+        "_promote_rewrite",
+        "_promoted_tags_line",
         "_register_skill_cache",
         "_register_skill_lifecycle",
         "cmd_skill_promote",
@@ -6527,7 +6968,7 @@
       "owns": "the human-gated PROMOTION half of the proposal lifecycle -- the frontmatter rewrite that turns a proposed entry into an always-on one (_promote_frontmatter: category references->skills, status proposed->active, `proposed` tag dropped, promotion provenance stamped) and the `skill promote` handler (cmd_skill_promote), which enforces the three promotion gates (human sign-off, `--reviewed-by` adversarial-review sign-off, and a fail-closed vet_skill_dir pass) before MOVING `skills-proposed/<slug>` -> `skills/<slug>`. PLUS the `skill` verb PARSER registrar register_skill (wave-6 seam 21) -- it assembles ALL nine skill sub-verbs: the 6 CATALOG sub-verbs (list / search / validate / add / remove / roster-injectable) wired to features.skills handlers via the `_skills` sibling alias, and the 3 LIFECYCLE sub-verbs (propose / proposals / promote) wired to the handlers of this package's three submodules. This is register_skill's designed home: proposals already imports skills (acyclic), so its catalog-handler refs ride the existing edge; homing it in skills.py would instead close a skills<->proposals cycle. register_skill is NOT in `_EXPORTS`; it is declared in THIS module's `__verbs__` and the assembler resolves it from here.",
       "path": "scripts/agentware_lib/features/proposals/proposalpromote.py",
       "test_file": "tests/unit/features/test_proposalpromote.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_skill",
@@ -6564,6 +7005,9 @@
       "anchor_symbols": [
         "_SLUG_RE",
         "_propose_author",
+        "_propose_dedup_guard",
+        "_propose_emit",
+        "_propose_ledger_event",
         "_render_proposal_skill_md",
         "_report_dry_run",
         "_slug_token_set",
@@ -6590,7 +7034,7 @@
       "owns": "the create-or-increment AUTHORING half of the proposal lifecycle -- the slug grammar (_SLUG_RE / _valid_proposal_slug), the dedup similarity primitives (_slug_token_set / near_duplicate_proposal), the proposed-SKILL.md renderer (_render_proposal_skill_md) and the `skill propose` handler (cmd_skill_propose), which validates the slug, guards near-duplicates so the frequency signal accumulates on ONE proposal, creates-or-increments the append-only `.jsonl` references ledger and rebuilds so the proposal is recall-visible immediately.",
       "path": "scripts/agentware_lib/features/proposals/proposeauthor.py",
       "test_file": "tests/unit/features/test_proposeauthor.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -6665,6 +7109,12 @@
     },
     {
       "anchor_symbols": [
+        "_init_dirs",
+        "_init_refuse_repoint",
+        "_init_report",
+        "_init_rosters",
+        "_init_seed_index",
+        "_init_templates",
         "cmd_init",
         "cmd_profile",
         "register_init",
@@ -6682,7 +7132,7 @@
       "owns": "cmd_init (scaffold the external knowledge dir + seed index + write config) and cmd_profile (resolve a per-user profile overlay path), plus their parser registrars register_init / register_profile.",
       "path": "scripts/agentware_lib/features/setupcmd.py",
       "test_file": "tests/unit/features/test_setupcmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_init",
@@ -6761,10 +7211,39 @@
     },
     {
       "anchor_symbols": [
+        "_FOLDED_MARKERS",
+        "_emit_skill_add",
+        "_emit_validate",
+        "_folded_scalar",
+        "_frontmatter_block"
+      ],
+      "depended_on_by": [
+        "agentware_lib.features.skills"
+      ],
+      "dependency_direction": "features -> core, knowledge, ops, retrieval",
+      "depends_on": [
+        "agentware_lib.core.frontmatter"
+      ],
+      "layer": "features",
+      "name": "agentware_lib.features.skillmanifest",
+      "not_owns": "the catalog and the install/vet surface -> features.skills (which imports THIS module); the execution-cache install gate -> features.skillsync; the lockfile primitives -> features.skilllock; the proposal lifecycle -> features.skillpropose / features.proposals.",
+      "owns": "the two ends of the `skill` catalog verbs' text, and nothing between them -- the frontmatter grammar a SKILL.md DECLARES on the way in (`_FOLDED_MARKERS`, `_frontmatter_block`, `_folded_scalar`), and the fixed-format reports the verbs render on the way out (`_emit_validate`, `_emit_skill_add`).",
+      "path": "scripts/agentware_lib/features/skillmanifest.py",
+      "test_file": "tests/unit/features/test_skillmanifest.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
         "_SAFE_SKILL_NAME_RE",
+        "_coverage_from_catalog",
+        "_coverage_from_index",
+        "_coverage_from_skills_dir",
         "_emit_skill_candidate_workorder",
         "_existing_skill_coverage",
         "_match_existing_skill",
+        "_promote_report_clean",
+        "_resolve_promote_params",
         "_safe_skill_name",
         "_skill_candidate_fingerprint",
         "_skill_candidate_text",
@@ -6787,10 +7266,10 @@
       "layer": "features",
       "name": "agentware_lib.features.skillpropose",
       "not_owns": "cluster DETECTION and its thresholds -> ops.skillcluster; the mode/cap settings -> core.config; the dream step that runs this on the routine cadence -> features.dreamsteps.stepskillpropose; the workorder emitter it calls -> ops.planauthor.plannew (`cmd_plan_new`); the skill lifecycle it proposes INTO -> features.skills / features.proposals.",
-      "owns": "the emission half of auto skill-promotion -- the safe-name guard (`_SAFE_SKILL_NAME_RE` / `_safe_skill_name`), the existing-skill coverage index and its matcher (`_existing_skill_coverage` / `_match_existing_skill`), the cluster identity key (`_skill_candidate_fingerprint`), the untrusted Context renderer (`_skill_candidate_text`), the emitter itself (`_emit_skill_candidate_workorder`) and `_skill_promote_run`, the SINGLE seam shared by the dream step and the on-demand verb.",
+      "owns": "the emission half of auto skill-promotion -- the safe-name guard (`_SAFE_SKILL_NAME_RE` / `_safe_skill_name`), the existing-skill coverage index, its three source ingestions and its matcher (`_existing_skill_coverage` / `_coverage_from_skills_dir` / `_coverage_from_catalog` / `_coverage_from_index` / `_match_existing_skill`), the cluster identity key (`_skill_candidate_fingerprint`), the untrusted Context renderer (`_skill_candidate_text`), the emitter itself (`_emit_skill_candidate_workorder`), the detection-parameter defaulting and the clean verdict (`_resolve_promote_params` / `_promote_report_clean`) and `_skill_promote_run`, the SINGLE seam shared by the dream step and the on-demand verb.",
       "path": "scripts/agentware_lib/features/skillpropose.py",
       "test_file": "tests/unit/features/test_skillpropose.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -6800,8 +7279,12 @@
         "_SKILL_SCRIPT_DANGER",
         "_SKILL_TEXT_EXTS",
         "_catalog_skill",
+        "_catalog_validate_results",
         "_copy_skill_tree",
         "_pinned_ref",
+        "_resolve_add_source",
+        "_skill_add_kb",
+        "_skill_dir_errors",
         "_validate_skill_dir",
         "_vet_or_refuse",
         "cmd_skill_add",
@@ -6826,16 +7309,17 @@
         "agentware_lib.core.frontmatter",
         "agentware_lib.core.gitio",
         "agentware_lib.core.paths",
+        "agentware_lib.features.skillmanifest",
         "agentware_lib.features.skillsync",
         "agentware_lib.knowledge.skillentry"
       ],
       "layer": "features",
       "name": "agentware_lib.features.skills",
-      "not_owns": "the skill PROPOSAL/PROMOTION lifecycle (-> agentware_lib.features.proposals) and the package self-update (cmd_update); the `skill` PARSER REGISTRAR (register_skill) -- it registers BOTH catalog AND proposal sub-verbs, so it was homed WITH the proposal handlers in agentware_lib.features.proposals (wave-6 seam 21), reaching this module's 6 catalog handlers via the `_skills` sibling alias; it is declared in that module's `__verbs__` and resolved by the assembler from there, NOT re-exported.",
-      "owns": "the in-package authored skill catalog and the trusted-in-repo installer -- the catalog path constant (SKILLS_CATALOG_PATH); the bundled-script/prose danger signatures scanned by the static vetter (_SKILL_SCRIPT_DANGER / _SKILL_PROSE_DANGER / _SKILL_TEXT_EXTS); the catalog loader (load_skill_catalog / _catalog_skill); the skill-frontmatter reader (read_skill_frontmatter); the pinned-ref resolver (_pinned_ref); the static skill-vetter (vet_skill_dir); and the `skill` list/search/validate/add/remove/roster-injectable handlers (cmd_skill_list / cmd_skill_search / _validate_skill_dir / cmd_skill_validate / _copy_skill_tree / cmd_skill_add / cmd_skill_remove / cmd_skill_roster_injectable).",
+      "not_owns": "the SKILL.md manifest's TEXT SURFACE -- the frontmatter grammar (_frontmatter_block / _folded_scalar / _FOLDED_MARKERS) and the two fixed-format report renderers (_emit_validate / _emit_skill_add) -> features.skillmanifest, imported here and NEVER importing back (task 99 wave 11: all five are pure text transforms, which is what lets them sit BELOW this module without a cycle); the skill PROPOSAL/PROMOTION lifecycle (-> agentware_lib.features.proposals) and the package self-update (cmd_update); the `skill` PARSER REGISTRAR (register_skill) -- it registers BOTH catalog AND proposal sub-verbs, so it was homed WITH the proposal handlers in agentware_lib.features.proposals (wave-6 seam 21), reaching this module's 6 catalog handlers via the `_skills` sibling alias; it is declared in that module's `__verbs__` and resolved by the assembler from there, NOT re-exported.",
+      "owns": "the in-package authored skill catalog and the trusted-in-repo installer -- the catalog path constant (SKILLS_CATALOG_PATH); the bundled-script/prose danger signatures scanned by the static vetter (_SKILL_SCRIPT_DANGER / _SKILL_PROSE_DANGER / _SKILL_TEXT_EXTS); the catalog loader (load_skill_catalog / _catalog_skill); the skill-frontmatter reader (read_skill_frontmatter); the pinned-ref resolver (_pinned_ref); the static skill-vetter (vet_skill_dir); the on-disk skill-folder check (_skill_dir_errors / _validate_skill_dir / _catalog_validate_results); the install-source resolver and the KB install arm (_resolve_add_source / _skill_add_kb); and the `skill` list/search/validate/add/remove/roster-injectable handlers (cmd_skill_list / cmd_skill_search / cmd_skill_validate / _copy_skill_tree / cmd_skill_add / cmd_skill_remove / cmd_skill_roster_injectable).",
       "path": "scripts/agentware_lib/features/skills.py",
       "test_file": "tests/unit/features/test_skills.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -6846,7 +7330,12 @@
         "_skill_reconcile",
         "_skill_status",
         "_skill_status_line",
+        "_skill_sync_approve",
         "_skill_sync_lock",
+        "_skill_sync_reconcile_emit",
+        "_skill_sync_reject",
+        "_skill_sync_reset",
+        "_skill_sync_uninstall",
         "_skill_verdict",
         "cmd_skill_sync"
       ],
@@ -6868,7 +7357,7 @@
       "owns": "the reconciliation between the KB's `skills/` and the per-machine execution cache (`_skill_reconcile`), the per-skill verdict (`_skill_verdict`), the install (`_skill_install_snapshot`), the roster views (`_skill_status`, `_skill_status_line`), the name sources (`_skill_kb_names`, `_package_skill_names`), the cross-process lock (`_skill_sync_lock`) and the `skill sync` handler (`cmd_skill_sync`).",
       "path": "scripts/agentware_lib/features/skillsync.py",
       "test_file": "tests/unit/features/test_skillsync.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -6930,7 +7419,13 @@
     },
     {
       "anchor_symbols": [
+        "_catalog_diff_lines",
+        "_update_apply_result",
+        "_update_check_report",
         "_update_self_heal",
+        "_update_status_line",
+        "_update_upstream_info",
+        "_upstream_catalog_diff",
         "cmd_update",
         "register_update"
       ],
@@ -6953,7 +7448,7 @@
       "owns": "the `update` CLI -- `cmd_update` and the `register_update` registrar declaring its six flags (`--check`, `--catalog`, `--self-heal`, `--staleness-check`, `--status-line`, plus the inherited `--format`).",
       "path": "scripts/agentware_lib/features/updatecmd.py",
       "test_file": "tests/unit/features/test_updatecmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_update",
@@ -7018,6 +7513,8 @@
       "anchor_symbols": [
         "INGEST_SOURCES",
         "_ingest_candidate",
+        "_ingest_commit",
+        "_ingest_dispatch_adapter",
         "_ingest_docs_adapter",
         "_ingest_emit_metric",
         "_ingest_existing_dedup",
@@ -7026,7 +7523,9 @@
         "_ingest_first_heading",
         "_ingest_first_paragraph",
         "_ingest_github_issues_adapter",
+        "_ingest_print_text",
         "_ingest_register",
+        "_ingest_select",
         "_ingest_validate",
         "_ingest_write_staging",
         "cmd_ingest",
@@ -7042,10 +7541,10 @@
       "layer": "knowledge",
       "name": "agentware_lib.knowledge.curation.curationingest",
       "not_owns": "the learning/decision RENDERERS + _topic_to_title/_slugify -> agentware_lib.knowledge.curation.curationrender (reached through the `curationrender` MODULE ALIAS so a monkeypatch of the owner propagates); the FEATURES.md renderer + handler -> agentware_lib.knowledge.curation.curationfeatures; the index CRUD/validate/rebuild core -> agentware_lib.knowledge.index; the learn/decide HANDLERS -> agentware_lib.features.curationcmd.",
-      "owns": "the whole deterministic INGEST pipeline and its `ingest` verb — the INGEST_SOURCES adapter tuple; the two LOCAL source adapters (_ingest_docs_adapter / _ingest_github_issues_adapter) and their pure markdown scanners (_ingest_first_paragraph / _ingest_first_heading); the common candidate model (_ingest_candidate) + contract validator (_ingest_validate); the content-level dedup pair (_ingest_fingerprint / _ingest_extract_body / _ingest_existing_dedup); the single registration path (_ingest_register, which funnels through build_entry_frontmatter -> _render_learning -> _do_add and NEVER writes index.json directly, R-KB-01); the dry-run staging writer (_ingest_write_staging, `work/` only) and the Rule-7 metric append (_ingest_emit_metric); the cmd_ingest handler and the `ingest` parser registrar (the registrar travels with its handler).",
+      "owns": "the whole deterministic INGEST pipeline and its `ingest` verb — the INGEST_SOURCES adapter tuple; the two LOCAL source adapters (_ingest_docs_adapter / _ingest_github_issues_adapter) and their pure markdown scanners (_ingest_first_paragraph / _ingest_first_heading); the common candidate model (_ingest_candidate) + contract validator (_ingest_validate); the content-level dedup pair (_ingest_fingerprint / _ingest_extract_body / _ingest_existing_dedup); the single registration path (_ingest_register, which funnels through build_entry_frontmatter -> _render_learning -> _do_add and NEVER writes index.json directly, R-KB-01); the dry-run staging writer (_ingest_write_staging, `work/` only) and the Rule-7 metric append (_ingest_emit_metric); the four stages cmd_ingest is assembled from -- the closed-set adapter dispatch (_ingest_dispatch_adapter), the `--only` selection (_ingest_select), the index critical section (_ingest_commit: load -> three-way dedup -> register -> save under ONE lock, and nothing else) and the text report (_ingest_print_text); the cmd_ingest handler and the `ingest` parser registrar (the registrar travels with its handler).",
       "path": "scripts/agentware_lib/knowledge/curation/curationingest.py",
       "test_file": "tests/unit/knowledge/test_curationingest.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_ingest",
@@ -7120,7 +7619,11 @@
     {
       "anchor_symbols": [
         "_canonical_cycle",
+        "_direct_results",
         "_entry_with_freshness",
+        "_graph_adjacency",
+        "_lookup_maps",
+        "_traverse_results",
         "build_adjacency",
         "cmd_query",
         "find_cycles",
@@ -7150,7 +7653,7 @@
       "owns": "the deterministic, read-only declared-edge graph reconstructed from each entry's `relates` frontmatter — build_adjacency (forward/reverse), _canonical_cycle, find_cycles (colored DFS), graph_relation_errors (dangling/unknown-type scan), graph_health (Rule-7 advisory counts), graph_traverse (cycle-safe closure) — plus the `query` verb: its handler cmd_query (O(1) id/path/tag/category + graph --depends-on/--impact/--relates dispatch) and its parser registrar register_query.",
       "path": "scripts/agentware_lib/knowledge/graph.py",
       "test_file": "tests/unit/knowledge/test_graph.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_query",
@@ -7481,6 +7984,8 @@
         "LEARNED_RE",
         "PROMOTED_RE",
         "_category_stems",
+        "_dir_md_stems",
+        "_indexed_category_stems",
         "_is_promoted",
         "_learned_real_ids",
         "_real_ids",
@@ -7509,10 +8014,10 @@
       "layer": "knowledge",
       "name": "agentware_lib.knowledge.worklog",
       "not_owns": "the index CRUD/load or category-dir constants (see agentware_lib.knowledge.index — read as index.load_index / index.LEARNINGS_REL / index.DECISIONS_REL / index.SKILLS_PROPOSED_DIR); the slug canonicaliser (see agentware_lib.knowledge.curation._slugify); the proposal-staging slug enumerator (see agentware_lib.knowledge.proposals.existing_proposal_slugs); the promotion WRITE path learn/decide (see agentware_lib.knowledge.curation / agentware_lib.features.curationcmd); knowledge-dir resolution (see agentware_lib.core.config.require_knowledge_dir).",
-      "owns": "the completion-gate worklog scanner — the LEARNED/DECISION/PROMOTED marker regexes (LEARNED_RE, DECISION_RE, PROMOTED_RE), the promotion-resolution closure (promoted_ids, _real_ids, _category_stems, learning_stems, decision_stems, skill_promotion_ids, _learned_real_ids, _is_promoted), the scanner itself (scan_worklog), and the `worklog scan` command surface (cmd_worklog_scan + register_worklog). Pure + read-only over the live index PLUS the on-disk learnings/decisions/skills/skills-proposed dirs (INV-1 deterministic, INV-2 read-only); a `> LEARNED:`/`> DECISION:` marker clears iff an explicit `(Promoted: <id>)` reference resolves EXACTLY to a real learning/decision/skill/ proposal entry, or (no reference) its slug equals a learning stem.",
+      "owns": "the completion-gate worklog scanner — the LEARNED/DECISION/PROMOTED marker regexes (LEARNED_RE, DECISION_RE, PROMOTED_RE), the promotion-resolution closure (promoted_ids, _real_ids, _category_stems -- the filtered UNION of its two INDEPENDENT stem sources, _indexed_category_stems (what the index registered) and _dir_md_stems (what is on disk) -- learning_stems, decision_stems, skill_promotion_ids, _learned_real_ids, _is_promoted), the scanner itself (scan_worklog), and the `worklog scan` command surface (cmd_worklog_scan + register_worklog). Pure + read-only over the live index PLUS the on-disk learnings/decisions/skills/skills-proposed dirs (INV-1 deterministic, INV-2 read-only); a `> LEARNED:`/`> DECISION:` marker clears iff an explicit `(Promoted: <id>)` reference resolves EXACTLY to a real learning/decision/skill/ proposal entry, or (no reference) its slug equals a learning stem.",
       "path": "scripts/agentware_lib/knowledge/worklog.py",
       "test_file": "tests/unit/knowledge/test_worklog.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_worklog",
@@ -7591,8 +8096,11 @@
         "_audit_bm25_cache_check",
         "_audit_gate_check",
         "_audit_graph_integrity_check",
+        "_audit_index_checks",
+        "_audit_json_payload",
         "_audit_mode_b_health_check",
         "_audit_personal_data_check",
+        "_audit_print_text",
         "_audit_provenance_coverage_check",
         "_audit_stale_proposal",
         "_audit_stale_section",
@@ -7632,7 +8140,7 @@
       "owns": "the one-pass consistency audit -- cmd_audit + every _audit_* check EXCEPT the dream heartbeat (steering-lint / unittest / benchmark-gate / bm25-cache / mode-B-semantic / provenance-coverage / personal-data / graph-integrity), the provenance_coverage read-only helper, and the Rule-7 graph_health metric emitter (_append_graph_health_metric). Owns the `audit` parser registrar (register_audit).",
       "path": "scripts/agentware_lib/ops/audit.py",
       "test_file": "tests/unit/ops/test_audit.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_audit",
@@ -7912,9 +8420,11 @@
         "_FAIL_LADDER_TIERS",
         "_FAIL_WEB_TOOLS",
         "_classify_recovery",
+        "_err_tallies",
         "_fail_step_is_kb_lookup",
         "_fail_step_is_web",
         "_failure_marker_tally",
+        "_ladder_tally",
         "derive_failures"
       ],
       "depended_on_by": [],
@@ -7927,10 +8437,10 @@
       "layer": "ops",
       "name": "agentware_lib.ops.failureladder",
       "not_owns": "the alerts primitives (ops.alerts), loop feature discovery/throughput (ops.loopanalytics), the trace family (ops.looptrace), loop-health (ops.loophealth), the metrics COMPUTE layer (ops.metrics), or the derive_* reporting family (ops.derive).",
-      "owns": "the pure, read-only (INV-2) failure-ladder classification primitives -- the R-FAIL escalation-ladder tier order (_FAIL_LADDER_TIERS), the web-escalation tool set (_FAIL_WEB_TOOLS) and the KB-lookup signature set (_FAIL_KB_SIGNATURES), plus the three argument-only step classifiers that read only the bounded per-step dict the trace already carries -- _fail_step_is_web (tool is a web search/fetch), _fail_step_is_kb_lookup (tool invokes an agentware recall/query/audit), and _classify_recovery (map an ERR step + the action that followed onto a ladder tier: kb/reasoning/inputs/switch/web, or None when the run ended on the error). ALSO owns (wave-6 seam-11) the per-feature marker tally _failure_marker_tally -- per-kind LEARNED/DECISION totals + unpromoted counts from a feature's worklog, reusing the completion-gate regexes/stems (knowledge.worklog) so the tally agrees with the worklog-scan gate. ALSO owns (wave-6 seam-14) the aggregator derive_failures -- the per-feature failure-ladder / error-recovery fold (tool ERR rate, R-FAIL tier usage, web/KB counts, self-heal re-engagements, marker tallies), read-only (INV-2) over the trace (ops.looptrace.derive_trace) + the outcome (ops.derive.derive_outcome) + the classification primitives + _failure_marker_tally here.",
+      "owns": "the pure, read-only (INV-2) failure-ladder classification primitives -- the R-FAIL escalation-ladder tier order (_FAIL_LADDER_TIERS), the web-escalation tool set (_FAIL_WEB_TOOLS) and the KB-lookup signature set (_FAIL_KB_SIGNATURES), plus the three argument-only step classifiers that read only the bounded per-step dict the trace already carries -- _fail_step_is_web (tool is a web search/fetch), _fail_step_is_kb_lookup (tool invokes an agentware recall/query/audit), and _classify_recovery (map an ERR step + the action that followed onto a ladder tier: kb/reasoning/inputs/switch/web, or None when the run ended on the error). ALSO owns (wave-6 seam-11) the per-feature marker tally _failure_marker_tally -- per-kind LEARNED/DECISION totals + unpromoted counts from a feature's worklog, reusing the completion-gate regexes/stems (knowledge.worklog) so the tally agrees with the worklog-scan gate. ALSO owns (wave-6 seam-14) the aggregator derive_failures -- the per-feature failure-ladder / error-recovery fold (tool ERR rate, R-FAIL tier usage, web/KB counts, self-heal re-engagements, marker tallies) -- with the two tally helpers it folds through: _err_tallies (the three tallies that are a function of ONE step: per-tool ERR counts, the web-escalation count, the KB-lookup count) and _ladder_tally (the one tally that reads a step's NEIGHBOUR, which is why the parent re-sorts into the trace's global order first), read-only (INV-2) over the trace (ops.looptrace.derive_trace) + the outcome (ops.derive.derive_outcome) + the classification primitives + _failure_marker_tally here.",
       "path": "scripts/agentware_lib/ops/failureladder.py",
       "test_file": "tests/unit/ops/test_failureladder.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -8037,6 +8547,10 @@
         "SKILL_TEMPLATE_FM",
         "TEMPLATE_ORG_FM",
         "TEMPLATE_REQUIRED_FM",
+        "_conflict_marker_line",
+        "_declared_frontmatter_keys",
+        "_lint_entry_contract",
+        "_lint_template_file",
         "_template_kind",
         "cmd_templates_lint",
         "lint_templates",
@@ -8053,7 +8567,7 @@
       "owns": "the per-team template-contract lint (feature 260721 follow-up, R-ORG-09) -- the required-frontmatter vocabularies (TEMPLATE_REQUIRED_FM / TEMPLATE_ORG_FM / SKILL_TEMPLATE_FM), the filename-stem classifier (_template_kind -> 'skill' | 'entry' | None), the read-only linter itself (lint_templates = rules T1 frontmatter present, T2 required entry fields declared, T3 org fields declared, T4 skill name+description, T5 no leftover conflict markers), the `templates lint` handler cmd_templates_lint and the `templates` registrar register_templates.",
       "path": "scripts/agentware_lib/ops/fleet/fleettemplates.py",
       "test_file": "tests/unit/ops/test_fleettemplates.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_templates",
@@ -8124,6 +8638,7 @@
     },
     {
       "anchor_symbols": [
+        "_first_line",
         "_sanitize_commit_tag",
         "cmd_kb_git_status",
         "git_changed_paths",
@@ -8158,12 +8673,13 @@
       "owns": "the read-only git work-tree STATE queries the conflict-safe KB sync is built on (feature 260625-kb-git-sync) -- the three state booleans (git_is_work_tree / git_has_upstream / git_is_clean), their combined dict shape (git_status) + its CLI (cmd_kb_git_status), the toplevel / changed-path introspectors (git_toplevel / git_changed_paths) and the conventional-commit scope-tag sanitizer (_sanitize_commit_tag). Every helper takes an explicit target dir, shells the operator's `git` via core.gitio._git, and NEVER raises on a non-repo dir (degrades to a safe default) so tests drive throwaway temp repos and the loop never blocks.",
       "path": "scripts/agentware_lib/ops/kbgit.py",
       "test_file": "tests/unit/ops/test_kbgit.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
         "_kb_entry_files_changed",
+        "_pull_preconditions",
         "_rebuild_kb_after_pull",
         "_skill_reconcile_after_pull",
         "cmd_kb_git_pull",
@@ -8186,7 +8702,7 @@
       "owns": "`kb-git pull` end to end — the fetch/fast-forward primitives (`git_fetch`, `git_pull_ff`), the handler `cmd_kb_git_pull`, and the two RECONCILIATIONS a successful fast-forward must trigger (`_rebuild_kb_after_pull`, `_skill_reconcile_after_pull`, plus the `_kb_entry_files_changed` predicate that decides whether the first is needed).",
       "path": "scripts/agentware_lib/ops/kbpull.py",
       "test_file": "tests/unit/ops/test_kbpull.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -8219,6 +8735,11 @@
     },
     {
       "anchor_symbols": [
+        "_prose_conflict_disposition",
+        "_push_after_clean_rebase",
+        "_push_attempt",
+        "_resolve_derived_conflict",
+        "_resolve_sync_target",
         "cmd_kb_git_merge_continue",
         "cmd_kb_git_push",
         "kb_git_merge_continue",
@@ -8244,7 +8765,7 @@
       "owns": "the deterministic, agent-free KB-git PUSH/MERGE workflow (feature 260625-kb-git-sync, Phases 4-5) -- the mechanical nothing-lost gate kb_nothing_lost_gate (C-2: rebuild+validate the index from frontmatter, then assert the merged entry-ID set is a SUPERSET of every resolvable parent), the single-attempt push with derived-file conflict auto-resolution kb_git_push_once, its bounded pull->resolve->push retry wrapper kb_git_push_synced (C-2 backoff+jitter), the prose-conflict merge continuation kb_git_merge_continue, their CLI handlers cmd_kb_git_push / cmd_kb_git_merge_continue, and the `kb-git` parser registrar register_kb_git (which wires ALL five kb-git sub-verbs: status -> kbgit, commit/pull -> staging, push/merge-continue -> here).",
       "path": "scripts/agentware_lib/ops/kbsync.py",
       "test_file": "tests/unit/ops/test_kbsync.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_kb_git",
@@ -8421,9 +8942,12 @@
         "_context_window_for_rows",
         "_cost_record",
         "_finalize_record",
+        "_flag_cost_anomalies",
         "_median",
         "_model_context_window",
         "_price_for",
+        "_price_row_models",
+        "_rollup_bucket",
         "_usage_cost",
         "apply_pricing",
         "load_price_table"
@@ -8434,10 +8958,10 @@
       "layer": "ops",
       "name": "agentware_lib.ops.metrics.metricspricing",
       "not_owns": "cross-session aggregation + session identity (the sibling agentware_lib.ops.metrics.metricsaggregate); the logs/metrics.jsonl channel reader + the onboarding metric emitter (the sibling agentware_lib.ops.metrics.metricsemit); the transcript PARSE + the single-instance read cache (agentware_lib.ops.sessionparse -- imported DOWN, so the LRU stays one instance); the derive_* reporting family (agentware_lib.ops.derive); loop analytics/trace/health/alerts/failure-ladder (agentware_lib.ops.loopanalytics/looptrace/loophealth/alerts/failureladder); the cmd_metrics/cmd_dashboard CLI handlers (their own sibling ops cli module, whose name this package never spells -- naming it as an import target would close the ops.metrics<->ops.derive cycle); fleet/org/team (agentware_lib.ops.fleet).",
-      "owns": "the deterministic, read-only COST layer over parsed session rows -- * pricing: the default price table (_DEFAULT_PRICES) + token->component map (_PRICE_COMPONENT), longest-substring model lookup (_price_for), the pure usage->cost (_usage_cost), the per-day cost-anomaly tuning (_COST_ANOMALY_FACTOR/_COST_ANOMALY_MIN_HISTORY), the rollup builders (_cost_record/_finalize_record), apply_pricing (derives cost/cache/model/ feature/day rollups onto rows + aggregate) and load_price_table, plus the p50 helper _median; * context-window sizing: _model_context_window/_context_window_for_rows + the _DEFAULT_CONTEXT_WINDOW/_CONTEXT_WINDOW_1M/_TRUNCATION_RISK_THRESHOLD constants.",
+      "owns": "the deterministic, read-only COST layer over parsed session rows -- * pricing: the default price table (_DEFAULT_PRICES) + token->component map (_PRICE_COMPONENT), longest-substring model lookup (_price_for), the pure usage->cost (_usage_cost), the per-day cost-anomaly tuning (_COST_ANOMALY_FACTOR/_COST_ANOMALY_MIN_HISTORY), the rollup builders (_cost_record/_finalize_record/_rollup_bucket -- the get-or-create the three rollups share), apply_pricing (derives cost/cache/model/feature/day rollups onto rows + aggregate) with the two folds it walks through (_price_row_models, one row's per-model pricing plus the shared by_model rollup; _flag_cost_anomalies, the chronological trailing-median walk, which runs AFTER the finalize pass so a day is judged by the ROUNDED cost the report shows) and load_price_table, plus the p50 helper _median; * context-window sizing: _model_context_window/_context_window_for_rows + the _DEFAULT_CONTEXT_WINDOW/_CONTEXT_WINDOW_1M/_TRUNCATION_RISK_THRESHOLD constants.",
       "path": "scripts/agentware_lib/ops/metrics/metricspricing.py",
       "test_file": "tests/unit/ops/test_metricspricing.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -8484,6 +9008,14 @@
     },
     {
       "anchor_symbols": [
+        "_lint_entry",
+        "_lint_fleet_events",
+        "_lint_fleet_sinks",
+        "_lint_shared_denylist",
+        "_lint_shared_file",
+        "_lint_shared_root",
+        "_lint_team_entries",
+        "_lint_team_templates",
         "cmd_org_lint",
         "lint_org",
         "register_org"
@@ -8502,7 +9034,7 @@
       "owns": "the read-only org-invariant linter lint_org -- the O1..O13 mechanical rules over a co-resident org tree (per-team entry origin/team resolution, cross-team contamination O13, merged-id collision O2, retracted-supersedes O4, the shared-root rules O6/O7/O8/O9, the fleet-sink terminal-schema check O12, and the folded per-team template contract T1..T5), its `org lint` handler cmd_org_lint, and the `org` parser registrar register_org. A true ok:true NO-OP when AGENTWARE_ORG_ROOT is unset (a flat single-team install is byte-identical to today; INV-1).",
       "path": "scripts/agentware_lib/ops/orglint.py",
       "test_file": "tests/unit/ops/test_orglint.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_org",
@@ -8790,7 +9322,9 @@
         "_WORK_TEAM_STAMP_RE",
         "_ensure_work_frontmatter",
         "_is_derived_roster",
+        "_prose_stamp_insert_index",
         "_stamp_work_artifact",
+        "_stamp_work_tree",
         "cmd_work_stamp",
         "register_work"
       ],
@@ -8806,7 +9340,7 @@
       "owns": "the work-artifact team/author STAMPING family (feature 260721 org provenance) -- the one regex that recognizes BOTH supported team-stamp layouts (_WORK_TEAM_STAMP_RE), the derived-roster content detector (_is_derived_roster), the idempotent prose stamper (_stamp_work_artifact), the machine-readable YAML frontmatter ensurer (_ensure_work_frontmatter), the CLI handler cmd_work_stamp, and the `work` verb registrar (register_work), moved WITH its handler.",
       "path": "scripts/agentware_lib/ops/planauthor/workstamp.py",
       "test_file": "tests/unit/ops/test_workstamp.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_work",
@@ -9019,6 +9553,8 @@
         "_plan_is_load_bearing",
         "_plan_is_self_extension",
         "_plan_names_live_kb_id",
+        "_premise_absorb_row",
+        "_premise_flush",
         "_premise_region",
         "cmd_plan_verify_premises",
         "plan_premises",
@@ -9029,7 +9565,8 @@
         "agentware_lib.features.graphdag.graphmanifest",
         "agentware_lib.ops.planauthor.planedit",
         "agentware_lib.ops.plangovern",
-        "agentware_lib.ops.plangraph"
+        "agentware_lib.ops.plangraph",
+        "agentware_lib.ops.premisecheck"
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
       "depends_on": [
@@ -9041,7 +9578,7 @@
       "owns": "the TRUST BOUNDARY of the premise surface — the block locator (`_premise_region`), the CLOSED check grammar and its non-executing parser (`_PREMISE_CHECK_KINDS` / `_CORPUS_METRICS` / `_CORPUS_OPS` / `_PATH_MODES`, `_parse_premise_check`), the record parser (`plan_premises`), the load-bearing predicates (`_plan_is_self_extension` / `_plan_names_live_kb_id` / `_plan_is_load_bearing`), the run-time verifier (`verify_premises`) and the `plan verify-premises` handler (`cmd_plan_verify_premises`). Also the R14 WARN->ERROR ramp threshold (`_PLAN_PREMISES_ERROR_SCHEMA`), which `ops.planlint` imports for the STRUCTURAL half of the same rule.",
       "path": "scripts/agentware_lib/ops/planpremises.py",
       "test_file": "tests/unit/ops/test_planpremises.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -9358,11 +9895,17 @@
     },
     {
       "anchor_symbols": [
+        "_cite_in_index",
+        "_cite_under_kdir",
+        "_corpus_metric_error_records",
+        "_corpus_metric_recurrence_keys",
         "_eval_check_cite_live",
         "_eval_check_config_eq",
         "_eval_check_corpus_metric",
         "_eval_check_path",
+        "_eval_path_mtime_before",
         "_parse_iso_to_epoch",
+        "_path_verdict",
         "_premise_cite_resolves",
         "_premise_corpus_metric_value",
         "_premise_num_cmp",
@@ -9377,6 +9920,7 @@
       ],
       "dependency_direction": "ops -> core, knowledge, retrieval",
       "depends_on": [
+        "agentware_lib.ops.planpremises",
         "agentware_lib.ops.sessionparse.minerfolds"
       ],
       "layer": "ops",
@@ -9385,16 +9929,18 @@
       "owns": "one evaluator per member of the closed check grammar and the dispatcher over them — `_eval_check_cite_live` (with `_premise_cite_resolves`, the index lookup), `_eval_check_config_eq` (a config read), `_eval_check_path` (with `_premise_path_state` and `_parse_iso_to_epoch`, the only time comparison in the system and an author-supplied one), `_eval_check_corpus_metric` (with `_premise_corpus_metric_value` and the numeric comparator `_premise_num_cmp`), and `evaluate_premise`, which routes a parsed record to its evaluator.",
       "path": "scripts/agentware_lib/ops/premisecheck.py",
       "test_file": "tests/unit/ops/test_premisecheck.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
+        "_emit_skip",
         "_gate1_content_lint",
         "_gate2_full",
         "_gate2_lite_gold_fixture",
         "_gate3_reliability_delta",
         "_gate4_swe_task",
+        "_print_gate_report",
         "cmd_gate_release",
         "register_gate"
       ],
@@ -9413,7 +9959,7 @@
       "owns": "the release-gate harness (feature 260630-release-gate) that prevents regressions before an agentware change ships -- the four gate CHECKS (_gate1_content_lint = strict steering content/intent-preservation lint; _gate2_lite_gold_fixture = gold-fixture retrieval no-regression vs the ledger baseline; _gate3_reliability_delta = reliability no-regression as a DELTA, not an absolute floor; _gate2_full = Tier-B own-gold + LongMemEval; _gate4_swe_task = Tier-B SWE-task presence probe), the orchestrator cmd_gate_release (Tier-A always, Tier-B on --full; the AGENTWARE_DISABLE_RELEASE_GATE kill-switch and the graceful no-op when no knowledge dir resolves) and the `gate` verb registrar (register_gate).",
       "path": "scripts/agentware_lib/ops/releasegate.py",
       "test_file": "tests/unit/ops/test_releasegate.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_gate",
@@ -10294,6 +10840,9 @@
         "STEERING_CHAR_BUDGET",
         "STEERING_EXPLICIT",
         "STEERING_GLOB",
+        "_content_preservation_errors",
+        "_dsf_scan",
+        "_dsf_scan_rule_line",
         "_first_token_verb",
         "_iter_rule_lines",
         "_read_rule_count_baseline",
@@ -10317,7 +10866,7 @@
       "owns": "the steering-lint domain that keeps the always-loaded steering corpus (CLAUDE.md/AGENTS.md + steering/*.md) in Deterministic Steering Format. The DSF vocabularies (DSF_VERBS allowed directive verbs, DSF_BANNED_WORDS hedge words), the STEERING_CHAR_BUDGET, the always-loaded set (STEERING_EXPLICIT + STEERING_GLOB), the rule-id / bullet regexes (DSF_RULE_ID_RE / DSF_BULLET_RE); the Gate-1 content/intent-preservation constants (REQUIRED_RULE_IDS protected IDs, REQUIRED_SECTIONS AGENTS.md headings) + the rule-count no-regression margin (RULE_COUNT_REGRESSION_MARGIN); the lint engine (_steering_files / _iter_rule_lines / _first_token_verb / lint_steering) and the committed rule-count baseline read/write (_read_rule_count_baseline / _write_rule_count_baseline); the cmd_steering_lint handler and the `steering` verb registrar (register_steering).",
       "path": "scripts/agentware_lib/ops/steering.py",
       "test_file": "tests/unit/ops/test_steering.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_steering",
@@ -10330,6 +10879,10 @@
       "anchor_symbols": [
         "_registry_add_member",
         "_scaffold_team_dir",
+        "_team_caller_handle",
+        "_team_join",
+        "_team_list",
+        "_team_org_root",
         "cmd_team",
         "load_registry",
         "register_team",
@@ -10353,7 +10906,7 @@
       "owns": "(1) the org team-membership registry primitives -- the registry path resolver (registry_path), the tolerant read-only parser (load_registry), the O5 membership validation (registry_membership_errors: well-formed + UNIQUE (user, team) rows + known-team refs), and the idempotent member-add mutation (_registry_add_member); and (2) the team onboarding surface (moved in wave-6 seam 17, once NON_INDEXED_DIRS/ _ensure_kb_gitignore landed in core.kblayout): the canonical-structure scaffolder _scaffold_team_dir, its `team list|create|register` handler cmd_team, and the `team` parser registrar register_team.",
       "path": "scripts/agentware_lib/ops/team.py",
       "test_file": "tests/unit/ops/test_team.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_team",
@@ -10534,6 +11087,8 @@
     },
     {
       "anchor_symbols": [
+        "_gold_coverage",
+        "_print_bench_lint_text",
         "cmd_bench_lint",
         "cmd_bench_redact",
         "redact_ledger_gold_paths"
@@ -10550,10 +11105,10 @@
       "layer": "retrieval",
       "name": "agentware_lib.retrieval.bench.benchledger",
       "not_owns": "the SWE-task domain logic + the `bench swe` runner (-> agentware_lib.retrieval.bench.benchswe); the `bench scorecard` handler + the `bench` parser registrar (-> agentware_lib.retrieval.bench.benchcmd); the append-only ledger itself (-> agentware_lib.retrieval.ledger) or the scorecard render/write VIEW (-> agentware_lib.retrieval.scorecard) -- both are siblings held via the `_ledger` / `_scorecard` module aliases and referenced by ATTRIBUTE so the bytecode global-resolve gate never walks a foreign sibling function held in this module's __dict__. Nor the knowledge index -- cmd_bench_lint imports it LAZILY (`from agentware_lib.knowledge import index`) because retrieval->knowledge must stay function-local (layer discipline).",
-      "owns": "redact_ledger_gold_paths -- the ONLY sanctioned mutation of the append-only benchmark ledger (it may touch ONLY the `gold_path` field) -- plus the two handlers built on the ledger/gold surface: cmd_bench_redact (PII scrub + derived scorecard regeneration) and cmd_bench_lint (gold-set staleness + coverage ratio).",
+      "owns": "redact_ledger_gold_paths -- the ONLY sanctioned mutation of the append-only benchmark ledger (it may touch ONLY the `gold_path` field) -- plus the two handlers built on the ledger/gold surface: cmd_bench_redact (PII scrub + derived scorecard regeneration) and cmd_bench_lint (gold-set staleness + coverage ratio) with its two halves -- the single-pass coverage fold _gold_coverage and the human report _print_bench_lint_text.",
       "path": "scripts/agentware_lib/retrieval/bench/benchledger.py",
       "test_file": "tests/unit/retrieval/test_benchledger.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -10563,6 +11118,10 @@
         "SWE_REGRESSION_TOLERANCE",
         "SWE_SUITE_FILE",
         "_dirs_identical",
+        "_print_swe_dry_run",
+        "_print_swe_report",
+        "_run_swe_arm",
+        "_run_swe_task",
         "cmd_bench_swe",
         "swe_aggregate_arm",
         "swe_aggregate_seeds",
@@ -10585,10 +11144,10 @@
       "layer": "retrieval",
       "name": "agentware_lib.retrieval.bench.benchswe",
       "not_owns": "the `bench scorecard` handler + the `bench` parser registrar (-> agentware_lib.retrieval.bench.benchcmd); the ledger gold_path redactor and the `bench redact` / `bench lint` handlers (-> agentware_lib.retrieval.bench.benchledger); the append-only ledger (-> agentware_lib.retrieval.ledger, held via the `_ledger` module alias and referenced by ATTRIBUTE so the bytecode global-resolve gate never walks a foreign sibling function held in this module's __dict__); the scorecard render/write VIEW (-> agentware_lib.retrieval.scorecard).",
-      "owns": "the frozen SWE-task suite constants (SWE_SUITE_FILE, SWE_DEFAULT_SEEDS, SWE_REGRESSION_TOLERANCE, SWE_DEFAULT_ARMS) and the deterministic SWE scoring/aggregation/decision family -- swe_load_suite, swe_load_task_meta, swe_score_task, _dirs_identical, swe_task_passed, swe_aggregate_arm, swe_aggregate_seeds, swe_regression_decision, swe_build_dry_run_plan, swe_build_ledger_row (deterministic given inputs; swe_score_task shells pytest against a copied repo; no wall-clock, no module-level mutable state) -- PLUS the `bench swe` CLI handler cmd_bench_swe, the only caller that spawns real agents.",
+      "owns": "the frozen SWE-task suite constants (SWE_SUITE_FILE, SWE_DEFAULT_SEEDS, SWE_REGRESSION_TOLERANCE, SWE_DEFAULT_ARMS) and the deterministic SWE scoring/aggregation/decision family -- swe_load_suite, swe_load_task_meta, swe_score_task, _dirs_identical, swe_task_passed, swe_aggregate_arm, swe_aggregate_seeds, swe_regression_decision, swe_build_dry_run_plan, swe_build_ledger_row (deterministic given inputs; swe_score_task shells pytest against a copied repo; no wall-clock, no module-level mutable state) -- PLUS the `bench swe` CLI handler cmd_bench_swe, the only caller that spawns real agents, and its four halves: the two renderers _print_swe_dry_run / _print_swe_report and the live-run engine _run_swe_arm -> _run_swe_task (one arm, one run).",
       "path": "scripts/agentware_lib/retrieval/bench/benchswe.py",
       "test_file": "tests/unit/retrieval/test_benchswe.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -10680,7 +11239,9 @@
         "_ABLATE_METRIC_KEYS",
         "_ok",
         "_print_acr_gate",
+        "_run_ablate_suite",
         "_run_acr_gate",
+        "_run_default_suite",
         "_run_gold_fixture_suite",
         "_run_longmemeval_suite",
         "cmd_eval",
@@ -10692,8 +11253,8 @@
       ],
       "dependency_direction": "retrieval -> core, knowledge",
       "depends_on": [
-        "agentware_lib.core.dates",
         "agentware_lib.retrieval.acrgate",
+        "agentware_lib.retrieval.evalsuites",
         "agentware_lib.retrieval.goldfixture",
         "agentware_lib.retrieval.ledger",
         "agentware_lib.retrieval.longmemeval",
@@ -10702,11 +11263,11 @@
       ],
       "layer": "retrieval",
       "name": "agentware_lib.retrieval.evalcmd",
-      "not_owns": "the gold-set scorer/loader (evaluate/load_gold -> agentware_lib.retrieval.metrics_rank), the ACR win gate (acr_gate_decision + the ACR_GATE_* thresholds -> agentware_lib.retrieval.acrgate), the benchmark ledger (_determinism_check_at/record_acr_gate/record_ledger_suite/_read_ledger/HISTORY_REL -> agentware_lib.retrieval.ledger), the regression + clean-HEAD A/B gate (gate_baseline/ evaluate_gate/_record_and_gate/_gate_exit/_print_gate/_print_ab/run_ab_gate -> agentware_lib.retrieval.regressiongate), the LongMemEval scorer (evaluate_longmemeval + _LME_DEFAULT_REL -> agentware_lib.retrieval.longmemeval), the gold-fixture scorer (evaluate_gold_fixture/gold_fixture_path/GOLD_FIXTURE_SUITE -> agentware_lib.retrieval.goldfixture) or the scorecard writer (write_scorecard -> agentware_lib.retrieval.scorecard). Sibling FUNCTIONS are held via the _metrics_rank/ _acrgate/_ledger/_regressiongate/_longmemeval/_goldfixture/_scorecard module aliases and referenced by ATTRIBUTE so the bytecode global-resolve gate never walks a foreign sibling function held in this module's __dict__; the sibling CONSTANTS the registrar + handlers read (ACR_GATE_MARGIN/ACR_GATE_ALPHA/HISTORY_REL/_LME_DEFAULT_REL/ GOLD_FIXTURE_SUITE) are imported BY NAME (gate-clean -- constants have no code object -- so register_eval and every handler body stay byte-verbatim). Nor the knowledge index -- cmd_eval imports it LAZILY (`from agentware_lib.knowledge import index`) because retrieval->knowledge must stay function-local (layer discipline).",
-      "owns": "the ablation instrument (_ABLATE_METRIC_KEYS + evaluate_ablation), the `eval` CLI handler family (cmd_eval + the suite/gate sub-runners _run_acr_gate, _run_longmemeval_suite, _run_gold_fixture_suite and the ACR-gate text printers _ok / _print_acr_gate) and the `eval` parser registrar (register_eval, declared in this module's `__verbs__` and resolved from there by the assembler; handler+registrar travel together).",
+      "not_owns": "the gold-set scorer/loader (evaluate/load_gold -> agentware_lib.retrieval.metrics_rank), the ACR win gate (acr_gate_decision + the ACR_GATE_* thresholds -> agentware_lib.retrieval.acrgate), the benchmark ledger (_determinism_check_at/record_acr_gate/record_ledger_suite/_read_ledger/HISTORY_REL -> agentware_lib.retrieval.ledger), the regression + clean-HEAD A/B gate (gate_baseline/ evaluate_gate/_record_and_gate/_gate_exit/_print_gate/_print_ab/run_ab_gate -> agentware_lib.retrieval.regressiongate), the LongMemEval scorer (evaluate_longmemeval + _LME_DEFAULT_REL -> agentware_lib.retrieval.longmemeval), the gold-fixture scorer (evaluate_gold_fixture/gold_fixture_path/GOLD_FIXTURE_SUITE -> agentware_lib.retrieval.goldfixture), the scorecard writer (write_scorecard -> agentware_lib.retrieval.scorecard) or -- since task 99 wave 10 -- the suite GUARDS and human REPORT renderers (validate_scoring_args/validate_lme_args/ record_and_gate_suite/print_{recorded_line,longmemeval_report,gold_fixture_report, ablate_report,default_report} -> agentware_lib.retrieval.evalsuites, a sibling this module imports and which never imports back, so evaluate_ablation can stay here). Sibling FUNCTIONS are held via the _metrics_rank/ _acrgate/_ledger/_regressiongate/_longmemeval/_goldfixture/_scorecard/_evalsuites module aliases and referenced by ATTRIBUTE so the bytecode global-resolve gate never walks a foreign sibling function held in this module's __dict__; the sibling CONSTANTS the registrar + handlers read (ACR_GATE_MARGIN/ACR_GATE_ALPHA/HISTORY_REL/ GOLD_FIXTURE_SUITE) are imported BY NAME (gate-clean -- constants have no code object -- so register_eval and every handler body stay byte-verbatim). Nor the knowledge index -- cmd_eval imports it LAZILY (`from agentware_lib.knowledge import index`) because retrieval->knowledge must stay function-local (layer discipline).",
+      "owns": "the ablation instrument (_ABLATE_METRIC_KEYS + evaluate_ablation), the `eval` CLI handler family (cmd_eval as a pure dispatcher + the suite/gate sub-runners _run_acr_gate, _run_longmemeval_suite, _run_gold_fixture_suite, _run_ablate_suite, _run_default_suite and the ACR-gate text printers _ok / _print_acr_gate) and the `eval` parser registrar (register_eval, declared in this module's `__verbs__` and resolved from there by the assembler; handler+registrar travel together).",
       "path": "scripts/agentware_lib/retrieval/evalcmd.py",
       "test_file": "tests/unit/retrieval/test_evalcmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_eval",
@@ -10717,10 +11278,41 @@
     },
     {
       "anchor_symbols": [
+        "print_ablate_report",
+        "print_default_report",
+        "print_gold_fixture_report",
+        "print_longmemeval_report",
+        "print_recorded_line",
+        "record_and_gate_suite",
+        "validate_lme_args",
+        "validate_scoring_args"
+      ],
+      "depended_on_by": [
+        "agentware_lib.retrieval.evalcmd"
+      ],
+      "dependency_direction": "retrieval -> core, knowledge",
+      "depends_on": [
+        "agentware_lib.core.dates",
+        "agentware_lib.retrieval.ledger",
+        "agentware_lib.retrieval.longmemeval"
+      ],
+      "layer": "retrieval",
+      "name": "agentware_lib.retrieval.evalsuites",
+      "not_owns": "the `eval` CLI handlers or the ablation instrument (cmd_eval, _run_acr_gate, _run_longmemeval_suite, _run_gold_fixture_suite, _run_ablate_suite, _run_default_suite, evaluate_ablation, the ACR-gate printers _ok / _print_acr_gate and the registrar register_eval -> agentware_lib.retrieval.evalcmd, which imports this module); the append-only ledger + its suite recorder (record_ledger_suite / HISTORY_REL -> agentware_lib.retrieval.ledger); the regression gate's baseline picker, verdict and exit-code mapper (gate_baseline / evaluate_gate / _print_gate / _gate_exit -> agentware_lib.retrieval.regressiongate); the scorers (evaluate_longmemeval / evaluate_gold_fixture / evaluate -> agentware_lib.retrieval.{longmemeval, goldfixture,metrics_rank}) or the scorecard writer (agentware_lib.retrieval.scorecard). The two siblings this module DOES reach are held via the `_ledger` / `_regressiongate` module aliases and referenced by ATTRIBUTE so the bytecode global-resolve gate never walks a foreign sibling function held in this module's __dict__; the two CONSTANTS these guards read (HISTORY_REL, _LME_DEFAULT_REL) are imported BY NAME, which is gate-clean because a constant has no code object for the resolver to walk.",
+      "owns": "the input guards every `eval` scoring arm shares (validate_scoring_args -- the --top-k / --as-of pair, returning the RESOLVED as_of so the caller cannot default it a second way; validate_lme_args -- the longmemeval dataset resolution plus --limit, wrapped around the shared pair so the four refusals keep their ORDER); the ONE record-and-gate block both benchmark suites run (record_and_gate_suite, parameterised by suite name -- it was a hand-copy at two sites differing in nothing but that string); and the four HUMAN report renderers the `eval` handler family prints (print_longmemeval_report, print_gold_fixture_report, print_ablate_report, print_default_report) together with the recorded-row line they share (print_recorded_line).",
+      "path": "scripts/agentware_lib/retrieval/evalsuites.py",
+      "test_file": "tests/unit/retrieval/test_evalsuites.py",
+      "test_file_present": true,
+      "verbs": []
+    },
+    {
+      "anchor_symbols": [
         "GOLD_FIXTURE_SUITE",
         "_DEFAULT_CATEGORY",
         "_GOLD_FIXTURE_REL",
         "_corpus_entry",
+        "_load_fixture_corpus",
+        "_load_fixture_gold",
         "evaluate_gold_fixture",
         "gold_fixture_path",
         "load_gold_fixture"
@@ -10737,10 +11329,10 @@
       "layer": "retrieval",
       "name": "agentware_lib.retrieval.goldfixture",
       "not_owns": "the ranking/scoring engine it reuses (evaluate -> agentware_lib.retrieval.metrics_rank via _metrics_rank); the repo-root anchor (REPO_ROOT -> agentware_lib.core.paths via paths); the benchmark-suite ledger recorder (record_ledger_suite -> agentware_lib.retrieval.ledger, wave 3 seam 12), the ablation instrument (evaluate_ablation, now agentware_lib.retrieval.evalcmd), the ACR win gate, the regression + A/B gates, the scorecard and the SWE bench (agentware_lib.retrieval.{acrgate,regressiongate,scorecard,bench}); the eval CLI handler (cmd_eval, now agentware_lib.retrieval.evalcmd, wave-3 seam 16b - reaches these via the _goldfixture alias) and the release gate's gold-fixture check (_gate2_lite_gold_fixture, resident - calls gold_fixture_path / evaluate_gold_fixture as bare names via the facade bind on the entrypoint).",
-      "owns": "the DRIFT-FREE frozen gold-fixture regression suite (`eval --suite gold-fixture`) - the suite name constant (GOLD_FIXTURE_SUITE), the repo-relative fixture path (_GOLD_FIXTURE_REL) + its absolute resolver (gold_fixture_path), the fixture loader/validator (load_gold_fixture -> (entries, gold), full error taxonomy, and the CATEGORY CONTRACT: every returned entry carries a `category` - declared, else _DEFAULT_CATEGORY - so the R-RET-03 skill pin is REACHABLE over this corpus instead of silently inert), and the scorer (evaluate_gold_fixture - score a strategy over the FROZEN synthetic corpus, tag the result as the gold-fixture suite, and assert determinism by re-scoring). Because the corpus ships frozen in the repo (tests/fixtures/gold_fixture_suite.json - synthetic, NO operator data, R-LOC-03), its corpus_fingerprint is stable across runs AND independent of any operator KB, so the absolute-score gate on this suite never false-FAILs on live-KB growth.",
+      "owns": "the DRIFT-FREE frozen gold-fixture regression suite (`eval --suite gold-fixture`) - the suite name constant (GOLD_FIXTURE_SUITE), the repo-relative fixture path (_GOLD_FIXTURE_REL) + its absolute resolver (gold_fixture_path), the fixture loader/validator (load_gold_fixture -> (entries, gold) over its two sequential validation phases _load_fixture_corpus / _load_fixture_gold, which share only the declared-id set; full error taxonomy, and the CATEGORY CONTRACT: every returned entry carries a `category` - declared, else _DEFAULT_CATEGORY - so the R-RET-03 skill pin is REACHABLE over this corpus instead of silently inert), and the scorer (evaluate_gold_fixture - score a strategy over the FROZEN synthetic corpus, tag the result as the gold-fixture suite, and assert determinism by re-scoring). Because the corpus ships frozen in the repo (tests/fixtures/gold_fixture_suite.json - synthetic, NO operator data, R-LOC-03), its corpus_fingerprint is stable across runs AND independent of any operator KB, so the absolute-score gate on this suite never false-FAILs on live-KB growth.",
       "path": "scripts/agentware_lib/retrieval/goldfixture.py",
       "test_file": "tests/unit/retrieval/test_goldfixture.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -10809,6 +11401,7 @@
         "agentware_lib.retrieval.bench.benchledger",
         "agentware_lib.retrieval.bench.benchswe",
         "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.evalsuites",
         "agentware_lib.retrieval.recallcmd",
         "agentware_lib.retrieval.regressiongate.gatebaseline",
         "agentware_lib.retrieval.scorecard"
@@ -10841,7 +11434,8 @@
         "longmemeval_session_text"
       ],
       "depended_on_by": [
-        "agentware_lib.retrieval.evalcmd"
+        "agentware_lib.retrieval.evalcmd",
+        "agentware_lib.retrieval.evalsuites"
       ],
       "dependency_direction": "retrieval -> core, knowledge",
       "depends_on": [
@@ -10895,7 +11489,11 @@
     {
       "anchor_symbols": [
         "SKILL_PIN_FLOOR",
-        "_apply_skill_pin"
+        "_apply_skill_pin",
+        "_first_qualifying_skill",
+        "_protected_learning_ids",
+        "_reprotect_learnings",
+        "_window_victim"
       ],
       "depended_on_by": [
         "agentware_lib.retrieval.bm25",
@@ -10909,15 +11507,21 @@
       "owns": "`SKILL_PIN_FLOOR` (the threshold, ENABLED at 0.85) and `_apply_skill_pin` (the pin itself, including the learnings-eviction guarantee). Nothing else.",
       "path": "scripts/agentware_lib/retrieval/pinpolicy.py",
       "test_file": "tests/unit/retrieval/test_pinpolicy.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
       "anchor_symbols": [
+        "_budget_walk",
         "_freshness_fields",
         "_print_recall_overflow",
         "_print_recall_text",
+        "_run_work_scope_recall",
         "_scoped_corpus",
+        "_team_scope_block",
+        "_work_scope_budget_walk",
+        "_work_scope_payload",
+        "_work_scope_ranked",
         "build_recall_payload",
         "cmd_recall",
         "register_recall"
@@ -10943,7 +11547,7 @@
       "owns": "the canonical recall payload builder (build_recall_payload -- the single source of truth shared with the MCP recall tool), the `recall` CLI handler (cmd_recall, incl. the scope=work ephemeral-corpus path) and the `recall` parser registrar (register_recall, declared in this module's `__verbs__` and resolved from there by the assembler; handler+registrar travel together).",
       "path": "scripts/agentware_lib/retrieval/recallcmd.py",
       "test_file": "tests/unit/retrieval/test_recallcmd.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": [
         {
           "attr": "register_recall",
@@ -11080,9 +11684,11 @@
         "_EMBEDDER_CACHE",
         "_EMBEDDER_REJECTIONS",
         "_EMBEDDER_SENTINEL",
+        "_assemble_vectors",
         "_corpus_fingerprint",
         "_load_embedder_module",
         "_model_slug",
+        "_plan_vector_reuse",
         "_reject",
         "_reset_embedder_cache",
         "build_vector_cache",
@@ -11115,7 +11721,7 @@
       "owns": "the lazy LOCAL-embedder loader (_load_embedder_module registered-name/dotted-name/ path import, load_embedder with its (spec, model)-keyed _EMBEDDER_CACHE + _EMBEDDER_SENTINEL negative memo, the _EMBEDDER_REJECTIONS record of PROTOCOL violations + its embedder_rejection accessor, _reset_embedder_cache), the Mode-B availability probe (semantic_embedder_available), the EFFECTIVE-retrieval-mode resolver that falls back to Mode A when no local model is present (resolve_effective_retrieval_mode), and the DERIVED per-model vector cache — its path/version constants (VECTOR_CACHE_DIR_REL/ VECTOR_CACHE_VERSION), the model slug + path helpers (_model_slug/vector_cache_path), the per-document content fingerprint (_corpus_fingerprint), the graceful loader (load_vector_cache), the incremental embed+persist builder (build_vector_cache), and the Mode-B half of `index rebuild` (rebuild_vector_cache — wave-6 seam 13: load the embedder, resolve the pinned model, scaffold the KB `.gitignore` via core.kblayout, then drive build_vector_cache; returns a status dict of skipped / error / built and NEVER raises on a missing/broken backend so the index rebuild is never blocked by this optional cache).",
       "path": "scripts/agentware_lib/retrieval/vectorcache.py",
       "test_file": "tests/unit/retrieval/test_vectorcache.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {
@@ -11124,6 +11730,11 @@
         "WORK_CORPUS_CACHE_VERSION",
         "_WORK_STATUS_MULT",
         "_build_work_corpus_uncached",
+        "_doc_title",
+        "_enumerate_feature_dirs",
+        "_feature_created",
+        "_feature_docs",
+        "_feature_plan_state",
         "_load_work_corpus_cache",
         "_read_work_text",
         "_work_corpus_cache_path",
@@ -11145,7 +11756,7 @@
       "owns": "the work-corpus builder (`build_work_corpus` / `_build_work_corpus_uncached`), the stat-digest cache that makes a warm recall read ZERO bodies (`WORK_CORPUS_CACHE_REL` / `WORK_CORPUS_CACHE_VERSION` / `_work_corpus_cache_path` / `_work_corpus_stat_digest` / `_load_work_corpus_cache` / `_write_work_corpus_cache`), the single guarded read (`_read_work_text`) and the plan-status BM25 weighting (`_WORK_STATUS_MULT` / `_work_status_multiplier`).",
       "path": "scripts/agentware_lib/retrieval/workcorpus.py",
       "test_file": "tests/unit/retrieval/test_workcorpus.py",
-      "test_file_present": false,
+      "test_file_present": true,
       "verbs": []
     },
     {

@@ -153,6 +153,94 @@ def cmd_index_validate(args):
     return 0 if ok else 1
 
 
+def _sync_dry_report(candidates, as_json):
+    """Render the DRY-RUN half of `index sync` and return its exit code.
+
+    Read-only by construction: it derives the suggested id/category for each
+    unindexed file and prints them. A dry run reports nothing to do as SUCCESS —
+    "no unindexed files" is the healthy state, not a failure.
+    """
+    report = [{"path": p, "suggested_id": index._suggest_id(p),
+               "suggested_category": index._infer_category(p)} for p in candidates]
+    if as_json:
+        json.dump({"unindexed": report, "count": len(report)},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    elif not report:
+        print("SYNC: no unindexed *.md files in the knowledge dir.")
+    else:
+        print("SYNC: %d unindexed *.md file(s) (dry-run; pass --fix):"
+              % len(report))
+        for r in report:
+            print("  %s  ->  id=%s category=%s"
+                  % (r["path"], r["suggested_id"], r["suggested_category"]))
+    return 0
+
+
+def _sync_prompt_row(path, interactive):
+    """(eid, title, category, tags_in, summary_in) for ONE candidate file.
+
+    The interactive prompts fall back to the DERIVED values on an empty answer,
+    so hitting return is the documented way to accept the suggestion. A
+    non-interactive run (the loop, CI, a pipe) takes those same derived values
+    without asking — never blocking on stdin (R-SHELL-01).
+    """
+    category = index._infer_category(path)
+    eid = index._suggest_id(path)
+    title = index._suggest_title(path)
+    if not interactive:
+        return eid, title, category, category, title
+    tags_in = input("tags for %s (comma-sep) [%s]: " % (path, category)).strip() \
+        or category
+    summary_in = input("summary for %s [%s]: " % (path, title)).strip() \
+        or title
+    return eid, title, category, tags_in, summary_in
+
+
+def _sync_apply(kdir, data, candidates):
+    """Add every candidate to `data`, returning (added, failures).
+
+    MUTATES `data` in memory only — persisting is the caller's job, because a
+    run where every add failed must not rewrite the index at all.
+    """
+    added, failures = [], []
+    interactive = sys.stdin.isatty()
+    for path in candidates:
+        eid, title, category, tags_in, summary_in = _sync_prompt_row(
+            path, interactive)
+        entry, add_err = index._do_add(
+            kdir, data, eid, title, category, path, index.parse_tags(tags_in),
+            summary_in)
+        if add_err is not None:
+            failures.append({"path": path, "error": add_err})
+        else:
+            added.append(entry)
+    return added, failures
+
+
+def _sync_fix_report(added, failures, as_json):
+    """Render the --fix half and return its exit code.
+
+    Failures go to STDERR and make the exit code non-zero even when some adds
+    succeeded: a partial sync that exited 0 would let a caller treat a KB with
+    unindexed files left in it as fully synced.
+    """
+    if as_json:
+        json.dump({"ok": not failures, "added": added, "failures": failures},
+                  sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+    else:
+        for e in added:
+            print("ADDED entry '%s' (category=%s, path=%s)"
+                  % (e["id"], e["category"], e["path"]))
+        for f in failures:
+            sys.stderr.write("agentware: could not add %s: %s\n"
+                             % (f["path"], f["error"]))
+        if not added and not failures:
+            print("SYNC: nothing to fix; all *.md files already indexed.")
+    return 1 if failures else 0
+
+
 def cmd_index_sync(args):
     kdir = config.require_knowledge_dir()
     if not kdir:
@@ -165,62 +253,13 @@ def cmd_index_sync(args):
 
         candidates = index.scan_unindexed(kdir, data)
         as_json = getattr(args, "format", "text") == "json"
-
         if not args.fix:
-            report = [{"path": p, "suggested_id": index._suggest_id(p),
-                       "suggested_category": index._infer_category(p)} for p in candidates]
-            if as_json:
-                json.dump({"unindexed": report, "count": len(report)},
-                          sys.stdout, ensure_ascii=False, indent=2)
-                sys.stdout.write("\n")
-            else:
-                if not report:
-                    print("SYNC: no unindexed *.md files in the knowledge dir.")
-                else:
-                    print("SYNC: %d unindexed *.md file(s) (dry-run; pass --fix):"
-                          % len(report))
-                    for r in report:
-                        print("  %s  ->  id=%s category=%s"
-                              % (r["path"], r["suggested_id"], r["suggested_category"]))
-            return 0
+            return _sync_dry_report(candidates, as_json)
 
-        added, failures = [], []
-        interactive = sys.stdin.isatty()
-        for path in candidates:
-            category = index._infer_category(path)
-            eid = index._suggest_id(path)
-            title = index._suggest_title(path)
-            if interactive:
-                tags_in = input("tags for %s (comma-sep) [%s]: " % (path, category)).strip() \
-                    or category
-                summary_in = input("summary for %s [%s]: " % (path, title)).strip() \
-                    or title
-            else:
-                tags_in = category
-                summary_in = title
-            entry, add_err = index._do_add(
-                kdir, data, eid, title, category, path, index.parse_tags(tags_in), summary_in)
-            if add_err is not None:
-                failures.append({"path": path, "error": add_err})
-            else:
-                added.append(entry)
-
+        added, failures = _sync_apply(kdir, data, candidates)
         if added:
             index.save_index(kdir, data)
-        if as_json:
-            json.dump({"ok": not failures, "added": added, "failures": failures},
-                      sys.stdout, ensure_ascii=False, indent=2)
-            sys.stdout.write("\n")
-        else:
-            for e in added:
-                print("ADDED entry '%s' (category=%s, path=%s)"
-                      % (e["id"], e["category"], e["path"]))
-            for f in failures:
-                sys.stderr.write("agentware: could not add %s: %s\n"
-                                 % (f["path"], f["error"]))
-            if not added and not failures:
-                print("SYNC: nothing to fix; all *.md files already indexed.")
-        return 1 if failures else 0
+        return _sync_fix_report(added, failures, as_json)
 
 
 def cmd_index_migrate(args):

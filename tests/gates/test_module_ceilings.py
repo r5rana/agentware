@@ -56,14 +56,27 @@ _NO_CORE_REASON = "scripts/agentware_lib is not present in this tree yet"
 #: own `ratchet.max_rows`. It may only ever be lowered, in the commit that pays
 #: the rows down. Task 67 measured 151; task 99 adjudicated them, wave 1 paid
 #: five down, wave 2 the twelve of the steering-capture family, wave 3 the seven
-#: of the sessionparse family, wave 4 the eight of the loop-observability family
-#: and wave 5 the four of the adversarial-review family.
-ROW_CEILING = 110
+#: of the sessionparse family, wave 4 the eight of the loop-observability family,
+#: wave 5 the four of the adversarial-review family, wave 6 the graphdag
+#: scheduler's five, wave 7 the fanout lane lifecycle's four, wave 8 the kb-git
+#: sync path's four, wave 9 the recall read path's five, wave 10 the
+#: benchmark harness family's six, wave 11 the skill lifecycle's six, wave 12
+#: the three linters' four, wave 13 the curation write path's three, wave 14
+#: the premise-grounding family's four, wave 15 the flag-dispatch verbs' four,
+#: wave 16 the artifact-rewriter family's five, wave 17 the verb-emit family's
+#: four, wave 18 the derivation family's four and wave 19 the surface-union
+#: family's SIX -- the first wave to land entirely inside the test corpus, and
+#: the one that cleared that group's stated blocker (a gate harness "cannot
+#: change shape in the same commit that changes what it gates") by being a
+#: commit that changes nothing the harness gates: `tests/_surface_union.py`,
+#: whose file row and five function rows were one file stating TWO obligations,
+#: DERIVE the binding union and JUDGE against it.
+ROW_CEILING = 51
 
 #: The ceiling on the PAYDOWN half specifically. This is the number that has to
 #: reach zero: when it does, every remaining row is a decision that stands, and
 #: no row anywhere names a task at all. It only falls.
-PAYDOWN_CEILING = 80
+PAYDOWN_CEILING = 21
 
 #: A syntactically valid `invariant` for the synthetic rows below. It says what
 #: BREAKS if the branches are collapsed, which is the whole obligation.
