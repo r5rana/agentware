@@ -439,7 +439,7 @@ MUTATION_PROBES = {
     },
     "org:marker-driven-org-root-identity": {
         "kind": "replace",
-        "path": "tests/_orgidentity_gate.py",
+        "path": "tests/_orgidentity_probe.py",
         "find": "            elif declared != PROBE_NAME_MATCH and matched:",
         "replace": "            elif False:"
     },

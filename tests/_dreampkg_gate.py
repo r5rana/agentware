@@ -128,8 +128,16 @@ SCAN_EXEMPT_FILES = {
         "RETIRED (feature 260712-scheduler-updater, Task 13)",
 }
 
+#: Tool caches and build detritus: no PUBLISHED file lives in any of them, so a
+#: literal hit there says nothing about what the tree ships. `.pytest_cache` is
+#: the one that bites rather than merely wastes time: `tests/` is scan-exempt,
+#: but pytest mirrors test NAMES into `v/cache/nodeids` at the repo ROOT, where
+#: the exemption does not reach. Every test naming a retired token therefore
+#: re-manufactures that token outside `tests/` on each run, so the gate reddens
+#: on the run AFTER any full-suite run -- a failure with no source change behind
+#: it, whose reproduction depends on whether a cache happens to be on disk.
 SCAN_SKIP_DIRS = (".git", "__pycache__", ".venv", "node_modules", ".mypy_cache",
-                  ".cache", "logs")
+                  ".cache", ".pytest_cache", ".ruff_cache", "logs")
 
 
 # --------------------------------------------------------------------------

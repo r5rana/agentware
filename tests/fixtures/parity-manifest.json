@@ -4281,7 +4281,7 @@
         "mutation": "relax the match to a substring (a sibling checkout named <Name>V2 satisfies <Name>), shrink the marker table below its floor, or stop reading the deprecated key spelling (the guard silently disarms for every operator who configured it before the rename)",
         "probe": {
           "kind": "replace",
-          "path": "tests/_orgidentity_gate.py",
+          "path": "tests/_orgidentity_probe.py",
           "find": "            elif declared != PROBE_NAME_MATCH and matched:",
           "replace": "            elif False:"
         }

@@ -220,6 +220,41 @@ class MutationTest(unittest.TestCase):
                   "# %s\n" % gate.RETIRED_STEP_LABEL)
         self.assertTrue(gate.check_no_hits(tree.root))
 
+    def test_dreampkg_a_tool_cache_is_skipped_but_shipped_code_is_not(self):
+        # `tests/` is scan-exempt, but pytest mirrors test NAMES into
+        # `.pytest_cache/v/cache/nodeids` at the repo ROOT, outside that
+        # exemption. Every test naming a retired token therefore re-creates the
+        # token outside `tests/` on each run, and the gate reddened on the run
+        # AFTER any full-suite run -- a failure with no source change behind it.
+        tree = self.synth("toolcache").steps(_registry_source(_GOOD_ROWS))
+        for skipped in (".pytest_cache", "__pycache__", ".mypy_cache"):
+            tree.file(os.path.join(skipped, "v", "cache", "nodeids"),
+                      "test_%s_is_gone\n" % gate.RETIRED_TOKENS[1])
+        self.assertEqual(gate.check_no_hits(tree.root), [],
+                         "a tool cache was read as shipped source")
+        # The control: skipping a cache must not blunt the scan itself. The
+        # SAME token in a published file is still a hit.
+        tree.file(os.path.join("scripts", "hooks", "cache_probe.sh"),
+                  "# %s\n" % gate.RETIRED_TOKENS[1])
+        problems = gate.check_no_hits(tree.root)
+        self.assertTrue(problems, "the scan stopped seeing shipped code")
+        self.assertIn("cache_probe.sh", "\n".join(problems))
+
+    def test_dreampkg_every_skipped_dir_is_a_cache_never_a_source_root(self):
+        # A skip list is the cheapest place to hide a reintroduction: adding
+        # `scripts` here would silence the gate without touching a check.
+        self.assertEqual(gate.SCAN_SKIP_DIRS,
+                         (".git", "__pycache__", ".venv", "node_modules",
+                          ".mypy_cache", ".cache", ".pytest_cache",
+                          ".ruff_cache", "logs"))
+        # The property that matters is not the spelling but that no entry is a
+        # root the tree PUBLISHES from -- that is the shape that would silence
+        # the gate wholesale.
+        for name in gate.SCAN_SKIP_DIRS:
+            self.assertNotIn(name, ("scripts", "webui", "docs", "catalog",
+                                    "steering", "tests", ".claude"),
+                             "%s is a source root, not a cache" % name)
+
     def test_dreampkg_the_monolith_exemption_retires_with_the_monolith(self):
         # `SCAN_EXEMPT_DIRS` is a standing rule; the one FILE entry is coupled to
         # a file the shim retirement deletes. Asserted as a biconditional so this
