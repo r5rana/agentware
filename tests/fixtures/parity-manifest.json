@@ -3766,7 +3766,7 @@
     {
       "id": "mod:commit-series-identity-is-anchored-not-declared",
       "dimension": "modularity",
-      "capability": "The expected identity is ANCHORED, never written down: it is read at runtime from the author of the commit the branch was cut from, and a `name`/`email`/`emails` key in the fixture is a SCHEMA ERROR. That removes two failures at once \u2014 operator data committed into a public repository (R-LOC-03; the first version of this fixture wrote the address in and _repo_standard's personal-data arm caught it) and the one field a maintainer could widen to two entries to buy silence. A stray identity can only be cleared by removing it from history. The window's `first` is pinned by value and asserted equal to the range's real earliest date for the same reason, and the count carries a floor with no ceiling so a squash or reset that eats history reddens",
+      "capability": "The expected identity is ANCHORED, never written down: it is read at runtime from a commit's author -- the base ref's, or (`ref_author`) a published non-merge commit inside the base's history, so a series carried onto an upstream merge tip can never vouch for itself -- and a `name`/`email`/`emails` key in the fixture is a SCHEMA ERROR. That removes two failures at once \u2014 operator data committed into a public repository (R-LOC-03; the first version of this fixture wrote the address in and _repo_standard's personal-data arm caught it) and the one field a maintainer could widen to two entries to buy silence. A stray identity can only be cleared by removing it from history. The window's `first` is pinned by value and asserted equal to the range's real earliest date for the same reason, and the count carries a floor with no ceiling so a squash or reset that eats history reddens",
       "sides": [
         "local"
       ],
@@ -4058,7 +4058,7 @@
     {
       "id": "mod:object-store-authorship-census",
       "dimension": "modularity",
-      "capability": "The SIXTH surface: every commit the object store holds beyond the base ref, classified by the weakest `git push` that could publish it (branch / pushable / mirror_only / unreachable) and checked against the identity ANCHORED at the base ref's author. Reachability is not publishability \u2014 `git log base..HEAD` stops at the branch while a store keeps every abandoned rewrite and fetched tip, and `push --all` publishes by REF",
+      "capability": "The SIXTH surface: every commit the object store holds beyond the base ref, classified by the weakest `git push` that could publish it (branch / pushable / mirror_only / unreachable) and checked against the identity ANCHORED by the commit-series fixture (one shared resolver, so the two history gates cannot disagree). Reachability is not publishability \u2014 `git log base..HEAD` stops at the branch while a store keeps every abandoned rewrite and fetched tip, and `push --all` publishes by REF",
       "sides": [
         "local"
       ],

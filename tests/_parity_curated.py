@@ -381,7 +381,9 @@ CURATED_ROWS = MERGE_ROWS + [
          "committer is a CI bot — the exact residue a rebase leaves"),
     _row("mod:commit-series-identity-is-anchored-not-declared", "modularity",
          "The expected identity is ANCHORED, never written down: it is read at "
-         "runtime from the author of the commit the branch was cut from, and a "
+         "runtime from a commit's author -- the base ref's, or (`ref_author`) a "
+         "published non-merge commit inside the base's history, so a series "
+         "carried onto an upstream merge tip can never vouch for itself -- and a "
          "`name`/`email`/`emails` key in the fixture is a SCHEMA ERROR. That "
          "removes two failures at once — operator data committed into a public "
          "repository (R-LOC-03; the first version of this fixture wrote the "
@@ -438,7 +440,8 @@ CURATED_ROWS = MERGE_ROWS + [
          "The SIXTH surface: every commit the object store holds beyond the "
          "base ref, classified by the weakest `git push` that could publish it "
          "(branch / pushable / mirror_only / unreachable) and checked against "
-         "the identity ANCHORED at the base ref's author. Reachability is not "
+         "the identity ANCHORED by the commit-series fixture (one shared "
+         "resolver, so the two history gates cannot disagree). Reachability is not "
          "publishability — `git log base..HEAD` stops at the branch while a "
          "store keeps every abandoned rewrite and fetched tip, and `push --all` "
          "publishes by REF",

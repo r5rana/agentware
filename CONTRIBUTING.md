@@ -202,7 +202,8 @@ change**: what its message means and how to clear it.
   `Co-Authored-By:` / `Generated with` trailer), on a date outside the declared
   window, and on a merge commit or a range that got shorter. Bounds live in
   `tests/fixtures/commit-series.json`; the expected identity is *anchored* to
-  the author of the commit the branch was cut from and is never written down,
+  a published commit's author (the base ref's, or a declared non-merge commit
+  inside the base's history) and is never written down,
   so a stray identity has to be removed from history rather than declared away.
 - **Open the PR against `main`** and fill in the template. Every checkbox in it
   names a check you can run locally in seconds; ticking one you did not run

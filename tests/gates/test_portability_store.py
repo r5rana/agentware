@@ -472,7 +472,7 @@ class LiveRepositoryTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.report = ps.check(REPO, "aw-pre-merge")
+        cls.report = ps.check(REPO)  # base + anchor from the commit-series fixture
 
     def test_the_publishable_branch_set_carries_no_foreign_identity(self):
         """A plain `git push origin merge/modularize` leaks nothing.
@@ -542,17 +542,35 @@ class LiveRepositoryTest(unittest.TestCase):
         self.assertEqual(declared - gated - absent, set())
 
     def test_the_census_reaches_beyond_what_a_range_walk_would_see(self):
-        """The store holds commits `git log aw-pre-merge..HEAD` never lists."""
-        walked = set(ps.reachable_from(REPO, "aw-pre-merge..HEAD"))
+        """Where the store holds commits `git log <base>..HEAD` never lists, the
+        census sees them. A clone-shaped store (CI) may hold none, so this is
+        skipped there; RepoCase proves the reach hermetically either way."""
+        walked = set(ps.reachable_from(REPO, self.report["meta"]["base_ref"] + "..HEAD"))
+        if not set(_store_commits()) - walked - ps.reachable_from(REPO, self.report["meta"]["base_ref"]):
+            self.skipTest("store holds nothing beyond the walked range (clone-shaped)")
         self.assertTrue({r["sha"] for r in self.report["rows"]} - walked)
+
+    def test_both_history_gates_share_one_base_and_one_anchor(self):
+        cs = _cs()
+        fx = cs.load_fixture()
+        self.assertEqual(self.report["meta"]["base_ref"], fx["range"]["base_ref"])
+        self.assertEqual(ps.resolve_anchor(REPO)[1:], cs.series_identity(REPO, fx))
+
+
+def _cs():
+    try:
+        import tests._commit_series as cs
+    except ImportError:  # pragma: no cover
+        import _commit_series as cs
+    return cs
 
 
 def _anchor():
-    try:
-        from tests._commit_series import anchor_identity
-    except ImportError:  # pragma: no cover
-        from _commit_series import anchor_identity
-    return anchor_identity(REPO, "aw-pre-merge")
+    return ps.resolve_anchor(REPO)[1:]
+
+
+def _store_commits():
+    return ps.store_commits(REPO)
 
 
 if __name__ == "__main__":  # pragma: no cover

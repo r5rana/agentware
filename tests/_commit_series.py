@@ -105,8 +105,15 @@ SUBJECT_MAX = 120
 #: An exemption reason shorter than this is a shrug, not a reason.
 MIN_REASON = 24
 
-#: The identity is READ from the base ref's author, never written down.
+#: The identity is READ from a commit's author, never written down: either the
+#: base ref's (`base_ref_author`) or a declared ref's (`ref_author` + `ref`).
+#: The second exists for a series landing on a base whose tip is NOT the
+#: series' identity (an upstream merge commit): the anchor is then a published
+#: non-merge commit INSIDE the base's history, so it can never be the series
+#: vouching for itself.
 BASE_AUTHOR_ANCHOR = "base_ref_author"
+REF_AUTHOR_ANCHOR = "ref_author"
+ANCHORS = (BASE_AUTHOR_ANCHOR, REF_AUTHOR_ANCHOR)
 
 RECORD_SEP = "\x1e"
 FIELD_SEP = "\x1f"
@@ -155,9 +162,13 @@ def _identity_errors(ident):
     entries to silence a finding. Refusing the key outright removes both.
     """
     errors = []
-    if ident.get("anchor") != BASE_AUTHOR_ANCHOR:
-        errors.append("identity.anchor: expected %r, got %r"
-                      % (BASE_AUTHOR_ANCHOR, ident.get("anchor")))
+    anchor = ident.get("anchor")
+    if anchor not in ANCHORS:
+        errors.append("identity.anchor: expected one of %r, got %r"
+                      % (ANCHORS, anchor))
+    if (anchor == REF_AUTHOR_ANCHOR) != bool(ident.get("ref")):
+        errors.append("identity.ref: required by %r and refused otherwise"
+                      % (REF_AUTHOR_ANCHOR,))
     for key in ("name", "email", "emails"):
         if key in ident:
             errors.append(
@@ -258,9 +269,39 @@ def anchor_identity(repo, base_ref):
     return name, email
 
 
-def check_identity(series, fx, repo):
+def _ref_anchor_identity(repo, ref, base_ref):
+    """(name, email) of `ref`, which must be a published, single-identity
+    non-merge commit inside `base_ref`'s history. Raises otherwise: an anchor
+    the series could supply for itself is no anchor at all."""
+    fmt = FIELD_SEP.join(("%an", "%ae", "%cn", "%ce", "%P"))
+    out = _git(repo, "log", "-1", "--format=" + fmt, "%s^{commit}" % ref)
+    if out is None:
+        raise ValueError("cannot resolve the identity anchor at %r in %s"
+                         % (ref, repo))
+    an, ae, cn, ce, parents = (out.strip("\n").split(FIELD_SEP) + [""] * 5)[:5]
+    if len(parents.split()) != 1 or (an, ae) != (cn, ce):
+        raise ValueError("identity anchor %r must be a non-merge commit whose "
+                         "author is its committer" % (ref,))
+    if subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor",
+                       "%s^{commit}" % ref, "%s^{commit}" % base_ref],
+                      capture_output=True).returncode != 0:
+        raise ValueError("identity anchor %r is not in the history of %r -- "
+                         "the series may not anchor itself" % (ref, base_ref))
+    return an, ae
+
+
+def series_identity(repo, fx):
+    """The ONE identity a series must carry, per the fixture's anchor. Shared
+    by the object-store gate so the two can never disagree."""
     base_ref = (fx.get("range") or {}).get("base_ref") or ""
-    name, email = anchor_identity(repo, base_ref)
+    ident = fx.get("identity") or {}
+    if ident.get("anchor") == REF_AUTHOR_ANCHOR:
+        return _ref_anchor_identity(repo, ident.get("ref") or "", base_ref)
+    return anchor_identity(repo, base_ref)
+
+
+def check_identity(series, fx, repo):
+    name, email = series_identity(repo, fx)
     emails = {email}
     found = []
     for c in series:
@@ -321,12 +362,30 @@ def _commit_window_findings(c, base_day, declared_first, today):
     return found
 
 
+def _branch_point_day(fx, repo):
+    """(day, findings) for the window's lower bound.
+
+    The branch POINT may predate the base the series now sits on (a series
+    carried onto a later upstream tip keeps its real dates). It must be an
+    ancestor of the base, so it cannot be pointed further back to widen.
+    """
+    base_ref = (fx.get("range") or {}).get("base_ref") or ""
+    point = (fx.get("window") or {}).get("branch_point_ref") or base_ref
+    found = []
+    if point != base_ref and subprocess.run(
+            ["git", "-C", repo, "merge-base", "--is-ancestor",
+             "%s^{commit}" % point, "%s^{commit}" % base_ref],
+            capture_output=True).returncode != 0:
+        found.append(finding(WINDOW, "branch_point_not_ancestor", "-",
+                             "window.branch_point_ref %r is not an ancestor "
+                             "of %r" % (point, base_ref)))
+    return _day((_git(repo, "log", "-1", "--format=%cI", point) or "").strip()), found
+
+
 def check_window(series, fx, repo, today=None):
     declared_first = (fx.get("window") or {}).get("first") or ""
     today = today or datetime.date.today().isoformat()
-    base_ref = (fx.get("range") or {}).get("base_ref") or ""
-    base_day = _day((_git(repo, "log", "-1", "--format=%cI", base_ref) or "").strip())
-    found = []
+    base_day, found = _branch_point_day(fx, repo)
     for c in series:
         found.extend(_commit_window_findings(c, base_day, declared_first, today))
     if series:

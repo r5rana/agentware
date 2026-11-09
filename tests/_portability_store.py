@@ -35,10 +35,11 @@ publish it:
   ``unreachable``  no ref reaches it. No push can send it; ``git gc --prune``
                    removes it. Reported, never gating.
 
-The identity is ANCHORED, not written down -- `_commit_series.anchor_identity`
-reads it from the author of the commit the branch was cut from, so this module
-and the task-82 history gate cannot disagree about who "locally authored" means,
-and no address is committed here (R-LOC-03).
+The identity is ANCHORED, not written down. With no explicit base, the base ref
+AND the identity come from the commit-series fixture through
+`_commit_series.series_identity`, so this module and the task-82 history gate
+cannot disagree about who "locally authored" means; an explicit `--base` anchors
+at that ref's author. No address is committed here (R-LOC-03).
 
 The ledger is a two-directional ratchet, like every other in this tree: an
 undeclared foreign commit in a gated class FAILS, and a declared row the store
@@ -71,9 +72,9 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 try:  # the corpus's dual-import seam: ONE module object, whichever spelling wins
-    from tests._commit_series import anchor_identity
+    from tests._commit_series import anchor_identity, load_fixture, series_identity
 except ImportError:  # pragma: no cover - direct-script invocation
-    from _commit_series import anchor_identity
+    from _commit_series import anchor_identity, load_fixture, series_identity
 
 SCHEMA = "agentware/object-store-report@1"
 LEDGER_SCHEMA = "agentware/object-store-residue@1"
@@ -308,16 +309,28 @@ def finding(kind, sha, reach, detail):
     return {"kind": kind, "sha": sha[:12], "reach": reach, "detail": detail}
 
 
-def check(repo=None, base_ref="aw-pre-merge", head_ref=None, ledger_path=None):
+def _fixture_base():
+    return (load_fixture().get("range") or {}).get("base_ref")
+
+
+def resolve_anchor(repo, base_ref=None):
+    """(base_ref, name, email): the fixture's base + anchor, or an explicit base."""
+    if base_ref:
+        return (base_ref,) + tuple(anchor_identity(repo, base_ref))
+    return (_fixture_base(),) + tuple(series_identity(repo, load_fixture()))
+
+
+def check(repo=None, base_ref=None, head_ref=None, ledger_path=None):
     """The whole surface: census, identity verdict, ratchet reconciliation."""
     repo = repo or REPO
+    explicit, base_ref = base_ref, base_ref or _fixture_base()
     ledger = load_ledger(ledger_path)
     errors = schema_errors(ledger, ledger_path or DEFAULT_LEDGER)
     if errors:
         return {"schema": SCHEMA, "ok": False, "schema_errors": errors,
                 "findings": [], "rows": [], "meta": {}}
-    rows, meta = census(repo, base_ref, head_ref)
-    name, email = anchor_identity(repo, base_ref)
+    rows, meta = census(repo, base_ref, head_ref)  # an unknown base fails HERE
+    _, name, email = resolve_anchor(repo, explicit)
     declared = {row["sha"]: row for row in ledger.get("rows", [])}
     present = {row["sha"] for row in rows} | reachable_from(repo, base_ref)
     findings, used = _identity_findings(rows, name, email, declared)
@@ -373,8 +386,9 @@ def build_argparser():
         prog="_portability_store.py",
         description="Object-store authorship census and gate (read-only).")
     parser.add_argument("--repo", default=REPO, help="repository to inspect")
-    parser.add_argument("--base", default="aw-pre-merge",
-                        help="base ref whose history is NOT 'gained'")
+    parser.add_argument("--base", default=None,
+                        help="base ref whose history is NOT 'gained' (default: "
+                             "the commit-series fixture's base and anchor)")
     parser.add_argument("--head", default=None,
                         help="full refname under review (default: current HEAD)")
     parser.add_argument("--ledger", default=None,

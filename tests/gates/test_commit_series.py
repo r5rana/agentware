@@ -120,12 +120,11 @@ class LiveSeriesTest(unittest.TestCase):
         # R-LOC-03: an address here would be operator data in a public repo,
         # and it would be the one field a second address could be added to.
         ident = cs.load_fixture()["identity"]
-        self.assertEqual(cs.BASE_AUTHOR_ANCHOR, ident["anchor"])
-        for key in ("name", "email", "emails"):
-            self.assertNotIn(key, ident)
+        self.assertIn(ident["anchor"], cs.ANCHORS)
+        self.assertEqual(set(ident) - {"anchor", "ref", "why"}, set())
 
-    def test_the_anchor_resolves_to_the_pre_merge_author(self):
-        name, email = cs.anchor_identity(REPO_ROOT, "aw-pre-merge")
+    def test_the_shipped_anchor_resolves_outside_the_series(self):
+        name, email = cs.series_identity(REPO_ROOT, cs.load_fixture())
         self.assertTrue(name and email, (name, email))
 
     def test_the_shipped_range_is_not_empty(self):
@@ -318,6 +317,92 @@ class ShapeArmTest(_Planted):
         self.box.git("checkout", "-q", "--orphan", "detached")
         self.box.commit("feat(core): a change with no shared ancestry")
         self.assertTrue(self.red("wrong_base"))
+
+
+class RefAnchorTest(unittest.TestCase):
+    """`ref_author`: a series carried onto an upstream merge tip.
+
+    The sandbox mirrors the live shape -- base B (operator), an upstream
+    non-merge commit U by another identity, a merge M of U authored by the
+    operator and committed by a bot, tagged as the new base -- and the series
+    carries U's identity with its REAL (earlier) dates.
+    """
+
+    def setUp(self):
+        b = self.box = _Sandbox()
+        b.git("checkout", "-q", "-b", "up")
+        b.commit("feat(up): the upstream contribution", name="Up Stream",
+                 email="up@example.invalid", day=BASE_DAY, author_hour=14,
+                 committer_hour=14)
+        b.git("checkout", "-q", "main")
+        b.git("merge", "-q", "--no-ff", "-m", "chore(merge): land upstream",
+              "up", env={"GIT_AUTHOR_NAME": NAME, "GIT_AUTHOR_EMAIL": EMAIL,
+                         "GIT_COMMITTER_NAME": "Bot", "GIT_COMMITTER_EMAIL":
+                         "bot@example.invalid", "GIT_AUTHOR_DATE": _iso("2026-08-12"),
+                         "GIT_COMMITTER_DATE": _iso("2026-08-12")})
+        b.git("tag", "new-base")
+
+    def up(self, subject=GOOD, **kw):
+        kw.setdefault("name", "Up Stream")
+        kw.setdefault("email", "up@example.invalid")
+        self.box.commit(subject, **kw)
+
+    def fx(self, ref="new-base^2", point=BASE_TAG, anchor=cs.REF_AUTHOR_ANCHOR):
+        ident = {"anchor": anchor}
+        if anchor == cs.REF_AUTHOR_ANCHOR:
+            ident["ref"] = ref
+        window = {"first": DAY}
+        if point:
+            window["branch_point_ref"] = point
+        return _fx(range={"base_ref": "new-base", "head_ref": "HEAD"},
+                   identity=ident, window=window)
+
+    def run_fx(self, fx):
+        return cs.run_checks(self.box.root, fx)
+
+    def test_the_anchor_identity_is_clean_and_the_base_author_is_not(self):
+        self.up()
+        self.assertEqual([], self.run_fx(self.fx())["findings"])
+        old = self.run_fx(self.fx(anchor=cs.BASE_AUTHOR_ANCHOR))
+        self.assertIn("foreign_author_name", _kinds(old))
+
+    def test_a_series_uniform_in_a_third_identity_is_red(self):
+        # The self-anchoring hole: one consistent WRONG identity must not pass.
+        self.up(name="Third Party", email="third@example.invalid")
+        kinds = _kinds(self.run_fx(self.fx()))
+        self.assertIn("foreign_author_email", kinds)
+        self.assertIn("foreign_committer_email", kinds)
+
+    def test_a_foreign_committer_under_the_anchor_is_red(self):
+        self.up()
+        self.box.git("commit", "-q", "--allow-empty", "-m", GOOD + " again",
+                     env={"GIT_AUTHOR_NAME": "Up Stream",
+                          "GIT_AUTHOR_EMAIL": "up@example.invalid",
+                          "GIT_COMMITTER_NAME": NAME, "GIT_COMMITTER_EMAIL": EMAIL,
+                          "GIT_AUTHOR_DATE": _iso(DAY), "GIT_COMMITTER_DATE": _iso(DAY)})
+        self.assertIn("foreign_committer_email", _kinds(self.run_fx(self.fx())))
+
+    def test_an_anchor_the_series_could_supply_raises(self):
+        self.up()
+        for ref in ("HEAD", "new-base"):   # inside the range; a merge commit
+            with self.assertRaises(ValueError):
+                self.run_fx(self.fx(ref=ref))
+
+    def test_the_branch_point_admits_real_dates_and_cannot_be_moved_off_history(self):
+        self.up()   # dated DAY, before new-base's 2026-08-12
+        self.assertIn("predates_branch_point", _kinds(self.run_fx(self.fx(point=None))))
+        self.assertEqual([], self.run_fx(self.fx())["findings"])
+        self.box.git("checkout", "-q", "--orphan", "stray")
+        self.box.commit("chore(stray): an unrelated root", day=BASE_DAY)
+        self.box.git("tag", "stray-root")
+        self.box.git("checkout", "-q", "main")
+        self.assertIn("branch_point_not_ancestor",
+                      _kinds(self.run_fx(self.fx(point="stray-root"))))
+
+    def test_ref_and_anchor_kind_are_declared_together(self):
+        self.assertTrue(cs.schema_errors(_fx(identity={"anchor": cs.REF_AUTHOR_ANCHOR})))
+        self.assertTrue(cs.schema_errors(_fx(identity={
+            "anchor": cs.BASE_AUTHOR_ANCHOR, "ref": "x"})))
 
 
 class SchemaTest(unittest.TestCase):
