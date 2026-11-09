@@ -224,6 +224,17 @@ class WindowArmTest(_Planted):
         self.box.commit("feat(core): a change from the future", day=future)
         self.assertTrue(self.red("dated_in_the_future"))
 
+    def test_an_early_morning_commit_east_of_utc_is_not_in_the_future(self):
+        # 03:04+05:30 on the 10th is 21:34 UTC on the 9th: a runner whose UTC
+        # day is the 9th must not call it "dated tomorrow" (the CI false red).
+        self.box.git("commit", "-q", "--allow-empty", "-m", GOOD,
+                     env={"GIT_AUTHOR_DATE": "2026-08-12T03:04:15+05:30",
+                          "GIT_COMMITTER_DATE": "2026-08-12T03:04:15+05:30"})
+        report = cs.run_checks(self.box.root, _fx(), today="2026-08-11")
+        self.assertNotIn("dated_in_the_future", _kinds(report))
+        report = cs.run_checks(self.box.root, _fx(), today="2026-08-10")
+        self.assertIn("dated_in_the_future", _kinds(report))
+
     def test_a_committer_date_preceding_the_author_date_is_named(self):
         # A real commit cannot be committed before it was authored; a crude
         # backdating forgery produces exactly this inversion.

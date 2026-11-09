@@ -336,6 +336,19 @@ def _day(iso):
     return (iso or "")[:10]
 
 
+def _utc_day(iso):
+    """The UTC calendar day of an ISO instant. The future bound compares an
+    INSTANT against the clock, so a commit made at 03:00+05:30 is not "dated
+    tomorrow" on a runner whose UTC day has not turned yet."""
+    try:
+        when = datetime.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return _day(iso)
+    if when.tzinfo is None:
+        return _day(iso)
+    return when.astimezone(datetime.timezone.utc).date().isoformat()
+
+
 def _commit_window_findings(c, base_day, declared_first, today):
     """Every way ONE commit's two timestamps can fall outside the bounds."""
     found = []
@@ -350,7 +363,7 @@ def _commit_window_findings(c, base_day, declared_first, today):
                 WINDOW, "before_declared_window", _short(c),
                 "%s date %s is before the declared first %s"
                 % (role, day, declared_first)))
-        if day > today:
+        if _utc_day(c["%s_date" % role]) > today:
             found.append(finding(
                 WINDOW, "dated_in_the_future", _short(c),
                 "%s date %s is after today %s" % (role, day, today)))
@@ -384,7 +397,7 @@ def _branch_point_day(fx, repo):
 
 def check_window(series, fx, repo, today=None):
     declared_first = (fx.get("window") or {}).get("first") or ""
-    today = today or datetime.date.today().isoformat()
+    today = today or datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     base_day, found = _branch_point_day(fx, repo)
     for c in series:
         found.extend(_commit_window_findings(c, base_day, declared_first, today))
