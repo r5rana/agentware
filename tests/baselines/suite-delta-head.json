@@ -3,7 +3,7 @@
   "kind": "suite-delta-capture",
   "label": "head",
   "tree_root": "<redacted-home>/workspace/agentware",
-  "git_head": "63557a0638e4b09b9012921f6c31729706e7d2d5",
+  "git_head": "17f311f4dcacd84e0fc1e51ea08ad86599e71ab2",
   "captured_at": "2026-08-14T14:09:09Z",
   "python": "3.13.7",
   "wall_seconds": 594.6,

@@ -110,9 +110,15 @@ class ChannelResolverTests(unittest.TestCase):
 
     def _build_repo(self):
         bare = os.path.join(self.base, "remote.git")
-        subprocess.run(["git", "init", "--bare", "-q", bare], check=True)
+        # Pin the branch: an empty clone's branch follows init.defaultBranch,
+        # which is `main` only where a system gitconfig says so (Xcode's git);
+        # Homebrew/Linux git defaults to `master` and the push below fails.
+        subprocess.run(["git", "init", "--bare", "-q", "-b", "main", bare],
+                       check=True)
         self.repo = os.path.join(self.base, "repo")
         subprocess.run(["git", "clone", "-q", bare, self.repo], check=True)
+        subprocess.run(["git", "-C", self.repo, "symbolic-ref", "HEAD",
+                        "refs/heads/main"], check=True)
         # throwaway signing key + a SECOND (unpinned) attacker key
         self.key = os.path.join(self.base, "signer")
         subprocess.run(["ssh-keygen", "-t", "ed25519", "-N", "", "-f", self.key,

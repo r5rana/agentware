@@ -3,7 +3,7 @@
   "kind": "suite-delta-capture",
   "label": "prev",
   "tree_root": "<redacted-home>/workspace/.aw-migration-safety/wt-prev",
-  "git_head": "ed04e2403441552821b35850b81de70864d5ff71",
+  "git_head": "deb17346156162f4845ecce85d90fa1e70e69bfb",
   "captured_at": "2026-08-14T13:34:38Z",
   "python": "3.13.7",
   "wall_seconds": 586.8,

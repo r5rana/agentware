@@ -107,6 +107,15 @@ class _GuardedEnv:
                                       self._mod.CONFIG_PATHS)
         self._mod.HOME_CONFIG = cfg
         self._mod.CONFIG_PATHS = (cfg,)
+        # Pin the HOST load signal to idle. The idle-gate reads the real
+        # os.getloadavg(), so on a busy machine (or a CI runner under
+        # `parity-sweep --jobs N`) every non-forced cycle skipped as
+        # `idle-gate` and the steps under test never ran. Only the host
+        # signal is pinned: the gate logic, the session detector and any test
+        # that injects `load=` explicitly are untouched.
+        self._guardedenv_load_patch = mock.patch(
+            "os.getloadavg", return_value=(0.0, 0.0, 0.0))
+        self._guardedenv_load_patch.start()
 
     def _satisfy_health_gate(self, kdir):
         """Write minimal state so dream step 2 (health-gate) reports 'ok'.
@@ -127,6 +136,7 @@ class _GuardedEnv:
             f.write("AGENTWARE_KNOWLEDGE_DIR=%s\n" % kdir)
 
     def _restore_env(self):
+        self._guardedenv_load_patch.stop()
         self._mod.HOME_CONFIG, self._mod.CONFIG_PATHS = \
             self._guardedenv_saved_cfg
         shutil.rmtree(self._cfgdir, ignore_errors=True)

@@ -44,6 +44,7 @@ import os
 import sys
 import types
 import unittest
+from unittest import mock
 
 try:
     from tests.unit.features._curationcmd_support import (
@@ -321,10 +322,17 @@ class DecideAuthorTest(unittest.TestCase):
 
     def test_the_two_verbs_disagree_on_purpose(self):
         """Pinned as ONE assertion so a future shared helper cannot satisfy
-        both files by accident: same input, two dispositions."""
+        both files by accident: same input, two dispositions.
+
+        The fallback handle is PINNED: unpinned it is whatever this machine's
+        config resolves, and on a bare CI runner that is None -- which made
+        `decide` look as if it had refused when it had correctly fallen back."""
         _src, _author, learn_err = _learn_provenance(learn_args(author="!!!"))
         self.assertIsNotNone(learn_err)
-        self.assertIsNotNone(_decide_author(decide_args(author="!!!")))
+        with mock.patch.object(curationcmd.routing, "resolve_user_handle",
+                               return_value="casey"):
+            self.assertEqual(_decide_author(decide_args(author="!!!")),
+                             "casey")
 
 
 class EntryProbeTextTest(unittest.TestCase):

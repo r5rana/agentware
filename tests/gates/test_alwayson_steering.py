@@ -307,6 +307,22 @@ class LiveTest(unittest.TestCase):
         return report
 
     def test_alwayson_this_tree_scans_clean(self):
+        report = aos.scan(REPO)
+        if report["classes"][pg.ENVIRONMENT]["status"] == "unavailable":
+            # A clean runner (CI, a fresh clone) never has the operator's
+            # PRIVATE needle file, so the environment class cannot be armed.
+            # The zero-tolerance class is defined in code and is ALWAYS armed:
+            # assert it here, everywhere, and skip only the half that cannot
+            # run -- the sibling test_portability_gate live scan's convention.
+            zt = report["classes"][pg.ZERO_TOLERANCE]
+            self.assertEqual(zt["status"], "builtin", zt)
+            self.assertGreater(zt["count"], 0, "zero-tolerance class is empty")
+            self.assertEqual(report["problems"], [])
+            self.assertTrue(report["ok"], report["findings"])
+            self.skipTest("private %s needles unavailable (zero-tolerance "
+                          "class scanned clean); searched: %s"
+                          % (pg.ENVIRONMENT,
+                             ", ".join(pg.needle_search_path())))
         self.assert_clean(REPO)
 
     def test_alwayson_the_set_is_bigger_than_the_obvious_three(self):
